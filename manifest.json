@@ -1,0 +1,14 @@
+
+{
+  "manifest_version": 3,
+  "name": "Selected Text to Console",
+  "version": "1.0",
+  "description": "Sends selected text to console when button is clicked",
+  "permissions": ["activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}
