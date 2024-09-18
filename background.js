@@ -30,12 +30,19 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         },
         body: JSON.stringify(apiBody)
       })
-      .then(response => response.json())
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+      })
       .then(data => {
+        console.log('API Response:', data); // Log the entire response
         if (data.choices && data.choices[0] && data.choices[0].message) {
           sendResponse({success: true, result: data.choices[0].message.content});
         } else {
-          sendResponse({success: false, error: "Unexpected API response"});
+          console.error('Unexpected API response structure:', data);
+          sendResponse({success: false, error: "Unexpected API response structure"});
         }
       })
       .catch(error => {
