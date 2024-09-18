@@ -12,5 +12,9 @@
   },
   "host_permissions": [
     "https://api.openai.com/"
-  ]
+  ],
+  "web_accessible_resources": [{
+    "resources": ["instructions.js"],
+    "matches": ["<all_urls>"]
+  }]
 }

@@ -1,4 +1,8 @@
 // background.js
+
+// Import the instructions
+importScripts('instructions.js');
+
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.action === "processWithOpenAI") {
     chrome.storage.local.get(['openaiApiKey'], function(result) {
@@ -7,19 +11,24 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         return;
       }
 
+      // Use the instructions from instructions.js
+      const apiBody = {
+        model: openAIInstructions.model,
+        messages: openAIInstructions.messages.map(msg => {
+          if (msg.role === "user") {
+            return {...msg, content: msg.content.replace("{TEXT}", request.text)};
+          }
+          return msg;
+        })
+      };
+
       fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${result.openaiApiKey}`
         },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {"role": "system", "content": "You are a helpful assistant that adds 'AAA' to the given text."},
-            {"role": "user", "content": `Add 'AAA' to the following text: ${request.text}`}
-          ]
-        })
+        body: JSON.stringify(apiBody)
       })
       .then(response => response.json())
       .then(data => {
