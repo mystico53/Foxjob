@@ -37,12 +37,16 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       .then(data => {
         console.log('API Response:', data); // Log the entire response
         if (data.choices && data.choices[0] && data.choices[0].message) {
+          const content = data.choices[0].message.content.trim();
           try {
-            const parsedResult = JSON.parse(data.choices[0].message.content);
+            // Remove any markdown code block indicators
+            const jsonContent = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+            const parsedResult = JSON.parse(jsonContent);
             sendResponse({success: true, result: parsedResult});
           } catch (error) {
             console.error('Error parsing JSON:', error);
-            sendResponse({success: false, error: "Error parsing response"});
+            console.error('Raw content:', content);
+            sendResponse({success: false, error: "Error parsing response", rawContent: content});
           }
         } else {
           console.error('Unexpected API response structure:', data);

@@ -1,21 +1,27 @@
+let statusDiv;
+let generatedContentDiv;
+let popupContainer;
+
 document.addEventListener('DOMContentLoaded', function() {
   const apiKeyInput = document.getElementById('apiKey');
   const saveKeyButton = document.getElementById('saveKey');
   const sendButton = document.getElementById('sendButton');
-  const statusDiv = document.getElementById('status');
+  statusDiv = document.getElementById('status');
   const apiKeyFoundDiv = document.getElementById('apiKeyFound');
   const apiKeyInputSection = document.getElementById('apiKeyInputSection');
+  generatedContentDiv = document.getElementById('generatedContent');
+  popupContainer = document.getElementById('popup-container');
 
   // Load saved API key
   chrome.storage.local.get(['openaiApiKey'], function(result) {
     if (result.openaiApiKey) {
       apiKeyFoundDiv.style.display = 'block';
       apiKeyInputSection.style.display = 'none';
-      statusDiv.textContent = 'Ready to process text';
+      updateStatus('Ready to process text');
     } else {
       apiKeyFoundDiv.style.display = 'none';
       apiKeyInputSection.style.display = 'block';
-      statusDiv.textContent = 'Please enter an API Key';
+      updateStatus('Please enter an API Key');
     }
   });
 
@@ -25,74 +31,105 @@ document.addEventListener('DOMContentLoaded', function() {
       chrome.storage.local.set({openaiApiKey: apiKey}, function() {
         apiKeyFoundDiv.style.display = 'block';
         apiKeyInputSection.style.display = 'none';
-        statusDiv.textContent = 'API Key saved. Ready to process text';
+        updateStatus('API Key saved. Ready to process text');
       });
     } else {
-      statusDiv.textContent = 'Please enter a valid API Key';
+      updateStatus('Please enter a valid API Key');
     }
   });
 
-  sendButton.addEventListener('click', async function() {
-    try {
-      const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-      if (!tab) {
-        statusDiv.textContent = 'No active tab found';
-        return;
-      }
+  sendButton.addEventListener('click', processSelectedText);
 
-      // Inject the content script
-      await chrome.scripting.executeScript({
-        target: {tabId: tab.id},
-        files: ['content.js']
-      });
+  // Initial resize
+  resizePopup();
 
-      // Send message to the content script
-      chrome.tabs.sendMessage(tab.id, {action: "getSelection"}, function(response) {
-        if (chrome.runtime.lastError) {
-          statusDiv.textContent = 'Error: ' + chrome.runtime.lastError.message;
-        } else if (response && response.success) {
-          statusDiv.textContent = 'Processing text with OpenAI...';
-          chrome.runtime.sendMessage({
-            action: "processWithOpenAI", 
-            text: response.text,
-            url: response.url
-          }, function(aiResponse) {
-            if (aiResponse.success) {
-              displayResults(aiResponse.result);
-            } else {
-              statusDiv.textContent = 'Error: ' + aiResponse.error;
-            }
-          });
-        } else {
-          statusDiv.textContent = 'No text selected or error occurred';
-        }
-      });
-    } catch (error) {
-      statusDiv.textContent = 'Error: ' + error.message;
-      console.error('Error:', error);
-    }
-  });
+  // Listen for window resize events
+  window.addEventListener('resize', resizePopup);
 });
 
-function displayResults(result) {
-  const generatedContentDiv = document.getElementById('generatedContent');
+function resizePopup() {
+  const contentHeight = popupContainer.scrollHeight;
+  const maxHeight = 600; // Maximum height of the popup
+  const newHeight = Math.min(contentHeight, maxHeight);
+  popupContainer.style.height = `${newHeight}px`;
 
+  // Enable scrolling on generatedContent if the content exceeds maxHeight
+  if (contentHeight > maxHeight) {
+    generatedContentDiv.style.overflowY = 'auto';
+    generatedContentDiv.style.maxHeight = `${maxHeight - 150}px`; // Adjust for other elements
+  } else {
+    generatedContentDiv.style.overflowY = 'visible';
+    generatedContentDiv.style.maxHeight = 'none';
+  }
+}
+
+async function processSelectedText() {
+  try {
+    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
+    if (!tab) {
+      updateStatus('No active tab found');
+      return;
+    }
+
+    // Inject the content script
+    await chrome.scripting.executeScript({
+      target: {tabId: tab.id},
+      files: ['content.js']
+    });
+
+    // Send message to the content script
+    chrome.tabs.sendMessage(tab.id, {action: "getSelection"}, function(response) {
+      if (chrome.runtime.lastError) {
+        updateStatus('Error: ' + chrome.runtime.lastError.message);
+      } else if (response && response.success) {
+        updateStatus('Processing text with OpenAI...');
+        chrome.runtime.sendMessage({
+          action: "processWithOpenAI", 
+          text: response.text,
+          url: response.url
+        }, function(aiResponse) {
+          if (aiResponse.success) {
+            displayResults(aiResponse.result);
+          } else {
+            updateStatus('Error: ' + aiResponse.error);
+          }
+        });
+      } else {
+        updateStatus('No text selected or error occurred');
+      }
+    });
+  } catch (error) {
+    updateStatus('Error: ' + error.message);
+    console.error('Error:', error);
+  }
+}
+
+function displayResults(result) {
   generatedContentDiv.innerHTML = `
-    <h3>\u{1F3E2} ${result.companyInfo.name} (${result.companyInfo.industry})</h3>
+    <h3>${result.companyInfo.name} (${result.companyInfo.industry})</h3>
     <p class="summary">${result.jobSummary}</p>
-    <p><span class="bold">\u{1F3AF} Areas of Focus:</span></p>
+    <p><span class="bold">Areas of Focus:</span></p>
     <ul>
       ${result.areasOfFocus.map(area => `<li>${area}</li>`).join('')}
     </ul>
-    <p><span class="bold">\u{1F527} Mandatory Skills:</span></p>
+    <p><span class="bold">Mandatory Skills:</span></p>
     <ul>
       ${result.mandatorySkills.map(skill => `<li>${skill}</li>`).join('')}
     </ul>
-    <p><span class="bold">\u{1F4B0} Compensation:</span></p>
+    <p><span class="bold">Compensation:</span></p>
     <ul>
       <li>${result.compensation}</li>
     </ul>
   `;
 
-  statusDiv.textContent = 'Analysis complete';
+  updateStatus('Analysis complete');
+  resizePopup();
+}
+
+function updateStatus(message) {
+  if (statusDiv) {
+    statusDiv.textContent = message;
+  } else {
+    console.error('Status div not found');
+  }
 }
