@@ -55,32 +55,10 @@ document.addEventListener('DOMContentLoaded', function() {
           chrome.runtime.sendMessage({
             action: "processWithOpenAI", 
             text: response.text,
-            url: response.url  // Send the URL along with the text
+            url: response.url
           }, function(aiResponse) {
             if (aiResponse.success) {
-              // Convert the response to HTML
-              const formattedResponse = aiResponse.result
-                .replace(/\n\n/g, '<br><br>')  // Convert double line breaks to <br> tags
-                .replace(/•/g, '&bull;')  // Convert bullet points to HTML entities
-                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')  // Convert **bold** to <strong> tags
-                .replace(/\n/g, '<br>');  // Convert single line breaks to <br> tags
-
-              // Create a new div for the formatted response
-              const responseDiv = document.createElement('div');
-              responseDiv.innerHTML = formattedResponse;
-              responseDiv.style.maxHeight = '300px';  // Set a max height
-              responseDiv.style.overflowY = 'auto';  // Add a scrollbar if content exceeds max height
-              responseDiv.style.border = '1px solid #ccc';
-              responseDiv.style.padding = '10px';
-              responseDiv.style.marginTop = '10px';
-              responseDiv.style.backgroundColor = '#f9f9f9';  // Light gray background
-              responseDiv.style.borderRadius = '5px';  // Rounded corners
-              responseDiv.style.fontFamily = 'Arial, sans-serif';  // Set font
-              responseDiv.style.fontSize = '14px';  // Set font size
-
-              // Clear previous content and append the new response
-              statusDiv.textContent = 'Analysis complete:';
-              statusDiv.appendChild(responseDiv);
+              displayResults(aiResponse.result);
             } else {
               statusDiv.textContent = 'Error: ' + aiResponse.error;
             }
@@ -95,3 +73,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
   });
 });
+
+function displayResults(result) {
+  const generatedContentDiv = document.getElementById('generatedContent');
+
+  generatedContentDiv.innerHTML = `
+    <h3>\u{1F3E2} ${result.companyInfo.name} (${result.companyInfo.industry})</h3>
+    <p class="summary">${result.jobSummary}</p>
+    <p><span class="bold">\u{1F3AF} Areas of Focus:</span></p>
+    <ul>
+      ${result.areasOfFocus.map(area => `<li>${area}</li>`).join('')}
+    </ul>
+    <p><span class="bold">\u{1F527} Mandatory Skills:</span></p>
+    <ul>
+      ${result.mandatorySkills.map(skill => `<li>${skill}</li>`).join('')}
+    </ul>
+    <p><span class="bold">\u{1F4B0} Compensation:</span></p>
+    <ul>
+      <li>${result.compensation}</li>
+    </ul>
+  `;
+
+  statusDiv.textContent = 'Analysis complete';
+}

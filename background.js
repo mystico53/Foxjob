@@ -1,5 +1,3 @@
-// background.js
-
 // Import the instructions
 importScripts('instructions.js');
 
@@ -39,7 +37,13 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       .then(data => {
         console.log('API Response:', data); // Log the entire response
         if (data.choices && data.choices[0] && data.choices[0].message) {
-          sendResponse({success: true, result: data.choices[0].message.content});
+          try {
+            const parsedResult = JSON.parse(data.choices[0].message.content);
+            sendResponse({success: true, result: parsedResult});
+          } catch (error) {
+            console.error('Error parsing JSON:', error);
+            sendResponse({success: false, error: "Error parsing response"});
+          }
         } else {
           console.error('Unexpected API response structure:', data);
           sendResponse({success: false, error: "Unexpected API response structure"});
