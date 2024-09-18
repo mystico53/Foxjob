@@ -52,7 +52,11 @@ document.addEventListener('DOMContentLoaded', function() {
           statusDiv.textContent = 'Error: ' + chrome.runtime.lastError.message;
         } else if (response && response.success) {
           statusDiv.textContent = 'Processing text with OpenAI...';
-          chrome.runtime.sendMessage({action: "processWithOpenAI", text: response.text}, function(aiResponse) {
+          chrome.runtime.sendMessage({
+            action: "processWithOpenAI", 
+            text: response.text,
+            url: response.url  // Send the URL along with the text
+          }, function(aiResponse) {
             if (aiResponse.success) {
               // Convert the response to HTML
               const formattedResponse = aiResponse.result

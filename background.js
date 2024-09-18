@@ -16,7 +16,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         model: openAIInstructions.model,
         messages: openAIInstructions.messages.map(msg => {
           if (msg.role === "user") {
-            return {...msg, content: msg.content.replace("{TEXT}", request.text)};
+            return {...msg, content: msg.content.replace("{TEXT}", request.text) + `\n\nURL: ${request.url}`};
           }
           return msg;
         })
