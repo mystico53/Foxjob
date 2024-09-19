@@ -5,7 +5,6 @@ let popupContainer;
 document.addEventListener('DOMContentLoaded', function() {
   const apiKeyInput = document.getElementById('apiKey');
   const saveKeyButton = document.getElementById('saveKey');
-  const sendButton = document.getElementById('sendButton');
   statusDiv = document.getElementById('status');
   const apiKeyFoundDiv = document.getElementById('apiKeyFound');
   const apiKeyInputSection = document.getElementById('apiKeyInputSection');
@@ -17,7 +16,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (result.openaiApiKey) {
       apiKeyFoundDiv.style.display = 'block';
       apiKeyInputSection.style.display = 'none';
-      updateStatus('Ready to process text');
+      updateStatus('Processing selected text...');
+      processSelectedText(); // Automatically start processing
     } else {
       apiKeyFoundDiv.style.display = 'none';
       apiKeyInputSection.style.display = 'block';
@@ -31,7 +31,8 @@ document.addEventListener('DOMContentLoaded', function() {
       chrome.storage.local.set({openaiApiKey: apiKey}, function() {
         apiKeyFoundDiv.style.display = 'block';
         apiKeyInputSection.style.display = 'none';
-        updateStatus('API Key saved. Ready to process text');
+        updateStatus('API Key saved. Processing selected text...');
+        processSelectedText(); // Start processing after saving the API key
       });
     } else {
       updateStatus('Please enter a valid API Key');
