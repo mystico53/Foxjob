@@ -5,6 +5,7 @@ let popupContainer;
 document.addEventListener('DOMContentLoaded', function() {
   const apiKeyInput = document.getElementById('apiKey');
   const saveKeyButton = document.getElementById('saveKey');
+  const signInButton = document.getElementById('signInButton');
   statusDiv = document.getElementById('status');
   const apiKeyFoundDiv = document.getElementById('apiKeyFound');
   const apiKeyInputSection = document.getElementById('apiKeyInputSection');
@@ -12,7 +13,7 @@ document.addEventListener('DOMContentLoaded', function() {
   popupContainer = document.getElementById('popup-container');
 
   // Load saved API key
-  chrome.storage.local.get(['openaiApiKey'], function(result) {
+  chrome.storage.local.get(['openaiApiKey', 'userId'], function(result) {
     if (result.openaiApiKey) {
       apiKeyFoundDiv.style.display = 'block';
       apiKeyInputSection.style.display = 'none';
@@ -22,6 +23,11 @@ document.addEventListener('DOMContentLoaded', function() {
       apiKeyFoundDiv.style.display = 'none';
       apiKeyInputSection.style.display = 'block';
       updateStatus('Please enter an API Key');
+    }
+
+    if (result.userId) {
+      signInButton.textContent = 'Signed In';
+      signInButton.disabled = true;
     }
   });
 
@@ -36,6 +42,17 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     } else {
       updateStatus('Please enter a valid API Key');
+    }
+  });
+
+  signInButton.addEventListener('click', function() {
+    console.log("Sign-in button clicked");
+    if (typeof signIn === 'function') {
+      console.log("Calling signIn function");
+      signIn();
+    } else {
+      console.error('signIn function not found');
+      updateStatus('Error: Sign-in function not available');
     }
   });
 

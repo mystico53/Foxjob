@@ -107,11 +107,19 @@
             <input type="text" id="apiKey" placeholder="Enter OpenAI API Key">
             <button id="saveKey">Save API Key</button>
         </div>
+        <button id="signInButton">Sign in with Google</button>
         <div id="apiKeyFound">API key found</div>
         <div id="status">Ready</div>
         <div class="divider"></div>
         <div id="generatedContent"></div>
     </div>
+
+    <!-- Load Firebase scripts locally -->
+    <script src="firebase-app-compat.js"></script>
+    <script src="firebase-auth-compat.js"></script>
+
+    <!-- Then load your custom scripts -->
+    <script src="auth.js"></script>
     <script src="popup.js"></script>
 </body>
 
