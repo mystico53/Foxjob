@@ -16,8 +16,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (result.openaiApiKey) {
       apiKeyFoundDiv.style.display = 'block';
       apiKeyInputSection.style.display = 'none';
-      updateStatus('Processing selected text...');
-      processSelectedText(); // Automatically start processing
+      updateStatus('API key found. Selecting all text...');
+      injectContentScriptAndProcess();
     } else {
       apiKeyFoundDiv.style.display = 'none';
       apiKeyInputSection.style.display = 'block';
@@ -31,15 +31,13 @@ document.addEventListener('DOMContentLoaded', function() {
       chrome.storage.local.set({openaiApiKey: apiKey}, function() {
         apiKeyFoundDiv.style.display = 'block';
         apiKeyInputSection.style.display = 'none';
-        updateStatus('API Key saved. Processing selected text...');
-        processSelectedText(); // Start processing after saving the API key
+        updateStatus('API Key saved. Selecting all text...');
+        injectContentScriptAndProcess();
       });
     } else {
       updateStatus('Please enter a valid API Key');
     }
   });
-
-  sendButton.addEventListener('click', processSelectedText);
 
   // Initial resize
   resizePopup();
@@ -47,6 +45,81 @@ document.addEventListener('DOMContentLoaded', function() {
   // Listen for window resize events
   window.addEventListener('resize', resizePopup);
 });
+
+function injectContentScriptAndProcess() {
+  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+    const activeTab = tabs[0];
+    chrome.scripting.executeScript(
+      {
+        target: {tabId: activeTab.id},
+        files: ['content.js']
+      },
+      function() {
+        if (chrome.runtime.lastError) {
+          updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
+        } else {
+          selectAllTextAndProcess(activeTab.id);
+        }
+      }
+    );
+  });
+}
+
+function selectAllTextAndProcess(tabId) {
+  chrome.tabs.sendMessage(tabId, {action: "selectAllText"}, function(response) {
+    if (chrome.runtime.lastError) {
+      updateStatus('Error: ' + chrome.runtime.lastError.message);
+    } else if (response && response.success) {
+      updateStatus('All text selected. Processing...');
+      processSelectedText(tabId, response.text);
+    } else {
+      updateStatus('Failed to select text');
+    }
+  });
+}
+
+function processSelectedText(tabId, selectedText) {
+  if (!selectedText) {
+    updateStatus('No text selected or found');
+    return;
+  }
+
+  updateStatus('Processing text with OpenAI...');
+  chrome.runtime.sendMessage({
+    action: "processWithOpenAI", 
+    text: selectedText,
+    url: tabId // You might want to get the actual URL here
+  }, function(aiResponse) {
+    if (aiResponse.success) {
+      displayResults(aiResponse.result);
+    } else {
+      updateStatus('Error: ' + aiResponse.error);
+    }
+  });
+}
+
+function displayResults(result) {
+  generatedContentDiv.innerHTML = `
+    <h3>${result.companyInfo.name} (${result.companyInfo.industry})</h3>
+    <p class="companyInfo">${result.companyInfo.companyFocus}</p>
+    <p><span class="bold">Job Title:</span> ${result.jobInfo.jobTitle}</p>
+    <p><span class="bold">Type: </span> ${result.jobInfo.remoteType}</p>
+
+    <p class="summary">${result.jobInfo.jobSummary}</p>
+    <p><span class="bold">Why it could be fun:</span></p>
+    <ul>
+      ${result.areasOfFun.map(area => `<li>${area}</li>`).join('')}
+    </ul>
+    <p><span class="bold">Mandatory Skills:</span></p>
+    <ul>
+      ${result.mandatorySkills.map(skill => `<li>${skill}</li>`).join('')}
+    </ul>
+    <p><span class="bold">Compensation:</span> ${result.compensation}</p>
+  `;
+
+  updateStatus('Analysis complete');
+  resizePopup();
+}
 
 function resizePopup() {
   const contentHeight = popupContainer.scrollHeight;
@@ -62,69 +135,6 @@ function resizePopup() {
     generatedContentDiv.style.overflowY = 'visible';
     generatedContentDiv.style.maxHeight = 'none';
   }
-}
-
-async function processSelectedText() {
-  try {
-    const [tab] = await chrome.tabs.query({active: true, currentWindow: true});
-    if (!tab) {
-      updateStatus('No active tab found');
-      return;
-    }
-
-    // Inject the content script
-    await chrome.scripting.executeScript({
-      target: {tabId: tab.id},
-      files: ['content.js']
-    });
-
-    // Send message to the content script
-    chrome.tabs.sendMessage(tab.id, {action: "getSelection"}, function(response) {
-      if (chrome.runtime.lastError) {
-        updateStatus('Error: ' + chrome.runtime.lastError.message);
-      } else if (response && response.success) {
-        updateStatus('Processing text with OpenAI...');
-        chrome.runtime.sendMessage({
-          action: "processWithOpenAI", 
-          text: response.text,
-          url: response.url
-        }, function(aiResponse) {
-          if (aiResponse.success) {
-            displayResults(aiResponse.result);
-          } else {
-            updateStatus('Error: ' + aiResponse.error);
-          }
-        });
-      } else {
-        updateStatus('No text selected or error occurred');
-      }
-    });
-  } catch (error) {
-    updateStatus('Error: ' + error.message);
-    console.error('Error:', error);
-  }
-}
-
-function displayResults(result) {
-  generatedContentDiv.innerHTML = `
-    <h3>${result.companyInfo.name} (${result.companyInfo.industry})</h3>
-    <p class="summary">${result.jobSummary}</p>
-    <p><span class="bold">Areas of Focus:</span></p>
-    <ul>
-      ${result.areasOfFocus.map(area => `<li>${area}</li>`).join('')}
-    </ul>
-    <p><span class="bold">Mandatory Skills:</span></p>
-    <ul>
-      ${result.mandatorySkills.map(skill => `<li>${skill}</li>`).join('')}
-    </ul>
-    <p><span class="bold">Compensation:</span></p>
-    <ul>
-      <li>${result.compensation}</li>
-    </ul>
-  `;
-
-  updateStatus('Analysis complete');
-  resizePopup();
 }
 
 function updateStatus(message) {

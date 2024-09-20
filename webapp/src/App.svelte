@@ -1,45 +1,47 @@
 <script>
-  import { onMount } from "svelte";
-  import { auth } from "./lib/firebase";
+	import { onMount } from 'svelte';
+	import { auth } from '$lib/firebase';
+	import { user } from './stores/authStore'; // Assuming you've created this store
+	import { onAuthStateChanged } from 'firebase/auth';
+	import { goto } from '$app/navigation';
+	import Login from './Login.svelte';
 
-  let user = null;
+	let isAuthenticated = false;
 
-  onMount(() => {
-    const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-      user = currentUser;
-    });
+	onMount(() => {
+		const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+			user.set(currentUser);
+			isAuthenticated = !!currentUser;
+			if (currentUser) {
+				console.log('User is signed in', currentUser);
+				if (window.location.pathname === '/') {
+					goto('/list');
+				}
+			} else {
+				console.log('No user signed in');
+				if (window.location.pathname !== '/') {
+					goto('/');
+				}
+			}
+		});
 
-    return unsubscribe;
-  });
+		return unsubscribe;
+	});
 </script>
 
 <main>
-  <h1>Welcome to Jobille</h1>
-  {#if user}
-    <p>You are logged in as {user.email}</p>
-  {:else}
-    <p>You are not logged in</p>
-  {/if}
+	{#if !isAuthenticated}
+		<Login />
+	{:else}
+		<!-- Your authenticated app content here -->
+		<p>Welcome, you're logged in!</p>
+		<!-- You might want to add navigation or other components here -->
+	{/if}
 </main>
 
 <style>
-  main {
-    text-align: center;
-    padding: 1em;
-    max-width: 240px;
-    margin: 0 auto;
-  }
-
-  h1 {
-    color: #ff3e00;
-    text-transform: uppercase;
-    font-size: 4em;
-    font-weight: 100;
-  }
-
-  @media (min-width: 640px) {
-    main {
-      max-width: none;
-    }
-  }
+	main {
+		padding: 1em;
+		margin: 0 auto;
+	}
 </style>
