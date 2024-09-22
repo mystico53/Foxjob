@@ -2,7 +2,7 @@
 <html>
 
 <head>
-    <title>Selected Text to OpenAI</title>
+    <title>Jobille Extension</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
     <style>
         body,
@@ -14,7 +14,7 @@
             font-size: 16px;
         }
 
-        #popup-container {
+        Copy #popup-container {
             padding: 20px;
             box-sizing: border-box;
             min-height: 200px;
@@ -31,6 +31,16 @@
             font-family: 'Inter', sans-serif;
         }
 
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .button-group button {
+            width: 48%;
+        }
+
         #status {
             color: #555;
             font-size: 16px;
@@ -42,7 +52,8 @@
             font-size: 16px;
         }
 
-        #apiKeyInputSection {
+        #apiKeyInputSection,
+        #anthropicApiKeySection {
             display: none;
         }
 
@@ -98,23 +109,46 @@
         #generatedContent li {
             margin-bottom: 5px;
         }
+
+        #apiSelection {
+            margin-bottom: 10px;
+        }
+
+        #apiSelection label {
+            margin-right: 10px;
+        }
     </style>
 </head>
 
 <body>
     <div id="popup-container">
+        <div id="apiSelection">
+            <label>
+                <input type="radio" name="apiChoice" value="openai" checked> OpenAI
+            </label>
+            <label>
+                <input type="radio" name="apiChoice" value="anthropic"> Anthropic
+            </label>
+        </div>
         <div id="apiKeyInputSection">
             <input type="text" id="apiKey" placeholder="Enter OpenAI API Key">
-            <button id="saveKey">Save API Key</button>
+            <button id="saveKey">Save OpenAI API Key</button>
         </div>
-        <button id="signInButton">Sign in with Google</button>
-        <div id="apiKeyFound">API key found</div>
+        <div id="anthropicApiKeySection">
+            <input type="text" id="anthropicApiKey" placeholder="Enter Anthropic API Key">
+            <button id="saveAnthropicKey">Save Anthropic API Key</button>
+        </div>
+        <div class="button-group">
+            <button id="signInButton">Sign in with Google</button>
+            <button id="signOutButton" style="display: none;">Sign Out</button>
+        </div>
+        <div id="apiKeyFound">API key found: <span id="apiKeyType"></span></div>
+        <button id="deleteKey" style="display: none;">Delete API Key</button>
         <div id="status">Ready</div>
         <div class="divider"></div>
         <div id="generatedContent"></div>
     </div>
-
-    <!-- Load Firebase scripts locally -->
+    Copy<!-- Load Firebase scripts locally -->
     <script src="firebase-app-compat.js"></script>
     <script src="firebase-auth-compat.js"></script>
 

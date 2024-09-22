@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', function() {
   const apiKeyInput = document.getElementById('apiKey');
   const saveKeyButton = document.getElementById('saveKey');
   const signInButton = document.getElementById('signInButton');
+  const deleteKeyButton = document.getElementById('deleteKey');
+  const signOutButton = document.getElementById('signOutButton');
   statusDiv = document.getElementById('status');
   const apiKeyFoundDiv = document.getElementById('apiKeyFound');
   const apiKeyInputSection = document.getElementById('apiKeyInputSection');
@@ -17,17 +19,22 @@ document.addEventListener('DOMContentLoaded', function() {
     if (result.openaiApiKey) {
       apiKeyFoundDiv.style.display = 'block';
       apiKeyInputSection.style.display = 'none';
+      deleteKeyButton.style.display = 'block';
       updateStatus('API key found. Selecting all text...');
       injectContentScriptAndProcess();
     } else {
       apiKeyFoundDiv.style.display = 'none';
       apiKeyInputSection.style.display = 'block';
+      deleteKeyButton.style.display = 'none';
       updateStatus('Please enter an API Key');
     }
 
     if (result.userId) {
-      signInButton.textContent = 'Signed In';
-      signInButton.disabled = true;
+      signInButton.style.display = 'none';
+      signOutButton.style.display = 'block';
+    } else {
+      signInButton.style.display = 'block';
+      signOutButton.style.display = 'none';
     }
   });
 
@@ -37,12 +44,23 @@ document.addEventListener('DOMContentLoaded', function() {
       chrome.storage.local.set({openaiApiKey: apiKey}, function() {
         apiKeyFoundDiv.style.display = 'block';
         apiKeyInputSection.style.display = 'none';
+        deleteKeyButton.style.display = 'block';
         updateStatus('API Key saved. Selecting all text...');
         injectContentScriptAndProcess();
       });
     } else {
       updateStatus('Please enter a valid API Key');
     }
+  });
+
+  deleteKeyButton.addEventListener('click', function() {
+    chrome.storage.local.remove('openaiApiKey', function() {
+      apiKeyFoundDiv.style.display = 'none';
+      apiKeyInputSection.style.display = 'block';
+      deleteKeyButton.style.display = 'none';
+      apiKeyInput.value = '';
+      updateStatus('API Key deleted. Please enter a new one.');
+    });
   });
 
   signInButton.addEventListener('click', function() {
@@ -53,6 +71,17 @@ document.addEventListener('DOMContentLoaded', function() {
     } else {
       console.error('signIn function not found');
       updateStatus('Error: Sign-in function not available');
+    }
+  });
+
+  signOutButton.addEventListener('click', function() {
+    console.log("Sign-out button clicked");
+    if (typeof signOut === 'function') {
+      console.log("Calling signOut function");
+      signOut();
+    } else {
+      console.error('signOut function not found');
+      updateStatus('Error: Sign-out function not available');
     }
   });
 
@@ -160,4 +189,13 @@ function updateStatus(message) {
   } else {
     console.error('Status div not found');
   }
+}
+
+// Add this function to handle sign-out
+function handleSignOut() {
+  chrome.storage.local.remove('userId', function() {
+    signInButton.style.display = 'block';
+    signOutButton.style.display = 'none';
+    updateStatus('Signed out successfully');
+  });
 }
