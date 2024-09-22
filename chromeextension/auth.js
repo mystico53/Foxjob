@@ -70,13 +70,11 @@ function signOut() {
 }
 
 function updateSignInButtonState(isSignedIn) {
-  const signInButton = document.getElementById('signInButton');
-  const signOutButton = document.getElementById('signOutButton');
-  if (signInButton && signOutButton) {
-      signInButton.style.display = isSignedIn ? 'none' : 'block';
-      signOutButton.style.display = isSignedIn ? 'block' : 'none';
+  const signInOutButton = document.getElementById('signInOutButton');
+  if (signInOutButton) {
+    signInOutButton.textContent = isSignedIn ? 'Sign Out' : 'Sign In';
   } else {
-      console.error('Sign in or sign out button not found');
+    console.error('Sign in/out button not found');
   }
 }
 
@@ -90,6 +88,23 @@ function updateStatus(message) {
   }
 }
 
+function saveApiPreference(apiType) {
+  chrome.storage.local.set({ preferredApi: apiType }, () => {
+    console.log('API preference saved:', apiType);
+  });
+}
+
+function loadApiPreference() {
+  chrome.storage.local.get(['preferredApi'], (result) => {
+    const apiSelector = document.getElementById('apiSelector');
+    if (apiSelector && result.preferredApi) {
+      apiSelector.value = result.preferredApi;
+      // Trigger the change event to update the UI
+      apiSelector.dispatchEvent(new Event('change'));
+    }
+  });
+}
+
 // Expose the signIn and signOut functions to the global scope
 window.signIn = signIn;
 window.signOut = signOut;
@@ -97,10 +112,11 @@ window.signOut = signOut;
 // Check initial auth state
 firebase.auth().onAuthStateChanged((user) => {
   if (user) {
-      console.log('User is signed in');
-      updateSignInButtonState(true);
+    console.log('User is signed in');
+    updateSignInButtonState(true);
   } else {
-      console.log('User is signed out');
-      updateSignInButtonState(false);
+    console.log('User is signed out');
+    updateSignInButtonState(false);
   }
+  loadApiPreference();
 });

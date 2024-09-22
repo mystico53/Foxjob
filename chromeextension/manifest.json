@@ -1,9 +1,14 @@
 {
   "manifest_version": 3,
-  "name": "Selected Text to OpenAI",
+  "name": "Selected Text to AI",
   "version": "1.0",
-  "description": "Sends selected text to OpenAI API and modifies it",
-  "permissions": ["activeTab", "scripting", "storage", "identity"],
+  "description": "Sends selected text to OpenAI or Anthropic API and modifies it",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "identity"
+  ],
   "action": {
     "default_popup": "popup.html"
   },
@@ -12,14 +17,15 @@
   },
   "host_permissions": [
     "https://api.openai.com/",
-    "https://*.googleapis.com/"
+    "https://*.googleapis.com/",
+    "https://api.anthropic.com/"
   ],
   "web_accessible_resources": [{
     "resources": ["instructions.js"],
     "matches": ["<all_urls>"]
   }],
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://api.openai.com;"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://api.openai.com https://api.anthropic.com;"
   },
   "oauth2": {
     "client_id": "656035288386-gjoffu1hq1gc981jp96ip77jko1v9rje.apps.googleusercontent.com",

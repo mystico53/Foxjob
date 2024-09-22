@@ -117,38 +117,60 @@
         #apiSelection label {
             margin-right: 10px;
         }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .column {
+            width: 48%;
+        }
+
+        #apiSelector,
+        #apiKeyInput,
+        #saveApiKey,
+        #deleteApiKey,
+        #signInOutButton {
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #apiKeyInput {
+            height: 60px;
+            resize: vertical;
+        }
     </style>
 </head>
 
 <body>
     <div id="popup-container">
-        <div id="apiSelection">
-            <label>
-                <input type="radio" name="apiChoice" value="openai" checked> OpenAI
-            </label>
-            <label>
-                <input type="radio" name="apiChoice" value="anthropic"> Anthropic
-            </label>
+        <div class="row">
+            <div class="column">
+                <select id="apiSelector">
+                    <option value="">Select API Key</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                </select>
+                <div id="apiKeyInputSection" style="display: none;">
+                    <textarea id="apiKeyInput" placeholder="Enter API Key"></textarea>
+                    <button id="saveApiKey">Save API Key</button>
+                </div>
+                <div id="apiKeyStatus" style="display: none;">
+                    <span id="apiKeyStatusText"></span>
+                    <button id="deleteApiKey">Delete</button>
+                </div>
+            </div>
+            <div class="column">
+                <button id="signInOutButton">Sign In</button>
+            </div>
         </div>
-        <div id="apiKeyInputSection">
-            <input type="text" id="apiKey" placeholder="Enter OpenAI API Key">
-            <button id="saveKey">Save OpenAI API Key</button>
-        </div>
-        <div id="anthropicApiKeySection">
-            <input type="text" id="anthropicApiKey" placeholder="Enter Anthropic API Key">
-            <button id="saveAnthropicKey">Save Anthropic API Key</button>
-        </div>
-        <div class="button-group">
-            <button id="signInButton">Sign in with Google</button>
-            <button id="signOutButton" style="display: none;">Sign Out</button>
-        </div>
-        <div id="apiKeyFound">API key found: <span id="apiKeyType"></span></div>
-        <button id="deleteKey" style="display: none;">Delete API Key</button>
         <div id="status">Ready</div>
         <div class="divider"></div>
         <div id="generatedContent"></div>
     </div>
-    Copy<!-- Load Firebase scripts locally -->
+    <!-- Load Firebase scripts locally -->
     <script src="firebase-app-compat.js"></script>
     <script src="firebase-auth-compat.js"></script>
 
