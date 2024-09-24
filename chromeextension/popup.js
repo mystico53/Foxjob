@@ -48,6 +48,8 @@ function initializePopup() {
   window.addEventListener('resize', resizePopup);
 }
 
+
+
 function saveApiPreference(apiType) {
   chrome.storage.local.set({ preferredApi: apiType }, () => {
       console.log('API preference saved:', apiType);

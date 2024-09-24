@@ -22,5 +22,19 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   return true; // Indicates that the response is sent asynchronously
 });
 
+// Replace 'Your test text here' with any sample text you want to test
+chrome.runtime.sendMessage({
+  action: "processWithLocalFunction",
+  text: "Your test text here",
+  url: window.location.href
+}, function(response) {
+  if (response.success) {
+    console.log('Response from local function:', response.result);
+  } else {
+    console.error('Error calling local function:', response.error);
+  }
+});
+
+
 // Notify that the content script has been injected and is ready
 chrome.runtime.sendMessage({action: "contentScriptReady"});
