@@ -7,6 +7,45 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function processWithLocalFunction(text, url) {
+  console.log('processWithLocalFunction called with:', { text, url });
+
+  const apiBody = {
+    text: text,
+    url: url
+  };
+
+  console.log('Prepared Local API body:', apiBody);
+
+  const data = await fetchWithRetry('http://127.0.0.1:5001/jobille-45494/us-central1/helloWorld', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(apiBody)
+  });
+
+  console.log('Local Function Response:', data);
+
+  return data;
+}
+
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  console.log('Message received:', request);
+
+  if (request.action === "processWithLocalFunction") {
+    console.log('Processing with local function');
+
+    addToQueue(() => processWithLocalFunction(request.text, request.url))
+      .then(result => sendResponse({ success: true, result }))
+      .catch(error => sendResponse({ success: false, error: error.toString() }));
+
+    return true; // Indicates that the response is sent asynchronously
+  } else {
+    console.log('Unhandled action:', request.action);
+  }
+});
+
 async function fetchWithRetry(url, options, maxRetries = 5, baseDelay = 2000) {
   for (let i = 0; i < maxRetries; i++) {
     try {
