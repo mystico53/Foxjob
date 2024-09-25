@@ -1,3 +1,5 @@
+// content.js
+
 // Wrap the entire content script in an IIFE
 (function() {
   if (window.contentScriptInitialized) {
@@ -45,17 +47,24 @@
 
     isProcessing = true;
     console.log('Selecting all text');
+
+    // **Send status update to background script**
+    chrome.runtime.sendMessage({ action: 'statusUpdate', message: 'Selecting all text...' });
+
     const selectedText = selectAllText();
     console.log('Selected text length:', selectedText.length);
     const currentUrl = window.location.href;
 
     console.log('Sending text to Firebase');
+
+    // **Send status update to background script**
+    chrome.runtime.sendMessage({ action: 'statusUpdate', message: 'Sending text to Firebase...' });
+
     chrome.runtime.sendMessage({
       action: "sendTextToFirebase",
       text: selectedText,
       url: currentUrl
     }, function(response) {
-      // After receiving the response from the background script
       if (response && response.success) {
         sendResponse({ success: true, result: response.result });
       } else {
@@ -79,7 +88,6 @@
     }
   });
 
-  console.log('Current URL:', currentUrl);
   console.log('Content script loaded and ready');
   chrome.runtime.sendMessage({action: "contentScriptReady"});
 })();
