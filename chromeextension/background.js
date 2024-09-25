@@ -7,44 +7,36 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function processWithLocalFunction(text, url) {
-  console.log('processWithLocalFunction called with:', { text, url });
+// Add the sendTextToFirebase function
+async function sendTextToFirebase(text, url) {
+  console.log('sendTextToFirebase called with:', { text, url });
 
   const apiBody = {
     text: text,
     url: url
   };
 
-  console.log('Prepared Local API body:', apiBody);
+  console.log('Prepared API body:', apiBody);
 
-  const data = await fetchWithRetry('http://127.0.0.1:5001/jobille-45494/us-central1/helloWorld', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify(apiBody)
-  });
+  try {
+    const response = await fetch('https://processtext-kvshkfhmua-uc.a.run.app', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(apiBody)
+    });
 
-  console.log('Local Function Response:', data);
+    const data = await response.json();
 
-  return data;
-}
+    console.log('Firebase Function Response:', data);
 
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  console.log('Message received:', request);
-
-  if (request.action === "processWithLocalFunction") {
-    console.log('Processing with local function');
-
-    addToQueue(() => processWithLocalFunction(request.text, request.url))
-      .then(result => sendResponse({ success: true, result }))
-      .catch(error => sendResponse({ success: false, error: error.toString() }));
-
-    return true; // Indicates that the response is sent asynchronously
-  } else {
-    console.log('Unhandled action:', request.action);
+    return data;
+  } catch (error) {
+    console.error('Error calling Firebase function:', error);
+    throw error;
   }
-});
+}
 
 async function fetchWithRetry(url, options, maxRetries = 5, baseDelay = 2000) {
   for (let i = 0; i < maxRetries; i++) {
@@ -176,37 +168,70 @@ async function processWithAnthropic(apiKey, text, url) {
   }
 }
 
+// Set up a listener for messages sent to the extension
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Message received:', request);
 
-  if (request.action === "processWithOpenAI" || request.action === "processWithAnthropic") {
-    console.log(`Processing with ${request.action === "processWithOpenAI" ? "OpenAI" : "Anthropic"}`);
+  // Handle different actions based on the 'action' property of the request
+  switch (request.action) {
+    case "sendTextToFirebase":
+      // Send text to Firebase
+      sendTextToFirebase(request.text, request.url)
+        .then(data => {
+          sendResponse({ success: true, result: data.result });
+        })
+        .catch(error => {
+          sendResponse({ success: false, error: error.message });
+        });
+      break;
 
-    addToQueue(() => new Promise((resolve, reject) => {
+    case "processWithLocalFunction":
+      console.log('Processing with local function');
+      // Add local processing to the queue
+      addToQueue(() => processWithLocalFunction(request.text, request.url))
+        .then(result => sendResponse({ success: true, result }))
+        .catch(error => sendResponse({ success: false, error: error.toString() }));
+      break;
+
+    case "processWithOpenAI":
+    case "processWithAnthropic":
+      console.log(`Processing with ${request.action === "processWithOpenAI" ? "OpenAI" : "Anthropic"}`);
+      
+      // Determine which API key to use based on the action
       const apiKeyName = request.action === "processWithOpenAI" ? 'openaiApiKey' : 'anthropicApiKey';
-      chrome.storage.local.get([apiKeyName], function(result) {
-        console.log('API Key retrieved:', result[apiKeyName] ? 'Key found' : 'Key not found');
+      
+      // Add API processing to the queue
+      addToQueue(() => new Promise((resolve, reject) => {
+        // Retrieve the appropriate API key from local storage
+        chrome.storage.local.get([apiKeyName], function(result) {
+          console.log('API Key retrieved:', result[apiKeyName] ? 'Key found' : 'Key not found');
 
-        if (!result[apiKeyName]) {
-          console.error('API Key not found');
-          reject(new Error("API Key not found"));
-          return;
-        }
+          if (!result[apiKeyName]) {
+            console.error('API Key not found');
+            reject(new Error("API Key not found"));
+            return;
+          }
 
-        const processFunction = request.action === "processWithOpenAI" ? processWithOpenAI : processWithAnthropic;
+          // Choose the correct processing function based on the action
+          const processFunction = request.action === "processWithOpenAI" ? processWithOpenAI : processWithAnthropic;
 
-        processFunction(result[apiKeyName], request.text, request.url)
-          .then(resolve)
-          .catch(reject);
-      });
-    }))
-    .then(result => sendResponse({success: true, result}))
-    .catch(error => sendResponse({success: false, error: error.toString()}));
+          // Process the request using the selected function and API key
+          processFunction(result[apiKeyName], request.text, request.url)
+            .then(resolve)
+            .catch(reject);
+        });
+      }))
+      .then(result => sendResponse({success: true, result}))
+      .catch(error => sendResponse({success: false, error: error.toString()}));
+      break;
 
-    return true; // Indicates that the response is sent asynchronously
-  } else {
-    console.log('Unhandled action:', request.action);
+    default:
+      console.log('Unhandled action:', request.action);
+      sendResponse({ success: false, error: "Unhandled action" });
+      return false; // Indicates that we're not sending a response asynchronously
   }
+
+  return true; // Indicates that the response will be sent asynchronously
 });
 
 console.log('Background script setup complete');

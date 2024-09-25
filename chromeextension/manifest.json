@@ -33,7 +33,7 @@
     }
   ],
   "content_security_policy": {
-  "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://api.openai.com https://api.anthropic.com http://127.0.0.1:5001;"
+  "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://processtext-kvshkfhmua-uc.a.run.app http://127.0.0.1:5001"
   },
   "oauth2": {
     "client_id": "656035288386-gjoffu1hq1gc981jp96ip77jko1v9rje.apps.googleusercontent.com",
