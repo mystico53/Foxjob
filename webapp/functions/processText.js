@@ -6,20 +6,31 @@ const fetch = require('node-fetch'); // Remove if using Node.js v18+
 require('dotenv').config(); // For local development
 
 exports.processText = onRequest(async (request, response) => {
+  console.log('processText function called');
+
   // Handle CORS
   response.set('Access-Control-Allow-Origin', '*');
   response.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
   response.set('Access-Control-Allow-Headers', 'Content-Type');
 
   if (request.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
     response.status(204).send('');
     return;
   }
 
-  // Get the 'text', 'url', and 'instructions' from the request body
-  const { text, url, instructions } = request.body;
+  // Get the 'text', 'url', 'instructions', and 'googleId' from the request body
+  const { text, url, instructions, googleId } = request.body;
 
-  if (!text || !url || !instructions) {
+  console.log('Received request with:', {
+    textLength: text ? text.length : 0,
+    url,
+    instructionsProvided: !!instructions,
+    googleId
+  });
+
+  if (!text || !url || !instructions || !googleId) {
+    console.error('Missing required parameters');
     response.status(400).json({ error: 'Missing required parameters' });
     return;
   }
@@ -27,11 +38,19 @@ exports.processText = onRequest(async (request, response) => {
   // Get the API key
   const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
 
+  if (!apiKey) {
+    console.error('Anthropic API key not found');
+    response.status(500).json({ error: 'Server configuration error' });
+    return;
+  }
+
   try {
     // Prepare the prompt
-    const prompt = instructions.prompt.replace("{TEXT}", text + `\n\nURL: ${url}`);
+    const prompt = instructions.prompt.replace("{TEXT}", text + `\n\nURL: ${url}\nGoogle ID: ${googleId}`);
+    console.log('Prepared prompt:', prompt);
 
     // Call the Anthropic API
+    console.log('Calling Anthropic API');
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -56,22 +75,29 @@ exports.processText = onRequest(async (request, response) => {
       return;
     }
 
+    console.log('Received response from Anthropic API');
+
     // Parse the JSON response
     if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
       const content = data.content[0].text.trim();
+      console.log('Raw content from Anthropic:', content);
       try {
         const jsonContent = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
         const parsedResult = JSON.parse(jsonContent);
+        console.log('Successfully parsed JSON result');
         response.json({ result: parsedResult });
       } catch (error) {
         console.error('Error parsing JSON:', error);
         response.status(500).json({ error: 'Error parsing Anthropic response' });
       }
     } else {
+      console.error('Unexpected Anthropic API response structure:', data);
       response.status(500).json({ error: 'Unexpected Anthropic API response structure' });
     }
   } catch (error) {
     console.error('Error calling Anthropic API:', error);
     response.status(500).json({ error: 'Internal server error' });
   }
+
+  console.log('processText function completed');
 });

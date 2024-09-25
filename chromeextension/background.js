@@ -5,17 +5,18 @@ importScripts('instructions.js');
 
 console.log('Background script loaded');
 
-// Add the sendTextToFirebase function
-async function sendTextToFirebase(text, url) {
-  console.log('sendTextToFirebase called with:', { textLength: text.length, url });
+// Modified sendTextToFirebase function to include googleId
+async function sendTextToFirebase(text, url, googleId) {
+  console.log('sendTextToFirebase called with:', { textLength: text.length, url, googleId });
 
   const apiBody = {
     text: text,
     url: url,
+    googleId: googleId,
     instructions: anthropicInstructions
   };
 
-  console.log('Prepared API body:', { textLength: apiBody.text.length, url: apiBody.url });
+  console.log('Prepared API body:', { textLength: apiBody.text.length, url: apiBody.url, googleId: apiBody.googleId });
 
   // **Send status update to popup script**
   chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing text...', isLoading: true });
@@ -53,20 +54,31 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       // **Send status update to popup script**
       chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Sending text to Firebase...', isLoading: true  });
 
-      // Send text to Firebase
-      sendTextToFirebase(request.text, request.url)
-        .then(data => {
-          console.log('Successfully sent to Firebase, sending response');
-          // **Send status update to popup script**
-          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
-          sendResponse({ success: true, result: data.result });
-        })
-        .catch(error => {
-          console.error('Error in sendTextToFirebase:', error);
-          // **Send error update to popup script**
-          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false});
-          sendResponse({ success: false, error: error.message });
-        });
+      // Get the current user's Google ID
+      chrome.storage.local.get(['userId'], function(result) {
+        const googleId = result.userId || 'anonymous';
+        if (!googleId) {
+          console.error('No Google ID found');
+          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: User not signed in', isLoading: false});
+          sendResponse({ success: false, error: 'User not signed in' });
+          return;
+        }
+
+        // Send text to Firebase with Google ID
+        sendTextToFirebase(request.text, request.url, googleId)
+          .then(data => {
+            console.log('Successfully sent to Firebase, sending response');
+            // **Send status update to popup script**
+            chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
+            sendResponse({ success: true, result: data.result });
+          })
+          .catch(error => {
+            console.error('Error in sendTextToFirebase:', error);
+            // **Send error update to popup script**
+            chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false});
+            sendResponse({ success: false, error: error.message });
+          });
+      });
       return true; // Keeps the message channel open for the asynchronous response
 
     case "statusUpdate":
