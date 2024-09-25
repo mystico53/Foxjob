@@ -69,19 +69,19 @@ Format your response as a JSON object with the following structure:
   "companyInfo": {
     "name": "Company Name",
     "industry": "Specific Industry branch, not just software development, but what kind exactly"
-    "companyFocus": "What makes the company truly unique? Explain short in simple terms"
+    "companyFocus": "What makes the company truly unique? Explain short in simple terms (keep it short)"
   },
   "jobInfo": {
     "jobTitle": "What is job title?",
     "remoteType": "is this a remote or onsite job, eg On-site 3 days week, or Remote",
-    "jobSummary": "One sentence job summary, always start with You will"
+    "jobSummary": "One sentence job summary, always start with You will" (keep it short)
   },
-  "areasOfFun": [
+  "areasOfFun": (keep it short) [
     "Fun 1",
     "Fun 2",
     "Fun 3"
   ],
-  "mandatorySkills": [
+  "mandatorySkills": (keep it short) [
     "Skill 1",
     "Skill 2",
     "Skill 3"
