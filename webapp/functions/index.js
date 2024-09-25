@@ -2,10 +2,8 @@ const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 
 const { processText } = require('./processText');
-const saveToFirestore = require('./saveToFirestore');
 
 exports.processText = processText;
-exports.saveToFirestore = saveToFirestore.saveToFirestore;
 
 exports.helloWorld = onRequest((request, response) => {
   // Set CORS headers
