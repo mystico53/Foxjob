@@ -43,9 +43,9 @@ function initializePopup() {
 
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'updateStatus') {
-      updateStatus(request.message);
+        updateStatus(request.message, request.isLoading);
     }
-  });
+});
 
   // Initial resize
   resizePopup();
@@ -282,10 +282,23 @@ function resizePopup() {
     }
 }
 
-function updateStatus(message) {
+function updateStatus(message, isLoading = false) {
     if (statusDiv) {
         statusDiv.textContent = message;
+        if (isLoading) {
+            showSpinner();
+        } else {
+            hideSpinner();
+        }
     } else {
         console.error('Status div not found');
     }
+}
+
+function showSpinner() {
+    document.getElementById('loadingSpinner').style.display = 'block';
+}
+
+function hideSpinner() {
+    document.getElementById('loadingSpinner').style.display = 'none';
 }

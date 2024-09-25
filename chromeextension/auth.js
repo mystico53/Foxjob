@@ -22,7 +22,7 @@ function signIn() {
   chrome.identity.getAuthToken({ interactive: true }, function(token) {
       if (chrome.runtime.lastError) {
           console.error(chrome.runtime.lastError);
-          updateStatus('Sign-in failed: ' + chrome.runtime.lastError.message);
+          updateStatus('Sign-in failed: ' + chrome.runtime.lastError.message, isLoading, false);
           return;
       }
       
@@ -39,13 +39,13 @@ function signIn() {
               console.log("Sign-in successful", user);
               chrome.storage.local.set({ userId: user.uid }, () => {
                   console.log('User ID saved');
-                  updateStatus('Signed in successfully');
+                  updateStatus('Signed in successfully', false);
                   updateSignInButtonState(true);
               });
           })
           .catch((error) => {
               console.error('Sign-in error:', error);
-              updateStatus('Sign-in failed: ' + error.message);
+              updateStatus('Sign-in failed: ' + error.message, false);
           });
   });
 }
@@ -59,13 +59,13 @@ function signOut() {
           console.log('Cleared all cached auth tokens');
           chrome.storage.local.remove('userId', () => {
               console.log('User ID removed from storage');
-              updateStatus('Signed out successfully');
+              updateStatus('Signed out successfully', false);
               updateSignInButtonState(false);
           });
       });
   }).catch((error) => {
       console.error('Sign-out error:', error);
-      updateStatus('Sign-out failed: ' + error.message);
+      updateStatus('Sign-out failed: ' + error.message, false);
   });
 }
 
