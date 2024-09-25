@@ -1,8 +1,9 @@
 import { initializeApp, getApps } from "firebase/app";
-import { getAuth } from "firebase/auth";
+import { getAuth, setPersistence, browserLocalPersistence, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
+import { getAnalytics } from "firebase/analytics";
+import { browser } from '$app/environment';
 
-// Your web app's Firebase configuration
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -13,26 +14,37 @@ const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
-// Initialize Firebase
-let app;
-let auth;
-let db;
-let analytics;
+function initializeFirebase() {
+  if (!getApps().length) {
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
 
-if (!getApps().length) {
-  app = initializeApp(firebaseConfig);
-  auth = getAuth(app);
-  db = getFirestore(app);
+    if (browser) {
+      setPersistence(auth, browserLocalPersistence)
+        .then(() => console.log("Authentication persistence set"))
+        .catch((error) => console.error("Error setting authentication persistence:", error));
+
+      const analytics = getAnalytics(app);
+      return { app, auth, db, analytics };
+    }
+
+    return { app, auth, db };
+  }
+  return {};
 }
 
-// Initialize Analytics only in browser environment
-if (typeof window !== 'undefined') {
-  import('firebase/analytics').then((module) => {
-    analytics = module.getAnalytics(app);
-  }).catch((err) => {
-    console.error("Error loading analytics module", err);
-  });
-}
+export const firebase = browser ? initializeFirebase() : {};
+export const { app, auth, db, analytics } = firebase;
 
-// Export the Firebase services for use in other parts of your app
-export { app, auth, db, analytics };
+// Custom sign-in function
+export async function signInWithGoogle() {
+  const provider = new GoogleAuthProvider();
+  try {
+    const result = await signInWithPopup(auth, provider);
+    return result.user;
+  } catch (error) {
+    console.error("Error signing in with Google", error);
+    throw error;
+  }
+}
