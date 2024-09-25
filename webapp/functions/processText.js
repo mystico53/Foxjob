@@ -16,11 +16,11 @@ exports.processText = onRequest(async (request, response) => {
     return;
   }
 
-  // Get the 'text' from the request body
-  const { text } = request.body;
+  // Get the 'text', 'url', and 'instructions' from the request body
+  const { text, url, instructions } = request.body;
 
-  if (!text) {
-    response.status(400).json({ error: 'No text provided' });
+  if (!text || !url || !instructions) {
+    response.status(400).json({ error: 'Missing required parameters' });
     return;
   }
 
@@ -28,19 +28,22 @@ exports.processText = onRequest(async (request, response) => {
   const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
 
   try {
+    // Prepare the prompt
+    const prompt = instructions.prompt.replace("{TEXT}", text + `\n\nURL: ${url}`);
+
     // Call the Anthropic API
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-api-key': apiKey, // Use the apiKey variable here
-        'anthropic-version': '2023-06-01', // Required version header
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20240620', // Use the appropriate model name
-        max_tokens: 200,
+        model: instructions.model,
+        max_tokens: 1024,
         messages: [
-          { role: 'user', content: text }
+          { role: 'user', content: prompt }
         ],
       }),
     });
@@ -48,16 +51,25 @@ exports.processText = onRequest(async (request, response) => {
     const data = await anthropicResponse.json();
 
     if (!anthropicResponse.ok) {
-      // Log and return the error from Anthropic API
       console.error('Anthropic API error response:', data);
       response.status(anthropicResponse.status).json({ error: data });
       return;
     }
 
-    // Send the assistant's reply back to the client
-    response.json({
-      result: data.content[0].text,
-    });
+    // Parse the JSON response
+    if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
+      const content = data.content[0].text.trim();
+      try {
+        const jsonContent = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+        const parsedResult = JSON.parse(jsonContent);
+        response.json({ result: parsedResult });
+      } catch (error) {
+        console.error('Error parsing JSON:', error);
+        response.status(500).json({ error: 'Error parsing Anthropic response' });
+      }
+    } else {
+      response.status(500).json({ error: 'Unexpected Anthropic API response structure' });
+    }
   } catch (error) {
     console.error('Error calling Anthropic API:', error);
     response.status(500).json({ error: 'Internal server error' });

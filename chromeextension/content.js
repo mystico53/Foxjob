@@ -1,50 +1,85 @@
-// Function to select all text on the page
-function selectAllText() {
-  const body = document.body;
-  const range = document.createRange();
-  range.selectNodeContents(body);
-  const selection = window.getSelection();
-  selection.removeAllRanges();
-  selection.addRange(range);
-  return selection.toString();
-}
+// Wrap the entire content script in an IIFE
+(function() {
+  if (window.contentScriptInitialized) {
+    console.log('Content script already initialized');
+    return;
+  }
+  window.contentScriptInitialized = true;
 
-function deselectText() {
-  window.getSelection().removeAllRanges();
-}
+  let isProcessing = false;
+  const debounceTime = 1000; // 1 second
 
-chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  console.log('Content script received message:', request);
+  // Function to select all text on the page
+  function selectAllText() {
+    const body = document.body;
+    const range = document.createRange();
+    range.selectNodeContents(body);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    return selection.toString();
+  }
 
-  if (request.action === "selectAllText") {
+  function deselectText() {
+    window.getSelection().removeAllRanges();
+  }
+
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
+
+  const debouncedSendMessage = debounce((request, sender, sendResponse) => {
+    if (isProcessing) {
+      console.log('Already processing, ignoring request');
+      sendResponse({success: false, error: 'Already processing'});
+      return;
+    }
+
+    isProcessing = true;
     console.log('Selecting all text');
     const selectedText = selectAllText();
     console.log('Selected text length:', selectedText.length);
-
-    const prompt = "summarize this job description based on company, title, responsibilities, compensation";
     const currentUrl = window.location.href;
-    
+
     console.log('Sending text to Firebase');
     chrome.runtime.sendMessage({
       action: "sendTextToFirebase",
-      text: prompt + "\n\n" + selectedText,
+      text: selectedText,
       url: currentUrl
     }, function(response) {
-      console.log('Received response from background script:', response);
+      // After receiving the response from the background script
       if (response && response.success) {
-        console.log('Response from Firebase function:', response.result);
-        sendResponse({success: true, result: response.result});
+        sendResponse({ success: true, result: response.result });
       } else {
-        console.error('Error calling Firebase function:', response ? response.error : 'No response');
-        sendResponse({success: false, error: response ? response.error : 'No response from background script'});
+        sendResponse({ success: false, error: response ? response.error : 'No response from background script' });
       }
+      isProcessing = false;
     });
-    
+
     setTimeout(deselectText, 100);
+  }, debounceTime);
 
-    return true; // Keeps the message channel open for the asynchronous response
-  }
-});
+  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    console.log('Content script received message:', request);
 
-console.log('Content script loaded and ready');
-chrome.runtime.sendMessage({action: "contentScriptReady"});
+    if (request.action === "selectAllText") {
+      debouncedSendMessage(request, sender, sendResponse);
+      return true; // Keeps the message channel open for the asynchronous response
+    } else if (request.action === "ping") {
+      // Respond to ping messages to confirm content script is loaded
+      sendResponse({ status: 'alive' });
+    }
+  });
+
+  console.log('Current URL:', currentUrl);
+  console.log('Content script loaded and ready');
+  chrome.runtime.sendMessage({action: "contentScriptReady"});
+})();

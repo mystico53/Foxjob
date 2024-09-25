@@ -1,3 +1,6 @@
+// Import the instructions
+importScripts('instructions.js');
+
 console.log('Background script loaded');
 
 // Add the sendTextToFirebase function
@@ -6,7 +9,8 @@ async function sendTextToFirebase(text, url) {
 
   const apiBody = {
     text: text,
-    url: url
+    url: url,
+    instructions: anthropicInstructions
   };
 
   console.log('Prepared API body:', { textLength: apiBody.text.length, url: apiBody.url });

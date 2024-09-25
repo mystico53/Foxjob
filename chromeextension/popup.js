@@ -173,25 +173,35 @@ function signOut() {
 
 function injectContentScriptAndProcess() {
   if (!currentApiType) {
-      updateStatus('Please select an API provider');
-      return;
+    updateStatus('Please select an API provider');
+    return;
   }
 
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      const activeTab = tabs[0];
-      chrome.scripting.executeScript(
+    const activeTab = tabs[0];
+
+    // Inject content script only if it's not already injected
+    chrome.tabs.sendMessage(activeTab.id, {action: "ping"}, function(response) {
+      if (chrome.runtime.lastError || !response) {
+        // Content script not found, inject it
+        chrome.scripting.executeScript(
           {
-              target: {tabId: activeTab.id},
-              files: ['content.js']
+            target: {tabId: activeTab.id},
+            files: ['content.js']
           },
           function() {
-              if (chrome.runtime.lastError) {
-                  updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
-              } else {
-                  selectAllTextAndProcess(activeTab.id);
-              }
+            if (chrome.runtime.lastError) {
+              updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
+            } else {
+              selectAllTextAndProcess(activeTab.id);
+            }
           }
-      );
+        );
+      } else {
+        // Content script already injected
+        selectAllTextAndProcess(activeTab.id);
+      }
+    });
   });
 }
 
@@ -200,14 +210,14 @@ function selectAllTextAndProcess(tabId) {
         if (chrome.runtime.lastError) {
             updateStatus('Error: ' + chrome.runtime.lastError.message);
         } else if (response && response.success) {
-            updateStatus('All text selected. Processing...');
-            processSelectedText(tabId, response.text);
+            updateStatus('Processing completed.');
+            displayResults(response.result);
         } else {
-            updateStatus('Failed to select text');
+            updateStatus('Failed to process text');
         }
     });
 }
-
+/*
 function processSelectedText(tabId, selectedText) {
   if (!selectedText) {
       updateStatus('No text selected or found');
@@ -226,15 +236,14 @@ function processSelectedText(tabId, selectedText) {
           updateStatus('Error: ' + aiResponse.error);
       }
   });
-}
+}*/
 
 function displayResults(result) {
     generatedContentDiv.innerHTML = `
         <h3>${result.companyInfo.name} (${result.companyInfo.industry})</h3>
         <p class="companyInfo">${result.companyInfo.companyFocus}</p>
         <p><span class="bold">Job Title:</span> ${result.jobInfo.jobTitle}</p>
-        <p><span class="bold">Type: </span> ${result.jobInfo.remoteType}</p>
-
+        <p><span class="bold">Type:</span> ${result.jobInfo.remoteType}</p>
         <p class="summary">${result.jobInfo.jobSummary}</p>
         <p><span class="bold">Why it could be fun:</span></p>
         <ul>
