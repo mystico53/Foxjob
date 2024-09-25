@@ -35,6 +35,17 @@ chrome.runtime.sendMessage({
   }
 });
 
+chrome.runtime.sendMessage({
+  action: "sendTextToFirebase",
+  text: "Tell me a very short joke",
+  url: "https://example.com"
+}, function(response) {
+  if (response.success) {
+    console.log('Response from Firebase function:', response.result);
+  } else {
+    console.error('Error calling Firebase function:', response.error);
+  }
+});
 
 // Notify that the content script has been injected and is ready
 chrome.runtime.sendMessage({action: "contentScriptReady"});

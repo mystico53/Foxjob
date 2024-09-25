@@ -49,7 +49,6 @@ function initializePopup() {
 }
 
 
-
 function saveApiPreference(apiType) {
   chrome.storage.local.set({ preferredApi: apiType }, () => {
       console.log('API preference saved:', apiType);
@@ -95,6 +94,26 @@ function deleteApiKey() {
             updateApiKeyStatus(currentApiType, false);
             updateStatus(`${currentApiType.charAt(0).toUpperCase() + currentApiType.slice(1)} API Key deleted. Please enter a new one.`);
         });
+    }
+}
+
+function handleApiSelectorChange() {
+    const selector = document.getElementById('apiSelector');
+    currentApiType = selector.value;
+    
+    if (currentApiType) {
+        saveApiPreference(currentApiType);  // Add this line
+        chrome.storage.local.get(`${currentApiType}ApiKey`, function(result) {
+            if (result[`${currentApiType}ApiKey`]) {
+                updateApiKeyStatus(currentApiType, true);
+            } else {
+                document.getElementById('apiKeyInputSection').style.display = 'block';
+                document.getElementById('apiKeyStatus').style.display = 'none';
+            }
+        });
+    } else {
+        document.getElementById('apiKeyInputSection').style.display = 'none';
+        document.getElementById('apiKeyStatus').style.display = 'none';
     }
 }
 
@@ -254,24 +273,4 @@ function updateStatus(message) {
     } else {
         console.error('Status div not found');
     }
-}
-
-function handleApiSelectorChange() {
-  const selector = document.getElementById('apiSelector');
-  currentApiType = selector.value;
-  
-  if (currentApiType) {
-      saveApiPreference(currentApiType);  // Add this line
-      chrome.storage.local.get(`${currentApiType}ApiKey`, function(result) {
-          if (result[`${currentApiType}ApiKey`]) {
-              updateApiKeyStatus(currentApiType, true);
-          } else {
-              document.getElementById('apiKeyInputSection').style.display = 'block';
-              document.getElementById('apiKeyStatus').style.display = 'none';
-          }
-      });
-  } else {
-      document.getElementById('apiKeyInputSection').style.display = 'none';
-      document.getElementById('apiKeyStatus').style.display = 'none';
-  }
 }
