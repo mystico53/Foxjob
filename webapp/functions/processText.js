@@ -1,9 +1,34 @@
-// processText.js
-
 const functions = require('firebase-functions');
 const { onRequest } = require('firebase-functions/v2/https');
 const fetch = require('node-fetch'); // Remove if using Node.js v18+
 require('dotenv').config(); // For local development
+const admin = require('firebase-admin');
+
+// Initialize Firebase Admin SDK if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
+
+async function saveProcessedData(googleId, processedData) {
+  try {
+    const db = admin.firestore();
+    
+    // Create a reference to the user's document
+    const userRef = db.collection('users').doc(googleId);
+
+    // Add the processed data to the user's 'processed' subcollection
+    const processedRef = await userRef.collection('processed').add({
+      ...processedData,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log('Document written with ID: ', processedRef.id);
+    return processedRef.id;
+  } catch (error) {
+    console.error("Error writing to Firestore: ", error);
+    throw error;
+  }
+}
 
 exports.processText = onRequest(async (request, response) => {
   console.log('processText function called');
@@ -85,10 +110,15 @@ exports.processText = onRequest(async (request, response) => {
         const jsonContent = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
         const parsedResult = JSON.parse(jsonContent);
         console.log('Successfully parsed JSON result');
-        response.json({ result: parsedResult });
+
+        // Save the processed data to Firestore
+        const firestoreDocId = await saveProcessedData(googleId, parsedResult);
+        console.log('Data saved to Firestore with ID:', firestoreDocId);
+
+        response.json({ result: parsedResult, firestoreDocId });
       } catch (error) {
-        console.error('Error parsing JSON:', error);
-        response.status(500).json({ error: 'Error parsing Anthropic response' });
+        console.error('Error parsing JSON or saving to Firestore:', error);
+        response.status(500).json({ error: 'Error processing response or saving to database' });
       }
     } else {
       console.error('Unexpected Anthropic API response structure:', data);
