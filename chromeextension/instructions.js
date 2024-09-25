@@ -53,7 +53,8 @@ if (typeof module !== 'undefined' && module.exports) {
 
 
 const anthropicInstructions = {
-  model: "claude-3-5-sonnet-20240620",
+  //model: "claude-3-5-sonnet-20240620", // dont remove any of the outcommented models from the code!
+  model: "claude-3-haiku-20240307", 
   prompt: `You are a job market and industry expert. You excel in distilling concise information from job descriptions. You will rephrase terms to make them understandable. Your task is to:
 
 1) Extract the company name, Specific Industry branch, what makes the company truly unique?
