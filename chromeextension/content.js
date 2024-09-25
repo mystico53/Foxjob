@@ -14,38 +14,37 @@ function deselectText() {
 }
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  console.log('Content script received message:', request);
+
   if (request.action === "selectAllText") {
+    console.log('Selecting all text');
     const selectedText = selectAllText();
-    sendResponse({success: true, text: selectedText});
+    console.log('Selected text length:', selectedText.length);
+
+    const prompt = "summarize this job description based on company, title, responsibilities, compensation";
+    const currentUrl = window.location.href;
+    
+    console.log('Sending text to Firebase');
+    chrome.runtime.sendMessage({
+      action: "sendTextToFirebase",
+      text: prompt + "\n\n" + selectedText,
+      url: currentUrl
+    }, function(response) {
+      console.log('Received response from background script:', response);
+      if (response && response.success) {
+        console.log('Response from Firebase function:', response.result);
+        sendResponse({success: true, result: response.result});
+      } else {
+        console.error('Error calling Firebase function:', response ? response.error : 'No response');
+        sendResponse({success: false, error: response ? response.error : 'No response from background script'});
+      }
+    });
+    
     setTimeout(deselectText, 100);
-  }
-  return true; // Indicates that the response is sent asynchronously
-});
 
-// Replace 'Your test text here' with any sample text you want to test
-chrome.runtime.sendMessage({
-  action: "processWithLocalFunction",
-  text: "Your test text here",
-  url: window.location.href
-}, function(response) {
-  if (response.success) {
-    console.log('Response from local function:', response.result);
-  } else {
-    console.error('Error calling local function:', response.error);
+    return true; // Keeps the message channel open for the asynchronous response
   }
 });
 
-chrome.runtime.sendMessage({
-  action: "sendTextToFirebase",
-  text: "Tell me a very short joke",
-  url: "https://example.com"
-}, function(response) {
-  if (response.success) {
-    console.log('Response from Firebase function:', response.result);
-  } else {
-    console.error('Error calling Firebase function:', response.error);
-  }
-});
-
-// Notify that the content script has been injected and is ready
+console.log('Content script loaded and ready');
 chrome.runtime.sendMessage({action: "contentScriptReady"});
