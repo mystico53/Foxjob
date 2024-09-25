@@ -12,21 +12,33 @@
             padding: 0;
             font-family: 'Inter', sans-serif;
             font-size: 16px;
-            height: auto;
         }
 
-        #popup-container {
-            padding: 10px 20px;
+        Copy #popup-container {
+            padding: 20px;
             box-sizing: border-box;
             min-height: 200px;
+            max-height: 600px;
             display: flex;
             flex-direction: column;
         }
 
         button,
         input {
+            margin-bottom: 10px;
+            width: 100%;
             font-size: 16px;
             font-family: 'Inter', sans-serif;
+        }
+
+        .button-group {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+
+        .button-group button {
+            width: 48%;
         }
 
         #status {
@@ -37,6 +49,7 @@
         .status-container {
             display: flex;
             align-items: center;
+            margin-bottom: 10px;
         }
 
         .spinner {
@@ -60,15 +73,28 @@
             }
         }
 
+        #apiKeyFound {
+            color: green;
+            display: none;
+            font-size: 16px;
+        }
+
+        #apiKeyInputSection,
+        #anthropicApiKeySection {
+            display: none;
+        }
+
         .divider {
             border-top: 1px solid #ccc;
-            margin: 5px 0 15px;
+            margin: 20px 0;
         }
 
         #generatedContent {
             background-color: #f5f5f5;
             padding: 20px;
             border-radius: 8px;
+            overflow-y: auto;
+            flex-grow: 1;
         }
 
         #generatedContent h3 {
@@ -111,32 +137,65 @@
             margin-bottom: 5px;
         }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 5px;
+        #apiSelection {
+            margin-bottom: 10px;
         }
 
+        #apiSelection label {
+            margin-right: 10px;
+        }
+
+        .row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        .column {
+            width: 48%;
+        }
+
+        #apiSelector,
+        #apiKeyInput,
+        #saveApiKey,
+        #deleteApiKey,
         #signInOutButton {
-            width: auto;
-            padding: 5px 15px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            max-width: 200px;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+
+        #apiKeyInput {
+            height: 60px;
+            resize: vertical;
         }
     </style>
 </head>
 
 <body>
     <div id="popup-container">
-        <div class="header">
-            <div class="status-container">
-                <div id="status">Ready</div>
-                <div id="loadingSpinner" class="spinner"></div>
+        <div class="row">
+            <div class="column">
+                <select id="apiSelector">
+                    <option value="">Select API Key</option>
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                </select>
+                <div id="apiKeyInputSection" style="display: none;">
+                    <textarea id="apiKeyInput" placeholder="Enter API Key"></textarea>
+                    <button id="saveApiKey">Save API Key</button>
+                </div>
+                <div id="apiKeyStatus" style="display: none;">
+                    <span id="apiKeyStatusText"></span>
+                    <button id="deleteApiKey">Delete</button>
+                </div>
             </div>
-            <button id="signInOutButton" title="">Sign In</button>
+            <div class="column">
+                <button id="signInOutButton">Sign In</button>
+            </div>
+        </div>
+        <div class="status-container">
+            <div id="status">Ready</div>
+            <div id="loadingSpinner" class="spinner"></div>
         </div>
         <div class="divider"></div>
         <div id="generatedContent"></div>

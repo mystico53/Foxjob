@@ -22,7 +22,7 @@ function signIn() {
   chrome.identity.getAuthToken({ interactive: true }, function(token) {
       if (chrome.runtime.lastError) {
           console.error(chrome.runtime.lastError);
-          updateStatus('Sign-in failed: ' + chrome.runtime.lastError.message, isLoading, false);
+          updateStatus('Sign-in failed: ' + chrome.runtime.lastError.message);
           return;
       }
       
@@ -37,15 +37,17 @@ function signIn() {
           .then((result) => {
               const user = result.user;
               console.log("Sign-in successful", user);
-              chrome.storage.local.set({ userId: user.uid }, () => {
-                  console.log('User ID saved');
-                  updateStatus('Signed in successfully', false);
-                  updateSignInButtonState(true);
+              console.log("Google ID:", user.uid);
+              console.log("Email:", user.email);
+              chrome.storage.local.set({ userId: user.uid, userEmail: user.email }, () => {
+                  console.log('User ID and email saved');
+                  updateStatus('Signed in successfully');
+                  window.updateSignInButtonState(true, user.email);
               });
           })
           .catch((error) => {
               console.error('Sign-in error:', error);
-              updateStatus('Sign-in failed: ' + error.message, false);
+              updateStatus('Sign-in failed: ' + error.message);
           });
   });
 }
@@ -57,22 +59,22 @@ function signOut() {
       console.log('User signed out from Firebase');
       chrome.identity.clearAllCachedAuthTokens(() => {
           console.log('Cleared all cached auth tokens');
-          chrome.storage.local.remove('userId', () => {
-              console.log('User ID removed from storage');
-              updateStatus('Signed out successfully', false);
-              updateSignInButtonState(false);
+          chrome.storage.local.remove(['userId', 'userEmail'], () => {
+              console.log('User ID and email removed from storage');
+              updateStatus('Signed out successfully');
+              window.updateSignInButtonState(false);
           });
       });
   }).catch((error) => {
       console.error('Sign-out error:', error);
-      updateStatus('Sign-out failed: ' + error.message, false);
+      updateStatus('Sign-out failed: ' + error.message);
   });
 }
 
-function updateSignInButtonState(isSignedIn) {
+function updateSignInButtonState(isSignedIn, email = '') {
   const signInOutButton = document.getElementById('signInOutButton');
   if (signInOutButton) {
-    signInOutButton.textContent = isSignedIn ? 'Sign Out' : 'Sign In';
+    signInOutButton.textContent = isSignedIn ? `Sign Out (${email})` : 'Sign In';
   } else {
     console.error('Sign in/out button not found');
   }
@@ -105,18 +107,27 @@ function loadApiPreference() {
   });
 }
 
-// Expose the signIn and signOut functions to the global scope
-window.signIn = signIn;
-window.signOut = signOut;
+// New function to get the current user's Google ID
+function getCurrentUserId() {
+  const user = firebase.auth().currentUser;
+  return user ? user.uid : null;
+}
 
 // Check initial auth state
 firebase.auth().onAuthStateChanged((user) => {
   if (user) {
     console.log('User is signed in');
-    updateSignInButtonState(true);
+    console.log('Current Google ID:', user.uid);
+    console.log('Current Email:', user.email);
+    window.updateSignInButtonState(true, user.email);
   } else {
     console.log('User is signed out');
-    updateSignInButtonState(false);
+    window.updateSignInButtonState(false);
   }
   loadApiPreference();
 });
+// Expose the signIn, signOut, and getCurrentUserId functions to the global scope
+window.signIn = signIn;
+window.signOut = signOut;
+window.getCurrentUserId = getCurrentUserId;
+window.updateSignInButtonState = updateSignInButtonState;
