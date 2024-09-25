@@ -1,3 +1,5 @@
+// background.js
+
 // Import the instructions
 importScripts('instructions.js');
 
@@ -14,6 +16,9 @@ async function sendTextToFirebase(text, url) {
   };
 
   console.log('Prepared API body:', { textLength: apiBody.text.length, url: apiBody.url });
+
+  // **Send status update to popup script**
+  chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing text...' });
 
   try {
     console.log('Sending request to Firebase function');
@@ -45,17 +50,29 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   switch (request.action) {
     case "sendTextToFirebase":
       console.log('Handling sendTextToFirebase action');
+      // **Send status update to popup script**
+      chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Sending text to Firebase...' });
+
       // Send text to Firebase
       sendTextToFirebase(request.text, request.url)
         .then(data => {
           console.log('Successfully sent to Firebase, sending response');
+          // **Send status update to popup script**
+          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.' });
           sendResponse({ success: true, result: data.result });
         })
         .catch(error => {
           console.error('Error in sendTextToFirebase:', error);
+          // **Send error update to popup script**
+          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message });
           sendResponse({ success: false, error: error.message });
         });
       return true; // Keeps the message channel open for the asynchronous response
+
+    case "statusUpdate":
+      // **Forward status updates to the popup script**
+      chrome.runtime.sendMessage({ action: 'updateStatus', message: request.message });
+      break;
 
     case "contentScriptReady":
       console.log("Content script is ready");

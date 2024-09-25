@@ -41,6 +41,12 @@ function initializePopup() {
       }
   });
 
+  chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    if (request.action === 'updateStatus') {
+      updateStatus(request.message);
+    }
+  });
+
   // Initial resize
   resizePopup();
 
