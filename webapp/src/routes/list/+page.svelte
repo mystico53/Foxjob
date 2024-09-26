@@ -9,6 +9,8 @@
 	let jobData = [];
 	let loading = true;
 	let error = null;
+	let sortColumn = 'timestamp';
+	let sortDirection = 'desc';
 
 	onMount(() => {
 		const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
@@ -33,6 +35,7 @@
 				id: doc.id,
 				...doc.data()
 			}));
+			sortData(sortColumn, sortDirection);
 		} catch (err) {
 			console.error('Error fetching job data:', err);
 			error = 'Failed to fetch job data. Please try again later.';
@@ -62,6 +65,30 @@
 		}
 		return 'N/A';
 	}
+
+	function sortData(column, direction) {
+		sortColumn = column;
+		sortDirection = direction;
+
+		jobData = jobData.sort((a, b) => {
+			let aValue = column.split('.').reduce((obj, key) => obj && obj[key], a);
+			let bValue = column.split('.').reduce((obj, key) => obj && obj[key], b);
+
+			if (column === 'timestamp') {
+				aValue = a.timestamp?.toDate?.() || new Date(0);
+				bValue = b.timestamp?.toDate?.() || new Date(0);
+			}
+
+			if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+			if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+			return 0;
+		});
+	}
+
+	function handleSort(column) {
+		const newDirection = column === sortColumn && sortDirection === 'asc' ? 'desc' : 'asc';
+		sortData(column, newDirection);
+	}
 </script>
 
 <main>
@@ -79,16 +106,60 @@
 				<table>
 					<thead>
 						<tr>
-							<th>Company Name</th>
-							<th>Industry</th>
-							<th>Company Focus</th>
-							<th>Compensation</th>
-							<th>Job Title</th>
-							<th>Job Summary</th>
-							<th>Remote Type</th>
+							<th on:click={() => handleSort('companyInfo.name')}>
+								Company Name {sortColumn === 'companyInfo.name'
+									? sortDirection === 'asc'
+										? '▲'
+										: '▼'
+									: ''}
+							</th>
+							<th on:click={() => handleSort('companyInfo.industry')}>
+								Industry {sortColumn === 'companyInfo.industry'
+									? sortDirection === 'asc'
+										? '▲'
+										: '▼'
+									: ''}
+							</th>
+							<th on:click={() => handleSort('companyInfo.companyFocus')}>
+								Company Focus {sortColumn === 'companyInfo.companyFocus'
+									? sortDirection === 'asc'
+										? '▲'
+										: '▼'
+									: ''}
+							</th>
+							<th on:click={() => handleSort('companyInfo.compensation')}>
+								Compensation {sortColumn === 'companyInfo.compensation'
+									? sortDirection === 'asc'
+										? '▲'
+										: '▼'
+									: ''}
+							</th>
+							<th on:click={() => handleSort('jobInfo.jobTitle')}>
+								Job Title {sortColumn === 'jobInfo.jobTitle'
+									? sortDirection === 'asc'
+										? '▲'
+										: '▼'
+									: ''}
+							</th>
+							<th on:click={() => handleSort('jobInfo.jobSummary')}>
+								Job Summary {sortColumn === 'jobInfo.jobSummary'
+									? sortDirection === 'asc'
+										? '▲'
+										: '▼'
+									: ''}
+							</th>
+							<th on:click={() => handleSort('jobInfo.remoteType')}>
+								Remote Type {sortColumn === 'jobInfo.remoteType'
+									? sortDirection === 'asc'
+										? '▲'
+										: '▼'
+									: ''}
+							</th>
 							<th>Areas of Fun</th>
 							<th>Mandatory Skills</th>
-							<th>Timestamp</th>
+							<th on:click={() => handleSort('timestamp')}>
+								Timestamp {sortColumn === 'timestamp' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+							</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -143,6 +214,10 @@
 		position: sticky;
 		top: 0;
 		z-index: 10;
+		cursor: pointer;
+	}
+	th:hover {
+		background-color: #e6e6e6;
 	}
 	td ul {
 		margin: 0;
