@@ -15,6 +15,14 @@
   "background": {
     "service_worker": "background.js"
   },
+  "commands": {
+    "toggle-feature": {
+      "suggested_key": {
+        "default": "Alt+S"
+      },
+      "description": "Toggle the main feature"
+    }
+  },
   "host_permissions": [
     "https://api.openai.com/",
     "https://*.googleapis.com/",

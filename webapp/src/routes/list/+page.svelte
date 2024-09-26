@@ -147,8 +147,8 @@
 										: '▼'
 									: ''}
 							</th>
-							<th on:click={() => handleSort('companyInfo.compensation')}>
-								Compensation {sortColumn === 'companyInfo.compensation'
+							<th on:click={() => handleSort('compensation')}>
+								Compensation {sortColumn === 'compensation'
 									? sortDirection === 'asc'
 										? '▲'
 										: '▼'
@@ -190,7 +190,7 @@
 								<td>{job.companyInfo?.name || 'N/A'}</td>
 								<td>{job.companyInfo?.industry || 'N/A'}</td>
 								<td>{job.companyInfo?.companyFocus || 'N/A'}</td>
-								<td>{job.companyInfo?.compensation || 'N/A'}</td>
+								<td>{job.compensation || 'N/A'}</td>
 								<td>{job.jobInfo?.jobTitle || 'N/A'}</td>
 								<td>{job.jobInfo?.jobSummary || 'N/A'}</td>
 								<td>{job.jobInfo?.remoteType || 'N/A'}</td>
