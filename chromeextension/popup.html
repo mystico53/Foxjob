@@ -126,6 +126,14 @@
             text-overflow: ellipsis;
             max-width: 200px;
         }
+
+        #collectedStatus {
+            color: green;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
     </style>
 </head>
 
@@ -138,8 +146,13 @@
             </div>
             <button id="signInOutButton" title="">Sign In</button>
         </div>
+        <div id="collectedStatus"></div>
         <div class="divider"></div>
         <div id="generatedContent"></div>
+    </div>
+    </div>
+    <div class="divider"></div>
+    <div id="generatedContent"></div>
     </div>
     <!-- Load Firebase scripts locally -->
     <script src="firebase-app-compat.js"></script>

@@ -1,6 +1,7 @@
 let statusDiv;
 let generatedContentDiv;
 let popupContainer;
+let collectedStatusDiv;
 
 document.addEventListener('DOMContentLoaded', initializePopup);
 
@@ -8,6 +9,7 @@ function initializePopup() {
   statusDiv = document.getElementById('status');
   generatedContentDiv = document.getElementById('generatedContent');
   popupContainer = document.getElementById('popup-container');
+  collectedStatusDiv = document.getElementById('collectedStatus');
 
   document.getElementById('signInOutButton').addEventListener('click', handleSignInOut);
 
@@ -28,8 +30,22 @@ function initializePopup() {
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     if (request.action === 'updateStatus') {
       updateStatus(request.message, request.isLoading);
+    } else if (request.action === 'textCollected') {
+      showCollectedStatus();
     }
   });
+
+  function showCollectedStatus() {
+    if (collectedStatusDiv) {
+      collectedStatusDiv.textContent = 'Collected, ready for next scan!';
+      collectedStatusDiv.style.display = 'block';
+      setTimeout(() => {
+        collectedStatusDiv.style.display = 'none';
+      }, 5000); // Hide after 5 seconds
+    } else {
+      console.error('Collected status div not found');
+    }
+  }
 
   // Initial resize
   resizePopup();
@@ -47,45 +63,60 @@ function handleSignInOut() {
     }
   }
 
-function injectContentScriptAndProcess() {
-  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    const activeTab = tabs[0];
-
-    // Inject content script only if it's not already injected
-    chrome.tabs.sendMessage(activeTab.id, {action: "ping"}, function(response) {
-      if (chrome.runtime.lastError || !response) {
-        // Content script not found, inject it
-        chrome.scripting.executeScript(
-          {
-            target: {tabId: activeTab.id},
-            files: ['content.js']
-          },
-          function() {
-            if (chrome.runtime.lastError) {
-              updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
-            } else {
-              selectAllTextAndProcess(activeTab.id);
+  function injectContentScriptAndProcess() {
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      const activeTab = tabs[0];
+  
+      chrome.tabs.sendMessage(activeTab.id, {action: "ping"}, function(response) {
+        if (chrome.runtime.lastError || !response) {
+          chrome.scripting.executeScript(
+            {
+              target: {tabId: activeTab.id},
+              files: ['content.js']
+            },
+            function() {
+              if (chrome.runtime.lastError) {
+                updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
+              } else {
+                // Add a small delay before processing
+                setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
+              }
             }
-          }
-        );
-      } else {
-        // Content script already injected
-        selectAllTextAndProcess(activeTab.id);
-      }
+          );
+        } else {
+          selectAllTextAndProcess(activeTab.id);
+        }
+      });
     });
-  });
-}
+  }
 
 function selectAllTextAndProcess(tabId) {
   updateStatus('Selecting and processing text...', true);
-  chrome.tabs.sendMessage(tabId, {action: "selectAllText"}, function(response) {
+  try {
+    chrome.tabs.sendMessage(tabId, {action: "selectAllText"}, function(response) {
+      if (chrome.runtime.lastError) {
+        console.error("Runtime error:", chrome.runtime.lastError);
+        updateStatus('Error: ' + chrome.runtime.lastError.message);
+      } else if (response && response.success) {
+        updateStatus('Processing completed.');
+        displayResults(response.result);
+      } else {
+        updateStatus('Failed to process text');
+      }
+    });
+  } catch (error) {
+    console.error("Error sending message:", error);
+    updateStatus('Error: Unable to communicate with the page');
+  }
+}
+
+function checkTabExistsAndProcess(tabId) {
+  chrome.tabs.get(tabId, function(tab) {
     if (chrome.runtime.lastError) {
-      updateStatus('Error: ' + chrome.runtime.lastError.message);
-    } else if (response && response.success) {
-      updateStatus('Processing completed.');
-      displayResults(response.result);
+      console.error("Tab does not exist:", chrome.runtime.lastError);
+      updateStatus('Error: Tab no longer exists');
     } else {
-      updateStatus('Failed to process text');
+      selectAllTextAndProcess(tabId);
     }
   });
 }

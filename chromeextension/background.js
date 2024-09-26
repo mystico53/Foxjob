@@ -21,6 +21,8 @@ async function sendTextToFirebase(text, url, googleId) {
   // **Send status update to popup script**
   chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing text...', isLoading: true });
 
+  chrome.runtime.sendMessage({ action: 'textCollected' });
+
   try {
     console.log('Sending request to Firebase function');
     const response = await fetch('https://processtext-kvshkfhmua-uc.a.run.app', {
@@ -30,6 +32,8 @@ async function sendTextToFirebase(text, url, googleId) {
       },
       body: JSON.stringify(apiBody)
     });
+    
+    
 
     console.log('Received response from Firebase function');
     const data = await response.json();
