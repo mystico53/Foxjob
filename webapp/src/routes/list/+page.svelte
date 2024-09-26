@@ -247,10 +247,6 @@
 	th:hover {
 		background-color: #e6e6e6;
 	}
-	td ul {
-		margin: 0;
-		padding-left: 20px;
-	}
 	.error {
 		color: red;
 	}
