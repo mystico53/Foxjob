@@ -5,7 +5,7 @@ importScripts('instructions.js');
 
 console.log('Background script loaded');
 
-// Modified sendTextToFirebase function to include googleId
+// Modified sendTextToFirebase function to include googleId and url
 async function sendTextToFirebase(text, url, googleId) {
   console.log('sendTextToFirebase called with:', { textLength: text.length, url, googleId });
 
@@ -18,7 +18,6 @@ async function sendTextToFirebase(text, url, googleId) {
 
   console.log('Prepared API body:', { textLength: apiBody.text.length, url: apiBody.url, googleId: apiBody.googleId });
 
-  // **Send status update to popup script**
   chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing text...', isLoading: true });
 
   chrome.runtime.sendMessage({ action: 'textCollected' });
@@ -33,8 +32,6 @@ async function sendTextToFirebase(text, url, googleId) {
       body: JSON.stringify(apiBody)
     });
     
-    
-
     console.log('Received response from Firebase function');
     const data = await response.json();
 
@@ -51,14 +48,11 @@ async function sendTextToFirebase(text, url, googleId) {
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background script received message:', request);
 
-  // Handle different actions based on the 'action' property of the request
   switch (request.action) {
     case "sendTextToFirebase":
       console.log('Handling sendTextToFirebase action');
-      // **Send status update to popup script**
       chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Sending text to Firebase...', isLoading: true  });
 
-      // Get the current user's Google ID
       chrome.storage.local.get(['userId'], function(result) {
         const googleId = result.userId || 'anonymous';
         if (!googleId) {
@@ -68,22 +62,20 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
           return;
         }
 
-        // Send text to Firebase with Google ID
+        // Send text to Firebase with Google ID and URL
         sendTextToFirebase(request.text, request.url, googleId)
           .then(data => {
             console.log('Successfully sent to Firebase, sending response');
-            // **Send status update to popup script**
             chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
             sendResponse({ success: true, result: data.result });
           })
           .catch(error => {
             console.error('Error in sendTextToFirebase:', error);
-            // **Send error update to popup script**
             chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false});
             sendResponse({ success: false, error: error.message });
           });
       });
-      return true; // Keeps the message channel open for the asynchronous response
+      return true;
 
     case "statusUpdate":
       // **Forward status updates to the popup script**

@@ -112,7 +112,11 @@ exports.processText = onRequest(async (request, response) => {
         console.log('Successfully parsed JSON result');
 
         // Save the processed data to Firestore
-        const firestoreDocId = await saveProcessedData(googleId, parsedResult);
+        const firestoreDocId = await saveProcessedData(googleId, {
+          ...parsedResult,
+          originalText: text,
+          url: url
+        });
         console.log('Data saved to Firestore with ID:', firestoreDocId);
 
         response.json({ result: parsedResult, firestoreDocId });

@@ -2,7 +2,7 @@
 	import { onMount } from 'svelte';
 	import { auth, db } from '$lib/firebase';
 	import { signOut } from 'firebase/auth';
-	import { collection, getDocs } from 'firebase/firestore';
+	import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 	import { goto } from '$app/navigation';
 
 	let user = null;
@@ -31,16 +31,30 @@
 		try {
 			const processedRef = collection(db, 'users', user.uid, 'processed');
 			const querySnapshot = await getDocs(processedRef);
-			jobData = querySnapshot.docs.map((doc) => ({
-				id: doc.id,
-				...doc.data()
-			}));
+			jobData = querySnapshot.docs
+				.map((doc) => ({
+					id: doc.id,
+					...doc.data(),
+					hidden: doc.data().hidden || false // Ensure hidden field exists
+				}))
+				.filter((job) => !job.hidden); // Filter out hidden jobs
 			sortData(sortColumn, sortDirection);
 		} catch (err) {
 			console.error('Error fetching job data:', err);
 			error = 'Failed to fetch job data. Please try again later.';
 		} finally {
 			loading = false;
+		}
+	}
+
+	async function hideJob(jobId) {
+		try {
+			const jobRef = doc(db, 'users', user.uid, 'processed', jobId);
+			await updateDoc(jobRef, { hidden: true });
+			jobData = jobData.filter((job) => job.id !== jobId);
+		} catch (err) {
+			console.error('Error hiding job:', err);
+			error = 'Failed to hide job. Please try again.';
 		}
 	}
 
@@ -88,6 +102,12 @@
 	function handleSort(column) {
 		const newDirection = column === sortColumn && sortDirection === 'asc' ? 'desc' : 'asc';
 		sortData(column, newDirection);
+	}
+
+	function openJobLink(url) {
+		if (url) {
+			window.open(url, '_blank');
+		}
 	}
 </script>
 
@@ -160,6 +180,8 @@
 							<th on:click={() => handleSort('timestamp')}>
 								Timestamp {sortColumn === 'timestamp' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
 							</th>
+							<th>Link</th>
+							<th>Hide</th>
 						</tr>
 					</thead>
 					<tbody>
@@ -175,6 +197,12 @@
 								<td>{@html formatArray(job.areasOfFun)}</td>
 								<td>{@html formatArray(job.mandatorySkills)}</td>
 								<td>{formatDate(job.timestamp)}</td>
+								<td>
+									<button on:click={() => openJobLink(job.url)} class="link-button"> Link </button>
+								</td>
+								<td>
+									<button on:click={() => hideJob(job.id)} class="hide-button"> Hide </button>
+								</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -225,5 +253,26 @@
 	}
 	.error {
 		color: red;
+	}
+	.link-button,
+	.hide-button {
+		padding: 5px 10px;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: background-color 0.3s;
+	}
+	.link-button {
+		background-color: #4caf50;
+	}
+	.link-button:hover {
+		background-color: #45a049;
+	}
+	.hide-button {
+		background-color: #f44336;
+	}
+	.hide-button:hover {
+		background-color: #d32f2f;
 	}
 </style>
