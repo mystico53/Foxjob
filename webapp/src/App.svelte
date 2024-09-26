@@ -1,10 +1,14 @@
 <script>
 	import { onMount } from 'svelte';
 	import { auth } from '$lib/firebase';
-	import { user } from './stores/authStore'; // Assuming you've created this store
+	import { user } from './stores/authStore';
 	import { onAuthStateChanged } from 'firebase/auth';
 	import { goto } from '$app/navigation';
+	import { Router, Route } from 'svelte-routing';
 	import Login from './Login.svelte';
+	import Navbar from '$lib/Navbar.svelte';
+	import List from './routes/list/+page.svelte';
+	import Cards from './routes/Cards.svelte';
 
 	let isAuthenticated = false;
 
@@ -33,9 +37,13 @@
 	{#if !isAuthenticated}
 		<Login />
 	{:else}
-		<!-- Your authenticated app content here -->
-		<p>Welcome, you're logged in!</p>
-		<!-- You might want to add navigation or other components here -->
+		<Navbar />
+		<Router>
+			<div class="content">
+				<Route path="list" component={List} />
+				<Route path="cards" component={Cards} />
+			</div>
+		</Router>
 	{/if}
 </main>
 
@@ -43,5 +51,8 @@
 	main {
 		padding: 1em;
 		margin: 0 auto;
+	}
+	.content {
+		padding-top: 1em;
 	}
 </style>

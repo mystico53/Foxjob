@@ -1,9 +1,9 @@
-// src/routes/list/+layout.js
+// C:\coding\jobmatch-extension\webapp\src\routes\+layout.js
 import { browser } from '$app/environment';
 import { auth } from '$lib/firebase';
 import { redirect } from '@sveltejs/kit';
 
-export async function load() {
+export async function load({ url }) {
   if (!browser) {
     // We're on the server, return immediately
     return {};
@@ -12,9 +12,10 @@ export async function load() {
   return new Promise((resolve) => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       unsubscribe();
-      if (!user) {
+      if (!user && url.pathname !== '/') {
         throw redirect(302, '/');
       }
+      
       resolve({});
     });
 
