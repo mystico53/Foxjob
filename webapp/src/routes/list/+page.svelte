@@ -50,6 +50,18 @@
 			error = 'Failed to sign out. Please try again.';
 		}
 	}
+
+	function formatArray(arr) {
+		if (!arr) return 'N/A';
+		return `<ul>${arr.map((item) => `<li>${item}</li>`).join('')}</ul>`;
+	}
+
+	function formatDate(timestamp) {
+		if (timestamp && timestamp.toDate) {
+			return timestamp.toDate().toLocaleString();
+		}
+		return 'N/A';
+	}
 </script>
 
 <main>
@@ -63,26 +75,40 @@
 		<button on:click={handleLogout}>Log Out</button>
 
 		{#if jobData.length > 0}
-			<table>
-				<thead>
-					<tr>
-						<th>Company Name</th>
-						<th>Industry</th>
-						<th>Compensation</th>
-						<th>Job Summary</th>
-					</tr>
-				</thead>
-				<tbody>
-					{#each jobData as job}
+			<div class="table-container">
+				<table>
+					<thead>
 						<tr>
-							<td>{job.companyInfo?.name || 'N/A'}</td>
-							<td>{job.companyInfo?.industry || 'N/A'}</td>
-							<td>{job.companyInfo?.compensation || 'N/A'}</td>
-							<td>{job.jobInfo?.jobSummary || 'N/A'}</td>
+							<th>Company Name</th>
+							<th>Industry</th>
+							<th>Company Focus</th>
+							<th>Compensation</th>
+							<th>Job Title</th>
+							<th>Job Summary</th>
+							<th>Remote Type</th>
+							<th>Areas of Fun</th>
+							<th>Mandatory Skills</th>
+							<th>Timestamp</th>
 						</tr>
-					{/each}
-				</tbody>
-			</table>
+					</thead>
+					<tbody>
+						{#each jobData as job}
+							<tr>
+								<td>{job.companyInfo?.name || 'N/A'}</td>
+								<td>{job.companyInfo?.industry || 'N/A'}</td>
+								<td>{job.companyInfo?.companyFocus || 'N/A'}</td>
+								<td>{job.companyInfo?.compensation || 'N/A'}</td>
+								<td>{job.jobInfo?.jobTitle || 'N/A'}</td>
+								<td>{job.jobInfo?.jobSummary || 'N/A'}</td>
+								<td>{job.jobInfo?.remoteType || 'N/A'}</td>
+								<td>{@html formatArray(job.areasOfFun)}</td>
+								<td>{@html formatArray(job.mandatorySkills)}</td>
+								<td>{formatDate(job.timestamp)}</td>
+							</tr>
+						{/each}
+					</tbody>
+				</table>
+			</div>
 		{:else}
 			<p>No job data available.</p>
 		{/if}
@@ -92,20 +118,35 @@
 </main>
 
 <style>
+	.table-container {
+		overflow-x: auto;
+		max-width: 100%;
+	}
 	table {
-		border-collapse: collapse;
+		border-collapse: separate;
+		border-spacing: 0;
 		width: 100%;
 		margin-top: 20px;
 	}
 	th,
 	td {
 		border: 1px solid #ddd;
-		padding: 8px;
+		padding: 12px;
 		text-align: left;
+		vertical-align: top;
+		word-wrap: break-word;
+		max-width: 300px;
 	}
 	th {
 		background-color: #f2f2f2;
 		font-weight: bold;
+		position: sticky;
+		top: 0;
+		z-index: 10;
+	}
+	td ul {
+		margin: 0;
+		padding-left: 20px;
 	}
 	.error {
 		color: red;
