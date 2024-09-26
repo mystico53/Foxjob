@@ -20,7 +20,7 @@
       "suggested_key": {
         "default": "Alt+S"
       },
-      "description": "Toggle the main feature"
+      "description": "Trigger main extension action"
     }
   },
   "host_permissions": [
