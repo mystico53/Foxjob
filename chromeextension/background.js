@@ -94,4 +94,23 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
+chrome.commands.onCommand.addListener((command) => {
+  if (command === "toggle-feature") {
+    console.log("Keyboard shortcut Alt+S was pressed");
+    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+      if (tabs[0]) {
+        chrome.tabs.sendMessage(tabs[0].id, {action: "selectAllText"}, function(response) {
+          if (chrome.runtime.lastError) {
+            console.error("Error:", chrome.runtime.lastError);
+          } else if (response && response.success) {
+            console.log("Text processed successfully");
+          } else {
+            console.error("Failed to process text");
+          }
+        });
+      }
+    });
+  }
+});
+
 console.log('Background script setup complete');

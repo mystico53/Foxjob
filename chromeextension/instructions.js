@@ -82,9 +82,9 @@ Format your response as a JSON object with the following structure:
     "Fun 3"
   ],
   "mandatorySkills": (keep it short) [
-    "Skill 1",
-    "Skill 2",
-    "Skill 3"
+    "Skill 1" 12 years of XY,
+    "Skill 2", Preferred degree in X
+    "Skill 3" Proven Skills in Y
   ],
   "compensation": "Amount or 'Not mentioned, eg. 150,000 or 150k'"
 }
