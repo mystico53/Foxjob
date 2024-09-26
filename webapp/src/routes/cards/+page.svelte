@@ -68,14 +68,16 @@
 		}
 	}
 
-	function formatArray(arr) {
-		if (!arr) return 'N/A';
-		return arr.join(', ');
-	}
-
 	function formatDate(timestamp) {
 		if (timestamp && timestamp.toDate) {
-			return timestamp.toDate().toLocaleString();
+			const date = timestamp.toDate();
+			const day = String(date.getDate()).padStart(2, '0');
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const year = String(date.getFullYear()).slice(-2);
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			const seconds = String(date.getSeconds()).padStart(2, '0');
+			return `${day}.${month}.${year}, ${hours}:${minutes}:${seconds}`;
 		}
 		return 'N/A';
 	}
@@ -112,14 +114,15 @@
 </script>
 
 <main>
-	<h1>Job List</h1>
 	{#if loading}
 		<p>Loading...</p>
 	{:else if error}
 		<p class="error">{error}</p>
 	{:else if user}
-		<p>Welcome to your job list, {user.displayName}!</p>
-		<button on:click={handleLogout}>Log Out</button>
+		<div class="header">
+			<h1>Job List</h1>
+			<button on:click={handleLogout}>Log Out</button>
+		</div>
 
 		<div class="sort-controls">
 			<label for="sort-select">Sort by:</label>
@@ -138,19 +141,53 @@
 			<div class="card-container">
 				{#each jobData as job}
 					<div class="card">
-						<h2>{job.companyInfo?.name || 'N/A'}</h2>
-						<p><strong>Industry:</strong> {job.companyInfo?.industry || 'N/A'}</p>
-						<p><strong>Company Focus:</strong> {job.companyInfo?.companyFocus || 'N/A'}</p>
-						<p><strong>Job Title:</strong> {job.jobInfo?.jobTitle || 'N/A'}</p>
-						<p><strong>Compensation:</strong> {job.compensation || 'N/A'}</p>
-						<p><strong>Remote Type:</strong> {job.jobInfo?.remoteType || 'N/A'}</p>
-						<p><strong>Job Summary:</strong> {job.jobInfo?.jobSummary || 'N/A'}</p>
-						<p><strong>Areas of Fun:</strong> {formatArray(job.areasOfFun)}</p>
-						<p><strong>Mandatory Skills:</strong> {formatArray(job.mandatorySkills)}</p>
-						<p><strong>Date Added:</strong> {formatDate(job.timestamp)}</p>
-						<div class="button-container">
-							<button on:click={() => openJobLink(job.url)} class="link-button">View Job</button>
-							<button on:click={() => hideJob(job.id)} class="hide-button">Hide Job</button>
+						<div class="card-header">
+							<div class="header-top">
+								<h2>{job.companyInfo?.name || 'N/A'}</h2>
+								<span class="badge">{formatDate(job.timestamp)}</span>
+							</div>
+							<div class="header-details">
+								<span>({job.companyInfo?.industry || 'N/A'})</span>
+							</div>
+							<p class="company-focus">{job.companyInfo?.companyFocus || 'N/A'}</p>
+						</div>
+						<div class="card-content">
+							<div class="job-title">
+								<h3>{job.jobInfo?.jobTitle || 'N/A'}</h3>
+								<div class="job-meta">
+									<span class="icon-text">
+										
+										{job.compensation || 'N/A'}
+									</span>
+									<span class="icon-text">
+										
+										{job.jobInfo?.remoteType || 'N/A'}
+									</span>
+								</div>
+							</div>
+							<p class="job-summary">{job.jobInfo?.jobSummary || 'N/A'}</p>
+							<div class="skills-grid">
+								<div>
+									<h4>What you'll do</h4>
+									<ul>
+										{#each job.areasOfFun as area}
+											<li>{area}</li>
+										{/each}
+									</ul>
+								</div>
+								<div>
+									<h4>Mandatory Skills</h4>
+									<ul>
+										{#each job.mandatorySkills as skill}
+											<li>{skill}</li>
+										{/each}
+									</ul>
+								</div>
+							</div>
+						</div>
+						<div class="card-footer">
+							<button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
+							<button on:click={() => openJobLink(job.url)} class="view-button">View Job</button>
 						</div>
 					</div>
 				{/each}
@@ -165,80 +202,205 @@
 
 <style>
 	main {
-		max-width: 1200px;
+		max-width: 800px;
 		margin: 0 auto;
 		padding: 20px;
+		font-family: 'Helvetica Neue', Arial, sans-serif;
 	}
-	.card-container {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 20px;
-		padding: 20px 0;
-	}
-	.card {
-		width: 50%;
-		border: 1px solid #ddd;
-		border-radius: 8px;
-		padding: 20px;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-		background-color: #fff;
-		transition: box-shadow 0.3s ease;
-	}
-	.card:hover {
-		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-	}
-	.card h2 {
-		margin-top: 0;
-		color: #333;
-	}
-	.card p {
-		margin: 10px 0;
-	}
-	.button-container {
+
+	.header {
 		display: flex;
 		justify-content: space-between;
+		align-items: center;
+	}
+
+	h1 {
+		font-size: 2rem;
+		font-weight: 600;
+		color: #1a1a1a;
+	}
+
+	.card-container {
 		margin-top: 20px;
 	}
-	.link-button,
-	.hide-button {
-		padding: 10px 15px;
-		color: white;
+
+	.card {
+		background-color: #fff;
+		border-radius: 8px;
+		overflow: hidden;
+		margin-bottom: 20px;
+		box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+	}
+
+	.card-header {
+		background-color: #f0f0f0;
+		padding: 20px;
+		position: relative;
+	}
+
+	.header-top {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.card-header h2 {
+		margin: 0;
+		font-size: 1.75rem;
+		font-weight: 700;
+		color: #1a1a1a;
+	}
+
+	.badge {
+		background-color: #e2e8f0;
+		padding: 5px 10px;
+		border-radius: 15px;
+		font-size: 0.8rem;
+		color: #4a5568;
+	}
+
+	.header-details {
+		margin-top: 5px;
+	}
+
+	.header-details span {
+		font-size: 1rem;
+		color: #4a5568;
+	}
+
+	.company-focus {
+		margin-top: 10px;
+		font-size: 1rem;
+		color: #4a5568;
+	}
+
+	.card-content {
+		padding: 20px;
+	}
+
+	.job-title {
+		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+	.card-content h3 {
+		margin: 0;
+		font-size: 1.5rem;
+		font-weight: 700;
+		color: #1a1a1a;
+	}
+
+	.job-meta {
+		display: flex;
+		gap: 15px;
+	}
+
+	.icon-text {
+		display: flex;
+		align-items: center;
+		font-size: 1rem;
+		color: #4a5568;
+	}
+
+	.icon-text svg {
+		width: 16px;
+		height: 16px;
+		margin-right: 5px;
+	}
+
+	.job-summary {
+		font-style: italic;
+		margin: 15px 0;
+		color: #1a1a1a;
+		line-height: 1.6;
+	}
+
+	.skills-grid {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		gap: 20px;
+		margin-top: 20px;
+	}
+
+	.skills-grid h4 {
+		font-weight: 600;
+		margin-bottom: 10px;
+		color: #1a1a1a;
+	}
+
+	.skills-grid ul {
+		list-style-type: disc;
+		padding-left: 20px;
+		margin: 0;
+		color: #1a1a1a;
+		line-height: 1.6;
+	}
+
+	.card-footer {
+		display: flex;
+		justify-content: space-between;
+		padding: 15px;
+		border-top: 1px solid #e2e8f0;
+	}
+
+	.hide-button,
+	.view-button {
+		padding: 10px 20px;
 		border: none;
-		border-radius: 4px;
+		border-radius: 25px;
+		font-size: 1rem;
 		cursor: pointer;
-		transition: background-color 0.3s;
+		transition: background-color 0.3s ease, box-shadow 0.3s ease;
 	}
-	.link-button {
-		background-color: #4caf50;
-	}
-	.link-button:hover {
-		background-color: #45a049;
-	}
+
 	.hide-button {
-		background-color: #f44336;
+		background-color: #fff;
+		color: #2d3748;
+		border: 1px solid #cbd5e0;
 	}
+
 	.hide-button:hover {
-		background-color: #d32f2f;
+		background-color: #f7fafc;
+		box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 	}
+
+	.view-button {
+		background-color: #1a202c;
+		color: white;
+	}
+
+	.view-button:hover {
+		background-color: #2d3748;
+		box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+	}
+
 	.sort-controls {
 		margin: 20px 0;
 		display: flex;
 		align-items: center;
 		gap: 10px;
 	}
+
 	.sort-controls select,
 	.sort-controls button {
 		padding: 5px 10px;
 		border-radius: 4px;
 		border: 1px solid #ddd;
 	}
+
 	.error {
 		color: red;
 	}
+
 	@media (max-width: 768px) {
 		.card {
-			width: 100%;
+			margin-left: 10px;
+			margin-right: 10px;
+		}
+
+		.skills-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 </style>
