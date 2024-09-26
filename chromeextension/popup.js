@@ -32,6 +32,25 @@ function initializePopup() {
       updateStatus(request.message, request.isLoading);
     } else if (request.action === 'textCollected') {
       showCollectedStatus();
+    } else if (request.action === 'triggerMainAction') {
+      console.log("Triggering main action from keyboard shortcut");
+      if (firebase.auth().currentUser) {
+        injectContentScriptAndProcess();
+      } else {
+        updateStatus('Please sign in to process text');
+      }
+    }
+  });
+
+  // Listen for the keyboard command
+  chrome.commands.onCommand.addListener((command) => {
+    if (command === "toggle-feature") {
+      console.log("Keyboard shortcut Alt+S was pressed");
+      if (firebase.auth().currentUser) {
+        injectContentScriptAndProcess();
+      } else {
+        updateStatus('Please sign in to process text');
+      }
     }
   });
 
