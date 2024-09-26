@@ -9,7 +9,7 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-async function saveProcessedData(googleId, processedData) {
+async function saveProcessedData(googleId, processedData, url){
   try {
     const db = admin.firestore();
     
@@ -19,6 +19,7 @@ async function saveProcessedData(googleId, processedData) {
     // Add the processed data to the user's 'processed' subcollection
     const processedRef = await userRef.collection('processed').add({
       ...processedData,
+      url: url,
       timestamp: admin.firestore.FieldValue.serverTimestamp()
     });
 
@@ -112,11 +113,7 @@ exports.processText = onRequest(async (request, response) => {
         console.log('Successfully parsed JSON result');
 
         // Save the processed data to Firestore
-        const firestoreDocId = await saveProcessedData(googleId, {
-          ...parsedResult,
-          originalText: text,
-          url: url
-        });
+        const firestoreDocId = await saveProcessedData(googleId, parsedResult, url);
         console.log('Data saved to Firestore with ID:', firestoreDocId);
 
         response.json({ result: parsedResult, firestoreDocId });
