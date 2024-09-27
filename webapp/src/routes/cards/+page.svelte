@@ -157,8 +157,8 @@
                         </div>
         
                         <!-- Company Focus -->
-                        <p class="company-focus">{job.companyInfo?.companyFocus || 'N/A'}</p>
-                        <p class="company-focus">{job.jobInfo?.jobSummary || 'N/A'}</p>
+                        <p class="company-focus">About: {job.companyInfo?.companyFocus || 'N/A'}</p>
+                        <p class="company-focus">Job: {job.jobInfo?.jobSummary || 'N/A'}</p>
                     </div>
         
                     <!-- Job Info -->
@@ -274,24 +274,6 @@
 
 	.card-content {
 		padding: 20px;
-	}
-
-	.job-title {
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-	}
-
-	.card-content h3 {
-		margin: 0;
-		font-size: 1.5rem;
-		font-weight: 700;
-		color: #1a1a1a;
-	}
-
-	.job-meta {
-		display: flex;
-		gap: 15px;
 	}
 
 
