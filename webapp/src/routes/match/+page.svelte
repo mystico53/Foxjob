@@ -1,13 +1,16 @@
 <script>
     import { onMount } from 'svelte';
+    import { auth, db } from '$lib/firebase';
+    import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
   
     let dropZone;
     let fileInput;
     let extractedText = '';
     let pdfjsLib;
     let isLibraryLoaded = false;
+    let user = null;
   
-    onMount(async () => {
+    onMount(() => {
       const script = document.createElement('script');
       script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js';
       document.head.appendChild(script);
@@ -17,7 +20,17 @@
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
         isLibraryLoaded = true;
       };
+  
+      const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+        user = currentUser;
+      });
+  
+      return () => unsubscribe();
     });
+  
+    function handleDragOver(event) {
+      event.preventDefault();
+    }
   
     function handleDrop(event) {
       event.preventDefault();
@@ -25,10 +38,6 @@
       if (file && file.type === 'application/pdf') {
         processFile(file);
       }
-    }
-  
-    function handleDragOver(event) {
-      event.preventDefault();
     }
   
     function handleFileInput(event) {
@@ -41,6 +50,11 @@
     async function processFile(file) {
       if (!isLibraryLoaded) {
         console.error('PDF.js library not loaded yet. Please try again in a moment.');
+        return;
+      }
+  
+      if (!user) {
+        console.error('User not authenticated');
         return;
       }
   
@@ -78,9 +92,27 @@
   
         extractedText = fullText.trim();
         console.log(extractedText);
+  
+        // Store the extracted text in Firestore
+        await storeExtractedText(extractedText);
+  
       } catch (error) {
         console.error('Error processing PDF:', error);
         extractedText = 'Error processing PDF. Please try another file.';
+      }
+    }
+  
+    async function storeExtractedText(text) {
+      try {
+        const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
+        await addDoc(userCollectionsRef, {
+          type: 'Resume',
+          extractedText: text,
+          timestamp: serverTimestamp()
+        });
+        console.log('Extracted text stored successfully');
+      } catch (error) {
+        console.error('Error storing extracted text:', error);
       }
     }
   </script>
