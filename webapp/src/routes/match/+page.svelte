@@ -1,7 +1,7 @@
 <script>
     import { onMount } from 'svelte';
     import { auth, db } from '$lib/firebase';
-    import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+    import { collection, addDoc, serverTimestamp, query, where, getDocs, deleteDoc } from 'firebase/firestore';
   
     let dropZone;
     let fileInput;
@@ -48,73 +48,81 @@
     }
   
     async function processFile(file) {
-      if (!isLibraryLoaded) {
-        console.error('PDF.js library not loaded yet. Please try again in a moment.');
-        return;
-      }
-  
-      if (!user) {
-        console.error('User not authenticated');
-        return;
-      }
-  
-      try {
-        const arrayBuffer = await file.arrayBuffer();
-        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-        let fullText = '';
-  
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const textContent = await page.getTextContent();
-          const strings = textContent.items.map(item => item.str);
+    if (!isLibraryLoaded) {
+      console.error('PDF.js library not loaded yet. Please try again in a moment.');
+      return;
+    }
+
+    if (!user) {
+      console.error('User not authenticated');
+      return;
+    }
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      let fullText = '';
+
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const strings = textContent.items.map(item => item.str);
+        
+        // Group strings that are close together
+        const lines = [];
+        let currentLine = strings[0] || '';
+        
+        for (let j = 1; j < strings.length; j++) {
+          const prevItem = textContent.items[j - 1];
+          const currentItem = textContent.items[j];
           
-          // Group strings that are close together
-          const lines = [];
-          let currentLine = strings[0] || '';
-          
-          for (let j = 1; j < strings.length; j++) {
-            const prevItem = textContent.items[j - 1];
-            const currentItem = textContent.items[j];
-            
-            if (Math.abs(prevItem.transform[5] - currentItem.transform[5]) < 5) {
-              // Items are on the same line
-              currentLine += ' ' + strings[j];
-            } else {
-              // New line
-              lines.push(currentLine);
-              currentLine = strings[j];
-            }
+          if (Math.abs(prevItem.transform[5] - currentItem.transform[5]) < 5) {
+            // Items are on the same line
+            currentLine += ' ' + strings[j];
+          } else {
+            // New line
+            lines.push(currentLine);
+            currentLine = strings[j];
           }
-          lines.push(currentLine);
-          
-          fullText += lines.join('\n') + '\n\n';
         }
-  
-        extractedText = fullText.trim();
-        console.log(extractedText);
-  
-        // Store the extracted text in Firestore
-        await storeExtractedText(extractedText);
-  
-      } catch (error) {
-        console.error('Error processing PDF:', error);
-        extractedText = 'Error processing PDF. Please try another file.';
+        lines.push(currentLine);
+        
+        fullText += lines.join('\n') + '\n\n';
       }
+
+      extractedText = fullText.trim();
+      console.log(extractedText);
+
+      // Store the extracted text in Firestore
+      await storeExtractedText(extractedText);
+
+    } catch (error) {
+      console.error('Error processing PDF:', error);
+      extractedText = 'Error processing PDF. Please try another file.';
     }
-  
-    async function storeExtractedText(text) {
-      try {
-        const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
-        await addDoc(userCollectionsRef, {
-          type: 'Resume',
-          extractedText: text,
-          timestamp: serverTimestamp()
-        });
-        console.log('Extracted text stored successfully');
-      } catch (error) {
-        console.error('Error storing extracted text:', error);
-      }
+  }
+
+  async function storeExtractedText(text) {
+    try {
+      const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
+      
+      // Delete existing resume documents
+      const q = query(userCollectionsRef, where("type", "==", "Resume"));
+      const querySnapshot = await getDocs(q);
+      const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+      await Promise.all(deletePromises);
+
+      // Add new resume document
+      await addDoc(userCollectionsRef, {
+        type: 'Resume',
+        extractedText: text,
+        timestamp: serverTimestamp()
+      });
+      console.log('New resume stored successfully');
+    } catch (error) {
+      console.error('Error storing extracted text:', error);
     }
+  }
   </script>
   
   <div class="container">
