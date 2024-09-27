@@ -138,60 +138,59 @@
 		</div>
 
 		{#if jobData.length > 0}
-			<div class="card-container">
-				{#each jobData as job}
-					<div class="card">
-						<div class="card-header">
-							<div class="header-top">
-								<h2>{job.companyInfo?.name || 'N/A'}</h2>
-								<span class="badge">{formatDate(job.timestamp)}</span>
-							</div>
-							<div class="header-details">
-								<span>({job.companyInfo?.industry || 'N/A'})</span>
-							</div>
-							<p class="company-focus">{job.companyInfo?.companyFocus || 'N/A'}</p>
-						</div>
-						<div class="card-content">
-							<div class="job-title">
-								<h3>{job.jobInfo?.jobTitle || 'N/A'}</h3>
-								<div class="job-meta">
-									<span class="icon-text">
-										
-										{job.compensation || 'N/A'}
-									</span>
-									<span class="icon-text">
-										
-										{job.jobInfo?.remoteType || 'N/A'}
-									</span>
-								</div>
-							</div>
-							<p class="job-summary">{job.jobInfo?.jobSummary || 'N/A'}</p>
-							<div class="skills-grid">
-								<div>
-									<h4>What you'll do</h4>
-									<ul>
-										{#each job.areasOfFun as area}
-											<li>{area}</li>
-										{/each}
-									</ul>
-								</div>
-								<div>
-									<h4>Mandatory Skills</h4>
-									<ul>
-										{#each job.mandatorySkills as skill}
-											<li>{skill}</li>
-										{/each}
-									</ul>
-								</div>
-							</div>
-						</div>
-						<div class="card-footer">
-							<button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
-							<button on:click={() => openJobLink(job.url)} class="view-button">View Job</button>
-						</div>
-					</div>
-				{/each}
-			</div>
+        <div class="card-container">
+            {#each jobData as job}
+                <div class="card">
+                    <!-- Card Header -->
+                    <div class="card-header">
+                        <!-- Company Name and Timestamp -->
+                        <div class="header-top">
+                            <h2>{job.companyInfo?.name || 'N/A'} - {job.jobInfo?.jobTitle || 'N/A'}</h2>
+                            <span class="badge">{formatDate(job.timestamp)}</span>
+                        </div>
+        
+                        <!-- Industry, Remote Type, Compensation in one row -->
+                        <div class="header-meta">
+                            <span class="badge">🚀 {job.companyInfo?.industry || 'N/A'}</span>
+                            <span class="badge">📍 {job.jobInfo?.remoteType || 'N/A'}</span>
+                            <span class="badge">💰 {job.compensation || 'N/A'}</span>
+                        </div>
+        
+                        <!-- Company Focus -->
+                        <p class="company-focus">{job.companyInfo?.companyFocus || 'N/A'}</p>
+                        <p class="company-focus">{job.jobInfo?.jobSummary || 'N/A'}</p>
+                    </div>
+        
+                    <!-- Job Info -->
+                    <div class="card-content">
+                        <div class="skills-grid">
+                            <div>
+                                <h4>✅ What you'll do</h4>
+                                <ul>
+                                    {#each job.areasOfFun as area}
+                                        <li>{area}</li>
+                                    {/each}
+                                </ul>
+                            </div>
+                            <div>
+                                <h4>❓ Mandatory Skills</h4>
+                                <ul>
+                                    {#each job.mandatorySkills as skill}
+                                        <li>{skill}</li>
+                                    {/each}
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+        
+                    <!-- Card Footer -->
+                    <div class="card-footer">
+                        <button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
+                        <button on:click={() => openJobLink(job.url)} class="view-button">View Job</button>
+                    </div>
+                </div>
+            {/each}
+        </div>
 		{:else}
 			<p>No job data available.</p>
 		{/if}
@@ -210,6 +209,13 @@
 
 	.header {
 		display: flex;
+		justify-content: space-between;
+		align-items: center;
+	}
+
+    .header-meta {
+		padding: 10px;
+        display: flex;
 		justify-content: space-between;
 		align-items: center;
 	}
@@ -242,6 +248,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
+        padding: 10px;
 	}
 
 	.card-header h2 {
@@ -259,18 +266,9 @@
 		color: #4a5568;
 	}
 
-	.header-details {
-		margin-top: 5px;
-	}
-
-	.header-details span {
-		font-size: 1rem;
-		color: #4a5568;
-	}
-
 	.company-focus {
 		margin-top: 10px;
-		font-size: 1rem;
+		font-size: 1.1rem;
 		color: #4a5568;
 	}
 
@@ -296,31 +294,11 @@
 		gap: 15px;
 	}
 
-	.icon-text {
-		display: flex;
-		align-items: center;
-		font-size: 1rem;
-		color: #4a5568;
-	}
-
-	.icon-text svg {
-		width: 16px;
-		height: 16px;
-		margin-right: 5px;
-	}
-
-	.job-summary {
-		font-style: italic;
-		margin: 15px 0;
-		color: #1a1a1a;
-		line-height: 1.6;
-	}
 
 	.skills-grid {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
 		gap: 20px;
-		margin-top: 20px;
 	}
 
 	.skills-grid h4 {
