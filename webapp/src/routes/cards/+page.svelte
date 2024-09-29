@@ -58,6 +58,25 @@
 		}
 	}
 
+	async function matchJob(jobId) {
+    try {
+        const unprocessedRef = collection(db, 'users', user.uid, 'processed', jobId, 'unprocessed');
+        const unprocessedSnapshot = await getDocs(unprocessedRef);
+        
+        if (unprocessedSnapshot.empty) {
+            console.log(`No unprocessed text found for job ID: ${jobId}`);
+            return;
+        }
+        
+        // Assuming only one unprocessed document per job
+        const unprocessedDoc = unprocessedSnapshot.docs[0];
+        console.log(`Unprocessed text for job ID ${jobId}:`, unprocessedDoc.data().text);
+    } catch (error) {
+        console.error('Error fetching unprocessed text:', error);
+        alert('Failed to fetch unprocessed text. Please try again.');
+    }
+	}
+
 	async function handleLogout() {
 		try {
 			await signOut(auth);
@@ -186,6 +205,7 @@
                     <!-- Card Footer -->
                     <div class="card-footer">
                         <button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
+						<button on:click={() => matchJob(job.id)} class="match-button">Match</button>
                         <button on:click={() => openJobLink(job.url)} class="view-button">View Job</button>
                     </div>
                 </div>
@@ -303,6 +323,22 @@
 		padding: 15px;
 		border-top: 1px solid #e2e8f0;
 	}
+
+	.match-button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        background-color: #3182ce; /* Blue color */
+        color: white;
+        transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+	.match-button:hover {
+        background-color: #2b6cb0; /* Darker blue on hover */
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
 
 	.hide-button,
 	.view-button {
