@@ -31,23 +31,35 @@ async function saveProcessedData(googleId, processedData, url){
   }
 }
 
-async function saveUnprocessedText(googleId, text) {
+/**
+ * Saves the unprocessed text to Firestore under users/{googleId}/processed/{processedDocId}/unprocessed/
+ *
+ * @param {string} googleId - The Google ID of the user.
+ * @param {string} processedDocId - The Firestore document ID of the processed data.
+ * @param {string} text - The unprocessed text to be saved.
+ * @returns {Promise<string>} - The ID of the newly created unprocessed document.
+ */
+async function saveUnprocessedText(googleId, processedDocId, text) {
   try {
     const db = admin.firestore();
     
-    // Create a reference to the user's document
-    const userRef = db.collection('users').doc(googleId);
-
-    // Add the unprocessed text to the user's 'unprocessed' subcollection
-    const unprocessedRef = await userRef.collection('unprocessed').add({
+    // Reference to the specific processed document
+    const processedRef = db
+      .collection('users')
+      .doc(googleId)
+      .collection('processed')
+      .doc(processedDocId);
+    
+    // Add the unprocessed text to the 'unprocessed' subcollection
+    const unprocessedRef = await processedRef.collection('unprocessed').add({
       text: text,
       timestamp: admin.firestore.FieldValue.serverTimestamp()
     });
-
-    console.log('Unprocessed text saved with ID: ', unprocessedRef.id);
+    
+    console.log('Unprocessed text saved with ID:', unprocessedRef.id);
     return unprocessedRef.id;
   } catch (error) {
-    console.error("Error writing unprocessed text to Firestore: ", error);
+    console.error('Error writing unprocessed text to Firestore:', error);
     throw error;
   }
 }
@@ -66,7 +78,7 @@ exports.processText = onRequest(async (request, response) => {
     return;
   }
 
-  // Get the 'text', 'url', 'instructions', and 'googleId' from the request body
+  // Extract parameters from the request body
   const { text, url, instructions, googleId } = request.body;
 
   console.log('Received request with:', {
@@ -82,16 +94,6 @@ exports.processText = onRequest(async (request, response) => {
     return;
   }
 
-  // Save the unprocessed text
-  try {
-    const unprocessedDocId = await saveUnprocessedText(googleId, text);
-    console.log('Unprocessed text saved with ID:', unprocessedDocId);
-  } catch (error) {
-    console.error('Failed to save unprocessed text:', error);
-    // Depending on your requirements, you might choose to proceed or return an error
-    // Here, we'll proceed
-  }
-
   // Get the API key
   const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
 
@@ -102,7 +104,7 @@ exports.processText = onRequest(async (request, response) => {
   }
 
   try {
-    // Prepare the prompt
+    // Prepare the prompt for the Anthropic API
     const prompt = instructions.prompt.replace("{TEXT}", text + `\n\nURL: ${url}\nGoogle ID: ${googleId}`);
     console.log('Prepared prompt:', prompt);
 
@@ -134,7 +136,7 @@ exports.processText = onRequest(async (request, response) => {
 
     console.log('Received response from Anthropic API');
 
-    // Parse the JSON response
+    // Parse the JSON response from the Anthropic API
     if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
       const content = data.content[0].text.trim();
       console.log('Raw content from Anthropic:', content);
@@ -147,6 +149,17 @@ exports.processText = onRequest(async (request, response) => {
         const firestoreDocId = await saveProcessedData(googleId, parsedResult, url);
         console.log('Data saved to Firestore with ID:', firestoreDocId);
 
+        // **Save the unprocessed text to Firestore**
+        try {
+          const unprocessedDocId = await saveUnprocessedText(googleId, firestoreDocId, text);
+          console.log('Unprocessed text saved with ID:', unprocessedDocId);
+        } catch (error) {
+          console.error('Failed to save unprocessed text:', error);
+          // Depending on your requirements, you might choose to proceed or return an error
+          // Here, we'll proceed
+        }
+
+        // Respond with the processed result and Firestore document ID
         response.json({ result: parsedResult, firestoreDocId });
       } catch (error) {
         console.error('Error parsing JSON or saving to Firestore:', error);
