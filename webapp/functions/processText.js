@@ -31,6 +31,27 @@ async function saveProcessedData(googleId, processedData, url){
   }
 }
 
+async function saveUnprocessedText(googleId, text) {
+  try {
+    const db = admin.firestore();
+    
+    // Create a reference to the user's document
+    const userRef = db.collection('users').doc(googleId);
+
+    // Add the unprocessed text to the user's 'unprocessed' subcollection
+    const unprocessedRef = await userRef.collection('unprocessed').add({
+      text: text,
+      timestamp: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log('Unprocessed text saved with ID: ', unprocessedRef.id);
+    return unprocessedRef.id;
+  } catch (error) {
+    console.error("Error writing unprocessed text to Firestore: ", error);
+    throw error;
+  }
+}
+
 exports.processText = onRequest(async (request, response) => {
   console.log('processText function called');
 
@@ -59,6 +80,16 @@ exports.processText = onRequest(async (request, response) => {
     console.error('Missing required parameters');
     response.status(400).json({ error: 'Missing required parameters' });
     return;
+  }
+
+  // Save the unprocessed text
+  try {
+    const unprocessedDocId = await saveUnprocessedText(googleId, text);
+    console.log('Unprocessed text saved with ID:', unprocessedDocId);
+  } catch (error) {
+    console.error('Failed to save unprocessed text:', error);
+    // Depending on your requirements, you might choose to proceed or return an error
+    // Here, we'll proceed
   }
 
   // Get the API key
