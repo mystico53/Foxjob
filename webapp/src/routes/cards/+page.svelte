@@ -96,12 +96,14 @@
 			// Parse the JSON response
 			const responseData = await response.json();
 
-			// Destructure the response data
-			const { resumeText, jobDescription } = responseData;
+			// Log the entire response
+			console.log('Cloud Function Response:', responseData);
 
-			// Log the retrieved texts and match score to the console
-			console.log('Resume Text:', resumeText);
-			console.log('extractedJDText Text:', jobDescription);
+			// Destructure and log specific parts of the response
+			const { matchResult } = responseData;
+
+			// Log the match result
+			console.log('Match Result:', matchResult);
 
 			// Optional: If you need to handle the data further, do it here
 			// For example, display the match score in the UI or save it to Firestore
