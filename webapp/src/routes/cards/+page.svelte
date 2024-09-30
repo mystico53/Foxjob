@@ -2,12 +2,14 @@
 	import { onMount } from 'svelte';
 	import { auth, db } from '$lib/firebase';
 	import { signOut } from 'firebase/auth';
-	import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+	import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+
 	import { goto } from '$app/navigation';
 
 	let user = null;
 	let jobData = [];
 	let loading = true;
+	let deleting = false;
 	let error = null;
 	let sortColumn = 'timestamp';
 	let sortDirection = 'desc';
@@ -124,6 +126,62 @@
 		}
 	}
 
+	async function deleteAllJobs() {
+        if (!user) {
+            alert('You must be logged in to perform this action.');
+            return;
+        }
+
+        const confirmation = confirm('Are you sure you want to delete all your jobs? This action cannot be undone.');
+        if (!confirmation) return;
+
+        deleting = true;
+        error = null;
+
+        try {
+            const processedRef = collection(db, 'users', user.uid, 'processed');
+            const querySnapshot = await getDocs(processedRef);
+
+            if (querySnapshot.empty) {
+                alert('No jobs to delete.');
+                deleting = false; // Reset deleting state
+                return;
+            }
+
+            let batch = writeBatch(db); // Use 'let' to allow reassignment
+            let count = 0;
+            const promises = []; // To store commit promises
+
+            querySnapshot.forEach((docSnapshot) => {
+                batch.delete(docSnapshot.ref);
+                count++;
+
+                // If batch limit reached, commit and start a new batch
+                if (count === 500) {
+                    promises.push(batch.commit());
+                    batch = writeBatch(db); // Reassign 'batch' with 'let'
+                    count = 0;
+                }
+            });
+
+            // Commit any remaining operations
+            if (count > 0) {
+                promises.push(batch.commit());
+            }
+
+            // Await all commit promises
+            await Promise.all(promises);
+
+            // Refresh job data
+            await fetchJobData();
+        } catch (err) {
+            console.error('Error deleting all jobs:', err);
+            error = 'Failed to delete all jobs. Please try again.';
+        } finally {
+            deleting = false;
+        }
+    }
+
 	function formatDate(timestamp) {
 		if (timestamp && timestamp.toDate) {
 			const date = timestamp.toDate();
@@ -175,10 +233,15 @@
 	{:else if error}
 		<p class="error">{error}</p>
 	{:else if user}
-		<div class="header">
-			<h1>Job List</h1>
-			<button on:click={handleLogout}>Log Out</button>
+	<div class="header">
+		<h1>Job List</h1>
+		<div class="header-buttons">
+			<button on:click={deleteAllJobs} class="delete-button" disabled={deleting}>
+				{deleting ? 'Deleting...' : 'Delete All Jobs'}
+			</button>
+			<button on:click={handleLogout} class="logout-button">Log Out</button>
 		</div>
+	</div>
 
 		<div class="sort-controls">
 			<label for="sort-select">Sort by:</label>
@@ -425,6 +488,41 @@
 	.error {
 		color: red;
 	}
+
+	.delete-button,
+    .logout-button {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 25px;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: background-color 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .delete-button {
+        background-color: #e53e3e; /* Red color */
+        color: white;
+    }
+
+    .delete-button:hover {
+        background-color: #c53030; /* Darker red on hover */
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
+
+    .delete-button:disabled {
+        background-color: #feb2b2;
+        cursor: not-allowed;
+    }
+
+    .logout-button {
+        background-color: #a0aec0; /* Gray color */
+        color: white;
+    }
+
+    .logout-button:hover {
+        background-color: #718096; /* Darker gray on hover */
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+    }
 
 	@media (max-width: 768px) {
 		.card {
