@@ -66,55 +66,53 @@
 	 * @param {string} jobId - The ID of the job to match.
 	 */
 	 async function matchJob(jobId) {
-		// Ensure the user is authenticated
-		if (!user) {
-			console.error('No authenticated user found.');
-			alert('You must be logged in to perform this action.');
-			return;
-		}
+    if (!user) {
+        console.error('No authenticated user found.');
+        alert('You must be logged in to perform this action.');
+        return;
+    }
 
-		const googleId = user.uid; // Assuming googleId is the Firebase Auth UID
+    const googleId = user.uid;
 
-		try {
-			// Define the URL of your deployed Cloud Function
-			// Replace this URL with your actual Cloud Function endpoint
-			const matchFunctionUrl = 'https://match-kvshkfhmua-uc.a.run.app';
+    try {
+        const matchFunctionUrl = 'https://match-kvshkfhmua-uc.a.run.app';
 
-			// Make a POST request to the Cloud Function with the jobId and googleId
-			const response = await fetch(matchFunctionUrl, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({ jobId, googleId }),
-			});
+        const response = await fetch(matchFunctionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ jobId, googleId }),
+        });
 
-			// Check if the response is OK (status code 200-299)
-			if (!response.ok) {
-				const errorText = await response.text();
-				throw new Error(`Cloud Function Error: ${errorText}`);
-			}
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Cloud Function Error: ${errorText}`);
+        }
 
-			// Parse the JSON response
-			const responseData = await response.json();
+        const responseData = await response.json();
 
-			// Log the entire response
-			console.log('Cloud Function Response:', responseData);
+        // Log the entire response
+        console.log('Full Match Response:', responseData);
 
-			// Destructure and log specific parts of the response
-			const { matchResult } = responseData;
+        // Log each field of the matchResult separately
+        const { matchResult } = responseData;
+        console.log('Match Result Details:');
+        console.log('Key Skills:');
+        matchResult.keySkills.forEach((skill, index) => {
+            console.log(`  Skill ${index + 1}:`);
+            console.log(`    Name: ${skill.skill}`);
+            console.log(`    Score: ${skill.score}`);
+            console.log(`    Assessment: ${skill.assessment}`);
+        });
+        console.log('Total Score:', matchResult.totalScore);
+        console.log('Summary:', matchResult.summary);
 
-			// Log the match result
-			console.log('Match Result:', matchResult);
-
-			// Optional: If you need to handle the data further, do it here
-			// For example, display the match score in the UI or save it to Firestore
-
-		} catch (error) {
-			console.error('Error in matchJob:', error);
-			alert('Failed to get match score. Please try again.');
-		}
-	}
+    } catch (error) {
+        console.error('Error in matchJob:', error);
+        alert('Failed to get match score. Please try again.');
+    }
+}
 
 	async function handleLogout() {
 		try {

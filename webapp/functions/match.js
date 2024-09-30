@@ -98,7 +98,50 @@ async function matchResumeWithJob(resumeText, jobDescriptionText) {
         throw new Error('Anthropic API key not found');
     }
 
-    const instruction = "You are an AI assistant tasked with critically evaluating how well a resume matches a given job description. Create separate percentage scores for skills match, experience match, education match, and overall match. Be very critical in your assessment, setting a high bar for scoring to make it challenging to achieve high scores. Consider transferable skills and experiences that might not directly match but could be relevant, briefly mentioning these in your assessment. Focus on the content of both the job description and resume, not the writing style. For each score, provide a very brief explanation (2-3 words) of the key factors influencing that score. Present your assessment in a specific format that includes the percentage scores, brief explanations, key transferable skills, and any additional notes. Ensure your assessment is objective and critical, focusing on the match between the job requirements and the candidate's qualifications as presented in the resume, maintaining high standards for job-resume matching.";
+    const instruction = `You are an AI assistant tasked with critically evaluating how well a resume matches a given job description. Your task is to:
+
+1) Derive 5 key skills needed for the job based on the job description.
+2) Match these skills with the candidate's experience, being highly critical in your assessment.
+3) Score each skill match on a scale of 0-100, where 100 is a perfect match and 0 is no match at all.
+4) Calculate a total score based on the average of these 5 skill scores.
+5) Write a short summary (max 50 words) highlighting the biggest pro and the biggest con for why the candidate is or isn't a good fit. Use the format "Your experience in [area] is [assessment], but [area] is [assessment]."
+
+Format your response as a JSON object with the following structure:
+
+{
+  "keySkills": [
+    {
+      "skill": "Skill 1",
+      "score": 0,
+      "assessment": "Brief explanation of score"
+    },
+    {
+      "skill": "Skill 2",
+      "score": 0,
+      "assessment": "Brief explanation of score"
+    },
+    {
+      "skill": "Skill 3",
+      "score": 0,
+      "assessment": "Brief explanation of score"
+    },
+    {
+      "skill": "Skill 4",
+      "score": 0,
+      "assessment": "Brief explanation of score"
+    },
+    {
+      "skill": "Skill 5",
+      "score": 0,
+      "assessment": "Brief explanation of score"
+    }
+  ],
+  "totalScore": 0,
+  "summary": "Your experience in [area] is [assessment], but [area] is [assessment]."
+}
+
+Ensure all fields are present in the JSON, even if the score is 0. Be highly critical in your assessment, setting a high bar for scoring to make it challenging to achieve high scores.`;
+
     const prompt = `${instruction}\n\nResume:\n${resumeText}\n\nJob Description:\n${jobDescriptionText}`;
 
     try {
@@ -126,7 +169,14 @@ async function matchResumeWithJob(resumeText, jobDescriptionText) {
         }
 
         if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-            return data.content[0].text.trim();
+            const content = data.content[0].text.trim();
+            try {
+                const jsonContent = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+                return JSON.parse(jsonContent);
+            } catch (error) {
+                logger.error('Error parsing JSON from Anthropic response:', error);
+                throw new Error('Error parsing JSON from Anthropic response');
+            }
         } else {
             logger.error('Unexpected Anthropic API response structure:', data);
             throw new Error('Unexpected Anthropic API response structure');
