@@ -97,11 +97,11 @@
 			const responseData = await response.json();
 
 			// Destructure the response data
-			const { resumeText, unprocessedText, matchScore } = responseData;
+			const { resumeText, jobDescription } = responseData;
 
 			// Log the retrieved texts and match score to the console
 			console.log('Resume Text:', resumeText);
-			console.log('Unprocessed Text:', unprocessedText);
+			console.log('Unprocessed Text:', jobDescription);
 			console.log('Match Score:', matchScore);
 
 			// Optional: If you need to handle the data further, do it here
