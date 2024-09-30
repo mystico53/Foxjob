@@ -500,17 +500,17 @@
     }
 
     .delete-button {
-        background-color: #e53e3e; /* Red color */
+        background-color: #dfbcbc; /* Red color */
         color: white;
     }
 
     .delete-button:hover {
-        background-color: #c53030; /* Darker red on hover */
+        background-color: #dfbcbc; /* Darker red on hover */
         box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
     }
 
     .delete-button:disabled {
-        background-color: #feb2b2;
+        background-color: #795757;
         cursor: not-allowed;
     }
 
