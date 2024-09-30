@@ -17,7 +17,7 @@ const db = admin.firestore();
 
 /**
  * Cloud Function: match
- * Description: Receives a jobId and googleId, retrieves the user's resume and unprocessed text,
+ * Description: Receives a jobId and googleId, retrieves the user's resume and extractedJDText text,
  * extracts the job description using Anthropic API, appends "Resume match score" to the jobId, and returns the result.
  */
 
@@ -72,32 +72,32 @@ const match = onRequest(async (request, response) => {
 
             logger.info(`Resume retrieved for user ID ${googleId}:`, resumeText);
 
-            // Retrieve the unprocessed text associated with the jobId
-            const unprocessedRef = db
+            // Retrieve the extractedJDText text associated with the jobId
+            const extractedJDTextRef = db
                 .collection('users')
                 .doc(googleId)
                 .collection('processed')
                 .doc(jobId)
-                .collection('unprocessed');
+                .collection('extractedJDText');
 
-            const unprocessedSnapshot = await unprocessedRef.get();
+            const extractedJDTextSnapshot = await extractedJDTextRef.get();
 
-            if (unprocessedSnapshot.empty) {
-                logger.warn(`No unprocessed text found for job ID: ${jobId}`);
-                response.status(404).send('Unprocessed text not found.');
+            if (extractedJDTextSnapshot.empty) {
+                logger.warn(`No extractedJDText text found for job ID: ${jobId}`);
+                response.status(404).send('extractedJDText text not found.');
                 return;
             }
 
-            // Assuming only one unprocessed document per job
-            const unprocessedDoc = unprocessedSnapshot.docs[0];
-            const unprocessedText = unprocessedDoc.data().text;
+            // Assuming only one extractedJDText document per job
+            const extractedJDTextDoc = extractedJDTextSnapshot.docs[0];
+            const extractedJDTextText = extractedJDTextDoc.data().text;
 
-            logger.info(`Unprocessed text for job ID ${jobId}:`, unprocessedText);
+            logger.info(`extractedJDText text for job ID ${jobId}:`, extractedJDTextText);
 
             // Extract job description using Anthropic API
             let jobDescription;
             try {
-                jobDescription = await extractJobDescription(unprocessedText);
+                jobDescription = await extractJobDescription(extractedJDTextText);
                 logger.info(`Extracted Job Description for job ID ${jobId}:`, jobDescription);
             } catch (apiError) {
                 logger.error('Failed to extract job description:', apiError);
@@ -110,7 +110,7 @@ const match = onRequest(async (request, response) => {
                 jobId,
                 googleId,
                 resumeText,
-                unprocessedText,
+                extractedJDTextText,
                 jobDescription, // Include the extracted job description
             };
 
@@ -135,10 +135,10 @@ const match = onRequest(async (request, response) => {
 /**
  * Helper function to extract job description using Anthropic API
  *
- * @param {string} unprocessedText - The text from which to extract the job description.
+ * @param {string} extractedJDTextText - The text from which to extract the job description.
  * @returns {Promise<string>} - The extracted job description.
  */
-async function extractJobDescription(unprocessedText) {
+async function extractJobDescription(extractedJDTextText) {
     // Get the Anthropic API key from environment variables or Firebase Functions config
     const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
 
@@ -148,10 +148,10 @@ async function extractJobDescription(unprocessedText) {
     }
 
     // Define the instruction
-    const instruction = "Extract only the job and company description from the unprocessed text, be verbose, make sure to get the entire description text.";
+    const instruction = "Extract only the job and company description from the extractedJDText text, be verbose, make sure to get the entire description text.";
 
     // Prepare the prompt
-    const prompt = `${instruction}\n\n${unprocessedText}`;
+    const prompt = `${instruction}\n\n${extractedJDTextText}`;
 
     try {
         logger.info('Preparing to call Anthropic API with prompt:', prompt);
