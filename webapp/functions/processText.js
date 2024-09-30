@@ -4,7 +4,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const fetch = require('node-fetch'); // Remove if using Node.js v18+
 require('dotenv').config(); // For local development
 const admin = require('firebase-admin');
-const { saveUnprocessedText } = require('./helpers/saveUnprocessedText');
+const { saveExtractedJDText } = require('./helpers/saveExtractedJDText');
 const { logger } = require('firebase-functions');
 
 // Initialize Firebase Admin SDK if not already initialized
@@ -119,12 +119,12 @@ exports.processText = onRequest(async (request, response) => {
         const firestoreDocId = await saveProcessedData(googleId, parsedResult, url);
         console.log('Data saved to Firestore with ID:', firestoreDocId);
 
-        // **Save the unprocessed text to Firestore**
+        // **Save the extractedJDText text to Firestore**
         try {
-          const result = await saveUnprocessedText({ googleId, processedDocId: firestoreDocId, rawText: text });
-          logger.info('Unprocessed text saved with ID:', result.id);
+          const result = await saveExtractedJDText({ googleId, processedDocId: firestoreDocId, rawText: text });
+          logger.info('extractedJDText text saved with ID:', result.id);
         } catch (error) {
-          logger.error('Failed to save unprocessed text:', error);
+          logger.error('Failed to save extractedJDText text:', error);
           // Depending on your requirements, you might choose to proceed or return an error
           // Here, we'll proceed
         }

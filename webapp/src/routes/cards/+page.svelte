@@ -101,7 +101,7 @@
 
 			// Log the retrieved texts and match score to the console
 			console.log('Resume Text:', resumeText);
-			console.log('Unprocessed Text:', jobDescription);
+			console.log('extractedJDText Text:', jobDescription);
 
 			// Optional: If you need to handle the data further, do it here
 			// For example, display the match score in the UI or save it to Firestore

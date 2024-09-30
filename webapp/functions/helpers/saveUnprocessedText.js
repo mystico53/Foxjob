@@ -1,4 +1,4 @@
-// functions/helpers/saveUnprocessedText.js
+// functions/helpers/saveExtractedJDText.js
 
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
@@ -7,7 +7,7 @@ const { extractTextWithAnthropic } = require('./extractTextWithAnthropic');
 // Ensure Firebase Admin is initialized elsewhere to avoid multiple initializations
 // Do not call admin.initializeApp() here
 
-async function saveUnprocessedText({ googleId, processedDocId, rawText }) {
+async function saveExtractedJDText({ googleId, processedDocId, rawText }) {
     try {
       // Process the raw text using Anthropic API
       const extractedText = await extractTextWithAnthropic(rawText);
@@ -21,19 +21,19 @@ async function saveUnprocessedText({ googleId, processedDocId, rawText }) {
         .collection('processed')
         .doc(processedDocId);
       
-      // Add the extracted text as unprocessed text to the 'unprocessed' subcollection
-      const unprocessedRef = await processedRef.collection('unprocessed').add({
+      // Add the extracted text as extractedJDText text to the 'extractedJDText' subcollection
+      const extractedJDTextRef = await processedRef.collection('extractedJDText').add({
         text: extractedText,
         timestamp: admin.firestore.FieldValue.serverTimestamp()
       });
       
-      logger.info('Extracted text saved as unprocessed with ID:', unprocessedRef.id);
-      return { id: unprocessedRef.id };
+      logger.info('Extracted text saved as extractedJDText with ID:', extractedJDTextRef.id);
+      return { id: extractedJDTextRef.id };
     } catch (error) {
-      logger.error('Error in saveUnprocessedText:', error);
+      logger.error('Error in saveExtractedJDText:', error);
       throw error;
     }
   }
   
-  module.exports = { saveUnprocessedText };
+  module.exports = { saveExtractedJDText };
   
