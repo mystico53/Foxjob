@@ -92,21 +92,19 @@
 
         const responseData = await response.json();
 
-        // Log the entire response
-        console.log('Full Match Response:', responseData);
-
-        // Log each field of the matchResult separately
+        // Log the match result
         const { matchResult } = responseData;
-        console.log('Match Result Details:');
-        console.log('Key Skills:');
-        matchResult.keySkills.forEach((skill, index) => {
-            console.log(`  Skill ${index + 1}:`);
-            console.log(`    Name: ${skill.skill}`);
-            console.log(`    Score: ${skill.score}`);
-            console.log(`    Assessment: ${skill.assessment}`);
-        });
-        console.log('Total Score:', matchResult.totalScore);
-        console.log('Summary:', matchResult.summary);
+
+        // Find the job in jobData by jobId
+        const jobIndex = jobData.findIndex((job) => job.id === jobId);
+
+        if (jobIndex !== -1) {
+            // Update the job with the match result
+            jobData[jobIndex].matchResult = matchResult;
+
+            // Trigger reactivity by re-assigning the jobData array
+            jobData = [...jobData];
+        }
 
     } catch (error) {
         console.error('Error in matchJob:', error);
@@ -306,6 +304,36 @@
 						<button on:click={() => matchJob(job.id)} class="match-button">Match</button>
                         <button on:click={() => openJobLink(job.url)} class="view-button">View Job</button>
                     </div>
+
+					<!-- Match Results -->
+					{#if job.matchResult}
+						<div class="match-results">
+							<h3>Match Results</h3>
+							<table>
+								<thead>
+									<tr>
+										<th>Key Skill</th>
+										<th>Score</th>
+										<th>Assessment</th>
+									</tr>
+								</thead>
+								<tbody>
+									{#each job.matchResult.keySkills as skill}
+										<tr>
+											<td>{skill.skill}</td>
+											<td>{skill.score}</td>
+											<td>{skill.assessment}</td>
+										</tr>
+									{/each}
+									<tr>
+										<td><strong>Total Score</strong></td>
+										<td><strong>{job.matchResult.totalScore}</strong></td>
+										<td>{job.matchResult.summary}</td>
+									</tr>
+								</tbody>
+							</table>
+						</div>
+					{/if}
                 </div>
             {/each}
         </div>
@@ -531,5 +559,35 @@
 		.skills-grid {
 			grid-template-columns: 1fr;
 		}
+	}
+
+	.match-results {
+		margin-top: 20px;
+		padding: 15px;
+		background-color: #f8f9fa;
+		border-radius: 8px;
+	}
+
+	.match-results h3 {
+		margin-bottom: 10px;
+		font-size: 1.2rem;
+		color: #2d3748;
+	}
+
+	.match-results table {
+		width: 100%;
+		border-collapse: collapse;
+	}
+
+	.match-results th,
+	.match-results td {
+		padding: 8px;
+		border: 1px solid #e2e8f0;
+		text-align: left;
+	}
+
+	.match-results th {
+		background-color: #edf2f7;
+		font-weight: 600;
 	}
 </style>
