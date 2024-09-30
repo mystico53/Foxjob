@@ -1,30 +1,18 @@
-// match.js
-
 const { onRequest } = require("firebase-functions/v2/https");
-const functions = require('firebase-functions'); // Import functions to access config
+const functions = require('firebase-functions');
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const cors = require('cors')({ origin: true });
-const fetch = require('node-fetch'); // Ensure node-fetch is installed
-require('dotenv').config(); // For local development; remove if not needed
+const fetch = require('node-fetch');
+require('dotenv').config();
 
-// Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
     admin.initializeApp();
 }
 
 const db = admin.firestore();
 
-/**
- * Cloud Function: match
- * Description: Receives a jobId and googleId, retrieves the user's resume and extractedJDText text,
- * extracts the job description using Anthropic API, appends "Resume match score" to the jobId, and returns the result.
- */
-
-
-//exports.match = onRequest(async (request, response) => { better???
 const match = onRequest(async (request, response) => {
-    // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {
         response.set('Access-Control-Allow-Origin', '*');
         response.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -33,21 +21,17 @@ const match = onRequest(async (request, response) => {
         return;
     }
 
-    // Allow only POST requests
     if (request.method !== 'POST') {
         logger.warn(`Invalid request method: ${request.method}`);
         response.status(405).send('Method Not Allowed. Please use POST.');
         return;
     }
 
-    // Handle CORS and parse the request
     cors(request, response, async () => {
         try {
-            // Log request details for debugging
             logger.info('match function called');
             logger.info('Request Body:', JSON.stringify(request.body));
 
-            // Extract jobId and googleId from the request body
             const { jobId, googleId } = request.body;
 
             if (!jobId || !googleId) {
@@ -70,9 +54,7 @@ const match = onRequest(async (request, response) => {
             const resumeDoc = resumeSnapshot.docs[0];
             const resumeText = resumeDoc.data().extractedText;
 
-            logger.info(`Resume retrieved for user ID ${googleId}:`, resumeText);
-
-            // Retrieve the extractedJDText text associated with the jobId
+            // Retrieve the job description text
             const extractedJDTextRef = db
                 .collection('users')
                 .doc(googleId)
@@ -83,48 +65,24 @@ const match = onRequest(async (request, response) => {
             const extractedJDTextSnapshot = await extractedJDTextRef.get();
 
             if (extractedJDTextSnapshot.empty) {
-                logger.warn(`No extractedJDText text found for job ID: ${jobId}`);
-                response.status(404).send('extractedJDText text not found.');
+                logger.warn(`No job description found for job ID: ${jobId}`);
+                response.status(404).send('Job description not found.');
                 return;
             }
 
-            // Assuming only one extractedJDText document per job
             const extractedJDTextDoc = extractedJDTextSnapshot.docs[0];
-            const extractedJDTextText = extractedJDTextDoc.data().text;
+            const jobDescriptionText = extractedJDTextDoc.data().text;
 
-            logger.info(`extractedJDText text for job ID ${jobId}:`, extractedJDTextText);
+            // Call Anthropic API to match resume with job description
+            const matchResult = await matchResumeWithJob(resumeText, jobDescriptionText);
 
-            // Extract job description using Anthropic API
-            let jobDescription;
-            try {
-                jobDescription = await extractJobDescription(extractedJDTextText);
-                logger.info(`Extracted Job Description for job ID ${jobId}:`, jobDescription);
-            } catch (apiError) {
-                logger.error('Failed to extract job description:', apiError);
-                response.status(500).send('Failed to extract job description.');
-                return;
-            }
-
-            // Prepare the response object
-            const responseData = {
-                jobId,
-                googleId,
-                resumeText,
-                extractedJDTextText,
-                jobDescription, // Include the extracted job description
-            };
-
-            // Optionally, save the jobDescription to Firestore
-            // Uncomment the following lines if you wish to store the job description
-            /*
-            const processedRef = db.collection('users').doc(googleId).collection('processed').doc(jobId);
-            await processedRef.update({ jobDescription });
-            logger.info('Job description saved to Firestore.');
-            */
+            // Save the match result to Firestore
+            const matchesRef = db.collection('users').doc(googleId).collection('matches').doc(jobId);
+            await matchesRef.set({ matchResult });
 
             // Send the response to the client
-            response.set('Access-Control-Allow-Origin', '*'); // Adjust the origin as needed
-            response.status(200).json(responseData);
+            response.set('Access-Control-Allow-Origin', '*');
+            response.status(200).json({ matchResult });
         } catch (error) {
             logger.error('Error in match function:', error);
             response.status(500).send('Internal Server Error.');
@@ -132,14 +90,7 @@ const match = onRequest(async (request, response) => {
     });
 });
 
-/**
- * Helper function to extract job description using Anthropic API
- *
- * @param {string} extractedJDTextText - The text from which to extract the job description.
- * @returns {Promise<string>} - The extracted job description.
- */
-async function extractJobDescription(extractedJDTextText) {
-    // Get the Anthropic API key from environment variables or Firebase Functions config
+async function matchResumeWithJob(resumeText, jobDescriptionText) {
     const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
 
     if (!apiKey) {
@@ -147,17 +98,10 @@ async function extractJobDescription(extractedJDTextText) {
         throw new Error('Anthropic API key not found');
     }
 
-    // Define the instruction
-    const instruction = "Extract only the job and company description from the extractedJDText text, be verbose, make sure to get the entire description text.";
-
-    // Prepare the prompt
-    const prompt = `${instruction}\n\n${extractedJDTextText}`;
+    const instruction = "You are an AI assistant tasked with critically evaluating how well a resume matches a given job description. Create separate percentage scores for skills match, experience match, education match, and overall match. Be very critical in your assessment, setting a high bar for scoring to make it challenging to achieve high scores. Consider transferable skills and experiences that might not directly match but could be relevant, briefly mentioning these in your assessment. Focus on the content of both the job description and resume, not the writing style. For each score, provide a very brief explanation (2-3 words) of the key factors influencing that score. Present your assessment in a specific format that includes the percentage scores, brief explanations, key transferable skills, and any additional notes. Ensure your assessment is objective and critical, focusing on the match between the job requirements and the candidate's qualifications as presented in the resume, maintaining high standards for job-resume matching.";
+    const prompt = `${instruction}\n\nResume:\n${resumeText}\n\nJob Description:\n${jobDescriptionText}`;
 
     try {
-        logger.info('Preparing to call Anthropic API with prompt:', prompt);
-
-        // Call the Anthropic API
-        logger.info('Calling Anthropic API');
         const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -166,8 +110,8 @@ async function extractJobDescription(extractedJDTextText) {
                 'anthropic-version': '2023-06-01',
             },
             body: JSON.stringify({
-                model: 'claude-3-haiku-20240307', // always use this model: claude-3-haiku-20240307
-                max_tokens: 1024,
+                model: 'claude-3-haiku-20240307',
+                max_tokens: 2048,
                 messages: [
                     { role: 'user', content: prompt }
                 ],
@@ -181,13 +125,8 @@ async function extractJobDescription(extractedJDTextText) {
             throw new Error(`Anthropic API Error: ${JSON.stringify(data)}`);
         }
 
-        logger.info('Received response from Anthropic API');
-
-        // **Parse the response based on the processText method**
         if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-            const content = data.content[0].text.trim();
-            logger.info('Extracted Job Description:', content);
-            return content; // Return the extracted job description
+            return data.content[0].text.trim();
         } else {
             logger.error('Unexpected Anthropic API response structure:', data);
             throw new Error('Unexpected Anthropic API response structure');
@@ -198,5 +137,4 @@ async function extractJobDescription(extractedJDTextText) {
     }
 }
 
-// Export the function for deployment
 module.exports = { match };
