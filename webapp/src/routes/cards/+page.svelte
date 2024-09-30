@@ -58,24 +58,44 @@
 		}
 	}
 
-	async function matchJob(jobId) {
+/**
+ * Function: matchJob
+ * Description: Sends a jobId to the Cloud Function 'match' and logs the response.
+ * @param {string} jobId - The ID of the job to match.
+ */
+ async function matchJob(jobId) {
     try {
-        const unprocessedRef = collection(db, 'users', user.uid, 'processed', jobId, 'unprocessed');
-        const unprocessedSnapshot = await getDocs(unprocessedRef);
-        
-        if (unprocessedSnapshot.empty) {
-            console.log(`No unprocessed text found for job ID: ${jobId}`);
-            return;
+        // Define the URL of your deployed Cloud Function
+        const matchFunctionUrl = 'https://match-kvshkfhmua-uc.a.run.app';
+
+        // Make a POST request to the Cloud Function with the jobId
+        const response = await fetch(matchFunctionUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ jobId }),
+        });
+
+        // Check if the response is OK (status code 200-299)
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Cloud Function Error: ${errorText}`);
         }
-        
-        // Assuming only one unprocessed document per job
-        const unprocessedDoc = unprocessedSnapshot.docs[0];
-        console.log(`Unprocessed text for job ID ${jobId}:`, unprocessedDoc.data().text);
+
+        // Parse the response text
+        const matchScore = await response.text();
+
+        // Log the match score to the console
+        console.log('Match Score:', matchScore);
+
+        // Optional: If you need to handle the match score further, do it here
+
     } catch (error) {
-        console.error('Error fetching unprocessed text:', error);
-        alert('Failed to fetch unprocessed text. Please try again.');
+        console.error('Error in matchJob:', error);
+        alert('Failed to get match score. Please try again.');
     }
-	}
+}
 
 	async function handleLogout() {
 		try {
