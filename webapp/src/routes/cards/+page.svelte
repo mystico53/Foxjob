@@ -59,43 +59,59 @@
 	}
 
 /**
- * Function: matchJob
- * Description: Sends a jobId to the Cloud Function 'match' and logs the response.
- * @param {string} jobId - The ID of the job to match.
- */
- async function matchJob(jobId) {
-    try {
-        // Define the URL of your deployed Cloud Function
-        const matchFunctionUrl = 'https://match-kvshkfhmua-uc.a.run.app';
+	 * Function: matchJob
+	 * Description: Sends a jobId and googleId to the Cloud Function 'match' and logs the response.
+	 * @param {string} jobId - The ID of the job to match.
+	 */
+	 async function matchJob(jobId) {
+		// Ensure the user is authenticated
+		if (!user) {
+			console.error('No authenticated user found.');
+			alert('You must be logged in to perform this action.');
+			return;
+		}
 
-        // Make a POST request to the Cloud Function with the jobId
-        const response = await fetch(matchFunctionUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ jobId }),
-        });
+		const googleId = user.uid; // Assuming googleId is the Firebase Auth UID
 
-        // Check if the response is OK (status code 200-299)
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Cloud Function Error: ${errorText}`);
-        }
+		try {
+			// Define the URL of your deployed Cloud Function
+			// Replace this URL with your actual Cloud Function endpoint
+			const matchFunctionUrl = 'https://match-kvshkfhmua-uc.a.run.app';
 
-        // Parse the response text
-        const matchScore = await response.text();
+			// Make a POST request to the Cloud Function with the jobId and googleId
+			const response = await fetch(matchFunctionUrl, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({ jobId, googleId }),
+			});
 
-        // Log the match score to the console
-        console.log('Match Score:', matchScore);
+			// Check if the response is OK (status code 200-299)
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(`Cloud Function Error: ${errorText}`);
+			}
 
-        // Optional: If you need to handle the match score further, do it here
+			// Parse the JSON response
+			const responseData = await response.json();
 
-    } catch (error) {
-        console.error('Error in matchJob:', error);
-        alert('Failed to get match score. Please try again.');
-    }
-}
+			// Destructure the response data
+			const { resumeText, unprocessedText, matchScore } = responseData;
+
+			// Log the retrieved texts and match score to the console
+			console.log('Resume Text:', resumeText);
+			console.log('Unprocessed Text:', unprocessedText);
+			console.log('Match Score:', matchScore);
+
+			// Optional: If you need to handle the data further, do it here
+			// For example, display the match score in the UI or save it to Firestore
+
+		} catch (error) {
+			console.error('Error in matchJob:', error);
+			alert('Failed to get match score. Please try again.');
+		}
+	}
 
 	async function handleLogout() {
 		try {
