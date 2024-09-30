@@ -20,6 +20,9 @@ const db = admin.firestore();
  * Description: Receives a jobId and googleId, retrieves the user's resume and unprocessed text,
  * extracts the job description using Anthropic API, appends "Resume match score" to the jobId, and returns the result.
  */
+
+
+//exports.match = onRequest(async (request, response) => { better???
 const match = onRequest(async (request, response) => {
     // Handle CORS preflight requests
     if (request.method === 'OPTIONS') {

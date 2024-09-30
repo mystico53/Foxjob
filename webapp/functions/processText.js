@@ -1,15 +1,18 @@
-const functions = require('firebase-functions');
+// functions/processText.js
+
 const { onRequest } = require('firebase-functions/v2/https');
 const fetch = require('node-fetch'); // Remove if using Node.js v18+
 require('dotenv').config(); // For local development
 const admin = require('firebase-admin');
+const { saveUnprocessedText } = require('./helpers/saveUnprocessedText');
+const { logger } = require('firebase-functions');
 
 // Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-async function saveProcessedData(googleId, processedData, url){
+async function saveProcessedData(googleId, processedData, url) {
   try {
     const db = admin.firestore();
     
@@ -27,101 +30,6 @@ async function saveProcessedData(googleId, processedData, url){
     return processedRef.id;
   } catch (error) {
     console.error("Error writing to Firestore: ", error);
-    throw error;
-  }
-}
-
-/**
- * Extracts relevant text using Anthropic API, then saves it as unprocessed text to Firestore
- *
- * @param {string} googleId - The Google ID of the user.
- * @param {string} processedDocId - The Firestore document ID of the processed data.
- * @param {string} rawText - The raw text to be processed and saved.
- * @returns {Promise<string>} - The ID of the newly created unprocessed document.
- */
-async function saveUnprocessedText(googleId, processedDocId, rawText) {
-  const logger = functions.logger;
-  
-  try {
-    // First, process the raw text using Anthropic API
-    const extractedText = await extractTextWithAnthropic(rawText, logger);
-
-    const db = admin.firestore();
-    
-    // Reference to the specific processed document
-    const processedRef = db
-      .collection('users')
-      .doc(googleId)
-      .collection('processed')
-      .doc(processedDocId);
-    
-    // Add the extracted text as unprocessed text to the 'unprocessed' subcollection
-    const unprocessedRef = await processedRef.collection('unprocessed').add({
-      text: extractedText,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
-    });
-    
-    logger.info('Extracted text saved as unprocessed with ID:', unprocessedRef.id);
-    return unprocessedRef.id;
-  } catch (error) {
-    logger.error('Error in saveUnprocessedText:', error);
-    throw error;
-  }
-}
-
-async function extractTextWithAnthropic(rawText, logger) {
-  const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
-
-  if (!apiKey) {
-    logger.error('Anthropic API key not found');
-    throw new Error('Anthropic API key not found');
-  }
-
-  // Define the instruction
-  const instruction = "Extract and reproduce the complete job description and company information from the given text, maintaining its original level of detail and verbosity. Include all information provided, such as job title and type, salary range, company name and background, detailed job responsibilities, required and preferred qualifications, company culture and work environment, benefits and perks, and application instructions or calls to action. Do not summarize, condense, or omit any parts of the description. Preserve all specific phrases, requirements, unique selling points, and creative language used to describe the position and company. Include any questions, exclamations, or engaging language used in the original text. The goal is to produce an output that captures all the content and nuances of the original job posting, ensuring no details are lost in the extraction process.";
-
-  // Prepare the prompt
-  const prompt = `${instruction}\n\n${rawText}`;
-
-  try {
-    logger.info('Preparing to call Anthropic API');
-
-    // Call the Anthropic API
-    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 1024,
-        messages: [
-          { role: 'user', content: prompt }
-        ],
-      }),
-    });
-
-    const data = await anthropicResponse.json();
-
-    if (!anthropicResponse.ok) {
-      logger.error('Anthropic API error response:', data);
-      throw new Error(`Anthropic API Error: ${JSON.stringify(data)}`);
-    }
-
-    logger.info('Received response from Anthropic API');
-
-    if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-      const content = data.content[0].text.trim();
-      logger.info('Extracted Job Description:', content);
-      return content;
-    } else {
-      logger.error('Unexpected Anthropic API response structure:', data);
-      throw new Error('Unexpected Anthropic API response structure');
-    }
-  } catch (error) {
-    logger.error('Error calling Anthropic API:', error);
     throw error;
   }
 }
@@ -213,10 +121,10 @@ exports.processText = onRequest(async (request, response) => {
 
         // **Save the unprocessed text to Firestore**
         try {
-          const unprocessedDocId = await saveUnprocessedText(googleId, firestoreDocId, text);
-          console.log('Unprocessed text saved with ID:', unprocessedDocId);
+          const result = await saveUnprocessedText({ googleId, processedDocId: firestoreDocId, rawText: text });
+          logger.info('Unprocessed text saved with ID:', result.id);
         } catch (error) {
-          console.error('Failed to save unprocessed text:', error);
+          logger.error('Failed to save unprocessed text:', error);
           // Depending on your requirements, you might choose to proceed or return an error
           // Here, we'll proceed
         }

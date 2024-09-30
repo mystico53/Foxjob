@@ -4,6 +4,7 @@ const logger = require("firebase-functions/logger");
 const { processText } = require('./processText');
 const { match } = require('./match');
 
+// Export all Cloud Functions
 exports.processText = processText;
 exports.match = match;
 
