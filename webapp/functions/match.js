@@ -101,10 +101,10 @@ async function matchResumeWithJob(resumeText, jobDescriptionText) {
     const instruction = `You are an AI assistant tasked with critically evaluating how well a resume matches a given job description. Your task is to:
 
 1) Derive 5 key skills needed for the job based on the job description.
-2) Match these skills with the candidate's experience, being highly critical in your assessment.
+2) Match these skills with the candidate's experience, being very overly critical in your assessment (one short sentence).
 3) Score each skill match on a scale of 0-100, where 100 is a perfect match and 0 is no match at all.
 4) Calculate a total score based on the average of these 5 skill scores.
-5) Write a short summary (max 50 words) highlighting the biggest pro and the biggest con for why the candidate is or isn't a good fit. Use the format "Your experience in [area] is [assessment], but [area] is [assessment]."
+5) Write a short summary (max 30 words) highlighting the biggest pro and the biggest con for why the candidate is or isn't a good fit. Use the format "Your experience in [area] is [assessment], but [area] is [assessment]."
 
 Format your response as a JSON object with the following structure:
 
@@ -113,34 +113,32 @@ Format your response as a JSON object with the following structure:
     {
       "skill": "Skill 1",
       "score": 0,
-      "assessment": "Brief explanation of score"
+      "assessment": "Brief one short sentence explanation of score"
     },
     {
       "skill": "Skill 2",
       "score": 0,
-      "assessment": "Brief explanation of score"
+      "assessment": "Brief one short sentence explanation of score"
     },
     {
       "skill": "Skill 3",
       "score": 0,
-      "assessment": "Brief explanation of score"
+      "assessment": "Brief one short sentence explanation of score"
     },
     {
       "skill": "Skill 4",
       "score": 0,
-      "assessment": "Brief explanation of score"
+      "assessment": "Brief one short sentence explanation of score"
     },
     {
       "skill": "Skill 5",
       "score": 0,
-      "assessment": "Brief explanation of score"
+      "assessment": "Brief one short sentence explanation of score"
     }
   ],
   "totalScore": 0,
-  "summary": "Your experience in [area] is [assessment], but [area] is [assessment]."
-}
-
-Ensure all fields are present in the JSON, even if the score is 0. Be highly critical in your assessment, setting a high bar for scoring to make it challenging to achieve high scores.`;
+  "summary": "Brief one short sentence explanation of score, Your experience in [area] is [assessment], but [area] is [assessment]."
+}`;
 
     const prompt = `${instruction}\n\nResume:\n${resumeText}\n\nJob Description:\n${jobDescriptionText}`;
 
