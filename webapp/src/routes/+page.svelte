@@ -6,14 +6,16 @@
 	let user = null;
 
 	onMount(() => {
-		const unsubscribe = auth.onAuthStateChanged((currentUser) => {
-			user = currentUser;
-			if (user) {
-				goto('/list');
-			}
-		});
+	const unsubscribe = auth.onAuthStateChanged((currentUser) => {
+		console.log("Auth state changed, user:", currentUser);
+		user = currentUser;
+		if (user) {
+		console.log("User authenticated, redirecting to /list");
+		goto('/list');
+		}
+	});
 
-		return () => unsubscribe();
+	return () => unsubscribe();
 	});
 
 	async function handleSignIn() {

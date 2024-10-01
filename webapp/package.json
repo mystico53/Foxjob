@@ -15,6 +15,7 @@
 	"devDependencies": {
 		"@playwright/test": "^1.28.1",
 		"@sveltejs/adapter-auto": "^3.2.5",
+		"@sveltejs/adapter-static": "^3.0.5",
 		"@sveltejs/kit": "^2.5.28",
 		"@sveltejs/vite-plugin-svelte": "^3.0.0",
 		"prettier": "^3.1.1",
@@ -26,7 +27,9 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"dotenv": "^16.4.5",
 		"firebase": "^10.13.2",
-		"firebase-functions": "^6.0.1"
+		"firebase-functions": "^6.0.1",
+		"marked": "^14.1.2"
 	}
 }
