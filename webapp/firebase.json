@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "public": "build",
+    "public": "dist",
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -9,14 +9,23 @@
     "rewrites": [
       {
         "source": "**",
-        "function": "app" 
+        "destination": "/index.html"
       }
     ]
   },
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs18" 
-  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ]
+    }
+  ],
   "emulators": {
     "auth": {
       "port": 9099
@@ -39,4 +48,5 @@
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
   }
+  
 }

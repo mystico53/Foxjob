@@ -1,31 +1,12 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 
-
-
 const { processText } = require('./processText');
 const { match } = require('./match');
 
 // Export all Cloud Functions
 exports.processText = processText;
 exports.match = match;
-
-let handler;
-
-exports.app = onRequest(async (request, response) => {
-  try {
-    // Dynamically import the handler
-    if (!handler) {
-      const module = await import('../build/handler.js');
-      handler = module.handler;
-    }
-    // Use the handler
-    handler(request, response);
-  } catch (error) {
-    logger.error('Error importing handler:', error);
-    response.status(500).send('Server error');
-  }
-});
 
 exports.helloWorld = onRequest((request, response) => {
   // Set CORS headers
