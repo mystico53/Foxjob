@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Selected Text to AI",
+  "name": "JobHunter",
   "version": "1.0",
-  "description": "Sends selected text to OpenAI or Anthropic API and modifies it",
+  "description": "JobHunter fasst Stellenbeschreibungen zusammen und stimmt sie mit deinen Fähigkeiten ab, um dir bei der Jobsuche zu helfen.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -20,19 +20,23 @@
       "suggested_key": {
         "default": "Alt+S"
       },
-      "description": "Trigger main extension action"
+      "description": "Hauptfunktion der Erweiterung auslösen"
     }
   },
   "host_permissions": [
-    "https://api.openai.com/",
-    "https://*.googleapis.com/",
-    "https://api.anthropic.com/",
-    "http://127.0.0.1:5001/*",
-    "<all_urls>"
+    "https://api.openai.com/*",
+    "https://*.googleapis.com/*",
+    "https://api.anthropic.com/*",
+    "http://127.0.0.1:5001/*"
   ],
   "web_accessible_resources": [{
     "resources": ["instructions.js"],
-    "matches": ["<all_urls>"]
+    "matches": [
+      "https://api.openai.com/*",
+      "https://*.googleapis.com/*",
+      "https://api.anthropic.com/*",
+      "http://127.0.0.1:5001/*"
+    ]
   }],
   "content_scripts": [
     {
@@ -42,7 +46,7 @@
     }
   ],
   "content_security_policy": {
-  "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://processtext-kvshkfhmua-uc.a.run.app http://127.0.0.1:5001"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://processtext-kvshkfhmua-uc.a.run.app http://127.0.0.1:5001"
   },
   "oauth2": {
     "client_id": "656035288386-gjoffu1hq1gc981jp96ip77jko1v9rje.apps.googleusercontent.com",
@@ -51,5 +55,6 @@
       "https://www.googleapis.com/auth/userinfo.profile"
     ]
   },
+  "homepage_url": "https://jobille-45494.web.app/privacy",
   "key": "BgIAAACkAABSU0ExAAgAAAEAAQCdY65GnLce5q4xHTnyKatwJIk8+gbPc5bGnbOpFfI1Z9bnZ3ZPEP8arVY4Agodkh0/VgIWDUqbRNaegQweqwnry4I5QcZh5o+9MGyqDAl1cZw92q1SVAn7eyem0YtZkZ0284bQS2KIfO5BNJw6Qap+wSRJ5dMBeCviPDyIlgGUWxNuGFdeFqE2M5yPyv3Prkt22fvmuv7gL+NFDMARo9VTlEwAoEDPdBpq1DUtn2pgTyesY5Rpq/D/n3FWoh3x+RLK0pONTKtWtF/Tc/s0ccPs7LA8SwDeE4y2q71q33sgW2zcx3sR55OO2k5BeEiXFpTDcLHezkieJI5NUzosGu+u"
 }

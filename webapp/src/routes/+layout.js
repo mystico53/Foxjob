@@ -1,4 +1,3 @@
-// C:\coding\jobmatch-extension\webapp\src\routes\+layout.js
 import { browser } from '$app/environment';
 import { auth } from '$lib/firebase';
 import { redirect } from '@sveltejs/kit';
@@ -9,19 +8,25 @@ export async function load({ url }) {
     return {};
   }
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
       unsubscribe();
+
       if (!user && url.pathname !== '/') {
-        throw redirect(302, '/');
+        console.log('No user detected, redirecting to root.');
+        // Redirect the user to root if they are not authenticated
+        reject(redirect(302, '/'));
+      } else {
+        // Resolve without redirect if authenticated
+        console.log('User detected, allowing access.');
+        resolve({});
       }
-      
-      resolve({});
     });
 
-    // Set a timeout to avoid hanging indefinitely
+    // Timeout fallback to ensure the promise resolves
     setTimeout(() => {
       unsubscribe();
+      console.log('Firebase auth timeout, resolving.');
       resolve({});
     }, 5000); // 5 second timeout
   });

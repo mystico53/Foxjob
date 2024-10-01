@@ -22,6 +22,14 @@
 
 <slot />
 
+<footer class="mt-8 py-4 bg-gray-100">
+    <div class="container mx-auto px-4">
+      <a href="/privacy" class="text-blue-600 hover:underline" data-sveltekit-preload-data="off">
+        Privacy Policy
+      </a>
+    </div>
+</footer>
+
 <style>
     :global(body) {
         margin: 0;
