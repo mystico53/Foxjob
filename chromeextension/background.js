@@ -1,35 +1,34 @@
 // background.js
 
-// Import the instructions and config scripts
+// Import the instructions and config scripts if still needed
 importScripts('instructions.js');
 importScripts('config.js');
 
 console.log('Background script loaded');
 
-// Modified sendTextToFirebase function to include googleId and url
-async function sendTextToFirebase(text, url, googleId) {
-  console.log('sendTextToFirebase called with:', { textLength: text.length, url, googleId });
+// Function to send data to Pub/Sub
+async function sendToPubSub(text, url, googleId) {
+  console.log('sendToPubSub called with:', { textLength: text.length, url, googleId });
 
-  // Check if emulator is running and update config
-  FIREBASE_CONFIG.useEmulator = await isEmulatorRunning();
-  const targetUrl = FIREBASE_CONFIG.useEmulator ? FIREBASE_CONFIG.emulatorUrl : FIREBASE_CONFIG.productionUrl;
+  // Remove the emulator check
+  // FIREBASE_CONFIG.useEmulator = await isEmulatorRunning();
+  const targetUrl = getTargetUrl();
   
   console.log(`Using ${FIREBASE_CONFIG.useEmulator ? 'emulator' : 'production'} endpoint:`, targetUrl);
 
-  const apiBody = {
-    text: text,
-    url: url,
-    googleId: googleId,
-    instructions: anthropicInstructions
+   const apiBody = {
+    message: {
+      text: text,
+      url: url,
+      googleId: googleId,
+      instructions: anthropicInstructions
+    }
   };
 
-  console.log('Prepared API body:', { textLength: apiBody.text.length, url: apiBody.url, googleId: apiBody.googleId });
-
-  chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing text...', isLoading: true });
-  chrome.runtime.sendMessage({ action: 'textCollected' });
+  console.log('Prepared API body:', { textLength: apiBody.message.text.length, url: apiBody.message.url, googleId: apiBody.message.googleId });
 
   try {
-    console.log('Sending request to Firebase function');
+    console.log('Sending request to Pub/Sub function');
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
@@ -38,26 +37,22 @@ async function sendTextToFirebase(text, url, googleId) {
       body: JSON.stringify(apiBody)
     });
     
-    console.log('Received response from Firebase function');
-    
+    console.log('Received response from Pub/Sub function');
+
+    const responseData = await response.json();
+    console.log('Pub/Sub Function Response:', responseData);
+
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Server responded with status ${response.status}: ${errorText}`);
+      throw new Error(`Server responded with status ${response.status}: ${responseData.error || responseData.message}`);
     }
 
-    const data = await response.json();
+    // Send a simple status update to the popup
+    chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
 
-    console.log('Firebase Function Response:', data);
-
-    if (data.error) {
-      // Handle error returned from Firebase function
-      return { success: false, error: data.error };
-    }
-
-    // Assuming the successful response contains a 'result' object
-    return { success: true, result: data.result };
+    return { success: true };
   } catch (error) {
-    console.error('Error calling Firebase function:', error);
+    console.error('Error calling Pub/Sub function:', error);
+    chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false });
     return { success: false, error: error.message };
   }
 }
@@ -84,9 +79,9 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background script received message:', request);
 
   switch (request.action) {
-    case "sendTextToFirebase":
-      console.log('Handling sendTextToFirebase action');
-      chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Sending text to Firebase...', isLoading: true  });
+    case "publishText":
+      console.log('Handling publishText action');
+      chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Sending text to Pub/Sub...', isLoading: true });
 
       chrome.storage.local.get(['userId'], function(result) {
         const googleId = result.userId || 'anonymous';
@@ -97,30 +92,30 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
           return;
         }
 
-        // Send text to Firebase with Google ID and URL
-        sendTextToFirebase(request.text, request.url, googleId)
+        // Send text to Pub/Sub with Google ID and URL
+        sendToPubSub(request.text, request.url, googleId)
           .then(data => {
             if (data.success) {
-              console.log('Successfully sent to Firebase, sending response');
-              chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
-              sendResponse({ success: true, result: data.result });
+              console.log('Successfully sent to Pub/Sub, sending status update');
+              // No need to send a detailed response
+              sendResponse({ success: true });
             } else {
-              console.error('Firebase function returned an error:', data.error);
+              console.error('Pub/Sub function returned an error:', data.error);
               chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + data.error, isLoading: false});
               sendResponse({ success: false, error: data.error });
             }
           })
           .catch(error => {
-            console.error('Error in sendTextToFirebase:', error);
+            console.error('Error in sendToPubSub:', error);
             chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false});
             sendResponse({ success: false, error: error.message });
           });
       });
-      return true; // Keep the message channel open for sendResponse
+      return true; // Indicates that sendResponse will be called asynchronously
 
     case "statusUpdate":
       // **Forward status updates to the popup script**
-      chrome.runtime.sendMessage({ action: 'updateStatus', message: request.message });
+      chrome.runtime.sendMessage({ action: 'updateStatus', message: request.message, isLoading: request.isLoading });
       break;
 
     case "contentScriptReady":
@@ -138,6 +133,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
           // setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
         } else {
           console.error('No active tab found');
+          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: No active tab found', isLoading: false });
         }
       });
       break;
