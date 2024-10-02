@@ -27,6 +27,7 @@
 	},
 	"type": "module",
 	"dependencies": {
+		"@google-cloud/pubsub": "^4.7.2",
 		"dotenv": "^16.4.5",
 		"firebase": "^10.13.2",
 		"firebase-functions": "^6.0.1",
