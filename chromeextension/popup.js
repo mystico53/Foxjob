@@ -1,3 +1,5 @@
+// popup.js
+
 let statusDiv;
 let generatedContentDiv;
 let popupContainer;
@@ -74,40 +76,42 @@ function initializePopup() {
 }
 
 function handleSignInOut() {
-    const button = document.getElementById('signInOutButton');
-    if (button.textContent.startsWith('Sign In')) {
-      window.signIn();
-    } else {
-      window.signOut();
-    }
+  const button = document.getElementById('signInOutButton');
+  if (button.textContent.startsWith('Sign In')) {
+    window.signIn();
+  } else {
+    window.signOut();
   }
+}
 
-  function injectContentScriptAndProcess() {
-    chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-      const activeTab = tabs[0];
-  
-      chrome.tabs.sendMessage(activeTab.id, {action: "ping"}, function(response) {
-        if (chrome.runtime.lastError || !response) {
-          chrome.scripting.executeScript(
-            {
-              target: {tabId: activeTab.id},
-              files: ['content.js']
-            },
-            function() {
-              if (chrome.runtime.lastError) {
-                updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
-              } else {
-                // Add a small delay before processing
-                setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
-              }
+function injectContentScriptAndProcess() {
+  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+    const activeTab = tabs[0];
+
+    chrome.tabs.sendMessage(activeTab.id, {action: "ping"}, function(response) {
+      if (chrome.runtime.lastError || !response) {
+        // Content script ist nicht injiziert, injiziere es nun
+        chrome.scripting.executeScript(
+          {
+            target: {tabId: activeTab.id},
+            files: ['content.js']
+          },
+          function() {
+            if (chrome.runtime.lastError) {
+              updateStatus('Fehler beim Injektieren des Skripts: ' + chrome.runtime.lastError.message);
+            } else {
+              // Add a small delay before processing
+              setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
             }
-          );
-        } else {
-          selectAllTextAndProcess(activeTab.id);
-        }
-      });
+          }
+        );
+      } else {
+        // Content script ist bereits injiziert
+        selectAllTextAndProcess(activeTab.id);
+      }
     });
-  }
+  });
+}
 
 function selectAllTextAndProcess(tabId) {
   updateStatus('Selecting and processing text...', true);
@@ -202,21 +206,21 @@ function hideSpinner() {
 
 // This function is called from auth.js
 function updateSignInButtonState(isSignedIn, email = '') {
-    const button = document.getElementById('signInOutButton');
-    if (isSignedIn) {
-      button.textContent = `Sign Out (${email})`;
-      button.title = `Signed in as ${email}`;
-    } else {
-      button.textContent = 'Sign In';
-      button.title = '';
-    }
+  const button = document.getElementById('signInOutButton');
+  if (isSignedIn) {
+    button.textContent = `Sign Out (${email})`;
+    button.title = `Signed in as ${email}`;
+  } else {
+    button.textContent = 'Sign In';
+    button.title = '';
   }
+}
 
 function logCurrentUserId() {
-    const userId = window.getCurrentUserId();
-    if (userId) {
-      console.log('Current user Google ID:', userId);
-    } else {
-      console.log('No user is currently signed in');
-    }
+  const userId = window.getCurrentUserId();
+  if (userId) {
+    console.log('Current user Google ID:', userId);
+  } else {
+    console.log('No user is currently signed in');
   }
+}
