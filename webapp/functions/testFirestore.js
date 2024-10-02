@@ -1,22 +1,23 @@
-// functions/testFirestore.js
-
 const { onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 
 // Initialize Firebase app only once
 if (!admin.apps.length) {
   admin.initializeApp();
+  const db = admin.firestore();
+
+  // Initialize Firestore emulator only once
+  if (process.env.FIRESTORE_EMULATOR_HOST) {
+    console.log('Connecting to Firestore emulator');
+    db.settings({
+      host: 'localhost:8080',
+      ssl: false,
+    });
+  }
 }
 
-// Initialize Firestore with settings
+// Ensure the Firestore instance is reused
 const db = admin.firestore();
-if (process.env.FIRESTORE_EMULATOR_HOST) {
-  console.log('Connecting to Firestore emulator');
-  db.settings({
-    host: 'localhost:8080',
-    ssl: false,
-  });
-}
 
 exports.testFirestore = onRequest(async (req, res) => {
   try {
