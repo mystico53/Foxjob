@@ -1,13 +1,16 @@
 {
   "manifest_version": 3,
   "name": "JobHunter",
-  "version": "1.0",
+  "version": "0.3",
   "description": "JobHunter fasst Stellenbeschreibungen zusammen und stimmt sie mit deinen Fähigkeiten ab, um dir bei der Jobsuche zu helfen.",
   "permissions": [
     "activeTab",
     "scripting",
     "storage",
     "identity"
+  ],
+  "host_permissions": [
+    "<all_urls>"
   ],
   "action": {
     "default_popup": "popup.html"
@@ -33,6 +36,6 @@
       "https://www.googleapis.com/auth/userinfo.profile"
     ]
   },
-  "homepage_url": "https://jobille-45494.web.app/privacy"
-  
+  "homepage_url": "https://jobille-45494.web.app/privacy",
+  "key": "BgIAAACkAABSU0ExAAgAAAEAAQCdY65GnLce5q4xHTnyKatwJIk8+gbPc5bGnbOpFfI1Z9bnZ3ZPEP8arVY4Agodkh0/VgIWDUqbRNaegQweqwnry4I5QcZh5o+9MGyqDAl1cZw92q1SVAn7eyem0YtZkZ0284bQS2KIfO5BNJw6Qap+wSRJ5dMBeCviPDyIlgGUWxNuGFdeFqE2M5yPyv3Prkt22fvmuv7gL+NFDMARo9VTlEwAoEDPdBpq1DUtn2pgTyesY5Rpq/D/n3FWoh3x+RLK0pONTKtWtF/Tc/s0ccPs7LA8SwDeE4y2q71q33sgW2zcx3sR55OO2k5BeEiXFpTDcLHezkieJI5NUzosGu+u"
 }

@@ -12,6 +12,16 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
+if (process.env.FIRESTORE_EMULATOR_HOST) {
+  console.log('Connecting to Firestore emulator');
+  admin.firestore().settings({
+    host: 'localhost:8080', // Default Firestore emulator port
+    ssl: false,
+  });
+}
+
+const FieldValue = admin.firestore.FieldValue;
+
 async function saveProcessedData(googleId, processedData, url) {
   try {
     const db = admin.firestore();
@@ -23,7 +33,7 @@ async function saveProcessedData(googleId, processedData, url) {
     const processedRef = await userRef.collection('processed').add({
       ...processedData,
       url: url,
-      timestamp: admin.firestore.FieldValue.serverTimestamp()
+      timestamp: FieldValue.serverTimestamp()
     });
 
     console.log('Document written with ID: ', processedRef.id);

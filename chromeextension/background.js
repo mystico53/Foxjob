@@ -1,13 +1,20 @@
 // background.js
 
-// Import the instructions
+// Import the instructions and config scripts
 importScripts('instructions.js');
+importScripts('config.js');
 
 console.log('Background script loaded');
 
 // Modified sendTextToFirebase function to include googleId and url
 async function sendTextToFirebase(text, url, googleId) {
   console.log('sendTextToFirebase called with:', { textLength: text.length, url, googleId });
+
+  // Check if emulator is running and update config
+  FIREBASE_CONFIG.useEmulator = await isEmulatorRunning();
+  const targetUrl = FIREBASE_CONFIG.useEmulator ? FIREBASE_CONFIG.emulatorUrl : FIREBASE_CONFIG.productionUrl;
+  
+  console.log(`Using ${FIREBASE_CONFIG.useEmulator ? 'emulator' : 'production'} endpoint:`, targetUrl);
 
   const apiBody = {
     text: text,
@@ -19,12 +26,11 @@ async function sendTextToFirebase(text, url, googleId) {
   console.log('Prepared API body:', { textLength: apiBody.text.length, url: apiBody.url, googleId: apiBody.googleId });
 
   chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing text...', isLoading: true });
-
   chrome.runtime.sendMessage({ action: 'textCollected' });
 
   try {
     console.log('Sending request to Firebase function');
-    const response = await fetch('https://processtext-kvshkfhmua-uc.a.run.app', {
+    const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
@@ -33,18 +39,30 @@ async function sendTextToFirebase(text, url, googleId) {
     });
     
     console.log('Received response from Firebase function');
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Server responded with status ${response.status}: ${errorText}`);
+    }
+
     const data = await response.json();
 
     console.log('Firebase Function Response:', data);
 
-    return data;
+    if (data.error) {
+      // Handle error returned from Firebase function
+      return { success: false, error: data.error };
+    }
+
+    // Assuming the successful response contains a 'result' object
+    return { success: true, result: data.result };
   } catch (error) {
     console.error('Error calling Firebase function:', error);
-    throw error;
+    return { success: false, error: error.message };
   }
 }
 
-// Funktion zum Injizieren des Content-Skripts
+// Function to inject the content script
 function injectContentScript(tabId) {
   chrome.scripting.executeScript(
     {
@@ -53,9 +71,9 @@ function injectContentScript(tabId) {
     },
     () => {
       if (chrome.runtime.lastError) {
-        console.error('Fehler beim Injektieren des Skripts:', chrome.runtime.lastError.message);
+        console.error('Error injecting script:', chrome.runtime.lastError.message);
       } else {
-        console.log('Content-Skript erfolgreich injiziert');
+        console.log('Content script successfully injected');
       }
     }
   );
@@ -82,9 +100,15 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
         // Send text to Firebase with Google ID and URL
         sendTextToFirebase(request.text, request.url, googleId)
           .then(data => {
-            console.log('Successfully sent to Firebase, sending response');
-            chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
-            sendResponse({ success: true, result: data.result });
+            if (data.success) {
+              console.log('Successfully sent to Firebase, sending response');
+              chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
+              sendResponse({ success: true, result: data.result });
+            } else {
+              console.error('Firebase function returned an error:', data.error);
+              chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + data.error, isLoading: false});
+              sendResponse({ success: false, error: data.error });
+            }
           })
           .catch(error => {
             console.error('Error in sendTextToFirebase:', error);
@@ -92,7 +116,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
             sendResponse({ success: false, error: error.message });
           });
       });
-      return true;
+      return true; // Keep the message channel open for sendResponse
 
     case "statusUpdate":
       // **Forward status updates to the popup script**
@@ -101,19 +125,19 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
     case "contentScriptReady":
       console.log("Content script is ready");
-      // Du kannst hier Initialisierungslogik hinzufügen, falls benötigt
+      // You can add initialization logic here if needed
       break;
 
     case "triggerMainAction":
-      // Diese Aktion wird ausgelöst, wenn der Benutzer die Tastenkombination verwendet oder die Erweiterung klickt
+      // This action is triggered when the user uses the keyboard shortcut or clicks the extension
       chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
         const activeTab = tabs[0];
         if (activeTab && activeTab.id) {
           injectContentScript(activeTab.id);
-          // Optionally, you can send a message to the content script to start processing immediately
+          // Optionally, send a message to the content script to start processing immediately
           // setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
         } else {
-          console.error('Kein aktiver Tab gefunden');
+          console.error('No active tab found');
         }
       });
       break;
@@ -125,14 +149,14 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
-// Listener für Tastenkombinationen
+// Listener for keyboard commands
 chrome.commands.onCommand.addListener((command) => {
   if (command === "toggle-feature") {
     console.log("Keyboard shortcut Alt+S was pressed");
     
-    // Öffne das Popup und sende eine Nachricht, um die Hauptaktion auszulösen
+    // Open the Popup and send a message to trigger the main action
     chrome.action.openPopup(() => {
-      // Nach dem Öffnen des Popups, sende eine Nachricht, um die Hauptaktion zu starten
+      // After opening the popup, send a message to start the main action
       chrome.runtime.sendMessage({ action: "triggerMainAction" });
     });
   }
