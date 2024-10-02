@@ -44,6 +44,23 @@ async function sendTextToFirebase(text, url, googleId) {
   }
 }
 
+// Funktion zum Injizieren des Content-Skripts
+function injectContentScript(tabId) {
+  chrome.scripting.executeScript(
+    {
+      target: { tabId: tabId },
+      files: ['content.js']
+    },
+    () => {
+      if (chrome.runtime.lastError) {
+        console.error('Fehler beim Injektieren des Skripts:', chrome.runtime.lastError.message);
+      } else {
+        console.log('Content-Skript erfolgreich injiziert');
+      }
+    }
+  );
+}
+
 // Set up a listener for messages sent to the extension
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background script received message:', request);
@@ -84,7 +101,21 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
     case "contentScriptReady":
       console.log("Content script is ready");
-      // You can add any initialization logic here if needed
+      // Du kannst hier Initialisierungslogik hinzufügen, falls benötigt
+      break;
+
+    case "triggerMainAction":
+      // Diese Aktion wird ausgelöst, wenn der Benutzer die Tastenkombination verwendet oder die Erweiterung klickt
+      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+        const activeTab = tabs[0];
+        if (activeTab && activeTab.id) {
+          injectContentScript(activeTab.id);
+          // Optionally, you can send a message to the content script to start processing immediately
+          // setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
+        } else {
+          console.error('Kein aktiver Tab gefunden');
+        }
+      });
       break;
 
     default:
@@ -94,13 +125,14 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
+// Listener für Tastenkombinationen
 chrome.commands.onCommand.addListener((command) => {
   if (command === "toggle-feature") {
     console.log("Keyboard shortcut Alt+S was pressed");
     
-    // Open the popup
+    // Öffne das Popup und sende eine Nachricht, um die Hauptaktion auszulösen
     chrome.action.openPopup(() => {
-      // After the popup is opened, send a message to trigger the main action
+      // Nach dem Öffnen des Popups, sende eine Nachricht, um die Hauptaktion zu starten
       chrome.runtime.sendMessage({ action: "triggerMainAction" });
     });
   }
