@@ -115,16 +115,33 @@ function injectContentScriptAndProcess() {
 
 function selectAllTextAndProcess(tabId) {
   updateStatus('Selecting and processing text...', true);
+  
   try {
-    chrome.tabs.sendMessage(tabId, {action: "selectAllText"}, function(response) {
+    chrome.tabs.sendMessage(tabId, { action: "selectAllText" }, async function(response) {
       if (chrome.runtime.lastError) {
         console.error("Runtime error:", chrome.runtime.lastError);
         updateStatus('Error: ' + chrome.runtime.lastError.message);
-      } else if (response && response.success) {
-        updateStatus('Processing completed.');
-        displayResults(response.result);
+        return;
+      }
+
+      if (response && response.success) {
+        if (response.result) {
+          updateStatus('Processing completed.');
+          displayResults(response.result);
+        } else if (response.error) {
+          updateStatus('Error: ' + response.error);
+          console.error('Processing error:', response.error);
+        } else {
+          updateStatus('Unexpected response from processing.');
+          console.error('Unexpected response:', response);
+        }
       } else {
-        updateStatus('Failed to process text');
+        updateStatus('Failed to process text.');
+        if (response && response.error) {
+          console.error('Processing error:', response.error);
+        } else {
+          console.error('Unknown error during processing.');
+        }
       }
     });
   } catch (error) {
@@ -132,6 +149,7 @@ function selectAllTextAndProcess(tabId) {
     updateStatus('Error: Unable to communicate with the page');
   }
 }
+
 
 function checkTabExistsAndProcess(tabId) {
   chrome.tabs.get(tabId, function(tab) {

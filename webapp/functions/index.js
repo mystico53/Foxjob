@@ -3,10 +3,12 @@ const logger = require("firebase-functions/logger");
 
 const { processText } = require('./processText');
 const { match } = require('./match');
+const { testFirestore } = require('./testFirestore');
 
 // Export all Cloud Functions
 exports.processText = processText;
 exports.match = match;
+exports.testFirestore = testFirestore;
 
 exports.helloWorld = onRequest((request, response) => {
   // Set CORS headers
