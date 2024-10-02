@@ -1,7 +1,6 @@
 // popup.js
 
 let statusDiv;
-let generatedContentDiv;
 let popupContainer;
 let collectedStatusDiv;
 
@@ -9,11 +8,15 @@ document.addEventListener('DOMContentLoaded', initializePopup);
 
 function initializePopup() {
   statusDiv = document.getElementById('status');
-  generatedContentDiv = document.getElementById('generatedContent');
   popupContainer = document.getElementById('popup-container');
   collectedStatusDiv = document.getElementById('collectedStatus');
 
-  document.getElementById('signInOutButton').addEventListener('click', handleSignInOut);
+  const signInOutButton = document.getElementById('signInOutButton');
+  if (signInOutButton) {
+    signInOutButton.addEventListener('click', handleSignInOut);
+  } else {
+    console.error('Sign In/Out button not found');
+  }
 
   // Check initial auth state
   firebase.auth().onAuthStateChanged((user) => {
@@ -88,9 +91,15 @@ function injectContentScriptAndProcess() {
   chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
     const activeTab = tabs[0];
 
+    if (!activeTab || !activeTab.id) {
+      console.error('No active tab found');
+      updateStatus('Error: No active tab found');
+      return;
+    }
+
     chrome.tabs.sendMessage(activeTab.id, {action: "ping"}, function(response) {
       if (chrome.runtime.lastError || !response) {
-        // Content script ist nicht injiziert, injiziere es nun
+        // Content script is not injected, inject it now
         chrome.scripting.executeScript(
           {
             target: {tabId: activeTab.id},
@@ -98,7 +107,7 @@ function injectContentScriptAndProcess() {
           },
           function() {
             if (chrome.runtime.lastError) {
-              updateStatus('Fehler beim Injektieren des Skripts: ' + chrome.runtime.lastError.message);
+              updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
             } else {
               // Add a small delay before processing
               setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
@@ -106,7 +115,7 @@ function injectContentScriptAndProcess() {
           }
         );
       } else {
-        // Content script ist bereits injiziert
+        // Content script is already injected
         selectAllTextAndProcess(activeTab.id);
       }
     });
@@ -115,7 +124,7 @@ function injectContentScriptAndProcess() {
 
 function selectAllTextAndProcess(tabId) {
   updateStatus('Selecting and processing text...', true);
-  
+
   try {
     chrome.tabs.sendMessage(tabId, { action: "selectAllText" }, async function(response) {
       if (chrome.runtime.lastError) {
@@ -125,23 +134,14 @@ function selectAllTextAndProcess(tabId) {
       }
 
       if (response && response.success) {
-        if (response.result) {
-          updateStatus('Processing completed.');
-          displayResults(response.result);
-        } else if (response.error) {
-          updateStatus('Error: ' + response.error);
-          console.error('Processing error:', response.error);
-        } else {
-          updateStatus('Unexpected response from processing.');
-          console.error('Unexpected response:', response);
-        }
+        // Directly update the status without expecting a message
+        updateStatus('Processing completed.');
+      } else if (response && response.error) {
+        updateStatus('Error: ' + response.error);
+        console.error('Processing error:', response.error);
       } else {
-        updateStatus('Failed to process text.');
-        if (response && response.error) {
-          console.error('Processing error:', response.error);
-        } else {
-          console.error('Unknown error during processing.');
-        }
+        updateStatus('Unexpected response from processing.');
+        console.error('Unexpected response:', response);
       }
     });
   } catch (error) {
@@ -149,7 +149,6 @@ function selectAllTextAndProcess(tabId) {
     updateStatus('Error: Unable to communicate with the page');
   }
 }
-
 
 function checkTabExistsAndProcess(tabId) {
   chrome.tabs.get(tabId, function(tab) {
@@ -162,41 +161,19 @@ function checkTabExistsAndProcess(tabId) {
   });
 }
 
-function displayResults(result) {
-  generatedContentDiv.innerHTML = `
-    <h3>${result.companyInfo.name} (${result.companyInfo.industry})</h3>
-    <p class="companyInfo">${result.companyInfo.companyFocus}</p>
-    <p><span class="bold">Job Title:</span> ${result.jobInfo.jobTitle}</p>
-    <p><span class="bold">Type:</span> ${result.jobInfo.remoteType}</p>
-    <p class="summary">${result.jobInfo.jobSummary}</p>
-    <p><span class="bold">Why it could be fun:</span></p>
-    <ul>
-      ${result.areasOfFun.map(area => `<li>${area}</li>`).join('')}
-    </ul>
-    <p><span class="bold">Mandatory Skills:</span></p>
-    <ul>
-      ${result.mandatorySkills.map(skill => `<li>${skill}</li>`).join('')}
-    </ul>
-    <p><span class="bold">Compensation:</span> ${result.compensation}</p>
-  `;
-
-  updateStatus('Analysis complete');
-  resizePopup();
-}
-
 function resizePopup() {
   const contentHeight = popupContainer.scrollHeight;
   const maxHeight = 600; // Maximum height of the popup
   const newHeight = Math.min(contentHeight, maxHeight);
   popupContainer.style.height = `${newHeight}px`;
 
-  // Enable scrolling on generatedContent if the content exceeds maxHeight
+  // Enable scrolling on popupContainer if the content exceeds maxHeight
   if (contentHeight > maxHeight) {
-    generatedContentDiv.style.overflowY = 'auto';
-    generatedContentDiv.style.maxHeight = `${maxHeight - 150}px`; // Adjust for other elements
+    popupContainer.style.overflowY = 'auto';
+    popupContainer.style.maxHeight = `${maxHeight - 50}px`; // Adjust for other elements
   } else {
-    generatedContentDiv.style.overflowY = 'visible';
-    generatedContentDiv.style.maxHeight = 'none';
+    popupContainer.style.overflowY = 'visible';
+    popupContainer.style.maxHeight = 'none';
   }
 }
 
@@ -215,22 +192,36 @@ function updateStatus(message, isLoading = false) {
 }
 
 function showSpinner() {
-  document.getElementById('loadingSpinner').style.display = 'block';
+  const spinner = document.getElementById('loadingSpinner');
+  if (spinner) {
+    spinner.style.display = 'block';
+  } else {
+    console.error('Loading spinner not found');
+  }
 }
 
 function hideSpinner() {
-  document.getElementById('loadingSpinner').style.display = 'none';
+  const spinner = document.getElementById('loadingSpinner');
+  if (spinner) {
+    spinner.style.display = 'none';
+  } else {
+    console.error('Loading spinner not found');
+  }
 }
 
 // This function is called from auth.js
 function updateSignInButtonState(isSignedIn, email = '') {
   const button = document.getElementById('signInOutButton');
-  if (isSignedIn) {
-    button.textContent = `Sign Out (${email})`;
-    button.title = `Signed in as ${email}`;
+  if (button) {
+    if (isSignedIn) {
+      button.textContent = `Sign Out (${email})`;
+      button.title = `Signed in as ${email}`;
+    } else {
+      button.textContent = 'Sign In';
+      button.title = '';
+    }
   } else {
-    button.textContent = 'Sign In';
-    button.title = '';
+    console.error('Sign In/Out button not found');
   }
 }
 
