@@ -1,31 +1,32 @@
-// functions/processText.js
-
 const { onRequest } = require('firebase-functions/v2/https');
 const fetch = require('node-fetch'); // Remove if using Node.js v18+
 require('dotenv').config(); // For local development
 const admin = require('firebase-admin');
 const { saveExtractedJDText } = require('./helpers/saveExtractedJDText');
 const { logger } = require('firebase-functions');
+const { Firestore } = require("firebase-admin/firestore");
 
 // Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
   admin.initializeApp();
+  const db = admin.firestore();
+
+  // Initialize Firestore emulator only once
+  if (process.env.FIRESTORE_EMULATOR_HOST) {
+    console.log('Connecting to Firestore emulator');
+    db.settings({
+      host: 'localhost:8080', // Default Firestore emulator port
+      ssl: false,
+    });
+  }
 }
 
-if (process.env.FIRESTORE_EMULATOR_HOST) {
-  console.log('Connecting to Firestore emulator');
-  admin.firestore().settings({
-    host: 'localhost:8080', // Default Firestore emulator port
-    ssl: false,
-  });
-}
-
+// Ensure Firestore instance is reused
+const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 
 async function saveProcessedData(googleId, processedData, url) {
   try {
-    const db = admin.firestore();
-    
     // Create a reference to the user's document
     const userRef = db.collection('users').doc(googleId);
 
@@ -33,7 +34,7 @@ async function saveProcessedData(googleId, processedData, url) {
     const processedRef = await userRef.collection('processed').add({
       ...processedData,
       url: url,
-      timestamp: FieldValue.serverTimestamp()
+      timestamp: Firestore.FieldValue.serverTimestamp()
     });
 
     console.log('Document written with ID: ', processedRef.id);
@@ -65,7 +66,7 @@ exports.processText = onRequest(async (request, response) => {
     textLength: text ? text.length : 0,
     url,
     instructionsProvided: !!instructions,
-    googleId
+    googleId,
   });
 
   if (!text || !url || !instructions || !googleId) {
@@ -100,9 +101,7 @@ exports.processText = onRequest(async (request, response) => {
       body: JSON.stringify({
         model: instructions.model,
         max_tokens: 1024,
-        messages: [
-          { role: 'user', content: prompt }
-        ],
+        messages: [{ role: 'user', content: prompt }],
       }),
     });
 
@@ -136,7 +135,6 @@ exports.processText = onRequest(async (request, response) => {
         } catch (error) {
           logger.error('Failed to save extractedJDText text:', error);
           // Depending on your requirements, you might choose to proceed or return an error
-          // Here, we'll proceed
         }
 
         // Respond with the processed result and Firestore document ID
