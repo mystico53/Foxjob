@@ -3,37 +3,52 @@ const logger = require("firebase-functions/logger");
 const { PubSub } = require('@google-cloud/pubsub');
 const cors = require('cors')({ origin: true });
 
-const pubsub = new PubSub();
+const pubsub = new PubSub({
+  projectId: 'jobille-45494',
+});
+
 const topicName = 'job-text-submitted';
 
 const publishJobText = onRequest(async (req, res) => {
   return cors(req, res, async () => {
-    // Check if the request method is POST
     if (req.method !== 'POST') {
       res.status(405).json({ error: 'Method Not Allowed' });
       return;
     }
 
-    // Check if the request body contains the required data
     if (!req.body || !req.body.message) {
       res.status(400).json({ error: 'Bad Request: Missing message in the request body' });
       return;
     }
 
     try {
-      // Publish the message to the Pub/Sub topic
+      const topic = pubsub.topic(topicName);
+      const [exists] = await topic.exists();
+      if (!exists) {
+        await topic.create();
+        logger.info(`Topic ${topicName} created.`);
+      }
+
       const messageBuffer = Buffer.from(JSON.stringify(req.body.message));
-      const messageId = await pubsub.topic(topicName).publish(messageBuffer);
+      
+      // Log the message being sent to the topic
+      logger.info('Message being sent to topic:', req.body.message);
+
+      const messageId = await topic.publish(messageBuffer);
 
       logger.info(`Message ${messageId} published.`);
       res.status(200).json({
         status: 'success',
         message: 'Text published successfully.',
-        messageId: messageId
+        messageId: messageId,
       });
     } catch (error) {
-      logger.error('Error publishing Text', error);
-      res.status(500).json({ error: 'Internal Server Error: Failed to publish Text' });
+      logger.error('Error publishing Text', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack,
+      });
+      res.status(500).json({ error: `Internal Server Error: ${error.message}` });
     }
   });
 });
