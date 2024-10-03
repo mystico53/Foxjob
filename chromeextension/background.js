@@ -36,19 +36,27 @@ async function sendToPubSub(text, url, googleId) {
       },
       body: JSON.stringify(apiBody)
     });
-    
+  
     console.log('Received response from Pub/Sub function');
-
-    const responseData = await response.json();
-    console.log('Pub/Sub Function Response:', responseData);
-
+    
+    const responseText = await response.text();
+    console.log('Raw Response:', responseText);
+    
+    let responseData;
+    try {
+      responseData = JSON.parse(responseText);
+      console.log('Parsed JSON Response:', responseData);
+    } catch (jsonError) {
+      throw new Error(`Invalid JSON response: ${jsonError.message}`);
+    }
+  
     if (!response.ok) {
       throw new Error(`Server responded with status ${response.status}: ${responseData.error || responseData.message}`);
     }
-
+  
     // Send a simple status update to the popup
     chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
-
+  
     return { success: true };
   } catch (error) {
     console.error('Error calling Pub/Sub function:', error);
