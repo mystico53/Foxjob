@@ -1,4 +1,5 @@
-const functions = require('firebase-functions');
+const { onRequest } = require('firebase-functions/v2/https');
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const fetch = require('node-fetch'); // Remove if using Node.js v18+
 require('dotenv').config(); // For local development
 const admin = require('firebase-admin');
@@ -45,11 +46,13 @@ async function saveProcessedData(googleId, processedData, url) {
   }
 }
 
-exports.processText = functions.pubsub.topic('job-text-submitted').onPublish(async (message) => {
+exports.processPubSubText = onMessagePublished('job-text-submitted', async (event) => {
+    console.log('processText function called');
   console.log('processText function called');
 
-  // Decode the Pub/Sub message
-  const pubSubMessage = message.data ? JSON.parse(Buffer.from(message.data, 'base64').toString()) : null;
+  const pubSubMessage = event.data.message.data
+    ? JSON.parse(Buffer.from(event.data.message.data, 'base64').toString())
+    : null;
 
   if (!pubSubMessage) {
     console.error('No valid message received from Pub/Sub');
@@ -72,7 +75,7 @@ exports.processText = functions.pubsub.topic('job-text-submitted').onPublish(asy
   }
 
   // Get the API key
-  const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     console.error('Anthropic API key not found');
