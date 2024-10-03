@@ -61,7 +61,7 @@
     chrome.runtime.sendMessage({ action: 'statusUpdate', message: 'Sending text to Firebase...' });
 
     chrome.runtime.sendMessage({
-      action: "sendTextToFirebase",
+      action: "publishText",
       text: selectedText,
       url: currentUrl
     }, function(response) {

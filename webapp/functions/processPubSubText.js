@@ -1,4 +1,5 @@
 const { onRequest } = require('firebase-functions/v2/https');
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const fetch = require('node-fetch'); // Remove if using Node.js v18+
 require('dotenv').config(); // For local development
 const admin = require('firebase-admin');
@@ -45,24 +46,23 @@ async function saveProcessedData(googleId, processedData, url) {
   }
 }
 
-exports.processText = onRequest(async (request, response) => {
+exports.processPubSubText = onMessagePublished('job-text-submitted', async (event) => {
+    console.log('processText function called');
   console.log('processText function called');
 
-  // Handle CORS
-  response.set('Access-Control-Allow-Origin', '*');
-  response.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  response.set('Access-Control-Allow-Headers', 'Content-Type');
+  const pubSubMessage = event.data.message.data
+    ? JSON.parse(Buffer.from(event.data.message.data, 'base64').toString())
+    : null;
 
-  if (request.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request');
-    response.status(204).send('');
+  if (!pubSubMessage) {
+    console.error('No valid message received from Pub/Sub');
     return;
   }
 
-  // Extract parameters from the request body
-  const { text, url, instructions, googleId } = request.body;
+  // Extract parameters from the Pub/Sub message
+  const { text, url, instructions, googleId } = pubSubMessage;
 
-  console.log('Received request with:', {
+  console.log('Received message with:', {
     textLength: text ? text.length : 0,
     url,
     instructionsProvided: !!instructions,
@@ -71,16 +71,14 @@ exports.processText = onRequest(async (request, response) => {
 
   if (!text || !url || !instructions || !googleId) {
     console.error('Missing required parameters');
-    response.status(400).json({ error: 'Missing required parameters' });
     return;
   }
 
   // Get the API key
-  const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
+  const apiKey = process.env.ANTHROPIC_API_KEY;
 
   if (!apiKey) {
     console.error('Anthropic API key not found');
-    response.status(500).json({ error: 'Server configuration error' });
     return;
   }
 
@@ -109,7 +107,6 @@ exports.processText = onRequest(async (request, response) => {
 
     if (!anthropicResponse.ok) {
       console.error('Anthropic API error response:', data);
-      response.status(anthropicResponse.status).json({ error: data });
       return;
     }
 
@@ -128,28 +125,23 @@ exports.processText = onRequest(async (request, response) => {
         const firestoreDocId = await saveProcessedData(googleId, parsedResult, url);
         console.log('Data saved to Firestore with ID:', firestoreDocId);
 
-        // **Save the extractedJDText text to Firestore**
+        // Save the extractedJDText text to Firestore
         try {
           const result = await saveExtractedJDText({ googleId, processedDocId: firestoreDocId, rawText: text });
           logger.info('extractedJDText text saved with ID:', result.id);
         } catch (error) {
           logger.error('Failed to save extractedJDText text:', error);
-          // Depending on your requirements, you might choose to proceed or return an error
         }
 
-        // Respond with the processed result and Firestore document ID
-        response.json({ result: parsedResult, firestoreDocId });
+        console.log('Processing completed successfully');
       } catch (error) {
         console.error('Error parsing JSON or saving to Firestore:', error);
-        response.status(500).json({ error: 'Error processing response or saving to database' });
       }
     } else {
       console.error('Unexpected Anthropic API response structure:', data);
-      response.status(500).json({ error: 'Unexpected Anthropic API response structure' });
     }
   } catch (error) {
-    console.error('Error calling Anthropic API:', error);
-    response.status(500).json({ error: 'Internal server error' });
+    console.error('Error processing message:', error);
   }
 
   console.log('processText function completed');

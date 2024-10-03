@@ -13,16 +13,19 @@
             font-family: 'Inter', sans-serif;
             font-size: 16px;
             height: auto;
+            max-height: none;
+            /* Remove max-height restriction */
         }
 
         #popup-container {
             padding: 10px 20px;
             box-sizing: border-box;
-            min-height: 200px;
             display: flex;
             flex-direction: column;
+            background-color: #deb934;
         }
 
+        /* Rest of the CSS remains unchanged */
         button,
         input {
             font-size: 16px;
@@ -147,12 +150,6 @@
             <button id="signInOutButton" title="">Sign In</button>
         </div>
         <div id="collectedStatus"></div>
-        <div class="divider"></div>
-        <div id="generatedContent"></div>
-    </div>
-    </div>
-    <div class="divider"></div>
-    <div id="generatedContent"></div>
     </div>
     <!-- Load Firebase scripts locally -->
     <script src="firebase-app-compat.js"></script>
