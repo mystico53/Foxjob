@@ -33,7 +33,7 @@ async function saveProcessedData(googleId, processedData, url) {
 
 exports.processPubSubText = onMessagePublished('job-text-submitted', async (event) => {
   console.log('processText function called');
-  console.log('Current environment:', config.node_env);
+  
 
   const pubSubMessage = event.data.message.data
     ? JSON.parse(Buffer.from(event.data.message.data, 'base64').toString())
