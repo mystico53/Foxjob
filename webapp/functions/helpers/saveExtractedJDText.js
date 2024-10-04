@@ -1,11 +1,10 @@
-// functions/helpers/saveExtractedJDText.js
-
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { extractTextWithAnthropic } = require('./extractTextWithAnthropic');
 
-// Ensure Firebase Admin is initialized elsewhere to avoid multiple initializations
-// Do not call admin.initializeApp() here
+// Import FieldValue explicitly
+const { Firestore } = require("firebase-admin/firestore");
+const FieldValue = Firestore.FieldValue;
 
 async function saveExtractedJDText({ googleId, processedDocId, rawText }) {
     try {
@@ -24,7 +23,7 @@ async function saveExtractedJDText({ googleId, processedDocId, rawText }) {
       // Add the extracted text as extractedJDText text to the 'extractedJDText' subcollection
       const extractedJDTextRef = await processedRef.collection('extractedJDText').add({
         text: extractedText,
-        timestamp: admin.firestore.FieldValue.serverTimestamp()
+        timestamp: FieldValue.serverTimestamp()
       });
       
       logger.info('Extracted text saved as extractedJDText with ID:', extractedJDTextRef.id);
@@ -34,6 +33,5 @@ async function saveExtractedJDText({ googleId, processedDocId, rawText }) {
       throw error;
     }
   }
-  
-  module.exports = { saveExtractedJDText };
-  
+
+module.exports = { saveExtractedJDText };

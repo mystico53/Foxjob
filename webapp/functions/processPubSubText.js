@@ -9,25 +9,24 @@ const { Firestore } = require("firebase-admin/firestore");
 const config = require('./config');
 
 if (!admin.apps.length) {
-    admin.initializeApp();
-    const db = admin.firestore();
-  
-    // Initialize Firestore emulator only once
-    if (config.pubsub.useEmulator) {
-      console.log('Connecting to Firestore emulator');
-      db.settings({
-        host: 'localhost:8080', // Default Firestore emulator port
-        ssl: false,
-      });
-    }
+  admin.initializeApp();
+  const db = admin.firestore();
+
+  // Initialize Firestore emulator only once
+  if (config.pubsub.useEmulator) {
+    console.log('Connecting to Firestore emulator');
+    db.settings({
+      host: 'localhost:8080', // Default Firestore emulator port
+      ssl: false,
+    });
   }
+}
 
 // Ensure Firestore instance is reused
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 
 async function saveProcessedData(googleId, processedData, url) {
-  const db = getFirestore();
   try {
     // Create a reference to the user's document
     const userRef = db.collection('users').doc(googleId);
@@ -48,8 +47,8 @@ async function saveProcessedData(googleId, processedData, url) {
 }
 
 exports.processPubSubText = onMessagePublished('job-text-submitted', async (event) => {
-    console.log('processText function called');
-    console.log('Current environment:', config.node_env);
+  console.log('processText function called');
+  console.log('Current environment:', config.node_env);
 
   const pubSubMessage = event.data.message.data
     ? JSON.parse(Buffer.from(event.data.message.data, 'base64').toString())
