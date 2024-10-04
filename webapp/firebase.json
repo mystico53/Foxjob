@@ -48,7 +48,14 @@
     "singleProjectMode": true,
     "pubsub": {
       "port": 8085
+    },
+    "environment": {
+      "NODE_ENV": "development",
+      "PUBSUB_EMULATOR_HOST": "localhost:8085",
+      "FIRESTORE_EMULATOR_HOST": "localhost:8080",
+      "GOOGLE_CLOUD_PROJECT": "jobille-45494"
     }
+
   },
   "firestore": {
     "rules": "firestore.rules",
