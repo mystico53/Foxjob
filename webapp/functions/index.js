@@ -23,6 +23,8 @@ const { match } = require('./match');
 const { publishJobText } = require('./publishJobText');
 const { processPubSubText } = require('./processPubSubText');
 
+const pubsub = require('./pubsubclient');
+
 // Export all Cloud Functions
 exports.match = match;
 exports.publishJobText = publishJobText;
