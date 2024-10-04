@@ -1,8 +1,9 @@
 const { onRequest } = require("firebase-functions/v2/https");
 const { logger } = require("firebase-functions");
 const cors = require('cors')({ origin: true });
-const pubsub = require('./pubsubclient');
+const { PubSub } = require('@google-cloud/pubsub');
 
+const pubsub = new PubSub();
 const topicName = 'job-text-submitted';
 
 const publishJobText = onRequest(async (req, res) => {
@@ -38,11 +39,7 @@ const publishJobText = onRequest(async (req, res) => {
         messageId: messageId,
       });
     } catch (error) {
-      logger.error('Error publishing Text', {
-        message: error.message,
-        code: error.code,
-        stack: error.stack,
-      });
+      logger.error('Error publishing Text', error);
       res.status(500).json({ error: `Internal Server Error: ${error.message}` });
     }
   });

@@ -6,9 +6,6 @@
       "**/.*",
       "**/node_modules/**"
     ],
-    "frameworksBackend": {
-      "region": "us-central1"
-    },
     "rewrites": [
       {
         "source": "**",
@@ -19,14 +16,7 @@
   "functions": [
     {
       "source": "functions",
-      "codebase": "default",
-      "ignore": [
-        "node_modules",
-        ".git",
-        "firebase-debug.log",
-        "firebase-debug.*.log",
-        "*.local"
-      ]
+      "codebase": "default"
     }
   ],
   "emulators": {
@@ -42,20 +32,9 @@
     "hosting": {
       "port": 5000
     },
-    "ui": {
-      "enabled": true
-    },
-    "singleProjectMode": true,
     "pubsub": {
       "port": 8085
-    },
-    "environment": {
-      "NODE_ENV": "development",
-      "PUBSUB_EMULATOR_HOST": "localhost:8085",
-      "FIRESTORE_EMULATOR_HOST": "localhost:8080",
-      "GOOGLE_CLOUD_PROJECT": "jobille-45494"
     }
-
   },
   "firestore": {
     "rules": "firestore.rules",
