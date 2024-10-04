@@ -5,9 +5,8 @@ require('dotenv').config(); // For local development
 const admin = require('firebase-admin');
 const { saveExtractedJDText } = require('./helpers/saveExtractedJDText');
 const { logger } = require('firebase-functions');
-const { Firestore } = require("firebase-admin/firestore");
 
-// Initialize Firebase Admin SDK if not already initialized
+/* Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
   admin.initializeApp();
   const db = admin.firestore();
@@ -20,13 +19,14 @@ if (!admin.apps.length) {
       ssl: false,
     });
   }
-}
+}*/
 
 // Ensure Firestore instance is reused
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 
 async function saveProcessedData(googleId, processedData, url) {
+  const db = getFirestore();
   try {
     // Create a reference to the user's document
     const userRef = db.collection('users').doc(googleId);
@@ -47,7 +47,8 @@ async function saveProcessedData(googleId, processedData, url) {
 }
 
 exports.processPubSubText = onMessagePublished('job-text-submitted', async (event) => {
-    console.log('processText function called');
+  const db = getFirestore();
+  console.log('processText function called');
   console.log('processText function called');
 
   const pubSubMessage = event.data.message.data

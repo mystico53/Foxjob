@@ -6,10 +6,6 @@ const cors = require('cors')({ origin: true });
 const fetch = require('node-fetch');
 require('dotenv').config();
 
-if (!admin.apps.length) {
-    admin.initializeApp();
-}
-
 const db = admin.firestore();
 
 const match = onRequest(async (request, response) => {
