@@ -1,11 +1,7 @@
 const { onRequest } = require("firebase-functions/v2/https");
-const logger = require("firebase-functions/logger");
-const { PubSub } = require('@google-cloud/pubsub');
+const { logger } = require("firebase-functions");
 const cors = require('cors')({ origin: true });
-
-const pubsub = new PubSub({
-  projectId: 'jobille-45494',
-});
+const pubsub = require('./pubsubclient');
 
 const topicName = 'job-text-submitted';
 
@@ -31,7 +27,6 @@ const publishJobText = onRequest(async (req, res) => {
 
       const messageBuffer = Buffer.from(JSON.stringify(req.body.message));
       
-      // Log the message being sent to the topic
       logger.info('Message being sent to topic:', req.body.message);
 
       const messageId = await topic.publish(messageBuffer);

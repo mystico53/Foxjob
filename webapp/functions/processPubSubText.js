@@ -6,21 +6,21 @@ const admin = require('firebase-admin');
 const { saveExtractedJDText } = require('./helpers/saveExtractedJDText');
 const { logger } = require('firebase-functions');
 const { Firestore } = require("firebase-admin/firestore");
+const config = require('./config');
 
-// Initialize Firebase Admin SDK if not already initialized
 if (!admin.apps.length) {
-  admin.initializeApp();
-  const db = admin.firestore();
-
-  // Initialize Firestore emulator only once
-  if (process.env.FIRESTORE_EMULATOR_HOST) {
-    console.log('Connecting to Firestore emulator');
-    db.settings({
-      host: 'localhost:8080', // Default Firestore emulator port
-      ssl: false,
-    });
+    admin.initializeApp();
+    const db = admin.firestore();
+  
+    // Initialize Firestore emulator only once
+    if (config.pubsub.useEmulator) {
+      console.log('Connecting to Firestore emulator');
+      db.settings({
+        host: 'localhost:8080', // Default Firestore emulator port
+        ssl: false,
+      });
+    }
   }
-}
 
 // Ensure Firestore instance is reused
 const db = admin.firestore();
@@ -48,7 +48,7 @@ async function saveProcessedData(googleId, processedData, url) {
 
 exports.processPubSubText = onMessagePublished('job-text-submitted', async (event) => {
     console.log('processText function called');
-  console.log('processText function called');
+    console.log('Current environment:', config.node_env);
 
   const pubSubMessage = event.data.message.data
     ? JSON.parse(Buffer.from(event.data.message.data, 'base64').toString())
