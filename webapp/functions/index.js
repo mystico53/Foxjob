@@ -9,21 +9,10 @@ initializeApp();
 // Get Firestore instance
 const db = getFirestore();
 
-// Initialize Firestore emulator if needed
-if (process.env.FIRESTORE_EMULATOR_HOST) {
-  console.log('Connecting to Firestore emulator');
-  db.settings({
-    host: process.env.FIRESTORE_EMULATOR_HOST,
-    ssl: false,
-  });
-}
-
 // Import your function modules
 const { match } = require('./match');
 const { publishJobText } = require('./publishJobText');
 const { processPubSubText } = require('./processPubSubText');
-
-const pubsub = require('./pubsubclient');
 
 // Export all Cloud Functions
 exports.match = match;
