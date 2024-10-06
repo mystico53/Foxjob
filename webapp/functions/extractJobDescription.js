@@ -24,7 +24,7 @@ exports.extractJobDescription = functions.pubsub
     }
 
     try {
-      // 1. Fetch extracted job description from Firestore
+      // 1. Fetch raw job description from Firestore
       const rawDocPath = `users/${googleId}/jobs/${docId}/raw/document`;
       const docSnapshot = await db.doc(rawDocPath).get();
 
@@ -34,10 +34,10 @@ exports.extractJobDescription = functions.pubsub
       }
 
       const rawData = docSnapshot.data();
-      const extractedJD = rawData.rawtext; // Assuming the raw text is stored in 'rawtext' field
+      const rawJD = rawData.rawtext; // Assuming the raw text is stored in 'rawtext' field
       logger.info('Raw job description fetched from Firestore');
 
-      // 2. Process text with Anthropic API (example: summarize the job description)
+      // 2. Process text with Anthropic API (extract the job description)
       const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
 
       if (!apiKey) {
@@ -45,9 +45,9 @@ exports.extractJobDescription = functions.pubsub
         throw new Error('Anthropic API key not found');
       }
 
-      const instruction = "Summarize the key points of this job description in bullet points. Include the job title, main responsibilities, required qualifications, and any standout benefits or company information.";
+      const instruction = "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.";
 
-      const prompt = `${instruction}\n\n${extractedJD}`;
+      const prompt = `${instruction}\n\n${rawJD}`;
 
       logger.info('Calling Anthropic API');
 
@@ -60,7 +60,7 @@ exports.extractJobDescription = functions.pubsub
         },
         body: JSON.stringify({
           model: 'claude-3-haiku-20240307',
-          max_tokens: 1000,
+          max_tokens: 4096,
           messages: [
             { role: 'user', content: prompt }
           ],
@@ -76,28 +76,27 @@ exports.extractJobDescription = functions.pubsub
 
       logger.info('Received response from Anthropic API');
 
-      let summarizedJD;
+      let extractedJD;
       if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-        summarizedJD = data.content[0].text.trim();
-        logger.info('Job description summarized successfully');
+        extractedJD = data.content[0].text.trim();
+        logger.info('Job description extracted successfully');
       } else {
         logger.error('Unexpected Anthropic API response structure:', data);
         throw new Error('Unexpected Anthropic API response structure');
       }
 
-      // 3. Save extracted and summarized job description to Firestore
+      // 3. Save extracted job description to Firestore
       const extractedPath = `users/${googleId}/jobs/${docId}/extracted/document`;
       const extractedRef = db.doc(extractedPath);
       await extractedRef.set({
         extractedJD: extractedJD,
-        summarizedJD: summarizedJD,
         url: rawData.url, // Preserve the URL from the raw data
         timestamp: Firestore.FieldValue.serverTimestamp()
       });
 
-      logger.info('Extracted and summarized job description saved to Firestore');
+      logger.info('Extracted job description saved to Firestore');
 
-      // 4. Publish a new message to the "job-description-summarized" topic
+      // 4. Publish a new message to the "job-description-extracted" topic
       const newTopicName = 'job-description-extracted';
       
       // Ensure the new topic exists
@@ -123,6 +122,6 @@ exports.extractJobDescription = functions.pubsub
       logger.info(`Message ${newMessageId} published to topic ${newTopicName}`);
 
     } catch (error) {
-      logger.error('Error in processExtractedJobDescription:', error);
+      logger.error('Error in extractJobDescription:', error);
     }
   });
