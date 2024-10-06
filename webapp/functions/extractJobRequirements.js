@@ -2,9 +2,11 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { Firestore } = require("firebase-admin/firestore");
+const { PubSub } = require('@google-cloud/pubsub');
 
 // Ensure Firestore instance is reused
 const db = admin.firestore();
+const pubSubClient = new PubSub();
 
 exports.extractJobRequirements = functions.pubsub
   .topic('job-description-extracted')
@@ -93,6 +95,19 @@ Provide only the list of 6 requirements, one per line, without any additional te
 
       logger.info(`Job requirements saved to Firestore at path: ${requirementsPath}`);
       logger.info(`Extracted requirements: ${requirements}`);
+
+      // 4. Publish to "requirements-gathered" topic
+      const jobReference = jobDocumentPath.split('/').pop(); // Extract the last part of the path as job reference
+      const pubSubMessage = {
+        jobReference: jobReference,
+        googleId: googleId
+      };
+
+      const topicName = 'requirements-gathered';
+      const pubSubTopic = pubSubClient.topic(topicName);
+      await pubSubTopic.publish(Buffer.from(JSON.stringify(pubSubMessage)));
+
+      logger.info(`Published message to ${topicName} topic with jobReference: ${jobReference} and googleId: ${googleId}`);
 
     } catch (error) {
       logger.error('Error in extractJobRequirements:', error);
