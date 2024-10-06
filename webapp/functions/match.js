@@ -96,7 +96,7 @@ async function matchResumeWithJob(resumeText, jobDescriptionText) {
 
     const instruction = `You are an AI assistant tasked with critically evaluating how well a resume matches a given job description. Your task is to:
 
-1) Derive 5 key skills needed for the job based on the job description.
+1) Derive 6 key skills needed for the job based on the job description.
 2) Match these skills with the candidate's experience, being very overly critical in your assessment (one short sentence).
 3) Score each skill match on a scale of 0-100, where 100 is a perfect match and 0 is no match at all.
 4) Calculate a total score based on the average of these 5 skill scores.
@@ -128,6 +128,11 @@ Format your response as a JSON object with the following structure:
     },
     {
       "skill": "Skill 5",
+      "score": 0,
+      "assessment": "Brief one short sentence explanation of score"
+    },
+     {
+      "skill": "Skill 6",
       "score": 0,
       "assessment": "Brief one short sentence explanation of score"
     }

@@ -17,6 +17,7 @@ const { saveRawPubSubMessage } = require('./saveRawPubSubMessage');
 const { extractJobDescription } = require('./extractJobDescription');
 const { summarizeJobDescription } = require('./summarizeJobDescription');
 const { extractJobRequirements } = require('./extractJobRequirements');
+const { calculateScore } = require('./calculateScore');
 
 // Export all Cloud Functions
 exports.match = match;
@@ -26,3 +27,4 @@ exports.saveRawMessage = saveRawPubSubMessage;
 exports.extractJobDescription = extractJobDescription;
 exports.summarizeJobDescription = summarizeJobDescription;
 exports.extractJobRequirements = extractJobRequirements;
+exports.calculateScore = calculateScore;
