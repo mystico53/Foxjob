@@ -37,15 +37,21 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
     // Create a reference to the user's document
     const userRef = db.collection('users').doc(googleId);
 
-    // Add the raw data to the user's 'raw' subcollection
-    const rawRef = await userRef.collection('raw').add({
+    // Generate a new document ID
+    const newDocId = db.collection('temp').doc().id;
+
+    // Create a reference to the 'raw' document
+    const rawRef = userRef.collection('jobs').doc(newDocId).collection('raw').doc('document');
+
+    // Add the raw data to the 'raw' document
+    await rawRef.set({
       rawtext: text,
       textlength: text.length,
       url: url,
       timestamp: Firestore.FieldValue.serverTimestamp()
     });
 
-    console.log('Raw document written with ID: ', rawRef.id);
+    console.log('Raw document written with ID: ', newDocId);
 
     // Create a new topic name
     const topicName = 'raw-text-stored';
@@ -59,23 +65,22 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
       }
     });
 
-    // Prepare the message with the document reference and googleId
+    // Prepare the simplified message
     const message = {
-      docRef: rawRef.path,
-      googleId: googleId
+      googleId: googleId,
+      docId: newDocId
     };
 
     // Publish the message to the topic
     const messageId = await pubSubClient.topic(topicName).publishMessage({
-        data: Buffer.from(JSON.stringify(message)),
-        
-      });
+      data: Buffer.from(JSON.stringify(message)),
+    });
 
     console.log(`Message ${messageId} published to topic ${topicName}`);
     console.log('saveRawPubSubMessage function completed successfully');
 
     return { 
-      firestoreDocRefId: rawRef.id,
+      firestoreDocPath: rawRef.path,
       topicName: topicName,
       messageId: messageId
     };

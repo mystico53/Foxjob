@@ -1,6 +1,5 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
-const fetch = require('node-fetch');
 const { logger } = require('firebase-functions');
 const { Firestore } = require("firebase-admin/firestore");
 
