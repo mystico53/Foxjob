@@ -7,7 +7,7 @@ const { Firestore } = require("firebase-admin/firestore");
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 
-exports.analyzeJobDescription = functions.pubsub
+exports.summarizeJobDescription = functions.pubsub
   .topic('job-description-extracted')
   .onPublish(async (message) => {
     const messageData = message.json;
@@ -79,8 +79,9 @@ exports.analyzeJobDescription = functions.pubsub
       }
 
       // 3. Save analysis result to Firestore
-      const documentId = extractedPath.split('/').pop(); // Get the document ID from the extractedPath
-      const analysisPath = `users/${googleId}/summarized/${documentId}`;
+      const pathParts = extractedPath.split('/');
+      const jobDocumentPath = pathParts.slice(0, -2).join('/');
+      const analysisPath = `${jobDocumentPath}/summarized/document`;
       const analysisRef = db.doc(analysisPath);
       await analysisRef.set({
         analysisResult: analysisResult,

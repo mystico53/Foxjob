@@ -111,7 +111,9 @@ exports.extractJobDescription = functions.pubsub
       // Prepare the new message
       const newMessage = {
         googleId: googleId,
-        docId: docId
+        docId: docId,
+        extractedPath: `users/${googleId}/jobs/${docId}/extracted/document`,
+        rawPath: `users/${googleId}/jobs/${docId}/raw/document`
       };
 
       // Publish the new message
