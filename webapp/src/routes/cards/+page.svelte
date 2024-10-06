@@ -1,128 +1,93 @@
 <script>
-	import { onMount } from 'svelte';
-	import { auth, db } from '$lib/firebase';
-	import { signOut } from 'firebase/auth';
-	import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+    import { onMount } from 'svelte';
+    import { auth, db } from '$lib/firebase';
+    import { signOut } from 'firebase/auth';
+    import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+    import { goto } from '$app/navigation';
 
-	import { goto } from '$app/navigation';
+    let user = null;
+    let jobData = [];
+    let loading = true;
+    let deleting = false;
+    let error = null;
+    let sortColumn = 'timestamp';
+    let sortDirection = 'desc';
 
-	let user = null;
-	let jobData = [];
-	let loading = true;
-	let deleting = false;
-	let error = null;
-	let sortColumn = 'timestamp';
-	let sortDirection = 'desc';
-
-	onMount(() => {
-		const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
-			user = currentUser;
-			if (user) {
-				await fetchJobData();
-			} else {
-				loading = false;
-			}
-		});
-
-		return () => unsubscribe();
-	});
-
-	async function fetchJobData() {
-		loading = true;
-		error = null;
-		try {
-			const processedRef = collection(db, 'users', user.uid, 'processed');
-			const querySnapshot = await getDocs(processedRef);
-			jobData = querySnapshot.docs
-				.map((doc) => ({
-					id: doc.id,
-					...doc.data(),
-					hidden: doc.data().hidden || false
-				}))
-				.filter((job) => !job.hidden);
-			sortData(sortColumn, sortDirection);
-		} catch (err) {
-			console.error('Error fetching job data:', err);
-			error = 'Failed to fetch job data. Please try again later.';
-		} finally {
-			loading = false;
-		}
-	}
-
-	async function hideJob(jobId) {
-		try {
-			const jobRef = doc(db, 'users', user.uid, 'processed', jobId);
-			await updateDoc(jobRef, { hidden: true });
-			jobData = jobData.filter((job) => job.id !== jobId);
-		} catch (err) {
-			console.error('Error hiding job:', err);
-			error = 'Failed to hide job. Please try again.';
-		}
-	}
-
-/**
-	 * Function: matchJob
-	 * Description: Sends a jobId and googleId to the Cloud Function 'match' and logs the response.
-	 * @param {string} jobId - The ID of the job to match.
-	 */
-	 async function matchJob(jobId) {
-    if (!user) {
-        console.error('No authenticated user found.');
-        alert('You must be logged in to perform this action.');
-        return;
-    }
-
-    const googleId = user.uid;
-
-    try {
-        const matchFunctionUrl = 'https://match-kvshkfhmua-uc.a.run.app';
-
-        const response = await fetch(matchFunctionUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ jobId, googleId }),
+    onMount(() => {
+        const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
+            user = currentUser;
+            if (user) {
+                await fetchJobData();
+            } else {
+                loading = false;
+            }
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Cloud Function Error: ${errorText}`);
+        return () => unsubscribe();
+    });
+
+    async function fetchJobData() {
+        loading = true;
+        error = null;
+        try {
+            const processedRef = collection(db, 'users', user.uid, 'processed');
+            const querySnapshot = await getDocs(processedRef);
+            const jobs = querySnapshot.docs
+                .map((doc) => ({
+                    id: doc.id,
+                    ...doc.data(),
+                    hidden: doc.data().hidden || false
+                }))
+                .filter((job) => !job.hidden);
+
+            // Fetch scores for each job in parallel
+            const jobsWithScores = await Promise.all(jobs.map(async (job) => {
+                try {
+                    const scoreDocRef = doc(db, 'users', user.uid, 'jobs', job.id, 'score', 'document');
+                    const scoreDoc = await getDoc(scoreDocRef);
+                    if (scoreDoc.exists()) {
+                        return { ...job, matchResult: scoreDoc.data() };
+                    } else {
+                        return job; // No score available
+                    }
+                } catch (err) {
+                    console.error(`Error fetching score for job ${job.id}:`, err);
+                    return job; // Proceed without score
+                }
+            }));
+
+            jobData = jobsWithScores;
+            sortData(sortColumn, sortDirection);
+        } catch (err) {
+            console.error('Error fetching job data:', err);
+            error = 'Failed to fetch job data. Please try again later.';
+        } finally {
+            loading = false;
         }
-
-        const responseData = await response.json();
-
-        // Log the match result
-        const { matchResult } = responseData;
-
-        // Find the job in jobData by jobId
-        const jobIndex = jobData.findIndex((job) => job.id === jobId);
-
-        if (jobIndex !== -1) {
-            // Update the job with the match result
-            jobData[jobIndex].matchResult = matchResult;
-
-            // Trigger reactivity by re-assigning the jobData array
-            jobData = [...jobData];
-        }
-
-    } catch (error) {
-        console.error('Error in matchJob:', error);
-        alert('Failed to get match score. Please try again.');
     }
-}
 
-	async function handleLogout() {
-		try {
-			await signOut(auth);
-			goto('/');
-		} catch (err) {
-			console.error('Error signing out:', err);
-			error = 'Failed to sign out. Please try again.';
-		}
-	}
+    async function hideJob(jobId) {
+        try {
+            const jobRef = doc(db, 'users', user.uid, 'processed', jobId);
+            await updateDoc(jobRef, { hidden: true });
+            jobData = jobData.filter((job) => job.id !== jobId);
+        } catch (err) {
+            console.error('Error hiding job:', err);
+            error = 'Failed to hide job. Please try again.';
+        }
+    }
 
-	async function deleteAllJobs() {
+    async function handleLogout() {
+        try {
+            await signOut(auth);
+            goto('/');
+        } catch (err) {
+            console.error('Error signing out:', err);
+            error = 'Failed to sign out. Please try again.';
+        }
+    }
+
+    async function deleteAllJobs() {
         if (!user) {
             alert('You must be logged in to perform this action.');
             return;
@@ -140,35 +105,30 @@
 
             if (querySnapshot.empty) {
                 alert('No jobs to delete.');
-                deleting = false; // Reset deleting state
+                deleting = false;
                 return;
             }
 
-            let batch = writeBatch(db); // Use 'let' to allow reassignment
+            let batch = writeBatch(db);
             let count = 0;
-            const promises = []; // To store commit promises
+            const promises = [];
 
             querySnapshot.forEach((docSnapshot) => {
                 batch.delete(docSnapshot.ref);
                 count++;
 
-                // If batch limit reached, commit and start a new batch
                 if (count === 500) {
                     promises.push(batch.commit());
-                    batch = writeBatch(db); // Reassign 'batch' with 'let'
+                    batch = writeBatch();
                     count = 0;
                 }
             });
 
-            // Commit any remaining operations
             if (count > 0) {
                 promises.push(batch.commit());
             }
 
-            // Await all commit promises
             await Promise.all(promises);
-
-            // Refresh job data
             await fetchJobData();
         } catch (err) {
             console.error('Error deleting all jobs:', err);
@@ -178,49 +138,49 @@
         }
     }
 
-	function formatDate(timestamp) {
-		if (timestamp && timestamp.toDate) {
-			const date = timestamp.toDate();
-			const day = String(date.getDate()).padStart(2, '0');
-			const month = String(date.getMonth() + 1).padStart(2, '0');
-			const year = String(date.getFullYear()).slice(-2);
-			const hours = String(date.getHours()).padStart(2, '0');
-			const minutes = String(date.getMinutes()).padStart(2, '0');
-			const seconds = String(date.getSeconds()).padStart(2, '0');
-			return `${day}.${month}.${year}, ${hours}:${minutes}:${seconds}`;
-		}
-		return 'N/A';
-	}
+    function formatDate(timestamp) {
+        if (timestamp && timestamp.toDate) {
+            const date = timestamp.toDate();
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = String(date.getFullYear()).slice(-2);
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            const seconds = String(date.getSeconds()).padStart(2, '0');
+            return `${day}.${month}.${year}, ${hours}:${minutes}:${seconds}`;
+        }
+        return 'N/A';
+    }
 
-	function sortData(column, direction) {
-		sortColumn = column;
-		sortDirection = direction;
+    function sortData(column, direction) {
+        sortColumn = column;
+        sortDirection = direction;
 
-		jobData = jobData.sort((a, b) => {
-			let aValue = column.split('.').reduce((obj, key) => obj && obj[key], a);
-			let bValue = column.split('.').reduce((obj, key) => obj && obj[key], b);
+        jobData = jobData.sort((a, b) => {
+            let aValue = column.split('.').reduce((obj, key) => obj && obj[key], a);
+            let bValue = column.split('.').reduce((obj, key) => obj && obj[key], b);
 
-			if (column === 'timestamp') {
-				aValue = a.timestamp?.toDate?.() || new Date(0);
-				bValue = b.timestamp?.toDate?.() || new Date(0);
-			}
+            if (column === 'timestamp') {
+                aValue = a.timestamp?.toDate?.() || new Date(0);
+                bValue = b.timestamp?.toDate?.() || new Date(0);
+            }
 
-			if (aValue < bValue) return direction === 'asc' ? -1 : 1;
-			if (aValue > bValue) return direction === 'asc' ? 1 : -1;
-			return 0;
-		});
-	}
+            if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+            if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+            return 0;
+        });
+    }
 
-	function handleSort(column) {
-		const newDirection = column === sortColumn && sortDirection === 'asc' ? 'desc' : 'asc';
-		sortData(column, newDirection);
-	}
+    function handleSort(column) {
+        const newDirection = column === sortColumn && sortDirection === 'asc' ? 'desc' : 'asc';
+        sortData(column, newDirection);
+    }
 
-	function openJobLink(url) {
-		if (url) {
-			window.open(url, '_blank');
-		}
-	}
+    function openJobLink(url) {
+        if (url) {
+            window.open(url, '_blank');
+        }
+    }
 </script>
 
 <main>
@@ -301,7 +261,6 @@
                     <!-- Card Footer -->
                     <div class="card-footer">
                         <button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
-						<button on:click={() => matchJob(job.id)} class="match-button">Match</button>
                         <button on:click={() => openJobLink(job.url)} class="view-button">View Job</button>
                     </div>
 
