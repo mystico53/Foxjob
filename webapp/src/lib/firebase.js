@@ -41,10 +41,14 @@ export const { app, auth, db, analytics } = firebase;
 export async function signInWithGoogle() {
   const provider = new GoogleAuthProvider();
   try {
+    console.log("Attempting to sign in with Google...");
     const result = await signInWithPopup(auth, provider);
+    console.log("Sign in successful", result.user);
     return result.user;
   } catch (error) {
     console.error("Error signing in with Google", error);
+    console.error("Error code:", error.code);
+    console.error("Error message:", error.message);
     throw error;
   }
 }
