@@ -31,7 +31,7 @@ async function saveProcessedData(googleId, processedData, url) {
   }
 }
 
-exports.processPubSubText = onMessagePublished('job-text-submitted', async (event) => {
+exports.processPubSubText = onMessagePublished('raw-text-stored-2', async (event) => {
   console.log('processText function called');
   
 
@@ -68,7 +68,7 @@ exports.processPubSubText = onMessagePublished('job-text-submitted', async (even
   }
 
   try {
-    // Prepare the prompt for the Anthropic API
+    // Prepare the prompt for the Anthropic API to summarize
     const prompt = instructions.prompt.replace("{TEXT}", text + `\n\nURL: ${url}\nGoogle ID: ${googleId}`);
     console.log('Prepared prompt:', prompt);
 
@@ -110,7 +110,7 @@ exports.processPubSubText = onMessagePublished('job-text-submitted', async (even
         const firestoreDocId = await saveProcessedData(googleId, parsedResult, url);
         console.log('Data saved to Firestore with ID:', firestoreDocId);
 
-        // Save the extractedJDText text to Firestore
+        // Save the extractedJDText text to Firestore /*
         try {
           const result = await saveExtractedJDText({ googleId, processedDocId: firestoreDocId, rawText: text });
           logger.info('extractedJDText text saved with ID s:', result.id);
