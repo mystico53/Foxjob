@@ -105,7 +105,10 @@ Provide only the list of 6 requirements, one per line, without any additional te
 
       const topicName = 'requirements-gathered';
       const pubSubTopic = pubSubClient.topic(topicName);
-      await pubSubTopic.publish(Buffer.from(JSON.stringify(pubSubMessage)));
+      await pubSubTopic.publishMessage({
+        data: Buffer.from(JSON.stringify(pubSubMessage)),
+        // You can add attributes here if needed
+      });
 
       logger.info(`Published message to ${topicName} topic with jobReference: ${jobReference} and googleId: ${googleId}`);
 

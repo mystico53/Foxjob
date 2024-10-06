@@ -2,7 +2,7 @@
 const FIREBASE_CONFIG = {
   emulatorUrl: 'http://127.0.0.1:5001/jobille-45494/us-central1/publishJobText',
   productionUrl: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
-  useEmulator: true//doesnt work?
+  useEmulator: false
 };
 
 // Helper function to check if emulator is running
