@@ -24,25 +24,29 @@ exports.extractJobDescription = functions.pubsub
     }
 
     try {
-      // 1. Fetch raw job description from Firestore
-      const rawDocPath = `users/${googleId}/jobs/${docId}/raw/document`;
-      const docSnapshot = await db.doc(rawDocPath).get();
+      // Create document reference using googleId and docId
+      const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+
+      // Fetch job data from Firestore
+      const docSnapshot = await jobDocRef.get();
 
       if (!docSnapshot.exists) {
-        logger.error(`Document not found: ${rawDocPath}`);
+        logger.error(`Document not found: ${jobDocRef.path}`);
+        await populateWithNA(jobDocRef);
         return;
       }
 
-      const rawData = docSnapshot.data();
-      const rawJD = rawData.rawtext; // Assuming the raw text is stored in 'rawtext' field
+      const jobData = docSnapshot.data();
+      const rawJD = jobData.texts.rawText || "na"; // Use "na" if rawText is not available
       logger.info('Raw job description fetched from Firestore');
 
-      // 2. Process text with Anthropic API (extract the job description)
+      // Process text with Anthropic API (extract the job description)
       const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
 
       if (!apiKey) {
         logger.error('Anthropic API key not found');
-        throw new Error('Anthropic API key not found');
+        await populateWithNA(jobDocRef);
+        return;
       }
 
       const instruction = "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.";
@@ -71,7 +75,8 @@ exports.extractJobDescription = functions.pubsub
 
       if (!anthropicResponse.ok) {
         logger.error('Anthropic API error response:', data);
-        throw new Error(`Anthropic API Error: ${JSON.stringify(data)}`);
+        await populateWithNA(jobDocRef);
+        return;
       }
 
       logger.info('Received response from Anthropic API');
@@ -82,21 +87,20 @@ exports.extractJobDescription = functions.pubsub
         logger.info('Job description extracted successfully');
       } else {
         logger.error('Unexpected Anthropic API response structure:', data);
-        throw new Error('Unexpected Anthropic API response structure');
+        extractedJD = "na";
       }
 
-      // 3. Save extracted job description to Firestore
-      const extractedPath = `users/${googleId}/jobs/${docId}/extracted/document`;
-      const extractedRef = db.doc(extractedPath);
-      await extractedRef.set({
-        extractedJD: extractedJD,
-        url: rawData.url, // Preserve the URL from the raw data
-        timestamp: Firestore.FieldValue.serverTimestamp()
+      // Save extracted job description to Firestore
+      await jobDocRef.update({
+        texts: {
+          ...jobData.texts, // Spread the existing texts object
+          extractedText: extractedJD || "na",
+        },
       });
-
+      
       logger.info('Extracted job description saved to Firestore');
 
-      // 4. Publish a new message to the "job-description-extracted" topic
+      // Publish a new message to the "job-description-extracted" topic
       const newTopicName = 'job-description-extracted';
       
       // Ensure the new topic exists
@@ -108,12 +112,10 @@ exports.extractJobDescription = functions.pubsub
         }
       });
 
-      // Prepare the new message
+      // Prepare the new message (only including googleId and docId)
       const newMessage = {
         googleId: googleId,
-        docId: docId,
-        extractedPath: `users/${googleId}/jobs/${docId}/extracted/document`,
-        rawPath: `users/${googleId}/jobs/${docId}/raw/document`
+        docId: docId
       };
 
       // Publish the new message
@@ -125,5 +127,18 @@ exports.extractJobDescription = functions.pubsub
 
     } catch (error) {
       logger.error('Error in extractJobDescription:', error);
+      await populateWithNA(jobDocRef);
     }
   });
+
+// Helper function to populate fields with "na"
+async function populateWithNA(docRef) {
+  try {
+    await docRef.update({
+      extracted: "na"
+    });
+    logger.info('Field populated with "na" due to error');
+  } catch (error) {
+    logger.error('Error populating field with "na":', error);
+  }
+}
