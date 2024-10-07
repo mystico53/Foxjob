@@ -13,11 +13,11 @@ const db = getFirestore();
 const { match } = require('./match');
 const { publishJobText } = require('./publishJobText');
 //const { processPubSubText } = require('./processPubSubText');
-const { saveRawPubSubMessage } = require('./saveRawPubSubMessage');
-const { extractJobDescription } = require('./extractJobDescription');
-const { summarizeJobDescription } = require('./summarizeJobDescription');
-const { extractJobRequirements } = require('./extractJobRequirements');
-const { calculateScore } = require('./calculateScore');
+const { saveRawPubSubMessage } = require('./pubsub/saveRawPubSubMessage');
+const { extractJobDescription } = require('./pubsub/extractJobDescription');
+const { summarizeJobDescription } = require('./pubsub/summarizeJobDescription');
+const { extractJobRequirements } = require('./pubsub/extractJobRequirements');
+const { calculateScore } = require('./pubsub/calculateScore');
 
 // Export all Cloud Functions
 exports.match = match;
