@@ -18,7 +18,8 @@
             user = currentUser;
             if (user) {
                 //await fetchJobData();
-                await listUserCollections();
+                testReadJobs();
+                //await listUserCollections();
             } else {
                 loading = false;
             }
@@ -27,79 +28,105 @@
         return () => unsubscribe();
     });
 
-    async function listUserCollections() {
-  if (!user) {
-    console.error('User is not logged in');
-    return [];
-  }
-
-  // List of known collections
-  const knownCollections = ['UserCollections', 'jobs', 'processed'];
-  const existingCollections = [];
-
+    async function testReadJobs() {
   try {
-    for (const collectionName of knownCollections) {
-      const collectionRef = collection(db, 'users', user.uid, collectionName);
-      const snapshot = await getDocs(collectionRef);
-      
-      // Add the collection name even if it's empty
-      existingCollections.push(collectionName);
-      
-      console.log(`Collection ${collectionName} has ${snapshot.size} documents`);
-    }
-
-    console.log(`Collections for user ${user.uid}:`, existingCollections);
-    return existingCollections;
+    const jobsRef = collection(db, 'users', 'VCvUK0pLeDVXJ0JHJsNBwxLgvdO2', 'jobs');
+    const jobsSnapshot = await getDocs(jobsRef);
+    console.log(`Test Read: Retrieved ${jobsSnapshot.size} job(s)`);
+    jobsSnapshot.forEach((doc) => {
+      console.log(`Job ID: ${doc.id}`, doc.data());
+    });
   } catch (error) {
-    console.error('Error listing collections:', error);
-    return [];
+    console.error('Test Read: Error fetching jobs:', error);
   }
 }
 
-    async function fetchJobData() {
-    loading = true;
-    error = null;
+async function fetchJobData() {
+    console.log('fetchJobData: Function started');
+    loading = true;       // Indicate loading state
+    error = null;         // Reset any previous errors
+    jobData = [];         // Initialize jobData array
+
     try {
-        console.log('Fetching job data from Firestore...');
-
-        // Fetch jobs from the new structure
+        // Step 1: Reference to the 'jobs' collection under the current user
         const jobsRef = collection(db, 'users', user.uid, 'jobs');
+        console.log(`fetchJobData: Created reference to jobs collection for user ID: ${user.uid}`);
+
+        // Step 2: Fetch all job documents
+        console.log('fetchJobData: Fetching job documents...');
         const jobsSnapshot = await getDocs(jobsRef);
+        console.log(`fetchJobData: Retrieved ${jobsSnapshot.size} job(s)`);
 
-        console.log(`Found ${jobsSnapshot.size} jobs for user ${user.uid}`);
+        if (jobsSnapshot.empty) {
+            console.log('fetchJobData: No jobs found for the user.');
+            return; // Exit early if no jobs are found
+        }
 
-        const jobs = await Promise.all(jobsSnapshot.docs.map(async (jobDoc) => {
-            const jobId = jobDoc.id;
-            console.log(`Processing job ID: ${jobId}`);
+        // Extract job documents
+        const jobDocs = jobsSnapshot.docs;
+        console.log(`fetchJobData: Processing ${jobDocs.length} job document(s)`);
 
-            // Fetch summarized document for each job
-            const summarizedDocRef = doc(db, 'users', user.uid, 'jobs', jobId, 'summarized', 'document');
-            const summarizedDoc = await getDoc(summarizedDocRef);
+        // Step 3: Iterate over each job document to fetch summarized data
+        const summarizedPromises = jobDocs.map(async (jobDoc, index) => {
+            console.log(`fetchJobData: Processing job ${index + 1}/${jobDocs.length} with ID: ${jobDoc.id}`);
+            try {
+                // Reference to the 'summarized' sub-collection for the current job
+                const summarizedRef = collection(db, 'users', user.uid, 'jobs', jobDoc.id, 'summarized');
+                console.log(`fetchJobData: Created reference to summarized collection for job ID: ${jobDoc.id}`);
 
-            if (summarizedDoc.exists()) {
-                console.log(`Summarized document found for job ID: ${jobId}`);
-                return {
-                    id: jobId,
-                    ...summarizedDoc.data(),
-                    hidden: summarizedDoc.data().hidden || false
-                };
-            } else {
-                console.log(`No summarized document found for job ID: ${jobId}`);
-                return null; // or you might want to return some default structure
+                // Fetch summarized documents for the current job
+                console.log(`fetchJobData: Fetching summarized documents for job ID: ${jobDoc.id}`);
+                const summarizedSnapshot = await getDocs(summarizedRef);
+                console.log(`fetchJobData: Retrieved ${summarizedSnapshot.size} summarized document(s) for job ID: ${jobDoc.id}`);
+
+                if (summarizedSnapshot.empty) {
+                    console.log(`fetchJobData: No summarized data found for job ID: ${jobDoc.id}`);
+                    return []; // Return empty array if no summarized data
+                }
+
+                // Map and filter summarized documents
+                const summarizedData = summarizedSnapshot.docs
+                    .map((doc) => ({
+                        id: doc.id,
+                        jobId: jobDoc.id, // Include the parent job ID for context
+                        ...doc.data(),
+                        hidden: doc.data().hidden || false
+                    }))
+                    .filter((summarizedDoc) => !summarizedDoc.hidden);
+
+                console.log(`fetchJobData: Processed ${summarizedData.length} summarized document(s) for job ID: ${jobDoc.id}`);
+                return summarizedData;
+            } catch (jobError) {
+                console.error(`fetchJobData: Error fetching summarized data for job ID ${jobDoc.id}:`, jobError);
+                // Continue processing other jobs even if one fails
+                return [];
             }
-        }));
+        });
 
-        // Filter out null values and hidden jobs
-        jobData = jobs.filter(job => job && !job.hidden);
+        // Step 4: Await all summarized data fetches in parallel
+        console.log('fetchJobData: Initiating parallel fetch of summarized data for all jobs...');
+        const summarizedResults = await Promise.all(summarizedPromises);
+        console.log('fetchJobData: All summarized data fetched');
 
-        console.log(`Processed ${jobData.length} visible jobs`);
+        // Step 5: Flatten the array of arrays into a single array
+        jobData = summarizedResults.flat();
+        console.log(`fetchJobData: Aggregated total of ${jobData.length} summarized job data entries`);
 
+        if (jobData.length === 0) {
+            console.log('fetchJobData: No summarized job data available after filtering.');
+        }
+
+        // Step 6: Sort the aggregated job data
+        console.log(`fetchJobData: Sorting job data by column: ${sortColumn}, direction: ${sortDirection}`);
         sortData(sortColumn, sortDirection);
+        console.log('fetchJobData: Sorting completed');
+
     } catch (err) {
-        console.error('Error fetching job data:', err);
+        console.error('fetchJobData: Error fetching job data:', err);
         error = 'Failed to fetch job data. Please try again later.';
     } finally {
-        loading = false;
+        loading = false; // Loading is complete
+        console.log('fetchJobData: Function completed, loading set to false');
     }
 }
 

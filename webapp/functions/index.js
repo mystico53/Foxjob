@@ -12,7 +12,7 @@ const db = getFirestore();
 // Import your function modules
 const { match } = require('./match');
 const { publishJobText } = require('./publishJobText');
-const { processPubSubText } = require('./processPubSubText');
+//const { processPubSubText } = require('./processPubSubText');
 const { saveRawPubSubMessage } = require('./saveRawPubSubMessage');
 const { extractJobDescription } = require('./extractJobDescription');
 const { summarizeJobDescription } = require('./summarizeJobDescription');
@@ -22,7 +22,7 @@ const { calculateScore } = require('./calculateScore');
 // Export all Cloud Functions
 exports.match = match;
 exports.publishJobText = publishJobText;
-exports.processText = processPubSubText;
+//exports.processText = processPubSubText;
 exports.saveRawMessage = saveRawPubSubMessage;
 exports.extractJobDescription = extractJobDescription;
 exports.summarizeJobDescription = summarizeJobDescription;
