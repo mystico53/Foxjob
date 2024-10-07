@@ -17,7 +17,8 @@
         const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
             user = currentUser;
             if (user) {
-                await fetchJobData();
+                //await fetchJobData();
+                await listUserCollections();
             } else {
                 loading = false;
             }
@@ -26,45 +27,81 @@
         return () => unsubscribe();
     });
 
-    async function fetchJobData() {
-        loading = true;
-        error = null;
-        try {
-            const processedRef = collection(db, 'users', user.uid, 'processed');
-            const querySnapshot = await getDocs(processedRef);
-            const jobs = querySnapshot.docs
-                .map((doc) => ({
-                    id: doc.id,
-                    ...doc.data(),
-                    hidden: doc.data().hidden || false
-                }))
-                .filter((job) => !job.hidden);
+    async function listUserCollections() {
+  if (!user) {
+    console.error('User is not logged in');
+    return [];
+  }
 
-            // Fetch scores for each job in parallel
-            const jobsWithScores = await Promise.all(jobs.map(async (job) => {
-                try {
-                    const scoreDocRef = doc(db, 'users', user.uid, 'jobs', job.id, 'score', 'document');
-                    const scoreDoc = await getDoc(scoreDocRef);
-                    if (scoreDoc.exists()) {
-                        return { ...job, matchResult: scoreDoc.data() };
-                    } else {
-                        return job; // No score available
-                    }
-                } catch (err) {
-                    console.error(`Error fetching score for job ${job.id}:`, err);
-                    return job; // Proceed without score
-                }
-            }));
+  // List of known collections
+  const knownCollections = ['UserCollections', 'jobs', 'processed'];
+  const existingCollections = [];
 
-            jobData = jobsWithScores;
-            sortData(sortColumn, sortDirection);
-        } catch (err) {
-            console.error('Error fetching job data:', err);
-            error = 'Failed to fetch job data. Please try again later.';
-        } finally {
-            loading = false;
-        }
+  try {
+    for (const collectionName of knownCollections) {
+      const collectionRef = collection(db, 'users', user.uid, collectionName);
+      const snapshot = await getDocs(collectionRef);
+      
+      // Add the collection name even if it's empty
+      existingCollections.push(collectionName);
+      
+      console.log(`Collection ${collectionName} has ${snapshot.size} documents`);
     }
+
+    console.log(`Collections for user ${user.uid}:`, existingCollections);
+    return existingCollections;
+  } catch (error) {
+    console.error('Error listing collections:', error);
+    return [];
+  }
+}
+
+    async function fetchJobData() {
+    loading = true;
+    error = null;
+    try {
+        console.log('Fetching job data from Firestore...');
+
+        // Fetch jobs from the new structure
+        const jobsRef = collection(db, 'users', user.uid, 'jobs');
+        const jobsSnapshot = await getDocs(jobsRef);
+
+        console.log(`Found ${jobsSnapshot.size} jobs for user ${user.uid}`);
+
+        const jobs = await Promise.all(jobsSnapshot.docs.map(async (jobDoc) => {
+            const jobId = jobDoc.id;
+            console.log(`Processing job ID: ${jobId}`);
+
+            // Fetch summarized document for each job
+            const summarizedDocRef = doc(db, 'users', user.uid, 'jobs', jobId, 'summarized', 'document');
+            const summarizedDoc = await getDoc(summarizedDocRef);
+
+            if (summarizedDoc.exists()) {
+                console.log(`Summarized document found for job ID: ${jobId}`);
+                return {
+                    id: jobId,
+                    ...summarizedDoc.data(),
+                    hidden: summarizedDoc.data().hidden || false
+                };
+            } else {
+                console.log(`No summarized document found for job ID: ${jobId}`);
+                return null; // or you might want to return some default structure
+            }
+        }));
+
+        // Filter out null values and hidden jobs
+        jobData = jobs.filter(job => job && !job.hidden);
+
+        console.log(`Processed ${jobData.length} visible jobs`);
+
+        sortData(sortColumn, sortDirection);
+    } catch (err) {
+        console.error('Error fetching job data:', err);
+        error = 'Failed to fetch job data. Please try again later.';
+    } finally {
+        loading = false;
+    }
+}
 
     async function hideJob(jobId) {
         try {
@@ -88,55 +125,72 @@
     }
 
     async function deleteAllJobs() {
-        if (!user) {
-            alert('You must be logged in to perform this action.');
+    if (!user) {
+        alert('You must be logged in to perform this action.');
+        return;
+    }
+
+    const confirmation = confirm('Are you sure you want to delete all your jobs? This action cannot be undone.');
+    if (!confirmation) return;
+
+    deleting = true;
+    error = null;
+
+    try {
+        console.log('Attempting to delete jobs...');
+        
+        // Check both 'jobs' and 'processed' collections
+        const jobsRef = collection(db, 'users', user.uid, 'jobs');
+        const processedRef = collection(db, 'users', user.uid, 'processed');
+
+        const jobsSnapshot = await getDocs(jobsRef);
+        const processedSnapshot = await getDocs(processedRef);
+
+        console.log(`Found ${jobsSnapshot.size} documents in 'jobs' collection`);
+        console.log(`Found ${processedSnapshot.size} documents in 'processed' collection`);
+
+        if (jobsSnapshot.empty && processedSnapshot.empty) {
+            alert('No jobs to delete.');
+            deleting = false;
             return;
         }
 
-        const confirmation = confirm('Are you sure you want to delete all your jobs? This action cannot be undone.');
-        if (!confirmation) return;
+        let batch = writeBatch(db);
+        let count = 0;
+        const promises = [];
 
-        deleting = true;
-        error = null;
-
-        try {
-            const processedRef = collection(db, 'users', user.uid, 'processed');
-            const querySnapshot = await getDocs(processedRef);
-
-            if (querySnapshot.empty) {
-                alert('No jobs to delete.');
-                deleting = false;
-                return;
-            }
-
-            let batch = writeBatch(db);
-            let count = 0;
-            const promises = [];
-
-            querySnapshot.forEach((docSnapshot) => {
+        const deleteDocuments = (snapshot) => {
+            snapshot.forEach((docSnapshot) => {
+                console.log(`Deleting document: ${docSnapshot.ref.path}`);
                 batch.delete(docSnapshot.ref);
                 count++;
 
                 if (count === 500) {
                     promises.push(batch.commit());
-                    batch = writeBatch();
+                    batch = writeBatch(db);
                     count = 0;
                 }
             });
+        };
 
-            if (count > 0) {
-                promises.push(batch.commit());
-            }
+        deleteDocuments(jobsSnapshot);
+        deleteDocuments(processedSnapshot);
 
-            await Promise.all(promises);
-            await fetchJobData();
-        } catch (err) {
-            console.error('Error deleting all jobs:', err);
-            error = 'Failed to delete all jobs. Please try again.';
-        } finally {
-            deleting = false;
+        if (count > 0) {
+            promises.push(batch.commit());
         }
+
+        await Promise.all(promises);
+        console.log('Deletion completed');
+        await fetchJobData();
+    } catch (err) {
+        console.error('Error deleting jobs:', err);
+        console.error('Error details:', err.code, err.message);
+        error = 'Failed to delete jobs. Please try again.';
+    } finally {
+        deleting = false;
     }
+}
 
     function formatDate(timestamp) {
         if (timestamp && timestamp.toDate) {
