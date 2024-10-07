@@ -46,11 +46,11 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
     // Prepare the data to be saved
     const jobData = {
       texts: {
-        rawText: text,
-        extractedLength: text.length
+        rawText: text || "na",
+        rawLength: text ? text.length : 0
       },
       generalData: {
-        url: url,
+        url: url || "na",
         timestamp: Firestore.FieldValue.serverTimestamp()
       }
     };
@@ -93,6 +93,27 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
     };
   } catch (error) {
     console.error('Error in saveRawPubSubMessage:', error);
+    await populateWithNA(googleId, newDocId);
     return null;
   }
 });
+
+// Helper function to populate fields with "na"
+async function populateWithNA(googleId, docId) {
+  try {
+    const jobRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+    await jobRef.set({
+      texts: {
+        rawText: "na",
+        extractedLength: 0
+      },
+      generalData: {
+        url: "na",
+        timestamp: Firestore.FieldValue.serverTimestamp()
+      }
+    }, { merge: true });
+    console.log('Fields populated with "na" due to error');
+  } catch (error) {
+    console.error('Error populating fields with "na":', error);
+  }
+}
