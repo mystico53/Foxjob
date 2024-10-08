@@ -514,22 +514,6 @@ async function fetchJobData() {
 		border-top: 1px solid #e2e8f0;
 	}
 
-	.match-button {
-        padding: 10px 20px;
-        border: none;
-        border-radius: 25px;
-        font-size: 1rem;
-        cursor: pointer;
-        background-color: #3182ce; /* Blue color */
-        color: white;
-        transition: background-color 0.3s ease, box-shadow 0.3s ease;
-    }
-
-	.match-button:hover {
-        background-color: #2b6cb0; /* Darker blue on hover */
-        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-    }
-
 	.hide-button,
 	.view-button {
 		padding: 10px 20px;
