@@ -1,7 +1,6 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const logger = require("firebase-functions/logger");
-const fetch = require('node-fetch');
 require('dotenv').config();
 
 const db = admin.firestore();
@@ -13,11 +12,11 @@ exports.calculateScore = functions.pubsub
       logger.info('calculateScore function called');
       logger.info('Pub/Sub Message:', JSON.stringify(message.json));
 
-      const { jobReference, googleId } = message.json;
+      const { googleId, jobReference } = message.json;
 
       if (!jobReference || !googleId) {
         logger.error('Missing jobReference or googleId in Pub/Sub message.');
-        return;
+        throw new Error('Missing jobReference or googleId');
       }
 
       // Retrieve the user's resume
@@ -29,47 +28,69 @@ exports.calculateScore = functions.pubsub
 
       if (resumeSnapshot.empty) {
         logger.warn(`No resume found for user ID: ${googleId}. Using placeholder resume.`);
-        resumeText = placeholderResumeText; // Use the placeholder text
+        resumeText = placeholderResumeText; // Make sure this is defined or imported
       } else {
         const resumeDoc = resumeSnapshot.docs[0];
         resumeText = resumeDoc.data().extractedText;
       }
 
-      // Retrieve the job requirements
-      const requirementsRef = db
+      // Retrieve the job document and requirements
+      const jobDocRef = db
         .collection('users')
         .doc(googleId)
         .collection('jobs')
-        .doc(jobReference)
-        .collection('requirements')
-        .doc('document');
+        .doc(jobReference);
 
-      const requirementsDoc = await requirementsRef.get();
+      const jobDoc = await jobDocRef.get();
 
-      if (!requirementsDoc.exists) {
-        logger.warn(`No requirements found for job ID: ${jobReference}`);
-        return;
+      if (!jobDoc.exists) {
+        logger.warn(`No job document found for job ID: ${jobReference}`);
+        throw new Error('No job document found');
       }
 
-      const requirements = requirementsDoc.data().requirements;
+      const jobData = jobDoc.data();
+      const requirements = jobData.requirements;
+
+      if (!requirements || Object.keys(requirements).length === 0) {
+        logger.warn(`No requirements found for job ID: ${jobReference}`);
+        throw new Error('No requirements found');
+      }
+
+      // Convert requirements object to array for processing
+      const requirementsArray = Object.entries(requirements).map(([key, value]) => ({
+        key: key,
+        requirement: value
+      }));
 
       // Call Anthropic API to match resume with job requirements
-      const matchResult = await matchResumeWithRequirements(resumeText, requirements);
+      const matchResult = await matchResumeWithRequirements(resumeText, requirementsArray);
 
-      // Save the match result to the specified Firestore path
-      const scoreRef = db
-        .collection('users')
-        .doc(googleId)
-        .collection('jobs')
-        .doc(jobReference)
-        .collection('score') 
-        .doc('document');
+      // Prepare the Score object to be saved in the job document
+      const scoreObject = {
+        Score: {
+          totalScore: matchResult.totalScore,
+          summary: matchResult.summary
+        }
+      };
 
-      await scoreRef.set({ matchResult });
+      // Add each requirement score to the Score object
+      matchResult.requirementMatches.forEach((match, index) => {
+        scoreObject.Score[`Requirement${index + 1}`] = {
+          requirement: match.requirement,
+          score: match.score,
+          assessment: match.assessment
+        };
+      });
 
-      logger.info(`Match result saved to score document for job ID: ${jobReference}, user ID: ${googleId}`);
+      // Update the job document with the new Score object
+      await jobDocRef.update(scoreObject);
+
+      logger.info(`Score saved to job document for job ID: ${jobReference}, user ID: ${googleId}`);
+
     } catch (error) {
       logger.error('Error in calculateScore function:', error);
+      // For Pub/Sub functions, we log the error but don't throw it
+      // as there's no direct way to return an error to the caller
     }
   });
 
@@ -78,7 +99,7 @@ async function matchResumeWithRequirements(resumeText, requirements) {
 
   if (!apiKey) {
     logger.error('Anthropic API key not found');
-    throw new Error('Anthropic API key not found');
+    throw new functions.https.HttpsError('failed-precondition', 'Anthropic API key not found');
   }
 
   const instruction = `You are an AI assistant tasked with critically evaluating how well a resume matches given job requirements. Your task is to:
@@ -150,7 +171,7 @@ Format your response as a JSON object with the following structure:
 
     if (!anthropicResponse.ok) {
       logger.error('Anthropic API error response:', data);
-      throw new Error(`Anthropic API Error: ${JSON.stringify(data)}`);
+      throw new functions.https.HttpsError('internal', `Anthropic API Error: ${JSON.stringify(data)}`);
     }
 
     if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
@@ -160,17 +181,22 @@ Format your response as a JSON object with the following structure:
         return JSON.parse(jsonContent);
       } catch (error) {
         logger.error('Error parsing JSON from Anthropic response:', error);
-        throw new Error('Error parsing JSON from Anthropic response');
+        throw new functions.https.HttpsError('internal', 'Error parsing JSON from Anthropic response');
       }
     } else {
       logger.error('Unexpected Anthropic API response structure:', data);
-      throw new Error('Unexpected Anthropic API response structure');
+      throw new functions.https.HttpsError('internal', 'Unexpected Anthropic API response structure');
     }
   } catch (error) {
     logger.error('Error calling Anthropic API:', error);
-    throw error;
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    } else {
+      throw new functions.https.HttpsError('internal', 'Error calling Anthropic API', error.message);
+    }
   }
 }
+
 
 // ======== Placeholder Resume Text ========
 
