@@ -73,7 +73,7 @@ async function fetchJobData() {
                 const jobDataRaw = jobDoc.data();
 
                 // Access 'summarized' field (ensure correct spelling)
-                const summarizedData = jobDataRaw.summarized || jobDataRaw.sumamrized; // Handle both spellings
+                const summarizedData = jobDataRaw.summarized
 
                 if (!summarizedData) {
                     console.log(`fetchJobData: No summarized data found for job ID: ${jobDoc.id}`);

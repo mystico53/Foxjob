@@ -84,7 +84,7 @@ exports.summarizeJobDescription = functions.pubsub
 
       // Save analysis result to Firestore
       await jobDocRef.update({
-        sumamrized: {
+        summarized: {
           companyInfo: {
             name: analysisResult.companyInfo?.name || "na",
             industry: analysisResult.companyInfo?.industry || "na",
