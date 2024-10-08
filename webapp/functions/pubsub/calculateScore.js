@@ -102,53 +102,39 @@ async function matchResumeWithRequirements(resumeText, requirements) {
     throw new functions.https.HttpsError('failed-precondition', 'Anthropic API key not found');
   }
 
-  const instruction = `You are an AI assistant tasked with critically evaluating how well a resume matches given job requirements. Your task is to:
+  const instruction = `You are an insanely critical and skeptical CEO of the company that has one job to offer for the first time in 10 years. You're tasked with evaluating how well a resume matches given job. Your task is to:
 
-1) Match each of the 6 given requirements with the candidate's experience, being very overly critical in your assessment (one short sentence).
-2) Score each requirement match on a scale of 0-100, where 100 is a perfect match and 0 is no match at all.
-3) Calculate a total score based on the average of these 6 requirement scores.
-4) Write a short summary (max 30 words) highlighting the biggest pro and the biggest con for why the candidate is or isn't a good fit. Use the format "Your experience in [area] is [assessment], but [area] is [assessment]."
+1) For each of the 6 given requirements, critically analyze the candidate's experience. Provide a one-sentence assessment that references specific evidence from the resume, highlighting both strengths and gaps.
+
+2) Assign a score between 1 - 100 to each requirement, be very critical. your companies future relies on it.
+
+3) Calculate a total score (1 - 100) based on the weakest link.
+
+4) Write a short summary (maximum 30 words) highlighting the biggest strength and weakness, using the format: "Your experience in [area] is [assessment], but [area] is [assessment]."
 
 Format your response as a JSON object with the following structure:
 
 {
   "requirementMatches": [
     {
-      "requirement": "Requirement 1",
+      
       "score": 0,
-      "assessment": "Brief one short sentence explanation of score"
+      "assessment": "A few short words as explanation, ultra short."
     },
     {
-      "requirement": "Requirement 2",
+      
       "score": 0,
-      "assessment": "Brief one short sentence explanation of score"
+      "assessment": "A few short words as explanation, ultra short."
     },
     {
-      "requirement": "Requirement 3",
-      "score": 0,
-      "assessment": "Brief one short sentence explanation of score"
-    },
-    {
-      "requirement": "Requirement 4",
-      "score": 0,
-      "assessment": "Brief one short sentence explanation of score"
-    },
-    {
-      "requirement": "Requirement 5",
-      "score": 0,
-      "assessment": "Brief one short sentence explanation of score"
-    },
-    {
-      "requirement": "Requirement 6",
-      "score": 0,
-      "assessment": "Brief one short sentence explanation of score"
+      // Continue for all requirements
     }
   ],
   "totalScore": 0,
   "summary": "Your experience in [area] is [assessment], but [area] is [assessment]."
 }`;
 
-  const prompt = `${instruction}\n\nResume:\n${resumeText}\n\nJob Requirements:\n${requirements}`;
+  const prompt = `${instruction}\nJob Requirements:\n${requirements}\nResume:\n${resumeText}\n\n`;
 
   try {
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {

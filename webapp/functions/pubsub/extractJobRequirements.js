@@ -45,7 +45,7 @@ exports.extractJobRequirements = functions.pubsub
         throw new Error('Anthropic API key not found');
       }
 
-      const prompt = `Extract the 6 most needed key requirements for this job. Format each requirement as "Requirement X: Specific requirement", where X is a number from 1 to 6. Ensure there are exactly 6 requirements. Here's the job description:
+      const prompt = `Extract the 6 most needed key requirements for this job, dont choose basic, trivial skills (e.g. stakeholder management, find industry and job specific stuff), this should include experience in the industry, education, job specifics, skills. Format each requirement as "Requirement X: Specific requirement", where X is a number from 1 to 6. Ensure there are exactly 6 requirements. Here's the job description:
 
 ${extractedText}
 
