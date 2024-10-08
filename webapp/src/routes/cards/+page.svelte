@@ -362,14 +362,7 @@ async function fetchJobData() {
                             </div>
                         </div>
                     </div>
-        
-                    <!-- Card Footer -->
-                    <div class="card-footer">
-                        <button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
-                        <button on:click={() => openJobLink(job.url)} class="view-button">View Job</button>
-                    </div>
-
-					<!-- Match Results -->
+    					<!-- Match Results -->
 					{#if job.matchResult}
 						<div class="match-results">
 							<h3>Match Results</h3>
@@ -382,22 +375,26 @@ async function fetchJobData() {
 									</tr>
 								</thead>
 								<tbody>
-									{#each job.matchResult.keySkills as skill}
+									<tr>
+										<td><strong>Total Score</strong></td>
+										<td><strong>{job.matchResult.totalScore}</strong></td>
+										<td>{job.matchResult.summary}</td>
+									</tr>
+                                    {#each job.matchResult.keySkills as skill}
 										<tr>
 											<td>{skill.skill}</td>
 											<td>{skill.score}</td>
 											<td>{skill.assessment}</td>
 										</tr>
 									{/each}
-									<tr>
-										<td><strong>Total Score</strong></td>
-										<td><strong>{job.matchResult.totalScore}</strong></td>
-										<td>{job.matchResult.summary}</td>
-									</tr>
 								</tbody>
 							</table>
 						</div>
 					{/if}
+                    <div class="card-footer">
+                        <button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
+                        <button on:click={() => openJobLink(job.url)} class="view-button">View Job</button>
+                    </div>
                 </div>
             {/each}
         </div>

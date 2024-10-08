@@ -15,7 +15,7 @@
 				console.log("User email:", user.email);
 				console.log("User display name:", user.displayName);
 				console.log("Redirecting to /list");
-				goto('/list');
+				goto('/cards');
 			} else {
 				console.log("No user authenticated");
 			}

@@ -19,7 +19,7 @@
 			if (currentUser) {
 				console.log('User is signed in', currentUser);
 				if (window.location.pathname === '/') {
-					goto('/list');
+					goto('/cards');
 				}
 			} else {
 				console.log('No user signed in');
