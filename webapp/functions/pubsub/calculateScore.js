@@ -51,6 +51,9 @@ exports.calculateScore = functions.pubsub
       const jobData = jobDoc.data();
       const requirements = jobData.requirements;
 
+      // Log the requirements
+      logger.info(`Requirements for job ID ${jobReference}:`, JSON.stringify(requirements));
+
       if (!requirements || Object.keys(requirements).length === 0) {
         logger.warn(`No requirements found for job ID: ${jobReference}`);
         throw new Error('No requirements found');
@@ -61,6 +64,9 @@ exports.calculateScore = functions.pubsub
         key: key,
         requirement: value
       }));
+
+      // Log the requirementsArray
+      logger.info(`Requirements array for job ID ${jobReference}:`, JSON.stringify(requirementsArray));
 
       // Call Anthropic API to match resume with job requirements
       const matchResult = await matchResumeWithRequirements(resumeText, requirementsArray);
@@ -82,6 +88,9 @@ exports.calculateScore = functions.pubsub
         };
       });
 
+      // Log the scoreObject
+      logger.info(`Score object for job ID ${jobReference}:`, JSON.stringify(scoreObject));
+
       // Update the job document with the new Score object
       await jobDocRef.update(scoreObject);
 
@@ -102,13 +111,16 @@ async function matchResumeWithRequirements(resumeText, requirements) {
     throw new functions.https.HttpsError('failed-precondition', 'Anthropic API key not found');
   }
 
+  // Log the requirements passed to this function
+  logger.info('Requirements passed to matchResumeWithRequirements:', JSON.stringify(requirements));
+
   const instruction = `You are an insanely critical and skeptical CEO of the company that has one job to offer for the first time in 10 years. You're tasked with evaluating how well a resume matches given job. Your task is to:
 
 1) For each of the 6 given requirements, critically analyze the candidate's experience. Provide a one-sentence assessment that references specific evidence from the resume, highlighting both strengths and gaps.
 
 2) Assign a score between 1 - 100 to each requirement, be very critical. your companies future relies on it.
 
-3) Calculate a total score (1 - 100) based on the weakest link.
+3) Calculate a total score (1 - 100), giving a critical assesment on the qualifications meeting the requirements.
 
 4) Write a short summary (maximum 30 words) highlighting the biggest strength and weakness, using the format: "Your experience in [area] is [assessment], but [area] is [assessment]."
 
@@ -117,24 +129,31 @@ Format your response as a JSON object with the following structure:
 {
   "requirementMatches": [
     {
-      
-      "score": 0,
-      "assessment": "A few short words as explanation, ultra short."
+      requirment 1: list the first requirement that i gave you here, be verbose
+      "assessment": "five word explanation."
+      "score": 0-100,
     },
     {
-      
-      "score": 0,
-      "assessment": "A few short words as explanation, ultra short."
+      requirment 2: list the second requirement that i gave you here, verbose 
+      "assessment": "five word explanation."
+      "score": 0-100,
     },
     {
       // Continue for all requirements
     }
   ],
   "totalScore": 0,
-  "summary": "Your experience in [area] is [assessment], but [area] is [assessment]."
+  "summary": "You're lacking (five words for x) but can provide (five words for y)."
 }`;
 
-  const prompt = `${instruction}\nJob Requirements:\n${requirements}\nResume:\n${resumeText}\n\n`;
+const requirementsString = requirements.map((req, index) => 
+  `Requirement ${index + 1}: ${req.requirement}`
+).join('\n');
+
+const prompt = `${instruction}These are the Requirements I mentioned:${requirementsString}These are the qualifications:${resumeText}Now go:`;
+
+  // Log the prompt sent to Anthropic API
+  logger.info('Prompt sent to Anthropic API:', prompt);
 
   try {
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -164,7 +183,12 @@ Format your response as a JSON object with the following structure:
       const content = data.content[0].text.trim();
       try {
         const jsonContent = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        return JSON.parse(jsonContent);
+        const parsedContent = JSON.parse(jsonContent);
+        
+        // Log the parsed response from Anthropic API
+        logger.info('Parsed response from Anthropic API:', JSON.stringify(parsedContent));
+        
+        return parsedContent;
       } catch (error) {
         logger.error('Error parsing JSON from Anthropic response:', error);
         throw new functions.https.HttpsError('internal', 'Error parsing JSON from Anthropic response');
