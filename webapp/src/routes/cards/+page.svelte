@@ -377,13 +377,13 @@ async function fetchJobData() {
 								<tbody>
 									<tr>
 										<td><strong>Total Score</strong></td>
-										<td><strong>{job.matchResult.totalScore}</strong></td>
+										<td><strong>{Math.round(job.matchResult.totalScore)}</strong></td>
 										<td>{job.matchResult.summary}</td>
 									</tr>
                                     {#each job.matchResult.keySkills as skill}
 										<tr>
 											<td>{skill.skill}</td>
-											<td>{skill.score}</td>
+											<td>{Math.round(skill.score)}</td>
 											<td>{skill.assessment}</td>
 										</tr>
 									{/each}
