@@ -17,7 +17,7 @@
         const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
             user = currentUser;
             if (user) {
-                //await fetchJobData();
+                await fetchJobData();
                 testReadJobs();
                 //await listUserCollections();
             } else {
@@ -66,54 +66,77 @@ async function fetchJobData() {
         const jobDocs = jobsSnapshot.docs;
         console.log(`fetchJobData: Processing ${jobDocs.length} job document(s)`);
 
-        // Step 3: Iterate over each job document to fetch summarized data
-        const summarizedPromises = jobDocs.map(async (jobDoc, index) => {
+        // Step 3: Iterate over each job document to extract necessary fields
+        const jobPromises = jobDocs.map(async (jobDoc, index) => {
             console.log(`fetchJobData: Processing job ${index + 1}/${jobDocs.length} with ID: ${jobDoc.id}`);
             try {
-                // Reference to the 'summarized' sub-collection for the current job
-                const summarizedRef = collection(db, 'users', user.uid, 'jobs', jobDoc.id, 'summarized');
-                console.log(`fetchJobData: Created reference to summarized collection for job ID: ${jobDoc.id}`);
+                const jobDataRaw = jobDoc.data();
 
-                // Fetch summarized documents for the current job
-                console.log(`fetchJobData: Fetching summarized documents for job ID: ${jobDoc.id}`);
-                const summarizedSnapshot = await getDocs(summarizedRef);
-                console.log(`fetchJobData: Retrieved ${summarizedSnapshot.size} summarized document(s) for job ID: ${jobDoc.id}`);
+                // Access 'summarized' field (ensure correct spelling)
+                const summarizedData = jobDataRaw.summarized || jobDataRaw.sumamrized; // Handle both spellings
 
-                if (summarizedSnapshot.empty) {
+                if (!summarizedData) {
                     console.log(`fetchJobData: No summarized data found for job ID: ${jobDoc.id}`);
-                    return []; // Return empty array if no summarized data
+                    return null; // Skip this job if no summarized data
                 }
 
-                // Map and filter summarized documents
-                const summarizedData = summarizedSnapshot.docs
-                    .map((doc) => ({
-                        id: doc.id,
-                        jobId: jobDoc.id, // Include the parent job ID for context
-                        ...doc.data(),
-                        hidden: doc.data().hidden || false
-                    }))
-                    .filter((summarizedDoc) => !summarizedDoc.hidden);
+                // Access 'Score' field
+                const scoreData = jobDataRaw.Score;
+                if (!scoreData) {
+                    console.log(`fetchJobData: No score data found for job ID: ${jobDoc.id}`);
+                    return null; // Skip this job if no score data
+                }
 
-                console.log(`fetchJobData: Processed ${summarizedData.length} summarized document(s) for job ID: ${jobDoc.id}`);
-                return summarizedData;
+                // Process Score Data into matchResult
+                const matchResult = {
+                    keySkills: [],
+                    totalScore: scoreData.totalScore || 0, // Use existing totalScore
+                    summary: scoreData.summary || ''
+                };
+
+                // Iterate over each requirement in Score
+                Object.keys(scoreData).forEach(key => {
+                    if (key.startsWith('Requirement')) {
+                        const req = scoreData[key];
+                        matchResult.keySkills.push({
+                            skill: req.requirement,
+                            score: req.score,
+                            assessment: req.assessment
+                        });
+                        // Optionally, you can still accumulate individual scores if needed
+                        // matchResult.totalScore += req.score;
+                    }
+                });
+
+                // Structure the job data as per frontend requirements
+                return {
+                    id: jobDoc.id,
+                    ...summarizedData, // Spread summarized fields
+                    ...jobDataRaw,     // Include any additional fields from the main job document if necessary
+                    matchResult: matchResult,
+                    generalData: {
+                        timestamp: jobDataRaw.timestamp,
+                        url: jobDataRaw.url
+                    }
+                };
             } catch (jobError) {
-                console.error(`fetchJobData: Error fetching summarized data for job ID ${jobDoc.id}:`, jobError);
+                console.error(`fetchJobData: Error processing job ID ${jobDoc.id}:`, jobError);
                 // Continue processing other jobs even if one fails
-                return [];
+                return null;
             }
         });
 
-        // Step 4: Await all summarized data fetches in parallel
-        console.log('fetchJobData: Initiating parallel fetch of summarized data for all jobs...');
-        const summarizedResults = await Promise.all(summarizedPromises);
-        console.log('fetchJobData: All summarized data fetched');
+        // Step 4: Await all job data fetches in parallel
+        console.log('fetchJobData: Initiating parallel fetch of job data for all jobs...');
+        const jobResults = await Promise.all(jobPromises);
+        console.log('fetchJobData: All job data fetched');
 
-        // Step 5: Flatten the array of arrays into a single array
-        jobData = summarizedResults.flat();
-        console.log(`fetchJobData: Aggregated total of ${jobData.length} summarized job data entries`);
+        // Step 5: Filter out any null results (jobs that failed to fetch)
+        jobData = jobResults.filter(job => job !== null);
+        console.log(`fetchJobData: Aggregated total of ${jobData.length} job data entries`);
 
         if (jobData.length === 0) {
-            console.log('fetchJobData: No summarized job data available after filtering.');
+            console.log('fetchJobData: No job data available after processing.');
         }
 
         // Step 6: Sort the aggregated job data
@@ -129,6 +152,7 @@ async function fetchJobData() {
         console.log('fetchJobData: Function completed, loading set to false');
     }
 }
+
 
     async function hideJob(jobId) {
         try {
