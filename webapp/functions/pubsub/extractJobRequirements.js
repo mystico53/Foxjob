@@ -12,28 +12,32 @@ exports.extractJobRequirements = functions.pubsub
   .topic('job-description-extracted')
   .onPublish(async (message) => {
     const messageData = message.json;
-    const { extractedPath, googleId, rawPath } = messageData;
+    const { googleId, docId } = messageData;
 
-    logger.info(`Starting job requirements extraction for googleId: ${googleId}, extractedPath: ${extractedPath}`);
+    logger.info(`Starting job requirements extraction for googleId: ${googleId}, docId: ${docId}`);
 
-    if (!extractedPath || !googleId || !rawPath) {
+    if (!googleId || !docId) {
       logger.error('Missing required information in the Pub/Sub message');
       return;
     }
 
     try {
-      // 1. Fetch extracted job description from Firestore
-      const docSnapshot = await db.doc(extractedPath).get();
+      // Create document reference using googleId and docId
+      const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+
+      // Fetch job data from Firestore
+      const docSnapshot = await jobDocRef.get();
 
       if (!docSnapshot.exists) {
-        logger.error(`Document not found: ${extractedPath}`);
+        logger.error(`Document not found: ${jobDocRef.path}`);
         return;
       }
 
-      const extractedText = docSnapshot.data().extractedJD;
+      const jobData = docSnapshot.data();
+      const extractedText = jobData.texts.extractedText;
       logger.info('Extracted job description fetched from Firestore');
 
-      // 2. Process text with Anthropic API
+      // Process text with Anthropic API
       const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
 
       if (!apiKey) {
@@ -41,7 +45,7 @@ exports.extractJobRequirements = functions.pubsub
         throw new Error('Anthropic API key not found');
       }
 
-      const prompt = `Extract the 6 most needed key requirements for this job. Format each requirement as "Category: Specific requirement". Ensure there are exactly 6 requirements. Here's the job description:
+      const prompt = `Extract the 6 most needed key requirements for this job. Format each requirement as "Requirement X: Specific requirement", where X is a number from 1 to 6. Ensure there are exactly 6 requirements. Here's the job description:
 
 ${extractedText}
 
@@ -74,32 +78,35 @@ Provide only the list of 6 requirements, one per line, without any additional te
 
       logger.info('Received response from Anthropic API');
 
-      let requirements;
+      let requirementsText;
       if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-        requirements = data.content[0].text.trim();
+        requirementsText = data.content[0].text.trim();
         logger.info('Job requirements extracted successfully');
       } else {
         logger.error('Unexpected Anthropic API response structure:', data);
         throw new Error('Unexpected Anthropic API response structure');
       }
 
-      // 3. Save requirements to Firestore
-      const pathParts = extractedPath.split('/');
-      const jobDocumentPath = pathParts.slice(0, -2).join('/');
-      const requirementsPath = `${jobDocumentPath}/requirements/document`;
-      const requirementsRef = db.doc(requirementsPath);
-      await requirementsRef.set({
-        requirements: requirements,
-        timestamp: Firestore.FieldValue.serverTimestamp()
+      // Parse requirements into individual fields
+      const requirementsLines = requirementsText.split('\n');
+      const requirements = {};
+      requirementsLines.forEach(line => {
+        const [key, value] = line.split(': ');
+        const fieldName = key.replace(' ', '').toLowerCase();
+        requirements[fieldName] = value || 'na';
       });
 
-      logger.info(`Job requirements saved to Firestore at path: ${requirementsPath}`);
-      logger.info(`Extracted requirements: ${requirements}`);
+      // Save requirements to Firestore
+      await jobDocRef.update({
+        requirements: requirements
+      });
 
-      // 4. Publish to "requirements-gathered" topic
-      const jobReference = jobDocumentPath.split('/').pop(); // Extract the last part of the path as job reference
+      logger.info(`Job requirements saved to Firestore at path: ${jobDocRef.path}`);
+      logger.info(`Extracted requirements: ${JSON.stringify(requirements)}`);
+
+      // Publish to "requirements-gathered" topic
       const pubSubMessage = {
-        jobReference: jobReference,
+        jobReference: docId,
         googleId: googleId
       };
 
@@ -107,10 +114,9 @@ Provide only the list of 6 requirements, one per line, without any additional te
       const pubSubTopic = pubSubClient.topic(topicName);
       await pubSubTopic.publishMessage({
         data: Buffer.from(JSON.stringify(pubSubMessage)),
-        // You can add attributes here if needed
       });
 
-      logger.info(`Published message to ${topicName} topic with jobReference: ${jobReference} and googleId: ${googleId}`);
+      logger.info(`Published message to ${topicName} topic with jobReference: ${docId} and googleId: ${googleId}`);
 
     } catch (error) {
       logger.error('Error in extractJobRequirements:', error);

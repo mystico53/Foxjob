@@ -2,37 +2,41 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { Firestore } = require("firebase-admin/firestore");
+const fetch = require('node-fetch');
 
 // Ensure Firestore instance is reused
 const db = admin.firestore();
-const FieldValue = admin.firestore.FieldValue;
 
 exports.summarizeJobDescription = functions.pubsub
   .topic('job-description-extracted')
   .onPublish(async (message) => {
     const messageData = message.json;
-    const { extractedPath, googleId, rawPath } = messageData;
+    const { googleId, docId } = messageData;
 
-    logger.info(`Starting job description analysis for googleId: ${googleId}, extractedPath: ${extractedPath}`);
+    logger.info(`Starting job description analysis for googleId: ${googleId}, docId: ${docId}`);
 
-    if (!extractedPath || !googleId || !rawPath) {
+    if (!googleId || !docId) {
       logger.error('Missing required information in the Pub/Sub message');
       return;
     }
 
     try {
-      // 1. Fetch extracted job description from Firestore
-      const docSnapshot = await db.doc(extractedPath).get();
+      // Create document reference using googleId and docId
+      const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+
+      // Fetch job data from Firestore
+      const docSnapshot = await jobDocRef.get();
 
       if (!docSnapshot.exists) {
-        logger.error(`Document not found: ${extractedPath}`);
+        logger.error(`Document not found: ${jobDocRef.path}`);
         return;
       }
 
-      const extractedText = docSnapshot.data().extractedJD;
+      const jobData = docSnapshot.data();
+      const extractedText = jobData.texts.extractedText || "na";
       logger.info('Extracted job description fetched from Firestore');
 
-      // 2. Process text with Anthropic API
+      // Process text with Anthropic API
       const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
 
       if (!apiKey) {
@@ -78,20 +82,29 @@ exports.summarizeJobDescription = functions.pubsub
         throw new Error('Unexpected Anthropic API response structure');
       }
 
-      // 3. Save analysis result to Firestore
-      const pathParts = extractedPath.split('/');
-      const jobDocumentPath = pathParts.slice(0, -2).join('/');
-      const analysisPath = `${jobDocumentPath}/summarized/document`;
-      const analysisRef = db.doc(analysisPath);
-      await analysisRef.set({
-        analysisResult: analysisResult,
-        timestamp: Firestore.FieldValue.serverTimestamp()
+      // Save analysis result to Firestore
+      await jobDocRef.update({
+        sumamrized: {
+          companyInfo: {
+            name: analysisResult.companyInfo?.name || "na",
+            industry: analysisResult.companyInfo?.industry || "na",
+            companyFocus: analysisResult.companyInfo?.companyFocus || "na"
+          },
+          jobInfo: {
+            jobTitle: analysisResult.jobInfo?.jobTitle || "na",
+            remoteType: analysisResult.jobInfo?.remoteType || "na",
+            jobSummary: analysisResult.jobInfo?.jobSummary || "na"
+          },
+          areasOfFun: analysisResult.areasOfFun || ["", "", ""],
+          mandatorySkills: analysisResult.mandatorySkills || ["", "", ""],
+          compensation: analysisResult.compensation || "Not mentioned"
+        },
       });
 
-      logger.info(`Job description analysis saved to Firestore at path: ${analysisPath}`);
+      logger.info(`Job description analysis saved to Firestore for googleId: ${googleId}, docId: ${docId}`);
 
     } catch (error) {
-      logger.error('Error in analyzeJobDescription:', error);
+      logger.error('Error in summarizeJobDescription:', error);
     }
   });
 
