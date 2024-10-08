@@ -52,3 +52,12 @@ export async function signInWithGoogle() {
     throw error;
   }
 }
+
+export async function signOutUser() {
+  try {
+    await signOut(auth);
+    console.log("User signed out successfully");
+  } catch (error) {
+    console.error("Error signing out:", error);
+  }
+}
