@@ -252,6 +252,30 @@
         nextJob();
     }
 
+	async function hideJobAndNext(jobId) {
+    try {
+        const jobIndex = jobData.findIndex(job => job.id === jobId);
+        if (jobIndex === -1) return;
+
+        await hideJob(jobId); // Hide the job
+
+        // After hiding, decide where to navigate next
+        if (jobIndex < jobData.length - 1) {
+            // If not the last job, stay at the same index since the list has shifted
+            // currentJobIndex remains the same
+        } else if (jobData.length > 0) {
+            // If it was the last job, move to the previous one
+            currentJobIndex = jobData.length - 1;
+        } else {
+            // No jobs left, close the overlay
+            closeOverlay();
+        }
+    } catch (err) {
+        console.error('Error hiding job and moving to next:', err);
+        error = 'Failed to hide job. Please try again.';
+    }
+}
+
     // Refactored toggleStar function using updateJobStatus
     async function toggleStar(jobId) {
         try {
@@ -331,7 +355,6 @@
                                 <td>
                                     <button on:click={() => openJobLink(job.generalData?.url)} class="link-button">Visit Job</button>
                                     <button on:click={() => showDetails(index)} class="details-button">Details</button>
-                                    <button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
                                 </td>
                                 <td>{getStatusDisplay(job)}</td>
                                 <td>{job.companyInfo?.name || 'N/A'}</td>
@@ -357,6 +380,7 @@
                 isFirstJob={currentJobIndex === 0}
                 isLastJob={currentJobIndex === jobData.length - 1}
                 toggleStar={toggleStar}
+				hideJobAndNext={hideJobAndNext}
             />
         {/if}
     {:else}
@@ -413,18 +437,6 @@
 		}
 		.link-button:hover {
 			background-color: #45a049;
-		}
-		.hide-button {
-			padding: 5px 10px;
-			background-color: #ff4d4d;
-			color: white;
-			border: none;
-			border-radius: 4px;
-			cursor: pointer;
-			transition: background-color 0.3s;
-		}
-		.hide-button:hover {
-			background-color: #e60000;
 		}
 		.logout-button {
 			padding: 10px 20px;

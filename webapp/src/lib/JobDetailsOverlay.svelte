@@ -7,6 +7,7 @@
     export let isFirstJob;
     export let isLastJob;
     export let toggleStar;
+    export let hideJobAndNext;
 
     function formatDate(timestamp) {
         if (timestamp && timestamp.toDate) {
@@ -61,6 +62,7 @@
             <button on:click={() => toggleStar(job.id)} class="star-button">
                 {job.generalData?.status === 'starred' ? '⭐ Unstar' : '☆ Star'}
             </button>
+            <button on:click={() => hideJobAndNext(job.id)} class="hide-button">Hide</button>
             <button on:click={() => handleNext(job.id)} disabled={isLastJob}>Next</button>
             <button on:click={closeOverlay}>Close</button>
             
@@ -144,5 +146,20 @@
     }
     .star-button:hover {
         background-color: #f39c12;
+    }
+
+    .hide-button {
+    padding: 5px 10px;
+    background-color: #ff4d4d; /* Red color indicating a destructive action */
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+    margin-left: 10px; /* Space between Hide and Next buttons */
+    }
+
+    .hide-button:hover {
+        background-color: #e60000; /* Darker red on hover */
     }
 </style>
