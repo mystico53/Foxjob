@@ -20,43 +20,46 @@
 
 <div class="overlay">
     <div class="overlay-content">
-        <h2>{job.companyInfo?.name || 'N/A'} - {job.jobInfo?.jobTitle || 'N/A'}</h2>
-        <div class="meta-info">
-            <span class="badge">🏢 {job.companyInfo?.industry || 'N/A'}</span>
-            <span class="badge">📍 {job.jobInfo?.remoteType || 'N/A'}</span>
-            <span class="badge">💰 {job.compensation || 'N/A'}</span>
-            <span class="badge">🗓️ {formatDate(job.generalData?.timestamp)}</span>
-        </div>
-        
-        <p>{job.companyInfo?.companyFocus || 'N/A'}</p>
-       
-        <p>{job.jobInfo?.jobSummary || 'N/A'}</p>
-                {#if job.matchResult}
-            <h3>Match Results</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Key Skill</th>
-                        <th>Score</th>
-                        <th>Assessment</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td><strong>Total Score</strong></td>
-                        <td><strong>{Math.round(job.matchResult.totalScore)}</strong></td>
-                        <td>{job.matchResult.summary}</td>
-                    </tr>
-                    {#each job.matchResult.keySkills as skill}
+        <div class="scrollable-content">
+            <h2>{job.companyInfo?.name || 'N/A'} - {job.jobInfo?.jobTitle || 'N/A'}</h2>
+            <div class="meta-info">
+                <span class="badge">🏢 {job.companyInfo?.industry || 'N/A'}</span>
+                <span class="badge">📍 {job.jobInfo?.remoteType || 'N/A'}</span>
+                <span class="badge">💰 {job.compensation || 'N/A'}</span>
+                <span class="badge">🗓️ {formatDate(job.generalData?.timestamp)}</span>
+            </div>
+            
+            <p>{job.companyInfo?.companyFocus || 'N/A'}</p>
+           
+            <p>{job.jobInfo?.jobSummary || 'N/A'}</p>
+            
+            {#if job.matchResult}
+                <h3>Match Results</h3>
+                <table>
+                    <thead>
                         <tr>
-                            <td>{skill.skill}</td>
-                            <td>{Math.round(skill.score)}</td>
-                            <td>{skill.assessment}</td>
+                            <th>Key Skill</th>
+                            <th>Score</th>
+                            <th>Assessment</th>
                         </tr>
-                    {/each}
-                </tbody>
-            </table>
-        {/if}
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Total Score</strong></td>
+                            <td><strong>{Math.round(job.matchResult.totalScore)}</strong></td>
+                            <td>{job.matchResult.summary}</td>
+                        </tr>
+                        {#each job.matchResult.keySkills as skill}
+                            <tr>
+                                <td>{skill.skill}</td>
+                                <td>{Math.round(skill.score)}</td>
+                                <td>{skill.assessment}</td>
+                            </tr>
+                        {/each}
+                    </tbody>
+                </table>
+            {/if}
+        </div>
         <div class="overlay-buttons">
             <button on:click={previousJob} disabled={isFirstJob}>Previous</button>
             <button on:click={() => toggleStar(job.id)} class="star-button">
@@ -65,7 +68,6 @@
             <button on:click={() => hideJobAndNext(job.id)} class="hide-button">Hide</button>
             <button on:click={() => handleNext(job.id)} disabled={isLastJob}>Next</button>
             <button on:click={closeOverlay}>Close</button>
-            
         </div>
     </div>
 </div>
@@ -85,12 +87,17 @@
     }
     .overlay-content {
         background-color: white;
-        padding: 20px;
         border-radius: 5px;
         max-width: 800px;
         width: 90%;
-        max-height: 90vh;
+        height: 90vh;
+        display: flex;
+        flex-direction: column;
+    }
+    .scrollable-content {
+        flex-grow: 1;
         overflow-y: auto;
+        padding: 20px;
     }
     .meta-info {
         display: flex;
@@ -121,7 +128,9 @@
     .overlay-buttons {
         display: flex;
         justify-content: space-between;
-        margin-top: 20px;
+        padding: 10px 20px;
+        background-color: #f8fafc;
+        border-top: 1px solid #e2e8f0;
     }
     button {
         padding: 10px 20px;
@@ -134,7 +143,6 @@
         opacity: 0.5;
         cursor: not-allowed;
     }
-
     .star-button {
         padding: 5px 10px;
         background-color: #f1c40f;
@@ -147,19 +155,17 @@
     .star-button:hover {
         background-color: #f39c12;
     }
-
     .hide-button {
-    padding: 5px 10px;
-    background-color: #ff4d4d; /* Red color indicating a destructive action */
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    margin-left: 10px; /* Space between Hide and Next buttons */
+        padding: 5px 10px;
+        background-color: #ff4d4d;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        margin-left: 10px;
     }
-
     .hide-button:hover {
-        background-color: #e60000; /* Darker red on hover */
+        background-color: #e60000;
     }
 </style>
