@@ -11,6 +11,10 @@
 	let error = null;
 	let sortColumn = 'Score.totalScore';
 	let sortDirection = 'desc';
+
+	let showOverlay = false;
+	let currentJobIndex = 0;
+
 	
 	onMount(() => {
 		const unsubscribe = auth.onAuthStateChanged(async (currentUser) => {
@@ -184,6 +188,27 @@
 			error = 'Failed to hide job. Please try again.';
 		}
 	}
+
+	function showDetails(index) {
+		currentJobIndex = index;
+		showOverlay = true;
+	}
+
+	function closeOverlay() {
+		showOverlay = false;
+	}
+
+	function nextJob() {
+		if (currentJobIndex < jobData.length - 1) {
+			currentJobIndex++;
+		}
+	}
+
+	function previousJob() {
+		if (currentJobIndex > 0) {
+			currentJobIndex--;
+		}
+	}
 	</script>
 	
 	<main>
@@ -222,10 +247,11 @@
 							</tr>
 						</thead>
 						<tbody>
-							{#each jobData as job}
+							{#each jobData as job, index}
 								<tr>
 									<td>
 										<button on:click={() => openJobLink(job.generalData?.url)} class="link-button">Visit Job</button>
+										<button on:click={() => showDetails(index)} class="details-button">Details</button>
 									</td>
 									<td>{job.companyInfo?.name || 'N/A'}</td>
 									<td>{job.jobInfo?.jobTitle || 'N/A'}</td>
@@ -243,6 +269,24 @@
 			{:else}
 				<p>No job data available.</p>
 			{/if}
+
+			{#if showOverlay}
+			<div class="overlay">
+				<div class="overlay-content">
+					<h2>Job Details</h2>
+					<p>Company: {jobData[currentJobIndex].companyInfo?.name || 'N/A'}</p>
+					<p>Job Title: {jobData[currentJobIndex].jobInfo?.jobTitle || 'N/A'}</p>
+					<p>Industry: {jobData[currentJobIndex].companyInfo?.industry || 'N/A'}</p>
+					<p>Score: {typeof jobData[currentJobIndex].Score?.totalScore === 'number' ? Math.round(jobData[currentJobIndex].Score.totalScore) : 'N/A'}</p>
+					<p>Date Added: {formatDate(jobData[currentJobIndex].generalData?.timestamp)}</p>
+					<div class="overlay-buttons">
+						<button on:click={previousJob} disabled={currentJobIndex === 0}>Previous</button>
+						<button on:click={nextJob} disabled={currentJobIndex === jobData.length - 1}>Next</button>
+						<button on:click={closeOverlay}>Close</button>
+					</div>
+				</div>
+			</div>
+		{/if}
 		{:else}
 			<p>Please sign in to view your job list.</p>
 		{/if}
@@ -323,4 +367,58 @@
 			background-color: #718096;
 			box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 		}
+
+		.details-button {
+		padding: 5px 10px;
+		background-color: #3498db;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: background-color 0.3s;
+		margin-left: 5px;
+	}
+	.details-button:hover {
+		background-color: #2980b9;
+	}
+	.overlay {
+		position: fixed;
+		top: 0;
+		left: 0;
+		width: 100%;
+		height: 100%;
+		background-color: rgba(0, 0, 0, 0.7);
+		display: flex;
+		justify-content: center;
+		align-items: center;
+		z-index: 1000;
+	}
+	.overlay-content {
+		background-color: white;
+		padding: 20px;
+		border-radius: 5px;
+		max-width: 500px;
+		width: 90%;
+	}
+	.overlay-buttons {
+		display: flex;
+		justify-content: space-between;
+		margin-top: 20px;
+	}
+	.overlay-buttons button {
+		padding: 5px 10px;
+		background-color: #3498db;
+		color: white;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+		transition: background-color 0.3s;
+	}
+	.overlay-buttons button:hover {
+		background-color: #2980b9;
+	}
+	.overlay-buttons button:disabled {
+		background-color: #bdc3c7;
+		cursor: not-allowed;
+	}
 	</style>
