@@ -225,7 +225,7 @@
 							{#each jobData as job}
 								<tr>
 									<td>
-										<button on:click={() => openJobLink(job.generalData?.url)} class="link-button">View Job</button>
+										<button on:click={() => openJobLink(job.generalData?.url)} class="link-button">Visit Job</button>
 									</td>
 									<td>{job.companyInfo?.name || 'N/A'}</td>
 									<td>{job.jobInfo?.jobTitle || 'N/A'}</td>
