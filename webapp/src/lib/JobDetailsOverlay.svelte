@@ -2,7 +2,7 @@
 <script>
     export let job;
     export let closeOverlay;
-    export let nextJob;
+    export let handleNext;
     export let previousJob;
     export let isFirstJob;
     export let isLastJob;
@@ -61,7 +61,7 @@
             <button on:click={() => toggleStar(job.id)} class="star-button">
                 {job.generalData?.status === 'starred' ? '⭐ Unstar' : '☆ Star'}
             </button>
-            <button on:click={nextJob} disabled={isLastJob}>Next</button>
+            <button on:click={() => handleNext(job.id)} disabled={isLastJob}>Next</button>
             <button on:click={closeOverlay}>Close</button>
             
         </div>
