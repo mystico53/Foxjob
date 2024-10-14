@@ -8,7 +8,7 @@
 		try {
 			const result = await signInWithPopup(auth, provider);
 			console.log('User signed in:', result.user);
-			goto('/cards');
+			goto('/list');
 		} catch (error) {
 			console.error('Error signing in with Google', error);
 		}

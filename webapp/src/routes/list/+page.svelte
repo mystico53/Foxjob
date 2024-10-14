@@ -91,7 +91,10 @@
         return {
             id: jobDoc.id,
             ...summarizedData,
-            generalData: jobDataRaw.generalData || {},
+            generalData: {
+			...jobDataRaw.generalData,
+			status: jobDataRaw.generalData?.status || ''
+			},
             Score: scoreData,
             matchResult: matchResult,
             status: jobDataRaw.status || '' // Add this line here
@@ -213,21 +216,48 @@
 	}
 
 	async function toggleStar(jobId) {
-        try {
-            const jobIndex = jobData.findIndex(job => job.id === jobId);
-            if (jobIndex === -1) return;
+    try {
+        const jobIndex = jobData.findIndex(job => job.id === jobId);
+        if (jobIndex === -1) return;
 
-            const newStatus = jobData[jobIndex].status === 'starred' ? '' : 'starred';
-            const jobRef = doc(db, 'users', user.uid, 'jobs', jobId);
-            await updateDoc(jobRef, { status: newStatus });
+        const currentStatus = jobData[jobIndex].generalData?.status || '';
+        const newStatus = currentStatus === 'starred' ? '' : 'starred';
 
-            jobData[jobIndex].status = newStatus;
-            jobData = [...jobData]; // Trigger reactivity
-        } catch (err) {
-            console.error('Error updating job status:', err);
-            error = 'Failed to update job status. Please try again.';
-        }
+        const jobRef = doc(db, 'users', user.uid, 'jobs', jobId);
+        await updateDoc(jobRef, { 'generalData.status': newStatus });
+
+        // Update local state
+        jobData[jobIndex] = {
+            ...jobData[jobIndex],
+            generalData: {
+                ...jobData[jobIndex].generalData,
+                status: newStatus
+            }
+        };
+        jobData = [...jobData]; // Trigger reactivity
+
+        console.log(`Job ${jobId} status updated to: ${newStatus}`);
+    } catch (err) {
+        console.error('Error updating job status:', err);
+        error = 'Failed to update job status. Please try again.';
     }
+}
+
+function getStatusDisplay(job) {
+    const status = job.generalData?.status;
+    console.log('Status for job', job.id, ':', status);
+
+    if (!status) return '';
+    
+    switch(status.toLowerCase()) {
+        case 'starred':
+            return '⭐ Starred';
+        case 'new':
+            return '🆕 New';
+        default:
+            return status;
+    }
+}
 	</script>
 	
 	<main>
@@ -277,7 +307,7 @@
                                 <button on:click={() => showDetails(index)} class="details-button">Details</button>
 								<button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
                             </td>
-							<td>{job.status === 'starred' ? '⭐ Starred' : ''}</td>
+							<td>{getStatusDisplay(job)}</td>
                             <td>{job.companyInfo?.name || 'N/A'}</td>
                             <td>{job.jobInfo?.jobTitle || 'N/A'}</td>
                             <td>{job.companyInfo?.industry || 'N/A'}</td>
@@ -399,45 +429,5 @@
 	}
 	.details-button:hover {
 		background-color: #2980b9;
-	}
-	.overlay {
-		position: fixed;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		background-color: rgba(0, 0, 0, 0.7);
-		display: flex;
-		justify-content: center;
-		align-items: center;
-		z-index: 1000;
-	}
-	.overlay-content {
-		background-color: white;
-		padding: 20px;
-		border-radius: 5px;
-		max-width: 500px;
-		width: 90%;
-	}
-	.overlay-buttons {
-		display: flex;
-		justify-content: space-between;
-		margin-top: 20px;
-	}
-	.overlay-buttons button {
-		padding: 5px 10px;
-		background-color: #3498db;
-		color: white;
-		border: none;
-		border-radius: 4px;
-		cursor: pointer;
-		transition: background-color 0.3s;
-	}
-	.overlay-buttons button:hover {
-		background-color: #2980b9;
-	}
-	.overlay-buttons button:disabled {
-		background-color: #bdc3c7;
-		cursor: not-allowed;
 	}
 	</style>

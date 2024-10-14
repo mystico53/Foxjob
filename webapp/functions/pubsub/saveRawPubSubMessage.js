@@ -51,7 +51,8 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
       },
       generalData: {
         url: url || "na",
-        timestamp: Firestore.FieldValue.serverTimestamp()
+        timestamp: Firestore.FieldValue.serverTimestamp(),
+        status: "New"
       }
     };
 

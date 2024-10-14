@@ -103,31 +103,39 @@ exports.calculateScore = functions.pubsub
     }
   });
 
-async function matchResumeWithRequirements(resumeText, requirements) {
-  const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
+  async function matchResumeWithRequirements(resumeText, requirements) {
+    const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
+  
+    if (!apiKey) {
+      logger.error('Anthropic API key not found');
+      throw new functions.https.HttpsError('failed-precondition', 'Anthropic API key not found');
+    }
+  
+    logger.info('Requirements passed to matchResumeWithRequirements:', JSON.stringify(requirements));
+  
+    const instruction = `
+    You are an insanely critical and skeptical CEO of the company that has one job to offer for the first time in 10 years. You're tasked with evaluating how well a resume matches given job. Your task is to:
 
-  if (!apiKey) {
-    logger.error('Anthropic API key not found');
-    throw new functions.https.HttpsError('failed-precondition', 'Anthropic API key not found');
-  }
+    1) For each of the 6 given requirements, critically analyze the candidate's experience. Provide a one-sentence assessment that references specific evidence from the resume, highlighting both strengths and gaps.
 
-  // Log the requirements passed to this function
-  logger.info('Requirements passed to matchResumeWithRequirements:', JSON.stringify(requirements));
+    2) Assign a score between 1 - 100 to each requirement, be very critical. your companies future relies on it.
 
-  const instruction = `You are an insanely critical and skeptical CEO of the company that has one job to offer for the first time in 10 years. You're tasked with evaluating how well a resume matches given job. Your task is to:
+    3) Calculate a total score (1 - 100), giving a critical assesment on the qualifications meeting the requirements.
+  
+    4) Write a short summary (maximum 30 words) highlighting the biggest strength and weakness, using the format: "Your experience in [area] is [assessment], but [area] is [assessment]."
+  
+    **Important Instructions:**
 
-1) For each of the 6 given requirements, critically analyze the candidate's experience. Provide a one-sentence assessment that references specific evidence from the resume, highlighting both strengths and gaps.
-
-2) Assign a score between 1 - 100 to each requirement, be very critical. your companies future relies on it.
-
-3) Calculate a total score (1 - 100), giving a critical assesment on the qualifications meeting the requirements.
-
-4) Write a short summary (maximum 30 words) highlighting the biggest strength and weakness, using the format: "Your experience in [area] is [assessment], but [area] is [assessment]."
-
-Format your response as a JSON object with the following structure:
-
-{
-  "requirementMatches": [
+    - Do **not** include any double quotes inside string values. If you need to use quotation marks, use single quotes instead. Example of a wrong response: "assessment": "The candidate's experience in implementing a "single source of truth" database system..."
+    - Provide **only** the JSON object specified below. Do not include any additional text, explanations, or preamble.
+    - Ensure that any double quotes **inside string values** are escaped with a backslash (e.g., \\"example\\").
+    - Do **not** include any text before or after the JSON object.
+    - Make sure the JSON is **syntactically valid**.
+    
+    Format your response as a JSON object with the following structure:
+    
+    {
+    "requirementMatches": [
     {
       requirment 1: list the first requirement that i gave you here, be verbose
       "assessment": "five word explanation."
@@ -144,79 +152,187 @@ Format your response as a JSON object with the following structure:
   ],
   "totalScore": 0,
   "summary": "You're lacking (five words for x) but can provide (five words for y)."
-}`;
-
-const requirementsString = requirements.map((req, index) => 
-  `Requirement ${index + 1}: ${req.requirement}`
-).join('\n');
-
-const prompt = `${instruction}These are the Requirements I mentioned:${requirementsString}These are the qualifications:${resumeText}Now go:`;
-
-  // Log the prompt sent to Anthropic API
-  logger.info('Prompt sent to Anthropic API:', prompt);
-
-  try {
-    const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 2048,
-        messages: [
-          { role: 'user', content: prompt }
-        ],
-      }),
-    });
-
-    const data = await anthropicResponse.json();
-
-    if (!anthropicResponse.ok) {
-      logger.error('Anthropic API error response:', data);
-      throw new functions.https.HttpsError('internal', `Anthropic API Error: ${JSON.stringify(data)}`);
     }
-
-    if (data.content && Array.isArray(data.content) && data.content.length > 0 && data.content[0].type === 'text') {
-      const content = data.content[0].text.trim();
-      try {
-        const parsedContent = parseJSONSafely(content);
-        logger.info('Parsed content:', JSON.stringify(parsedContent));
-        return parsedContent;
-      } catch (error) {
-        logger.error('Error parsing JSON from Anthropic response:', error);
-        logger.error('Raw content:', content);
-        throw new functions.https.HttpsError('internal', 'Error parsing JSON from Anthropic response', { content });
+  `;
+  
+    const requirementsString = requirements.map((req, index) => 
+      `Requirement ${index + 1}: ${req.requirement}`
+    ).join('\n');
+  
+    const promptContent = `${instruction}\nThese are the Requirements I mentioned:\n${requirementsString}\nThese are the qualifications:\n${resumeText}\nNow go:`;
+  
+    // Prepare the messages array as per the Messages API
+    const messages = [
+      { role: 'user', content: promptContent }
+    ];
+  
+    logger.info('Messages sent to Anthropic API:', JSON.stringify(messages));
+  
+    try {
+      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-haiku-20240307',
+          messages: messages,
+          max_tokens: 2048,
+          temperature: 0.7,
+          // Optional: Include stop_sequences if needed
+          // stop_sequences: ['\n\nHuman:'],
+        }),
+      });
+  
+      const data = await anthropicResponse.json();
+  
+      if (!anthropicResponse.ok) {
+        logger.error('Anthropic API error response:', data);
+        throw new functions.https.HttpsError('internal', `Anthropic API Error: ${JSON.stringify(data)}`);
       }
-    } else {
-      logger.error('Unexpected Anthropic API response structure:', data);
-      throw new functions.https.HttpsError('internal', 'Unexpected Anthropic API response structure', { data });
-    }
-  } catch (error) {
-    logger.error('Error calling Anthropic API:', error);
-    if (error instanceof functions.https.HttpsError) {
-      throw error;
-    } else {
-      throw new functions.https.HttpsError('internal', 'Error calling Anthropic API', error.message);
+  
+      // The response content is in data.content, which is an array of content blocks
+      if (data.content && Array.isArray(data.content) && data.content.length > 0) {
+        const contentBlocks = data.content;
+        // Extract the text content from the content blocks
+        const content = contentBlocks.map(block => block.text || '').join('').trim();
+        try {
+          const parsedContent = parseJSONSafely(content);
+          logger.info('Parsed content:', JSON.stringify(parsedContent));
+          return parsedContent;
+        } catch (error) {
+          logger.error('Error parsing JSON from Anthropic response:', error);
+          logger.error('Raw content:', content);
+          throw new functions.https.HttpsError('internal', 'Error parsing JSON from Anthropic response', { content });
+        }
+      } else {
+        logger.error('Unexpected Anthropic API response structure:', data);
+        throw new functions.https.HttpsError('internal', 'Unexpected Anthropic API response structure', { data });
+      }
+    } catch (error) {
+      logger.error('Error calling Anthropic API:', error);
+      if (error instanceof functions.https.HttpsError) {
+        throw error;
+      } else {
+        throw new functions.https.HttpsError('internal', 'Error calling Anthropic API', { message: error.message });
+      }
     }
   }
-}
 
 // Helper function to parse JSON safely
 function parseJSONSafely(jsonString) {
+  let errors = [];
+
+  // First, try to parse the string as-is
   try {
     return JSON.parse(jsonString);
   } catch (e) {
-    // If parsing fails, try to extract JSON from markdown code block
-    const match = jsonString.match(/```json\n([\s\S]*?)\n```/);
-    if (match && match[1]) {
-      return JSON.parse(match[1]);
+    errors.push({ stage: 'Initial parsing', error: e });
+
+    try {
+      // Cleaning steps
+      let cleanedString = jsonString.trim();
+
+      // Replace problematic escape sequences
+      cleanedString = cleanedString.replace(/\\'/g, "'");
+      cleanedString = cleanedString.replace(/\\"/g, '"');
+      cleanedString = cleanedString.replace(/\\n/g, '');
+      cleanedString = cleanedString.replace(/\\r/g, '');
+      cleanedString = cleanedString.replace(/\\t/g, '');
+      cleanedString = cleanedString.replace(/\\b/g, '');
+      cleanedString = cleanedString.replace(/\\f/g, '');
+      cleanedString = cleanedString.replace(/[\u0000-\u001F]+/g, '');
+
+      // Escape unescaped double quotes within string values
+      cleanedString = escapeUnescapedQuotesInJSON(cleanedString);
+
+      return JSON.parse(cleanedString);
+    } catch (cleanError) {
+      errors.push({ stage: 'After cleaning', error: cleanError });
+
+      // Try to extract JSON from code block
+      const codeBlockMatch = jsonString.match(/```json\s*([\s\S]*?)\s*```/);
+      if (codeBlockMatch && codeBlockMatch[1]) {
+        try {
+          return JSON.parse(codeBlockMatch[1]);
+        } catch (codeBlockError) {
+          errors.push({ stage: 'From code block', error: codeBlockError });
+        }
+      }
+
+      // Try to extract JSON from substring
+      const jsonStart = jsonString.indexOf('{');
+      const jsonEnd = jsonString.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1 && jsonEnd > jsonStart) {
+        let jsonSubstring = jsonString.substring(jsonStart, jsonEnd + 1);
+
+        // Escape unescaped quotes in the substring
+        jsonSubstring = escapeUnescapedQuotesInJSON(jsonSubstring);
+
+        try {
+          return JSON.parse(jsonSubstring);
+        } catch (substringError) {
+          errors.push({ stage: 'From extracted substring', error: substringError });
+        }
+      }
     }
-    throw e; // If still fails, throw the original error
   }
+
+  // All parsing attempts failed
+  for (const err of errors) {
+    logger.error(`Error parsing JSON at stage: ${err.stage}`, err.error);
+  }
+  logger.error('Raw content:', jsonString);
+  throw new functions.https.HttpsError('internal', 'Error parsing JSON from Anthropic response', { content: jsonString });
 }
+
+// Helper function to escape unescaped double quotes inside string values
+function escapeUnescapedQuotesInJSON(str) {
+  let inString = false;
+  let escaped = false;
+  let result = '';
+
+  for (let i = 0; i < str.length; i++) {
+    const char = str[i];
+
+    if (!inString) {
+      if (char === '"') {
+        inString = true;
+        result += char;
+      } else {
+        result += char;
+      }
+    } else {
+      if (escaped) {
+        result += char;
+        escaped = false;
+      } else {
+        if (char === '\\') {
+          result += char;
+          escaped = true;
+        } else if (char === '"') {
+          inString = false;
+          result += char;
+        } else if (char === '\n' || char === '\r') {
+          // Skip unescaped newlines within strings
+          result += '\\n';
+        } else if (char === '"') {
+          // Escape unescaped double quotes
+          result += '\\"';
+        } else {
+          result += char;
+        }
+      }
+    }
+  }
+
+  return result;
+}
+
+
+
 
 
 // ======== Placeholder Resume Text ========
