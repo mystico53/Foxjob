@@ -426,18 +426,6 @@
 		.error {
 			color: red;
 		}
-		.link-button {
-			padding: 5px 10px;
-			background-color: #4caf50;
-			color: white;
-			border: none;
-			border-radius: 4px;
-			cursor: pointer;
-			transition: background-color 0.3s;
-		}
-		.link-button:hover {
-			background-color: #45a049;
-		}
 		.logout-button {
 			padding: 10px 20px;
 			background-color: #a0aec0;
