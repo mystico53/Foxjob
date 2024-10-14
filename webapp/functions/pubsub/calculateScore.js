@@ -96,6 +96,12 @@ exports.calculateScore = functions.pubsub
 
       logger.info(`Score saved to job document for job ID: ${jobReference}, user ID: ${googleId}`);
 
+      await jobDocRef.update({
+        'generalData.processingStatus': 'processed'
+      });
+
+      logger.info(`Processing status updated to "processed" in generalData for job ID: ${jobReference}, user ID: ${googleId}`);
+
     } catch (error) {
       logger.error('Error in calculateScore function:', error);
       // For Pub/Sub functions, we log the error but don't throw it

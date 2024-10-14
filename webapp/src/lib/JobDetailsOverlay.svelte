@@ -1,4 +1,3 @@
-<!-- webapp/src/lib/JobDetailsOverlay.svelte -->
 <script>
     export let job;
     export let closeOverlay;
@@ -79,7 +78,7 @@
             <button on:click={previousJob} disabled={isFirstJob || isHiding}>Previous</button>
             
             <button on:click={() => toggleStar(job.id)} class="star-button" disabled={isHiding}>
-                {job.generalData?.status === 'starred' ? '⭐ Unstar' : '☆ Star'}
+                {job.generalData?.status.toLowerCase() === 'starred' ? '⭐ Unstar' : '☆ Star'}
             </button>
             
             <button on:click={handleHide} class="hide-button" disabled={isHiding}>
