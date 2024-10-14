@@ -8,6 +8,9 @@
     export let isLastJob;
     export let toggleStar;
     export let hideJobAndNext;
+    export let openJobLink; 
+
+    let isHiding = false; 
 
     function formatDate(timestamp) {
         if (timestamp && timestamp.toDate) {
@@ -15,6 +18,18 @@
             return date.toLocaleString();
         }
         return 'N/A';
+    }
+
+    async function handleHide() { 
+        isHiding = true;
+        await hideJobAndNext(job.id);
+        isHiding = false;
+    }
+
+    async function handleVisitJob() {
+        if (job.generalData?.url) {
+            openJobLink(job.generalData.url);
+        }
     }
 </script>
 
@@ -61,13 +76,22 @@
             {/if}
         </div>
         <div class="overlay-buttons">
-            <button on:click={previousJob} disabled={isFirstJob}>Previous</button>
-            <button on:click={() => toggleStar(job.id)} class="star-button">
+            <button on:click={previousJob} disabled={isFirstJob || isHiding}>Previous</button>
+            
+            <button on:click={() => toggleStar(job.id)} class="star-button" disabled={isHiding}>
                 {job.generalData?.status === 'starred' ? '⭐ Unstar' : '☆ Star'}
             </button>
-            <button on:click={() => hideJobAndNext(job.id)} class="hide-button">Hide</button>
-            <button on:click={() => handleNext(job.id)} disabled={isLastJob}>Next</button>
-            <button on:click={closeOverlay}>Close</button>
+            
+            <button on:click={handleHide} class="hide-button" disabled={isHiding}>
+                {isHiding ? 'Hiding...' : 'Hide'}
+            </button>
+            
+            <button on:click={handleVisitJob} class="visit-button" disabled={isHiding}>
+                Visit Job
+            </button> <!-- New Visit Job Button -->
+            
+            <button on:click={() => handleNext(job.id)} disabled={isLastJob || isHiding}>Next</button>
+            <button on:click={closeOverlay} disabled={isHiding}>Close</button>
         </div>
     </div>
 </div>
@@ -127,10 +151,12 @@
     }
     .overlay-buttons {
         display: flex;
-        justify-content: space-between;
+        gap: 10px; /* Space between buttons */
         padding: 10px 20px;
         background-color: #f8fafc;
         border-top: 1px solid #e2e8f0;
+        flex-wrap: wrap; /* Allow buttons to wrap on smaller screens */
+        justify-content: flex-start; /* Align buttons to the start */
     }
     button {
         padding: 10px 20px;
@@ -143,6 +169,7 @@
         opacity: 0.5;
         cursor: not-allowed;
     }
+
     .star-button {
         padding: 5px 10px;
         background-color: #f1c40f;
@@ -155,6 +182,7 @@
     .star-button:hover {
         background-color: #f39c12;
     }
+
     .hide-button {
         padding: 5px 10px;
         background-color: #ff4d4d;
@@ -163,9 +191,24 @@
         border-radius: 4px;
         cursor: pointer;
         transition: background-color 0.3s;
-        margin-left: 10px;
     }
     .hide-button:hover {
         background-color: #e60000;
     }
+
+    .visit-button {
+        padding: 5px 10px;
+        background-color: #3498db;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+        margin-left: 10px; /* Space between Hide and Visit buttons */
+    }
+    .visit-button:hover {
+        background-color: #2980b9;
+    }
+
+    /* Optional: Style other buttons if needed */
 </style>
