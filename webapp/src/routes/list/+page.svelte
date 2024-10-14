@@ -52,54 +52,55 @@
 			console.log(`fetchJobData: Processing ${jobDocs.length} job document(s)`);
 	
 			const jobPromises = jobDocs.map(async (jobDoc, index) => {
-				console.log(`fetchJobData: Processing job ${index + 1}/${jobDocs.length} with ID: ${jobDoc.id}`);
-				try {
-					const jobDataRaw = jobDoc.data();
-					console.log(`Job Data Raw for ID ${jobDoc.id}:`, jobDataRaw);
-	
-					const summarizedData = jobDataRaw.summarized;
-					console.log(`Summarized Data for ID ${jobDoc.id}:`, summarizedData);
-	
-					if (!summarizedData) {
-						console.log(`fetchJobData: No summarized data found for job ID: ${jobDoc.id}`);
-						return null;
-					}
-	
-					const scoreData = jobDataRaw.Score;
-					if (!scoreData) {
-						console.log(`fetchJobData: No score data found for job ID: ${jobDoc.id}`);
-						return null;
-					}
-	
-					const matchResult = {
-						keySkills: [],
-						totalScore: scoreData.totalScore || 0,
-						summary: scoreData.summary || ''
-					};
-	
-					Object.keys(scoreData).forEach(key => {
-						if (key.startsWith('Requirement')) {
-							const req = scoreData[key];
-							matchResult.keySkills.push({
-								skill: req.requirement,
-								score: req.score,
-								assessment: req.assessment
-							});
-						}
-					});
-	
-					return {
-						id: jobDoc.id,
-						...summarizedData,
-						generalData: jobDataRaw.generalData || {},
-						Score: scoreData,
-						matchResult: matchResult
-					};
-				} catch (jobError) {
-					console.error(`fetchJobData: Error processing job ID ${jobDoc.id}:`, jobError);
-					return null;
-				}
-			});
+    console.log(`fetchJobData: Processing job ${index + 1}/${jobDocs.length} with ID: ${jobDoc.id}`);
+    try {
+        const jobDataRaw = jobDoc.data();
+        console.log(`Job Data Raw for ID ${jobDoc.id}:`, jobDataRaw);
+
+        const summarizedData = jobDataRaw.summarized;
+        console.log(`Summarized Data for ID ${jobDoc.id}:`, summarizedData);
+
+        if (!summarizedData) {
+            console.log(`fetchJobData: No summarized data found for job ID: ${jobDoc.id}`);
+            return null;
+        }
+
+        const scoreData = jobDataRaw.Score;
+        if (!scoreData) {
+            console.log(`fetchJobData: No score data found for job ID: ${jobDoc.id}`);
+            return null;
+        }
+
+        const matchResult = {
+            keySkills: [],
+            totalScore: scoreData.totalScore || 0,
+            summary: scoreData.summary || ''
+        };
+
+        Object.keys(scoreData).forEach(key => {
+            if (key.startsWith('Requirement')) {
+                const req = scoreData[key];
+                matchResult.keySkills.push({
+                    skill: req.requirement,
+                    score: req.score,
+                    assessment: req.assessment
+                });
+            }
+        });
+
+        return {
+            id: jobDoc.id,
+            ...summarizedData,
+            generalData: jobDataRaw.generalData || {},
+            Score: scoreData,
+            matchResult: matchResult,
+            status: jobDataRaw.status || '' // Add this line here
+        };
+    } catch (jobError) {
+        console.error(`fetchJobData: Error processing job ID ${jobDoc.id}:`, jobError);
+        return null;
+    }
+});
 	
 			console.log('fetchJobData: Initiating parallel fetch of job data for all jobs...');
 			const jobResults = await Promise.all(jobPromises);
@@ -210,6 +211,23 @@
 			currentJobIndex--;
 		}
 	}
+
+	async function toggleStar(jobId) {
+        try {
+            const jobIndex = jobData.findIndex(job => job.id === jobId);
+            if (jobIndex === -1) return;
+
+            const newStatus = jobData[jobIndex].status === 'starred' ? '' : 'starred';
+            const jobRef = doc(db, 'users', user.uid, 'jobs', jobId);
+            await updateDoc(jobRef, { status: newStatus });
+
+            jobData[jobIndex].status = newStatus;
+            jobData = [...jobData]; // Trigger reactivity
+        } catch (err) {
+            console.error('Error updating job status:', err);
+            error = 'Failed to update job status. Please try again.';
+        }
+    }
 	</script>
 	
 	<main>
@@ -224,52 +242,57 @@
 			</div>
 	
 			{#if jobData.length > 0}
-				<div class="table-container">
-					<table>
-						<thead>
-							<tr>
-								<th>Link</th>
-								<th on:click={() => handleSort('companyInfo.name')}>
-									Company Name {sortColumn === 'companyInfo.name' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-								</th>
-								<th on:click={() => handleSort('jobInfo.jobTitle')}>
-									Job Title {sortColumn === 'jobInfo.jobTitle' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-								</th>
-								<th on:click={() => handleSort('companyInfo.industry')}>
-									Industry {sortColumn === 'companyInfo.industry' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-								</th>
-								<th on:click={() => handleSort('Score.totalScore')}>
-									Score {sortColumn === 'Score.totalScore' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-								</th>
-								<th on:click={() => handleSort('generalData.timestamp')}>
-									Date Added {sortColumn === 'generalData.timestamp' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
-								</th>
-								<th>Actions</th>
-							</tr>
-						</thead>
-						<tbody>
-							{#each jobData as job, index}
-								<tr>
-									<td>
-										<button on:click={() => openJobLink(job.generalData?.url)} class="link-button">Visit Job</button>
-										<button on:click={() => showDetails(index)} class="details-button">Details</button>
-									</td>
-									<td>{job.companyInfo?.name || 'N/A'}</td>
-									<td>{job.jobInfo?.jobTitle || 'N/A'}</td>
-									<td>{job.companyInfo?.industry || 'N/A'}</td>
-									<td>{typeof job.Score?.totalScore === 'number' ? Math.round(job.Score.totalScore) : 'N/A'}</td>
-									<td>{formatDate(job.generalData?.timestamp)}</td>
-									<td>
-										<button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
-				</div>
-			{:else}
-				<p>No job data available.</p>
-			{/if}
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Link</th>
+						<th on:click={() => handleSort('status')}>
+                            Status {sortColumn === 'status' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                        </th>
+                        <th on:click={() => handleSort('companyInfo.name')}>
+                            Company Name {sortColumn === 'companyInfo.name' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                        </th>
+                        <th on:click={() => handleSort('jobInfo.jobTitle')}>
+                            Job Title {sortColumn === 'jobInfo.jobTitle' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                        </th>
+                        <th on:click={() => handleSort('companyInfo.industry')}>
+                            Industry {sortColumn === 'companyInfo.industry' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                        </th>
+                        <th on:click={() => handleSort('Score.totalScore')}>
+                            Score {sortColumn === 'Score.totalScore' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                        </th>
+                        <th on:click={() => handleSort('generalData.timestamp')}>
+                            Date Added {sortColumn === 'generalData.timestamp' ? (sortDirection === 'asc' ? '▲' : '▼') : ''}
+                        </th>
+                        
+                        
+                    </tr>
+                </thead>
+                <tbody>
+                    {#each jobData as job, index}
+                        <tr>
+                            <td>
+                                <button on:click={() => openJobLink(job.generalData?.url)} class="link-button">Visit Job</button>
+                                <button on:click={() => showDetails(index)} class="details-button">Details</button>
+								<button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
+                            </td>
+							<td>{job.status === 'starred' ? '⭐ Starred' : ''}</td>
+                            <td>{job.companyInfo?.name || 'N/A'}</td>
+                            <td>{job.jobInfo?.jobTitle || 'N/A'}</td>
+                            <td>{job.companyInfo?.industry || 'N/A'}</td>
+                            <td>{typeof job.Score?.totalScore === 'number' ? Math.round(job.Score.totalScore) : 'N/A'}</td>
+                            <td>{formatDate(job.generalData?.timestamp)}</td>
+                            
+                            
+                        </tr>
+                    {/each}
+                </tbody>
+            </table>
+        </div>
+    {:else}
+        <p>No job data available.</p>
+    {/if}
 
 			{#if showOverlay && jobData[currentJobIndex]}
         		<JobDetailsOverlay
@@ -279,6 +302,7 @@
             previousJob={previousJob}
             isFirstJob={currentJobIndex === 0}
             isLastJob={currentJobIndex === jobData.length - 1}
+			toggleStar={toggleStar}
         />
     
 		{/if}
