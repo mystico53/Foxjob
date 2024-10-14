@@ -6,6 +6,7 @@
     export let previousJob;
     export let isFirstJob;
     export let isLastJob;
+    export let toggleStar;
 
     function formatDate(timestamp) {
         if (timestamp && timestamp.toDate) {
@@ -57,8 +58,12 @@
         {/if}
         <div class="overlay-buttons">
             <button on:click={previousJob} disabled={isFirstJob}>Previous</button>
+            <button on:click={() => toggleStar(job.id)} class="star-button">
+                {job.status === 'starred' ? '⭐ Unstar' : '☆ Star'}
+            </button>
             <button on:click={nextJob} disabled={isLastJob}>Next</button>
             <button on:click={closeOverlay}>Close</button>
+            
         </div>
     </div>
 </div>
@@ -126,5 +131,18 @@
     button:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+    }
+
+    .star-button {
+        padding: 5px 10px;
+        background-color: #f1c40f;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+    }
+    .star-button:hover {
+        background-color: #f39c12;
     }
 </style>
