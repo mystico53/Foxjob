@@ -59,7 +59,7 @@
         <div class="overlay-buttons">
             <button on:click={previousJob} disabled={isFirstJob}>Previous</button>
             <button on:click={() => toggleStar(job.id)} class="star-button">
-                {job.status === 'starred' ? '⭐ Unstar' : '☆ Star'}
+                {job.generalData?.status === 'starred' ? '⭐ Unstar' : '☆ Star'}
             </button>
             <button on:click={nextJob} disabled={isLastJob}>Next</button>
             <button on:click={closeOverlay}>Close</button>

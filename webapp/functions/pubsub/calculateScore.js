@@ -123,14 +123,6 @@ exports.calculateScore = functions.pubsub
     3) Calculate a total score (1 - 100), giving a critical assesment on the qualifications meeting the requirements.
   
     4) Write a short summary (maximum 30 words) highlighting the biggest strength and weakness, using the format: "Your experience in [area] is [assessment], but [area] is [assessment]."
-  
-    **Important Instructions:**
-
-    - Do **not** include any double quotes inside string values. If you need to use quotation marks, use single quotes instead. Example of a wrong response: "assessment": "The candidate's experience in implementing a "single source of truth" database system..."
-    - Provide **only** the JSON object specified below. Do not include any additional text, explanations, or preamble.
-    - Ensure that any double quotes **inside string values** are escaped with a backslash (e.g., \\"example\\").
-    - Do **not** include any text before or after the JSON object.
-    - Make sure the JSON is **syntactically valid**.
     
     Format your response as a JSON object with the following structure:
     
