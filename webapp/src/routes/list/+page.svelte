@@ -353,7 +353,6 @@
                         {#each jobData as job, index}
                             <tr>
                                 <td>
-                                    <button on:click={() => openJobLink(job.generalData?.url)} class="link-button">Visit Job</button>
                                     <button on:click={() => showDetails(index)} class="details-button">Details</button>
                                 </td>
                                 <td>{getStatusDisplay(job)}</td>
@@ -381,6 +380,7 @@
                 isLastJob={currentJobIndex === jobData.length - 1}
                 toggleStar={toggleStar}
 				hideJobAndNext={hideJobAndNext}
+				openJobLink={openJobLink}
             />
         {/if}
     {:else}
