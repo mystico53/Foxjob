@@ -52,8 +52,11 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
       generalData: {
         url: url || "na",
         timestamp: Firestore.FieldValue.serverTimestamp(),
-        status: "New"
-      }
+        status: "New",
+        processingStatus: "processing",
+        hidden: false 
+      },
+      
     };
 
     // Add the data to the job document
@@ -110,8 +113,9 @@ async function populateWithNA(googleId, docId) {
       },
       generalData: {
         url: "na",
-        timestamp: Firestore.FieldValue.serverTimestamp()
-      }
+        timestamp: Firestore.FieldValue.serverTimestamp(),
+        hidden: false
+      },
     }, { merge: true });
     console.log('Fields populated with "na" due to error');
   } catch (error) {
