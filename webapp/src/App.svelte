@@ -3,8 +3,7 @@
 	import { auth } from '$lib/firebase';
 	import { user } from './stores/authStore';
 	import { onAuthStateChanged } from 'firebase/auth';
-	import { goto } from '$app/navigation';
-	import { Router, Route } from 'svelte-routing';
+	import { Router, Route, navigate } from 'svelte-routing';
 	import Login from './Login.svelte';
 	import Navbar from '$lib/Navbar.svelte';
 	import List from './routes/list/+page.svelte';
@@ -19,12 +18,12 @@
 			if (currentUser) {
 				console.log('User is signed in', currentUser);
 				if (window.location.pathname === '/') {
-					goto('/cards');
+					navigate('/list');
 				}
 			} else {
 				console.log('No user signed in');
 				if (window.location.pathname !== '/') {
-					goto('/');
+					navigate('/');
 				}
 			}
 		});
@@ -40,8 +39,9 @@
 		<Navbar />
 		<Router>
 			<div class="content">
-				<Route path="list" component={List} />
-				<Route path="cards" component={Cards} />
+				<Route path="/" component={Login} />
+				<Route path="/list" component={List} />
+				<Route path="/cards" component={Cards} />
 			</div>
 		</Router>
 	{/if}
