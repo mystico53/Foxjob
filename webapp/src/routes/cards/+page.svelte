@@ -42,116 +42,96 @@
 }
 
 async function fetchJobData() {
-    console.log('fetchJobData: Function started');
-    loading = true;       // Indicate loading state
-    error = null;         // Reset any previous errors
-    jobData = [];         // Initialize jobData array
+        console.log('fetchJobData: Function started');
+        loading = true;
+        error = null;
+        jobData = [];
 
-    try {
-        // Step 1: Reference to the 'jobs' collection under the current user
-        const jobsRef = collection(db, 'users', user.uid, 'jobs');
-        console.log(`fetchJobData: Created reference to jobs collection for user ID: ${user.uid}`);
+        try {
+            const jobsRef = collection(db, 'users', user.uid, 'jobs');
+            console.log(`fetchJobData: Created reference to jobs collection for user ID: ${user.uid}`);
 
-        // Step 2: Fetch all job documents
-        console.log('fetchJobData: Fetching job documents...');
-        const jobsSnapshot = await getDocs(jobsRef);
-        console.log(`fetchJobData: Retrieved ${jobsSnapshot.size} job(s)`);
+            const jobsSnapshot = await getDocs(jobsRef);
+            console.log(`fetchJobData: Retrieved ${jobsSnapshot.size} job(s)`);
 
-        if (jobsSnapshot.empty) {
-            console.log('fetchJobData: No jobs found for the user.');
-            return; // Exit early if no jobs are found
-        }
-
-        // Extract job documents
-        const jobDocs = jobsSnapshot.docs;
-        console.log(`fetchJobData: Processing ${jobDocs.length} job document(s)`);
-
-        // Step 3: Iterate over each job document to extract necessary fields
-        const jobPromises = jobDocs.map(async (jobDoc, index) => {
-            console.log(`fetchJobData: Processing job ${index + 1}/${jobDocs.length} with ID: ${jobDoc.id}`);
-            try {
-                const jobDataRaw = jobDoc.data();
-
-                // Access 'summarized' field (ensure correct spelling)
-                const summarizedData = jobDataRaw.summarized
-
-                if (!summarizedData) {
-                    console.log(`fetchJobData: No summarized data found for job ID: ${jobDoc.id}`);
-                    return null; // Skip this job if no summarized data
-                }
-
-                // Access 'Score' field
-                const scoreData = jobDataRaw.Score;
-                if (!scoreData) {
-                    console.log(`fetchJobData: No score data found for job ID: ${jobDoc.id}`);
-                    return null; // Skip this job if no score data
-                }
-
-                // Process Score Data into matchResult
-                const matchResult = {
-                    keySkills: [],
-                    totalScore: scoreData.totalScore || 0, // Use existing totalScore
-                    summary: scoreData.summary || ''
-                };
-
-                // Iterate over each requirement in Score
-                Object.keys(scoreData).forEach(key => {
-                    if (key.startsWith('Requirement')) {
-                        const req = scoreData[key];
-                        matchResult.keySkills.push({
-                            skill: req.requirement,
-                            score: req.score,
-                            assessment: req.assessment
-                        });
-                        // Optionally, you can still accumulate individual scores if needed
-                        // matchResult.totalScore += req.score;
-                    }
-                });
-
-                // Structure the job data as per frontend requirements
-                return {
-                    id: jobDoc.id,
-                    ...summarizedData, // Spread summarized fields
-                    ...jobDataRaw,     // Include any additional fields from the main job document if necessary
-                    matchResult: matchResult,
-                    generalData: {
-                        timestamp: jobDataRaw.timestamp,
-                        url: jobDataRaw.url
-                    }
-                };
-            } catch (jobError) {
-                console.error(`fetchJobData: Error processing job ID ${jobDoc.id}:`, jobError);
-                // Continue processing other jobs even if one fails
-                return null;
+            if (jobsSnapshot.empty) {
+                console.log('fetchJobData: No jobs found for the user.');
+                return;
             }
-        });
 
-        // Step 4: Await all job data fetches in parallel
-        console.log('fetchJobData: Initiating parallel fetch of job data for all jobs...');
-        const jobResults = await Promise.all(jobPromises);
-        console.log('fetchJobData: All job data fetched');
+            const jobDocs = jobsSnapshot.docs;
+            console.log(`fetchJobData: Processing ${jobDocs.length} job document(s)`);
 
-        // Step 5: Filter out any null results (jobs that failed to fetch)
-        jobData = jobResults.filter(job => job !== null);
-        console.log(`fetchJobData: Aggregated total of ${jobData.length} job data entries`);
+            const jobPromises = jobDocs.map(async (jobDoc, index) => {
+                console.log(`fetchJobData: Processing job ${index + 1}/${jobDocs.length} with ID: ${jobDoc.id}`);
+                try {
+                    const jobDataRaw = jobDoc.data();
 
-        if (jobData.length === 0) {
-            console.log('fetchJobData: No job data available after processing.');
+                    const summarizedData = jobDataRaw.summarized;
+                    if (!summarizedData) {
+                        console.log(`fetchJobData: No summarized data found for job ID: ${jobDoc.id}`);
+                        return null;
+                    }
+
+                    const scoreData = jobDataRaw.Score;
+                    if (!scoreData) {
+                        console.log(`fetchJobData: No score data found for job ID: ${jobDoc.id}`);
+                        return null;
+                    }
+
+                    const matchResult = {
+                        keySkills: [],
+                        totalScore: scoreData.totalScore || 0,
+                        summary: scoreData.summary || ''
+                    };
+
+                    Object.keys(scoreData).forEach(key => {
+                        if (key.startsWith('Requirement')) {
+                            const req = scoreData[key];
+                            matchResult.keySkills.push({
+                                skill: req.requirement,
+                                score: req.score,
+                                assessment: req.assessment
+                            });
+                        }
+                    });
+
+                    return {
+                        id: jobDoc.id,
+                        ...summarizedData,
+                        ...jobDataRaw,
+                        matchResult: matchResult,
+                        generalData: jobDataRaw.generalData || {}
+                    };
+                } catch (jobError) {
+                    console.error(`fetchJobData: Error processing job ID ${jobDoc.id}:`, jobError);
+                    return null;
+                }
+            });
+
+            console.log('fetchJobData: Initiating parallel fetch of job data for all jobs...');
+            const jobResults = await Promise.all(jobPromises);
+            console.log('fetchJobData: All job data fetched');
+
+            jobData = jobResults.filter(job => job !== null);
+            console.log(`fetchJobData: Aggregated total of ${jobData.length} job data entries`);
+
+            if (jobData.length === 0) {
+                console.log('fetchJobData: No job data available after processing.');
+            }
+
+            console.log(`fetchJobData: Sorting job data by column: ${sortColumn}, direction: ${sortDirection}`);
+            sortData(sortColumn, sortDirection);
+            console.log('fetchJobData: Sorting completed');
+
+        } catch (err) {
+            console.error('fetchJobData: Error fetching job data:', err);
+            error = 'Failed to fetch job data. Please try again later.';
+        } finally {
+            loading = false;
+            console.log('fetchJobData: Function completed, loading set to false');
         }
-
-        // Step 6: Sort the aggregated job data
-        console.log(`fetchJobData: Sorting job data by column: ${sortColumn}, direction: ${sortDirection}`);
-        sortData(sortColumn, sortDirection);
-        console.log('fetchJobData: Sorting completed');
-
-    } catch (err) {
-        console.error('fetchJobData: Error fetching job data:', err);
-        error = 'Failed to fetch job data. Please try again later.';
-    } finally {
-        loading = false; // Loading is complete
-        console.log('fetchJobData: Function completed, loading set to false');
     }
-}
 
 
     async function hideJob(jobId) {
@@ -265,9 +245,9 @@ async function fetchJobData() {
             let aValue = column.split('.').reduce((obj, key) => obj && obj[key], a);
             let bValue = column.split('.').reduce((obj, key) => obj && obj[key], b);
 
-            if (column === 'timestamp') {
-                aValue = a.timestamp?.toDate?.() || new Date(0);
-                bValue = b.timestamp?.toDate?.() || new Date(0);
+            if (column === 'generalData.timestamp') {
+                aValue = a.generalData?.timestamp?.toDate?.() || new Date(0);
+                bValue = b.generalData?.timestamp?.toDate?.() || new Date(0);
             }
 
             if (aValue < bValue) return direction === 'asc' ? -1 : 1;
@@ -289,121 +269,112 @@ async function fetchJobData() {
 </script>
 
 <main>
-	{#if loading}
-		<p>Loading...</p>
-	{:else if error}
-		<p class="error">{error}</p>
-	{:else if user}
-	<div class="header">
-		<h1>Job List</h1>
-		<div class="header-buttons">
-			<button on:click={deleteAllJobs} class="delete-button" disabled={deleting}>
-				{deleting ? 'Deleting...' : 'Delete All Jobs'}
-			</button>
-			<button on:click={handleLogout} class="logout-button">Log Out</button>
-		</div>
-	</div>
-
-		<div class="sort-controls">
-			<label for="sort-select">Sort by:</label>
-			<select id="sort-select" bind:value={sortColumn} on:change={() => handleSort(sortColumn)}>
-				<option value="companyInfo.name">Company Name</option>
-				<option value="companyInfo.industry">Industry</option>
-				<option value="jobInfo.jobTitle">Job Title</option>
-				<option value="timestamp">Date Added</option>
-			</select>
-			<button on:click={() => handleSort(sortColumn)}>
-				{sortDirection === 'asc' ? '▲' : '▼'}
-			</button>
-		</div>
-
-		{#if jobData.length > 0}
-        <div class="card-container">
-            {#each jobData as job}
-                <div class="card">
-                    <!-- Card Header -->
-                    <div class="card-header">
-                        <!-- Company Name and Timestamp -->
-                        <div class="header-top">
-                            <h2>{job.companyInfo?.name || 'N/A'} - {job.jobInfo?.jobTitle || 'N/A'}</h2>
-                            <span class="badge">{formatDate(job.timestamp)}</span>
-                        </div>
-        
-                        <!-- Industry, Remote Type, Compensation in one row -->
-                        <div class="header-meta">
-                            <span class="badge">🚀 {job.companyInfo?.industry || 'N/A'}</span>
-                            <span class="badge">📍 {job.jobInfo?.remoteType || 'N/A'}</span>
-                            <span class="badge">💰 {job.compensation || 'N/A'}</span>
-                        </div>
-        
-                        <!-- Company Focus -->
-                        <p class="company-focus">About: {job.companyInfo?.companyFocus || 'N/A'}</p>
-                        <p class="company-focus">Job: {job.jobInfo?.jobSummary || 'N/A'}</p>
-                    </div>
-        
-                    <!-- Job Info -->
-                    <div class="card-content">
-                        <div class="skills-grid">
-                            <div>
-                                <h4>✅ What you'll do</h4>
-                                <ul>
-                                    {#each job.areasOfFun as area}
-                                        <li>{area}</li>
-                                    {/each}
-                                </ul>
-                            </div>
-                            <div>
-                                <h4>❓ Mandatory Skills</h4>
-                                <ul>
-                                    {#each job.mandatorySkills as skill}
-                                        <li>{skill}</li>
-                                    {/each}
-                                </ul>
-                            </div>
-                        </div>
-                    </div>
-    					<!-- Match Results -->
-					{#if job.matchResult}
-						<div class="match-results">
-							<h3>Match Results</h3>
-							<table>
-								<thead>
-									<tr>
-										<th>Key Skill</th>
-										<th>Score</th>
-										<th>Assessment</th>
-									</tr>
-								</thead>
-								<tbody>
-									<tr>
-										<td><strong>Total Score</strong></td>
-										<td><strong>{Math.round(job.matchResult.totalScore)}</strong></td>
-										<td>{job.matchResult.summary}</td>
-									</tr>
-                                    {#each job.matchResult.keySkills as skill}
-										<tr>
-											<td>{skill.skill}</td>
-											<td>{Math.round(skill.score)}</td>
-											<td>{skill.assessment}</td>
-										</tr>
-									{/each}
-								</tbody>
-							</table>
-						</div>
-					{/if}
-                    <div class="card-footer">
-                        <button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
-                        <button on:click={() => openJobLink(job.url)} class="view-button">View Job</button>
-                    </div>
-                </div>
-            {/each}
+    {#if loading}
+        <p>Loading...</p>
+    {:else if error}
+        <p class="error">{error}</p>
+    {:else if user}
+        <div class="header">
+            <h1>Job List</h1>
+            <div class="header-buttons">
+                <button on:click={deleteAllJobs} class="delete-button" disabled={deleting}>
+                    {deleting ? 'Deleting...' : 'Delete All Jobs'}
+                </button>
+                <button on:click={handleLogout} class="logout-button">Log Out</button>
+            </div>
         </div>
-		{:else}
-			<p>No job data available.</p>
-		{/if}
-	{:else}
-		<p>Please sign in to view your job list.</p>
-	{/if}
+
+        <div class="sort-controls">
+            <label for="sort-select">Sort by:</label>
+            <select id="sort-select" bind:value={sortColumn} on:change={() => handleSort(sortColumn)}>
+                <option value="companyInfo.name">Company Name</option>
+                <option value="companyInfo.industry">Industry</option>
+                <option value="jobInfo.jobTitle">Job Title</option>
+                <option value="generalData.timestamp">Date Added</option>
+            </select>
+            <button on:click={() => handleSort(sortColumn)}>
+                {sortDirection === 'asc' ? '▲' : '▼'}
+            </button>
+        </div>
+
+        {#if jobData.length > 0}
+            <div class="card-container">
+                {#each jobData as job}
+                    <div class="card">
+                        <div class="card-header">
+                            <div class="header-top">
+                                <h2>{job.companyInfo?.name || 'N/A'} - {job.jobInfo?.jobTitle || 'N/A'}</h2>
+                                <span class="badge">{formatDate(job.generalData?.timestamp)}</span>
+                            </div>
+                            <div class="header-meta">
+                                <span class="badge">🚀 {job.companyInfo?.industry || 'N/A'}</span>
+                                <span class="badge">📍 {job.jobInfo?.remoteType || 'N/A'}</span>
+                                <span class="badge">💰 {job.compensation || 'N/A'}</span>
+                            </div>
+                            <p class="company-focus">About: {job.companyInfo?.companyFocus || 'N/A'}</p>
+                            <p class="company-focus">Job: {job.jobInfo?.jobSummary || 'N/A'}</p>
+                        </div>
+                        <div class="card-content">
+                            <div class="skills-grid">
+                                <div>
+                                    <h4>✅ What you'll do</h4>
+                                    <ul>
+                                        {#each job.areasOfFun as area}
+                                            <li>{area}</li>
+                                        {/each}
+                                    </ul>
+                                </div>
+                                <div>
+                                    <h4>❓ Mandatory Skills</h4>
+                                    <ul>
+                                        {#each job.mandatorySkills as skill}
+                                            <li>{skill}</li>
+                                        {/each}
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                        {#if job.matchResult}
+                            <div class="match-results">
+                                <h3>Match Results</h3>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Key Skill</th>
+                                            <th>Score</th>
+                                            <th>Assessment</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Total Score</strong></td>
+                                            <td><strong>{Math.round(job.matchResult.totalScore)}</strong></td>
+                                            <td>{job.matchResult.summary}</td>
+                                        </tr>
+                                        {#each job.matchResult.keySkills as skill}
+                                            <tr>
+                                                <td>{skill.skill}</td>
+                                                <td>{Math.round(skill.score)}</td>
+                                                <td>{skill.assessment}</td>
+                                            </tr>
+                                        {/each}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {/if}
+                        <div class="card-footer">
+                            <button on:click={() => hideJob(job.id)} class="hide-button">Hide</button>
+                            <button on:click={() => openJobLink(job.generalData?.url)} class="view-button">View Job</button>
+                        </div>
+                    </div>
+                {/each}
+            </div>
+        {:else}
+            <p>No job data available.</p>
+        {/if}
+    {:else}
+        <p>Please sign in to view your job list.</p>
+    {/if}
 </main>
 
 <style>
