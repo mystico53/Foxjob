@@ -4,6 +4,7 @@
 	import { signOut } from 'firebase/auth';
 	import { collection, getDocs, doc, updateDoc } from 'firebase/firestore';
 	import { goto } from '$app/navigation';
+	import JobDetailsOverlay from '../../lib/JobDetailsOverlay.svelte'; 
 	
 	let user = null;
 	let jobData = [];
@@ -270,22 +271,16 @@
 				<p>No job data available.</p>
 			{/if}
 
-			{#if showOverlay}
-			<div class="overlay">
-				<div class="overlay-content">
-					<h2>Job Details</h2>
-					<p>Company: {jobData[currentJobIndex].companyInfo?.name || 'N/A'}</p>
-					<p>Job Title: {jobData[currentJobIndex].jobInfo?.jobTitle || 'N/A'}</p>
-					<p>Industry: {jobData[currentJobIndex].companyInfo?.industry || 'N/A'}</p>
-					<p>Score: {typeof jobData[currentJobIndex].Score?.totalScore === 'number' ? Math.round(jobData[currentJobIndex].Score.totalScore) : 'N/A'}</p>
-					<p>Date Added: {formatDate(jobData[currentJobIndex].generalData?.timestamp)}</p>
-					<div class="overlay-buttons">
-						<button on:click={previousJob} disabled={currentJobIndex === 0}>Previous</button>
-						<button on:click={nextJob} disabled={currentJobIndex === jobData.length - 1}>Next</button>
-						<button on:click={closeOverlay}>Close</button>
-					</div>
-				</div>
-			</div>
+			{#if showOverlay && jobData[currentJobIndex]}
+        		<JobDetailsOverlay
+            job={jobData[currentJobIndex]}
+            closeOverlay={closeOverlay}
+            nextJob={nextJob}
+            previousJob={previousJob}
+            isFirstJob={currentJobIndex === 0}
+            isLastJob={currentJobIndex === jobData.length - 1}
+        />
+    
 		{/if}
 		{:else}
 			<p>Please sign in to view your job list.</p>
