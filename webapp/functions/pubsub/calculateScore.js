@@ -179,23 +179,20 @@ const prompt = `${instruction}These are the Requirements I mentioned:${requireme
       throw new functions.https.HttpsError('internal', `Anthropic API Error: ${JSON.stringify(data)}`);
     }
 
-    if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
+    if (data.content && Array.isArray(data.content) && data.content.length > 0 && data.content[0].type === 'text') {
       const content = data.content[0].text.trim();
       try {
-        const jsonContent = content.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-        const parsedContent = JSON.parse(jsonContent);
-        
-        // Log the parsed response from Anthropic API
-        logger.info('Parsed response from Anthropic API:', JSON.stringify(parsedContent));
-        
+        const parsedContent = parseJSONSafely(content);
+        logger.info('Parsed content:', JSON.stringify(parsedContent));
         return parsedContent;
       } catch (error) {
         logger.error('Error parsing JSON from Anthropic response:', error);
-        throw new functions.https.HttpsError('internal', 'Error parsing JSON from Anthropic response');
+        logger.error('Raw content:', content);
+        throw new functions.https.HttpsError('internal', 'Error parsing JSON from Anthropic response', { content });
       }
     } else {
       logger.error('Unexpected Anthropic API response structure:', data);
-      throw new functions.https.HttpsError('internal', 'Unexpected Anthropic API response structure');
+      throw new functions.https.HttpsError('internal', 'Unexpected Anthropic API response structure', { data });
     }
   } catch (error) {
     logger.error('Error calling Anthropic API:', error);
@@ -204,6 +201,20 @@ const prompt = `${instruction}These are the Requirements I mentioned:${requireme
     } else {
       throw new functions.https.HttpsError('internal', 'Error calling Anthropic API', error.message);
     }
+  }
+}
+
+// Helper function to parse JSON safely
+function parseJSONSafely(jsonString) {
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    // If parsing fails, try to extract JSON from markdown code block
+    const match = jsonString.match(/```json\n([\s\S]*?)\n```/);
+    if (match && match[1]) {
+      return JSON.parse(match[1]);
+    }
+    throw e; // If still fails, throw the original error
   }
 }
 
