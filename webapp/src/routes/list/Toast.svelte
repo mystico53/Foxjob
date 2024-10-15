@@ -21,7 +21,7 @@
 </script>
 
 {#if visible}
-    <div class="toast" on:click={() => dispatch('dismiss')}>
+    <div class="toast">
         {message}
     </div>
 {/if}
