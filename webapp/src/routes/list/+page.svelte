@@ -5,8 +5,7 @@
     import { collection, onSnapshot, doc, updateDoc, query, where } from 'firebase/firestore';
     import { goto } from '$app/navigation';
     import JobDetailsOverlay from '../../lib/JobDetailsOverlay.svelte'; 
-    import Toast from './Toast.svelte'; // Assuming you've created a Toast component
-
+    import Toast from './Toast.svelte';
     let user = null;
     let jobData = [];
     let loading = true;
