@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { auth, db } from '$lib/firebase';
     import { signOut } from 'firebase/auth';
-    import { collection, getDocs, doc, getDoc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+    import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
     import { goto } from '$app/navigation';
 
     let user = null;
