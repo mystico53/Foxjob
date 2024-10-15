@@ -24,13 +24,7 @@
         <slot />
     </main>
 
-    <footer class="sticky bottom-0 left-0 right-0 py-4 bg-gray-100 mt-auto">
-        <div class="container mx-auto px-4">
-            <a href="/privacy" class="text-blue-600 hover:underline" data-sveltekit-preload-data="off">
-                Privacy Policy
-            </a>
-        </div>
-    </footer>
+    
 </div>
 
 <style>
