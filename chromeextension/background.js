@@ -97,22 +97,34 @@ async function firebaseAuth() {
   const auth = await getAuth()
     .then((auth) => {
       console.log('User Authenticated', auth);
+
+      // Store user data
+      chrome.storage.local.set({
+        userId: auth.user.uid,
+        userName: auth.user.displayName,
+        userEmail: auth.user.email
+      }, function() {
+        console.log('User data stored in chrome.storage.local');
+        // Notify popup
+        chrome.runtime.sendMessage({
+          action: 'authStateChanged',
+          user: auth.user,
+          userName: auth.user.displayName
+        });
+      });
+
       return auth;
     })
     .catch(err => {
-      if (err.code === 'auth/operation-not-allowed') {
-        console.error('You must enable an OAuth provider in the Firebase' +
-                      ' console in order to use signInWithPopup. This sample' +
-                      ' uses Google by default.');
-      } else {
-        console.error(err);
-        return err;
-      }
+      // Existing error handling
+      console.error(err);
+      return err;
     })
-    .finally(closeOffscreenDocument)
+    .finally(closeOffscreenDocument);
 
   return auth;
 }
+
 
 // Function to handle Sign-Out
 async function firebaseSignOut() {
@@ -209,6 +221,11 @@ function injectContentScript(tabId) {
 // Set up a listener for messages sent to the extension
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background script received message:', request);
+
+  if (request.target === 'offscreen') {
+    // Do not handle messages intended for the offscreen document
+    return;
+  }
 
   // Handle authentication messages based on 'type' and 'target'
   if (request.type === 'firebase-auth' && request.target === 'offscreen') {
