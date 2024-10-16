@@ -23,7 +23,10 @@ function initializePopup() {
     if (result.userId) {
       console.log('User is signed in');
       updateSignInButtonState(true, result.userName);
-      updateStatus('Signed in. Ready to process text.');
+      updateStatus('Signed in. Processing text...');
+
+      // Automatically trigger the main action
+      injectContentScriptAndProcess();
     } else {
       console.log('User is signed out');
       updateSignInButtonState(false);
@@ -46,6 +49,7 @@ function initializePopup() {
       }
     }
   });
+
 
   function showCollectedStatus() {
     if (collectedStatusDiv) {
@@ -95,36 +99,46 @@ function handleSignInOut() {
 }
 
 function injectContentScriptAndProcess() {
-  chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
-    const activeTab = tabs[0];
+  chrome.windows.getAll({ windowTypes: ['normal'] }, function(windows) {
+    let lastFocusedWindow = windows.find(w => w.focused);
 
-    if (!activeTab || !activeTab.id) {
-      console.error('No active tab found');
-      updateStatus('Error: No active tab found');
-      return;
+    if (!lastFocusedWindow) {
+      // If no window is focused, default to the first one
+      lastFocusedWindow = windows[0];
     }
 
-    chrome.tabs.sendMessage(activeTab.id, {action: "ping"}, function(response) {
-      if (chrome.runtime.lastError || !response) {
-        // Content script is not injected, inject it now
-        chrome.scripting.executeScript(
-          {
-            target: {tabId: activeTab.id},
-            files: ['content.js']
-          },
-          function() {
-            if (chrome.runtime.lastError) {
-              updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
-            } else {
-              // Add a small delay before processing
-              setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
-            }
-          }
-        );
-      } else {
-        // Content script is already injected
-        selectAllTextAndProcess(activeTab.id);
+    chrome.tabs.query({ active: true, windowId: lastFocusedWindow.id }, function(tabs) {
+      const activeTab = tabs[0];
+
+      if (!activeTab || !activeTab.id || activeTab.url.startsWith('chrome://') || activeTab.url.startsWith('chrome-extension://')) {
+        console.error('No valid active tab found');
+        updateStatus('Error: No valid active tab found');
+        return;
       }
+
+      // Proceed with your logic to inject content scripts and process
+      chrome.tabs.sendMessage(activeTab.id, { action: "ping" }, function(response) {
+        if (chrome.runtime.lastError || !response) {
+          // Content script is not injected, inject it now
+          chrome.scripting.executeScript(
+            {
+              target: { tabId: activeTab.id },
+              files: ['content.js']
+            },
+            function() {
+              if (chrome.runtime.lastError) {
+                updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
+              } else {
+                // Add a small delay before processing
+                setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
+              }
+            }
+          );
+        } else {
+          // Content script is already injected
+          selectAllTextAndProcess(activeTab.id);
+        }
+      });
     });
   });
 }
