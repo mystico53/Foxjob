@@ -38,26 +38,12 @@ function initializePopup() {
       showCollectedStatus();
     } else if (request.action === 'authStateChanged') {
       if (request.user) {
-        updateSignInButtonState(true, request.userName);
+        updateSignInButtonState(true, request.user.displayName);
         updateStatus('Signed in. Ready to process text.');
       } else {
         updateSignInButtonState(false);
         updateStatus('Please sign in to process text');
       }
-    }
-  });
-
-  // Listen for the keyboard command
-  chrome.commands.onCommand.addListener((command) => {
-    if (command === "toggle-feature") {
-      console.log("Keyboard shortcut Alt+S was pressed");
-      chrome.storage.local.get(['userId'], function(result) {
-        if (result.userId) {
-          injectContentScriptAndProcess();
-        } else {
-          updateStatus('Please sign in to process text');
-        }
-      });
     }
   });
 
@@ -230,12 +216,12 @@ function hideSpinner() {
   }
 }
 
-function updateSignInButtonState(isSignedIn, email = '') {
+function updateSignInButtonState(isSignedIn, displayName = '') {
   const button = document.getElementById('signInOutButton');
   if (button) {
     if (isSignedIn) {
-      button.textContent = `Sign Out (${email})`;
-      button.title = `Signed in as ${email}`;
+      button.textContent = `Sign Out (${displayName})`;
+      button.title = `Signed in as ${displayName}`;
     } else {
       button.textContent = 'Sign In';
       button.title = '';
