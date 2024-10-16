@@ -128,6 +128,7 @@
             overflow: hidden;
             text-overflow: ellipsis;
             max-width: 200px;
+            cursor: pointer;
         }
 
         #collectedStatus {
@@ -144,7 +145,7 @@
     <div id="popup-container">
         <div class="header">
             <div class="status-container">
-                <div id="status">Ready</div>
+                <div id="status">Please sign in to process text</div>
                 <div id="loadingSpinner" class="spinner"></div>
             </div>
             <button id="signInOutButton" title="">Sign In</button>
@@ -153,14 +154,8 @@
         <p>When you're done, click <a href="https://jobille-45494.web.app/" target="_blank">here</a> to see your results
         </p>
     </div>
-    <!-- Load Firebase scripts locally -->
-    <script src="firebase-app-compat.js"></script>
-    <script src="firebase-auth-compat.js"></script>
-
-    <!-- Then load your custom scripts -->
-    <script src="auth.js"></script>
+    <!-- Load your custom scripts -->
     <script src="popup.js"></script>
 </body>
-
 
 </html>

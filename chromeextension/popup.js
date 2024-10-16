@@ -18,13 +18,12 @@ function initializePopup() {
     console.error('Sign In/Out button not found');
   }
 
-  // Check initial auth state
-  firebase.auth().onAuthStateChanged((user) => {
-    if (user) {
+  // Check initial auth state from storage
+  chrome.storage.local.get(['userId', 'userName'], function(result) {
+    if (result.userId) {
       console.log('User is signed in');
-      updateSignInButtonState(true, user.email);
+      updateSignInButtonState(true, result.userName);
       updateStatus('Signed in. Ready to process text.');
-      injectContentScriptAndProcess();
     } else {
       console.log('User is signed out');
       updateSignInButtonState(false);
@@ -37,11 +36,12 @@ function initializePopup() {
       updateStatus(request.message, request.isLoading);
     } else if (request.action === 'textCollected') {
       showCollectedStatus();
-    } else if (request.action === 'triggerMainAction') {
-      console.log("Triggering main action from keyboard shortcut");
-      if (firebase.auth().currentUser) {
-        injectContentScriptAndProcess();
+    } else if (request.action === 'authStateChanged') {
+      if (request.user) {
+        updateSignInButtonState(true, request.userName);
+        updateStatus('Signed in. Ready to process text.');
       } else {
+        updateSignInButtonState(false);
         updateStatus('Please sign in to process text');
       }
     }
@@ -51,11 +51,13 @@ function initializePopup() {
   chrome.commands.onCommand.addListener((command) => {
     if (command === "toggle-feature") {
       console.log("Keyboard shortcut Alt+S was pressed");
-      if (firebase.auth().currentUser) {
-        injectContentScriptAndProcess();
-      } else {
-        updateStatus('Please sign in to process text');
-      }
+      chrome.storage.local.get(['userId'], function(result) {
+        if (result.userId) {
+          injectContentScriptAndProcess();
+        } else {
+          updateStatus('Please sign in to process text');
+        }
+      });
     }
   });
 
@@ -81,9 +83,28 @@ function initializePopup() {
 function handleSignInOut() {
   const button = document.getElementById('signInOutButton');
   if (button.textContent.startsWith('Sign In')) {
-    window.signIn();
+    // Initiate sign-in via background.js
+    chrome.runtime.sendMessage({ type: 'start-auth' }, (response) => {
+      if (response.success) {
+        console.log('Authentication initiated');
+        updateStatus('Authentication in progress...');
+      } else {
+        console.error('Authentication initiation failed:', response.error);
+        updateStatus('Error: ' + response.error);
+      }
+    });
   } else {
-    window.signOut();
+    // Initiate sign-out via background.js
+    chrome.runtime.sendMessage({ type: 'sign-out' }, (response) => {
+      if (response.success) {
+        console.log('User signed out');
+        updateSignInButtonState(false);
+        updateStatus('Signed out successfully.');
+      } else {
+        console.error('Sign-out failed:', response.error);
+        updateStatus('Error: ' + response.error);
+      }
+    });
   }
 }
 
@@ -177,7 +198,7 @@ function resizePopup() {
   }
 }
 
-// These functions are now called from auth.js, but we keep them here for compatibility
+// These functions are now called from background.js via messages
 function updateStatus(message, isLoading = false) {
   if (statusDiv) {
     statusDiv.textContent = message;
@@ -209,7 +230,6 @@ function hideSpinner() {
   }
 }
 
-// This function is called from auth.js
 function updateSignInButtonState(isSignedIn, email = '') {
   const button = document.getElementById('signInOutButton');
   if (button) {
@@ -226,10 +246,12 @@ function updateSignInButtonState(isSignedIn, email = '') {
 }
 
 function logCurrentUserId() {
-  const userId = window.getCurrentUserId();
-  if (userId) {
-    console.log('Current user Google ID:', userId);
-  } else {
-    console.log('No user is currently signed in');
-  }
+  chrome.storage.local.get(['userId'], function(result) {
+    const userId = result.userId;
+    if (userId) {
+      console.log('Current user Google ID:', userId);
+    } else {
+      console.log('No user is currently signed in');
+    }
+  });
 }
