@@ -2,6 +2,7 @@ import { browser } from '$app/environment';
 import { auth } from '$lib/firebase';
 import { redirect } from '@sveltejs/kit';
 
+/*
 export async function load({ url }) {
   if (!browser) {
     // We're on the server, return immediately
@@ -30,4 +31,4 @@ export async function load({ url }) {
       resolve({});
     }, 5000); // 5 second timeout
   });
-}
+}*/

@@ -7,10 +7,12 @@
     "activeTab",
     "scripting",
     "storage",
-    "identity"
+    "identity",
+    "offscreen"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "https://jobille-45494.web.app/*"
   ],
   "action": {
     "default_popup": "popup.html"
@@ -27,7 +29,7 @@
     }
   },
   "content_security_policy": {
-    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://processtext-kvshkfhmua-uc.a.run.app https://us-central1-jobille-45494.cloudfunctions.net/publishJobText http://127.0.0.1:5001"
+    "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://jobille-45494.web.app https://securetoken.googleapis.com https://www.googleapis.com https://www.gstatic.com https://apis.google.com https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://processtext-kvshkfhmua-uc.a.run.app https://us-central1-jobille-45494.cloudfunctions.net/publishJobText http://127.0.0.1:5001"
   },
   "oauth2": {
     "client_id": "656035288386-gjoffu1hq1gc981jp96ip77jko1v9rje.apps.googleusercontent.com",

@@ -6,6 +6,130 @@ importScripts('config.js');
 
 console.log('Background script loaded');
 
+// Constants for Offscreen Document Management
+const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html'; // Ensure this path is correct
+let creatingOffscreenDocument; // Global promise to manage offscreen document creation
+
+// Helper function to check if the offscreen document is already active
+async function hasDocument() {
+  const matchedClients = await clients.matchAll();
+  return matchedClients.some(
+    (c) => c.url === chrome.runtime.getURL(OFFSCREEN_DOCUMENT_PATH)
+  );
+}
+
+// Function to set up the offscreen document
+async function setupOffscreenDocument(path) {
+  console.log('setupOffscreenDocument called with path:', path);
+  if (!(await hasDocument())) {
+    console.log('No offscreen document found. Proceeding to create one.');
+    if (creatingOffscreenDocument) {
+      console.log('Offscreen document is already being created. Awaiting...');
+      await creatingOffscreenDocument;
+    } else {
+      console.log('Creating offscreen document now.');
+      try {
+        creatingOffscreenDocument = chrome.offscreen.createDocument({
+          url: path,
+          reasons: [chrome.offscreen.Reason.DOM_SCRAPING],
+          justification: 'authentication'
+        });
+        
+        // Wait until the document is fully created
+        await creatingOffscreenDocument;
+        console.log('Offscreen document created successfully.');
+      } catch (error) {
+        console.error('Error creating offscreen document:', error);
+        throw error;
+      } finally {
+        creatingOffscreenDocument = null;
+      }
+    }
+  } else {
+    console.log('Offscreen document already exists.');
+  }
+}
+
+
+
+async function closeOffscreenDocument() {
+  if (!(await hasDocument())) {
+    return;
+  }
+  await chrome.offscreen.closeDocument();
+}
+
+// Function to request authentication
+function getAuth() {
+  console.log('getAuth: Function called');
+  return new Promise(async (resolve, reject) => {
+    console.log('getAuth: Promise executor started');
+    try {
+      console.log('getAuth: Sending firebase-auth message');
+      const auth = await chrome.runtime.sendMessage({
+        type: 'firebase-auth',
+        target: 'offscreen'
+      });
+      console.log('getAuth: Received response:', auth);
+
+      if (auth?.name !== 'FirebaseError') {
+        console.log('getAuth: Authentication successful, resolving promise');
+        resolve(auth);
+      } else {
+        console.warn('getAuth: Received FirebaseError, rejecting promise');
+        reject(auth);
+      }
+    } catch (error) {
+      console.error('getAuth: Error occurred during authentication', error);
+      reject(error);
+    }
+  }).then(result => {
+    console.log('getAuth: Promise resolved successfully');
+    return result;
+  }).catch(error => {
+    console.error('getAuth: Promise rejected', error);
+    throw error;
+  });
+}
+async function firebaseAuth() {
+  await setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH);
+
+  const auth = await getAuth()
+    .then((auth) => {
+      console.log('User Authenticated', auth);
+      return auth;
+    })
+    .catch(err => {
+      if (err.code === 'auth/operation-not-allowed') {
+        console.error('You must enable an OAuth provider in the Firebase' +
+                      ' console in order to use signInWithPopup. This sample' +
+                      ' uses Google by default.');
+      } else {
+        console.error(err);
+        return err;
+      }
+    })
+    .finally(closeOffscreenDocument)
+
+  return auth;
+}
+
+// Function to handle Sign-Out
+async function firebaseSignOut() {
+  // Since Firebase is handled via the offscreen document, implement sign-out logic accordingly
+  // This might involve sending a sign-out message to the offscreen document if implemented
+  // For simplicity, we'll clear the stored user information
+
+  chrome.storage.local.remove(['userId', 'userName'], () => {
+    console.log('User information removed from storage');
+
+    // Notify the popup of the auth state change
+    chrome.runtime.sendMessage({ action: 'authStateChanged', user: null, userName: null });
+  });
+
+  return { success: true };
+}
+
 // Function to send data to Pub/Sub
 async function sendToPubSub(text, url, googleId) {
   console.log('sendToPubSub called with:', { textLength: text.length, url, googleId });
@@ -16,7 +140,7 @@ async function sendToPubSub(text, url, googleId) {
   
   console.log(`Using ${FIREBASE_CONFIG.useEmulator ? 'emulator' : 'production'} endpoint:`, targetUrl);
 
-   const apiBody = {
+  const apiBody = {
     message: {
       text: text,
       url: url,
@@ -86,6 +210,52 @@ function injectContentScript(tabId) {
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background script received message:', request);
 
+  // Handle authentication messages based on 'type' and 'target'
+  if (request.type === 'firebase-auth' && request.target === 'offscreen') {
+    // Handle authentication requests
+    firebaseAuth().then(auth => {
+      // Authentication successful
+      sendResponse({ success: true, uid: auth.uid, displayName: auth.displayName });
+    }).catch(error => {
+      // Authentication failed
+      sendResponse({ success: false, error: error });
+    });
+    return true; // Indicates that sendResponse will be called asynchronously
+  }
+
+  // Handle authentication results
+  if (request.type === 'firebase-auth-result') {
+    if (request.user) {
+      console.log('Received authenticated user:', request.user);
+      // Optionally, perform additional actions with the authenticated user
+    } else if (request.error) {
+      console.error('Received authentication error:', request.error);
+      // Optionally, notify the user or take corrective actions
+    }
+    return false; // No response needed
+  }
+
+  // Handle Sign-Out Messages
+  if (request.type === 'sign-out') {
+    firebaseSignOut().then(response => {
+      sendResponse(response);
+    }).catch(error => {
+      sendResponse({ success: false, error: error });
+    });
+    return true; // Indicates that sendResponse will be called asynchronously
+  }
+
+  // Handle Start Authentication
+  if (request.type === 'start-auth') {
+    firebaseAuth().then(response => {
+      sendResponse({ success: true });
+    }).catch(error => {
+      sendResponse({ success: false, error: error.message });
+    });
+    return true; // Indicates that sendResponse will be called asynchronously
+  }
+
+  // Existing action-based message handling
   switch (request.action) {
     case "publishText":
       console.log('Handling publishText action');
