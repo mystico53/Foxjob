@@ -344,12 +344,8 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 chrome.commands.onCommand.addListener((command) => {
   if (command === "toggle-feature") {
     console.log("Keyboard shortcut Alt+S was pressed");
-    
-    // Open the Popup and send a message to trigger the main action
-    chrome.action.openPopup(() => {
-      // After opening the popup, send a message to start the main action
-      chrome.runtime.sendMessage({ action: "triggerMainAction" });
-    });
+    // Open the Popup
+    chrome.action.openPopup();
   }
 });
 
