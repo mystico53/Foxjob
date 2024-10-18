@@ -1,4 +1,4 @@
-const openAIInstructions = {
+export const openAIInstructions = {
   model: "gpt-4",
   messages: [
     {
@@ -12,10 +12,6 @@ const openAIInstructions = {
 5) List compensation if mentioned
 
 Format your response as a JSON object with the following structure:
-
-
-
-
 
 {
   "companyInfo": {
@@ -50,19 +46,21 @@ Ensure all fields are present in the JSON, even if empty. For 'areasOfFocus' and
   ]
 };
 
-// Export the instructions so they can be imported in other files
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = openAIInstructions;
-}
-
-
-const anthropicInstructions = {
+export const anthropicInstructions = {
   //model: "claude-3-5-sonnet-20240620", // dont remove any of the outcommented models from the code!
   model: "claude-3-haiku-20240307", 
   prompt: `You are a job market and industry expert. You excel in distilling concise information from job descriptions. You will rephrase terms to make them understandable. Your task is to:
 
+[Your instructions here]
 
-@@ -76,33 +119,24 @@
+{
+  "companyInfo": {
+    "name": "Company Name",
+    "industry": "Specific Industry branch, not just software development, but what kind exactly"
+    "companyFocus": "What makes the company truly unique? Explain short in simple terms"
+  },
+  "jobInfo": {
+    "jobTitle": "What is job title?",
     "remoteType": "is this a remote or onsite job, eg On-site 3 days week, or Remote",
     "jobSummary": "One sentence job summary, always start with You will" (keep it short)
   },
@@ -88,11 +86,4 @@ Here's the job description to analyze:
 Provide only the JSON response without any additional text or explanations.`
 };
 
-// Export the instructions so they can be imported in other files
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { openAIInstructions, anthropicInstructions };
-} else {
-  // For use in browser environment
-  this.openAIInstructions = openAIInstructions;
-  this.anthropicInstructions = anthropicInstructions;
-}
+// No need for module.exports or this assignments in ES6 modules

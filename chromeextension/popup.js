@@ -1,10 +1,28 @@
 // popup.js
 
+import Counter from './counter.js';
+
 let statusDiv;
 let popupContainer;
 let collectedStatusDiv;
 
 document.addEventListener('DOMContentLoaded', initializePopup);
+
+function updateCounter() {
+  console.log('updateCounter called');
+  Counter.get().then(count => {
+    console.log('Retrieved count:', count);
+    const counterElement = document.getElementById('counter');
+    if (counterElement) {
+      console.log('Updating counter element');
+      counterElement.textContent = `Today's count: ${count}`;
+    } else {
+      console.error('Counter element not found');
+    }
+  }).catch(error => {
+    console.error('Error getting counter:', error);
+  });
+}
 
 function initializePopup() {
   statusDiv = document.getElementById('status');
@@ -35,10 +53,14 @@ function initializePopup() {
   });
 
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+    console.log('Message received:', request);
+  if (request.action === 'updateCounter') {
+    console.log('Updating counter with new count:', request.count);
+    updateCounter();
+  }
+    
     if (request.action === 'updateStatus') {
       updateStatus(request.message, request.isLoading);
-    } else if (request.action === 'textCollected') {
-      showCollectedStatus();
     } else if (request.action === 'authStateChanged') {
       if (request.user) {
         updateSignInButtonState(true, request.user.displayName);
@@ -50,24 +72,7 @@ function initializePopup() {
     }
   });
 
-
-  function showCollectedStatus() {
-    if (collectedStatusDiv) {
-      collectedStatusDiv.textContent = 'Collected, ready for next scan!';
-      collectedStatusDiv.style.display = 'block';
-      setTimeout(() => {
-        collectedStatusDiv.style.display = 'none';
-      }, 5000); // Hide after 5 seconds
-    } else {
-      console.error('Collected status div not found');
-    }
-  }
-
-  // Initial resize
-  resizePopup();
-
-  // Listen for window resize events
-  window.addEventListener('resize', resizePopup);
+  updateCounter();
 }
 
 function handleSignInOut() {
@@ -182,6 +187,7 @@ function checkTabExistsAndProcess(tabId) {
   });
 }
 
+/*
 function resizePopup() {
   const contentHeight = popupContainer.scrollHeight;
   const maxHeight = 600; // Maximum height of the popup
@@ -196,7 +202,7 @@ function resizePopup() {
     popupContainer.style.overflowY = 'visible';
     popupContainer.style.maxHeight = 'none';
   }
-}
+}*/
 
 // These functions are now called from background.js via messages
 function updateStatus(message, isLoading = false) {
