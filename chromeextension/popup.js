@@ -176,34 +176,6 @@ function selectAllTextAndProcess(tabId) {
   }
 }
 
-function checkTabExistsAndProcess(tabId) {
-  chrome.tabs.get(tabId, function(tab) {
-    if (chrome.runtime.lastError) {
-      console.error("Tab does not exist:", chrome.runtime.lastError);
-      updateStatus('Error: Tab no longer exists');
-    } else {
-      selectAllTextAndProcess(tabId);
-    }
-  });
-}
-
-/*
-function resizePopup() {
-  const contentHeight = popupContainer.scrollHeight;
-  const maxHeight = 600; // Maximum height of the popup
-  const newHeight = Math.min(contentHeight, maxHeight);
-  popupContainer.style.height = `${newHeight}px`;
-
-  // Enable scrolling on popupContainer if the content exceeds maxHeight
-  if (contentHeight > maxHeight) {
-    popupContainer.style.overflowY = 'auto';
-    popupContainer.style.maxHeight = `${maxHeight - 50}px`; // Adjust for other elements
-  } else {
-    popupContainer.style.overflowY = 'visible';
-    popupContainer.style.maxHeight = 'none';
-  }
-}*/
-
 // These functions are now called from background.js via messages
 function updateStatus(message, isLoading = false) {
   if (statusDiv) {
@@ -249,15 +221,4 @@ function updateSignInButtonState(isSignedIn, displayName = '') {
   } else {
     console.error('Sign In/Out button not found');
   }
-}
-
-function logCurrentUserId() {
-  chrome.storage.local.get(['userId'], function(result) {
-    const userId = result.userId;
-    if (userId) {
-      console.log('Current user Google ID:', userId);
-    } else {
-      console.log('No user is currently signed in');
-    }
-  });
 }
