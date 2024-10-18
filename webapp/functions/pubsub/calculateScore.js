@@ -130,6 +130,8 @@ exports.calculateScore = functions.pubsub
   
     4) Write a short summary (maximum 30 words) highlighting the biggest strength and weakness, using the format: "Your experience in [area] is [assessment], but [area] is [assessment]."
     
+    **Important:** Escape double quotes like this ***"assessment": "Experience with a \"single source of truth\" system."*** . DO NOT include unescaped double quotes within strings!
+    
     Format your response as a JSON object with the following structure:
     
     {

@@ -275,7 +275,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   // Existing action-based message handling
   switch (request.action) {
     case "publishText":
-      console.log('Handling publishText action');
+      console.log('Handling publishText action from tab:', sender.tab.id);
       chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Sending text to Pub/Sub...', isLoading: true });
 
       chrome.storage.local.get(['userId'], function(result) {
