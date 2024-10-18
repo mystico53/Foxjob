@@ -2,7 +2,6 @@
 
 console.log('Background script loaded with new debug - version 1');
 
-// Import the instructions and config scripts if still needed
 import { anthropicInstructions } from './instructions.js';
 import { FIREBASE_CONFIG, getTargetUrl } from './config.js';
 import Counter from './counter.js';
@@ -11,11 +10,9 @@ console.log('Background script loaded');
 
 Counter.resetAtMidnight();
 
-// Constants for Offscreen Document Management
-const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html'; // Ensure this path is correct
-let creatingOffscreenDocument; // Global promise to manage offscreen document creation
+const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html';
+let creatingOffscreenDocument;
 
-// Helper function to check if the offscreen document is already active
 async function hasDocument() {
   const matchedClients = await clients.matchAll();
   return matchedClients.some(
@@ -23,7 +20,6 @@ async function hasDocument() {
   );
 }
 
-// Function to set up the offscreen document
 async function setupOffscreenDocument(path) {
   console.log('setupOffscreenDocument called with path:', path);
   if (!(await hasDocument())) {
@@ -39,8 +35,6 @@ async function setupOffscreenDocument(path) {
           reasons: [chrome.offscreen.Reason.DOM_SCRAPING],
           justification: 'authentication'
         });
-        
-        // Wait until the document is fully created
         await creatingOffscreenDocument;
         console.log('Offscreen document created successfully.');
       } catch (error) {
@@ -55,8 +49,6 @@ async function setupOffscreenDocument(path) {
   }
 }
 
-
-
 async function closeOffscreenDocument() {
   if (!(await hasDocument())) {
     return;
@@ -64,7 +56,6 @@ async function closeOffscreenDocument() {
   await chrome.offscreen.closeDocument();
 }
 
-// Function to request authentication
 function getAuth() {
   console.log('getAuth: Function called');
   return new Promise(async (resolve, reject) => {
@@ -76,7 +67,6 @@ function getAuth() {
         target: 'offscreen'
       });
       console.log('getAuth: Received response:', auth);
-
       if (auth?.name !== 'FirebaseError') {
         console.log('getAuth: Authentication successful, resolving promise');
         resolve(auth);
@@ -102,15 +92,12 @@ async function firebaseAuth() {
   const auth = await getAuth()
     .then((auth) => {
       console.log('User Authenticated', auth);
-
-      // Store user data
       chrome.storage.local.set({
         userId: auth.user.uid,
         userName: auth.user.displayName,
         userEmail: auth.user.email
       }, function() {
         console.log('User data stored in chrome.storage.local');
-        // Notify popup
         chrome.runtime.sendMessage({
           action: 'authStateChanged',
           user: auth.user,
@@ -121,7 +108,6 @@ async function firebaseAuth() {
       return auth;
     })
     .catch(err => {
-      // Existing error handling
       console.error(err);
       return err;
     })
@@ -130,24 +116,15 @@ async function firebaseAuth() {
   return auth;
 }
 
-
-// Function to handle Sign-Out
 async function firebaseSignOut() {
-  // Since Firebase is handled via the offscreen document, implement sign-out logic accordingly
-  // This might involve sending a sign-out message to the offscreen document if implemented
-  // For simplicity, we'll clear the stored user information
-
   chrome.storage.local.remove(['userId', 'userName'], () => {
     console.log('User information removed from storage');
-
-    // Notify the popup of the auth state change
     chrome.runtime.sendMessage({ action: 'authStateChanged', user: null, userName: null });
   });
 
   return { success: true };
 }
 
-// Function to send data to Pub/Sub
 async function sendToPubSub(text, url, googleId) {
   console.log('sendToPubSub called with:', { textLength: text.length, url, googleId });
 
@@ -206,24 +183,6 @@ async function sendToPubSub(text, url, googleId) {
   }
 }
 
-// Function to inject the content script
-function injectContentScript(tabId) {
-  chrome.scripting.executeScript(
-    {
-      target: { tabId: tabId },
-      files: ['content.js']
-    },
-    () => {
-      if (chrome.runtime.lastError) {
-        console.error('Error injecting script:', chrome.runtime.lastError.message);
-      } else {
-        console.log('Content script successfully injected');
-      }
-    }
-  );
-}
-
-// Set up a listener for messages sent to the extension
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background script received message:', request);
 
@@ -292,6 +251,14 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
           return;
         }
 
+        console.log('Calling Counter.increment()');
+      Counter.increment().then(newCount => {
+        console.log('Counter incremented, new count:', newCount);
+        chrome.runtime.sendMessage({ action: 'updateCounter', count: newCount });
+      }).catch(error => {
+        console.error('Error incrementing counter:', error);
+      });
+
         // Send text to Pub/Sub with Google ID and URL
         sendToPubSub(request.text, request.url, googleId)
           .then(data => {
@@ -322,27 +289,6 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       console.log("Content script is ready");
       // You can add initialization logic here if needed
       break;
-/*
-    case "triggerMainAction":
-    console.log('triggerMainAction case entered');
-    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-      console.log('Active tabs:', tabs);
-      const activeTab = tabs[0];
-      if (activeTab && activeTab.id) {
-        console.log('Active tab found:', activeTab);
-        injectContentScript(activeTab.id);
-        Counter.increment().then(newCount => {
-          console.log('Counter incremented, new count:', newCount);
-          chrome.runtime.sendMessage({ action: 'updateCounter', count: newCount });
-        }).catch(error => {
-          console.error('Error incrementing counter:', error);
-        });
-      } else {
-        console.error('No active tab found');
-        chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: No active tab found', isLoading: false });
-      }
-    });
-    break;*/
 
     default:
       console.log('Unhandled action:', request.action);
@@ -351,11 +297,9 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
-// Listener for keyboard commands
 chrome.commands.onCommand.addListener((command) => {
   if (command === "toggle-feature") {
     console.log("Keyboard shortcut Alt+S was pressed");
-    // Open the Popup
     chrome.action.openPopup();
   }
 });
