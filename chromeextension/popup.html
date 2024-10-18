@@ -138,6 +138,13 @@
             margin-top: 10px;
             display: none;
         }
+
+        #counter {
+            font-size: 14px;
+            color: #333;
+            margin-top: 10px;
+            text-align: center;
+        }
     </style>
 </head>
 
@@ -151,11 +158,13 @@
             <button id="signInOutButton" title="">Sign In</button>
         </div>
         <div id="collectedStatus"></div>
+        <div id="counter">Today's count: 0</div>
         <p>When you're done, click <a href="https://jobille-45494.web.app/" target="_blank">here</a> to see your results
         </p>
     </div>
     <!-- Load your custom scripts -->
-    <script src="popup.js"></script>
+    <script type="module" src="popup.js">
+    </script>
 </body>
 
 </html>

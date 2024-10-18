@@ -1,10 +1,15 @@
 // background.js
 
+console.log('Background script loaded with new debug - version 1');
+
 // Import the instructions and config scripts if still needed
-importScripts('instructions.js');
-importScripts('config.js');
+import { anthropicInstructions } from './instructions.js';
+import { FIREBASE_CONFIG, getTargetUrl } from './config.js';
+import Counter from './counter.js';
 
 console.log('Background script loaded');
+
+Counter.resetAtMidnight();
 
 // Constants for Offscreen Document Management
 const OFFSCREEN_DOCUMENT_PATH = '/offscreen.html'; // Ensure this path is correct
@@ -317,21 +322,27 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       console.log("Content script is ready");
       // You can add initialization logic here if needed
       break;
-
+/*
     case "triggerMainAction":
-      // This action is triggered when the user uses the keyboard shortcut or clicks the extension
-      chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
-        const activeTab = tabs[0];
-        if (activeTab && activeTab.id) {
-          injectContentScript(activeTab.id);
-          // Optionally, send a message to the content script to start processing immediately
-          // setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
-        } else {
-          console.error('No active tab found');
-          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: No active tab found', isLoading: false });
-        }
-      });
-      break;
+    console.log('triggerMainAction case entered');
+    chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+      console.log('Active tabs:', tabs);
+      const activeTab = tabs[0];
+      if (activeTab && activeTab.id) {
+        console.log('Active tab found:', activeTab);
+        injectContentScript(activeTab.id);
+        Counter.increment().then(newCount => {
+          console.log('Counter incremented, new count:', newCount);
+          chrome.runtime.sendMessage({ action: 'updateCounter', count: newCount });
+        }).catch(error => {
+          console.error('Error incrementing counter:', error);
+        });
+      } else {
+        console.error('No active tab found');
+        chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: No active tab found', isLoading: false });
+      }
+    });
+    break;*/
 
     default:
       console.log('Unhandled action:', request.action);
