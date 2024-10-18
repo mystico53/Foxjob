@@ -34,7 +34,10 @@
       // Initialize the authentication flow in the iframed document. You must set the
       // second argument (targetOrigin) of the message in order for it to be successfully
       // delivered.
-      iframe.contentWindow.postMessage({"initAuth": true}, new URL(_URL).origin);
+      setTimeout(() => {
+        console.log('Sending initAuth message after delay');
+        iframe.contentWindow.postMessage({ initAuth: true }, new URL(_URL).origin);
+      }, 500); 
       return true;
     }
     
