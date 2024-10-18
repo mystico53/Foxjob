@@ -12,10 +12,10 @@ function updateCounter() {
   console.log('updateCounter called');
   Counter.get().then(count => {
     console.log('Retrieved count:', count);
-    const counterElement = document.getElementById('counter');
+    const counterElement = document.getElementById('counterNumber');
     if (counterElement) {
       console.log('Updating counter element');
-      counterElement.textContent = `Today's count: ${count}`;
+      counterElement.textContent = `${count}`;
     } else {
       console.error('Counter element not found');
     }
