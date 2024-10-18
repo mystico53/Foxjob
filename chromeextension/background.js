@@ -183,6 +183,16 @@ async function sendToPubSub(text, url, googleId) {
   }
 }
 
+function incrementCounter(){
+  console.log('Calling Counter.increment()');
+      Counter.increment().then(newCount => {
+        console.log('Counter incremented, new count:', newCount);
+        chrome.runtime.sendMessage({ action: 'updateCounter', count: newCount });
+      }).catch(error => {
+        console.error('Error incrementing counter:', error);
+      });
+}
+
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background script received message:', request);
 
@@ -251,13 +261,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
           return;
         }
 
-        console.log('Calling Counter.increment()');
-      Counter.increment().then(newCount => {
-        console.log('Counter incremented, new count:', newCount);
-        chrome.runtime.sendMessage({ action: 'updateCounter', count: newCount });
-      }).catch(error => {
-        console.error('Error incrementing counter:', error);
-      });
+        incrementCounter();
 
         // Send text to Pub/Sub with Google ID and URL
         sendToPubSub(request.text, request.url, googleId)
