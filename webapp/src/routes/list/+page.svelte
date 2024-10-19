@@ -345,9 +345,34 @@
 	}
 
 	function getScoreColor(score) {
-		if (score >= 85) return '#6fdb6f'; // Green for high scores (90-100)
-		if (score >= 60) return '#f4d35e'; // Yellow for medium scores (70-89)
-		return '#ff6b6b'; // Red for low scores (below 70)
+		// Define color stops
+		const colorStops = [
+			{ score: 40, color: { r: 255, g: 107, b: 107 } }, // #ff6b6b
+			{ score: 60, color: { r: 244, g: 211, b: 94 } }, // #f4d35e
+			{ score: 100, color: { r: 111, g: 219, b: 111 } } // #6fdb6f
+		];
+
+		// Find the two color stops that the score falls between
+		let lowerStop = colorStops[0];
+		let upperStop = colorStops[colorStops.length - 1];
+		for (let i = 0; i < colorStops.length - 1; i++) {
+			if (score >= colorStops[i].score && score <= colorStops[i + 1].score) {
+				lowerStop = colorStops[i];
+				upperStop = colorStops[i + 1];
+				break;
+			}
+		}
+
+		// Calculate the percentage between the two color stops
+		const range = upperStop.score - lowerStop.score;
+		const percent = range === 0 ? 1 : (score - lowerStop.score) / range;
+
+		// Interpolate between the two colors
+		const r = Math.round(lowerStop.color.r + percent * (upperStop.color.r - lowerStop.color.r));
+		const g = Math.round(lowerStop.color.g + percent * (upperStop.color.g - lowerStop.color.g));
+		const b = Math.round(lowerStop.color.b + percent * (upperStop.color.b - lowerStop.color.b));
+
+		return `rgb(${r}, ${g}, ${b})`;
 	}
 </script>
 
@@ -428,7 +453,8 @@
 										{@const score = Math.round(job.Score.totalScore)}
 										{@const normalizedScore = score / 100}
 										{@const circumference = 2 * Math.PI * 22}
-										{@const strokeDashoffset = circumference * (1 - normalizedScore)}
+										{@const initialOffset = circumference}
+										{@const finalOffset = circumference * (1 - normalizedScore)}
 										<div class="score-cell">
 											<svg class="score-circle" viewBox="0 0 50 50">
 												<circle
@@ -447,8 +473,8 @@
 													stroke={getScoreColor(score)}
 													stroke-width="6"
 													stroke-dasharray={circumference}
-													stroke-dashoffset={circumference * (1 - normalizedScore)}
-													transform="rotate(0 25 25)"
+													style="--initial-offset: {initialOffset}; --final-offset: {finalOffset};"
+													class="animate-fill"
 												/>
 											</svg>
 											<span class="score-text">{score}</span>
@@ -568,15 +594,6 @@
 		height: 50px;
 	}
 
-	.score-cell h2 {
-		text-align: center;
-		position: absolute;
-		line-height: 50px;
-		width: 100%;
-		margin: 0;
-		font-size: 12px;
-	}
-
 	.score-cell svg {
 		transform: rotate(-90deg);
 		width: 50px;
@@ -601,6 +618,7 @@
 	.score-circle {
 		width: 100%;
 		height: 100%;
+		transform: rotate(-90deg);
 	}
 
 	.score-text {
@@ -613,5 +631,18 @@
 		to {
 			stroke-dashoffset: 0;
 		}
+	}
+
+	@keyframes fillup {
+		from {
+			stroke-dashoffset: var(--initial-offset);
+		}
+		to {
+			stroke-dashoffset: var(--final-offset);
+		}
+	}
+
+	.animate-fill {
+		animation: fillup 1000ms ease-out forwards;
 	}
 </style>
