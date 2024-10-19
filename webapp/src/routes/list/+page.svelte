@@ -392,6 +392,7 @@
 				<table>
 					<thead>
 						<tr>
+							<th>#</th>
 							<th>Link</th>
 							<th on:click={() => handleSort('generalData.status')}>
 								Status {sortColumn === 'generalData.status'
@@ -440,6 +441,7 @@
 					<tbody>
 						{#each jobData as job, index}
 							<tr>
+								<td>{index + 1}</td>
 								<td>
 									<button on:click={() => showDetails(index)} class="details-button">Details</button
 									>
@@ -554,6 +556,14 @@
 	}
 	th:hover {
 		background-color: #e6e6e6;
+	}
+
+	th:first-child,
+	td:first-child {
+		width: 40px;
+		text-align: center;
+		background-color: #f8f8f8;
+		font-weight: bold;
 	}
 	.error {
 		color: red;
