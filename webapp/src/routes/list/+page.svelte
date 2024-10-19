@@ -343,6 +343,12 @@
 				return status;
 		}
 	}
+
+	function getScoreColor(score) {
+		if (score >= 85) return '#6fdb6f'; // Green for high scores (90-100)
+		if (score >= 60) return '#f4d35e'; // Yellow for medium scores (70-89)
+		return '#ff6b6b'; // Red for low scores (below 70)
+	}
 </script>
 
 <main>
@@ -430,19 +436,19 @@
 													cy="25"
 													r="22"
 													fill="none"
-													stroke="#3498db"
-													stroke-width="5"
+													stroke="#e6e6e6"
+													stroke-width="6"
 												/>
 												<circle
 													cx="25"
 													cy="25"
 													r="22"
 													fill="none"
-													stroke="#e6e6e6"
-													stroke-width="5"
+													stroke={getScoreColor(score)}
+													stroke-width="6"
 													stroke-dasharray={circumference}
-													stroke-dashoffset={circumference * normalizedScore}
-													transform="rotate(360 25 25)"
+													stroke-dashoffset={circumference * (1 - normalizedScore)}
+													transform="rotate(0 25 25)"
 												/>
 											</svg>
 											<span class="score-text">{score}</span>
