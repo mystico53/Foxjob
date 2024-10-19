@@ -420,12 +420,33 @@
 								<td>
 									{#if typeof job.Score?.totalScore === 'number'}
 										{@const score = Math.round(job.Score.totalScore)}
-										{@const rotation = Math.min(score * 3.6, 360)}
-										<div
-											class="donut-progress"
-											data-percent={score}
-											style="--progress: {rotation}deg;"
-										></div>
+										{@const normalizedScore = score / 100}
+										{@const circumference = 2 * Math.PI * 22}
+										{@const strokeDashoffset = circumference * (1 - normalizedScore)}
+										<div class="score-cell">
+											<svg class="score-circle" viewBox="0 0 50 50">
+												<circle
+													cx="25"
+													cy="25"
+													r="22"
+													fill="none"
+													stroke="#3498db"
+													stroke-width="5"
+												/>
+												<circle
+													cx="25"
+													cy="25"
+													r="22"
+													fill="none"
+													stroke="#e6e6e6"
+													stroke-width="5"
+													stroke-dasharray={circumference}
+													stroke-dashoffset={circumference * normalizedScore}
+													transform="rotate(360 25 25)"
+												/>
+											</svg>
+											<span class="score-text">{score}</span>
+										</div>
 									{:else}
 										N/A
 									{/if}
@@ -535,41 +556,56 @@
 		background-color: #2980b9;
 	}
 
-	.donut-progress {
+	.score-cell {
+		position: relative;
 		width: 50px;
 		height: 50px;
-		border-radius: 50%;
+	}
+
+	.score-cell h2 {
+		text-align: center;
+		position: absolute;
+		line-height: 50px;
+		width: 100%;
+		margin: 0;
+		font-size: 12px;
+	}
+
+	.score-cell svg {
+		transform: rotate(-90deg);
+		width: 50px;
+		height: 50px;
+	}
+
+	.circle_animation {
+		stroke-dasharray: 220; /* Adjusted for smaller circle */
+		stroke-dashoffset: 220;
+		transition: stroke-dashoffset 1s ease-out;
+	}
+
+	.score-cell {
+		width: 50px;
+		height: 50px;
 		position: relative;
-		font-family: Arial, sans-serif;
-		background: #f2f2f2;
-	}
-
-	.donut-progress::before {
-		content: '';
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
-		border-radius: 50%;
-		border: 5px solid #3498db;
-		border-color: #3498db #3498db #f2f2f2 #f2f2f2;
-		transform: rotate(-45deg);
-		box-sizing: border-box;
-		transition: transform 0.5s ease-in-out;
-	}
-
-	.donut-progress::after {
-		content: attr(data-percent);
-		position: absolute;
-		top: 0;
-		left: 0;
-		width: 100%;
-		height: 100%;
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		font-size: 12px;
+	}
+
+	.score-circle {
+		width: 100%;
+		height: 100%;
+	}
+
+	.score-text {
+		position: absolute;
+		font-size: 14px;
 		font-weight: bold;
+	}
+
+	@keyframes progress {
+		to {
+			stroke-dashoffset: 0;
+		}
 	}
 </style>
