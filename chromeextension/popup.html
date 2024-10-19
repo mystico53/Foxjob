@@ -74,8 +74,9 @@
             width: 16px;
             height: 16px;
             animation: spin 1s linear infinite;
-            margin-right: 10px;
+            margin-left: 10px;
             display: none;
+            flex-shrink: 0;
         }
 
         @keyframes spin {
@@ -129,8 +130,9 @@
 <body>
     <div id="popup-container">
         <div class="counter-column">
+            <div class="counter-text">Collected</div>
             <div class="counter-number" id="counterNumber">0</div>
-            <div class="counter-text">Jobs found today</div>
+            <div class="counter-text">Jobs today</div>
         </div>
         <div class="content-column">
             <div class="header">
