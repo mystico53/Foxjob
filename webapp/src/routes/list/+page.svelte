@@ -376,152 +376,167 @@
 	}
 </script>
 
-<main>
-	{#if loading}
-		<p>Loading...</p>
-	{:else if error}
-		<p class="error">{error}</p>
-	{:else if user}
-		<div class="header">
-			<h1>Job List</h1>
-			<button on:click={handleLogout} class="logout-button">Log Out</button>
-		</div>
-
-		{#if jobData.length > 0}
-			<div class="table-container">
-				<table>
-					<thead>
-						<tr>
-							<th>#</th>
-							<th>Link</th>
-							<th on:click={() => handleSort('generalData.status')}>
-								Status {sortColumn === 'generalData.status'
-									? sortDirection === 'asc'
-										? '▲'
-										: '▼'
-									: ''}
-							</th>
-							<th on:click={() => handleSort('companyInfo.name')}>
-								Company Name {sortColumn === 'companyInfo.name'
-									? sortDirection === 'asc'
-										? '▲'
-										: '▼'
-									: ''}
-							</th>
-							<th on:click={() => handleSort('jobInfo.jobTitle')}>
-								Job Title {sortColumn === 'jobInfo.jobTitle'
-									? sortDirection === 'asc'
-										? '▲'
-										: '▼'
-									: ''}
-							</th>
-							<th on:click={() => handleSort('companyInfo.industry')}>
-								Industry {sortColumn === 'companyInfo.industry'
-									? sortDirection === 'asc'
-										? '▲'
-										: '▼'
-									: ''}
-							</th>
-							<th on:click={() => handleSort('Score.totalScore')}>
-								Score {sortColumn === 'Score.totalScore'
-									? sortDirection === 'asc'
-										? '▲'
-										: '▼'
-									: ''}
-							</th>
-							<th on:click={() => handleSort('generalData.timestamp')}>
-								Date Added {sortColumn === 'generalData.timestamp'
-									? sortDirection === 'asc'
-										? '▲'
-										: '▼'
-									: ''}
-							</th>
-						</tr>
-					</thead>
-					<tbody>
-						{#each jobData as job, index}
-							<tr>
-								<td>{index + 1}</td>
-								<td>
-									<button on:click={() => showDetails(index)} class="details-button">Details</button
-									>
-								</td>
-								<td>{getStatusDisplay(job)}</td>
-								<td>{job.companyInfo?.name || 'N/A'}</td>
-								<td>{job.jobInfo?.jobTitle || 'N/A'}</td>
-								<td>{job.companyInfo?.industry || 'N/A'}</td>
-								<td>
-									{#if typeof job.Score?.totalScore === 'number'}
-										{@const score = Math.round(job.Score.totalScore)}
-										{@const normalizedScore = score / 100}
-										{@const circumference = 2 * Math.PI * 22}
-										{@const initialOffset = circumference}
-										{@const finalOffset = circumference * (1 - normalizedScore)}
-										<div class="score-cell">
-											<svg class="score-circle" viewBox="0 0 50 50">
-												<circle
-													cx="25"
-													cy="25"
-													r="22"
-													fill="none"
-													stroke="#e6e6e6"
-													stroke-width="6"
-												/>
-												<circle
-													cx="25"
-													cy="25"
-													r="22"
-													fill="none"
-													stroke={getScoreColor(score)}
-													stroke-width="6"
-													stroke-dasharray={circumference}
-													style="--initial-offset: {initialOffset}; --final-offset: {finalOffset};"
-													class="animate-fill"
-												/>
-											</svg>
-											<span class="score-text">{score}</span>
-										</div>
-									{:else}
-										N/A
-									{/if}
-								</td>
-								<td>{formatDate(job.generalData?.timestamp)}</td>
-							</tr>
-						{/each}
-					</tbody>
-				</table>
+<main class="dashboard-container">
+	<div class="content-wrapper">
+		{#if loading}
+			<p>Loading...</p>
+		{:else if error}
+			<p class="error">{error}</p>
+		{:else if user}
+			<div class="header">
+				<h1>Job List</h1>
+				<button on:click={handleLogout} class="logout-button">Log Out</button>
 			</div>
-		{:else}
-			<p>No job data available.</p>
-		{/if}
 
-		{#if showOverlay && jobData[currentJobIndex]}
-			<JobDetailsOverlay
-				job={jobData[currentJobIndex]}
-				{closeOverlay}
-				handleNext={markAsReadAndNext}
-				{previousJob}
-				isFirstJob={currentJobIndex === 0}
-				isLastJob={currentJobIndex === jobData.length - 1}
-				{toggleStar}
-				{hideJobAndNext}
-				{openJobLink}
+			{#if jobData.length > 0}
+				<div class="table-container">
+					<table>
+						<thead>
+							<tr>
+								<th>#</th>
+								<th>Link</th>
+								<th on:click={() => handleSort('generalData.status')}>
+									Status {sortColumn === 'generalData.status'
+										? sortDirection === 'asc'
+											? '▲'
+											: '▼'
+										: ''}
+								</th>
+								<th on:click={() => handleSort('companyInfo.name')}>
+									Company Name {sortColumn === 'companyInfo.name'
+										? sortDirection === 'asc'
+											? '▲'
+											: '▼'
+										: ''}
+								</th>
+								<th on:click={() => handleSort('jobInfo.jobTitle')}>
+									Job Title {sortColumn === 'jobInfo.jobTitle'
+										? sortDirection === 'asc'
+											? '▲'
+											: '▼'
+										: ''}
+								</th>
+								<th on:click={() => handleSort('companyInfo.industry')}>
+									Industry {sortColumn === 'companyInfo.industry'
+										? sortDirection === 'asc'
+											? '▲'
+											: '▼'
+										: ''}
+								</th>
+								<th on:click={() => handleSort('Score.totalScore')}>
+									Score {sortColumn === 'Score.totalScore'
+										? sortDirection === 'asc'
+											? '▲'
+											: '▼'
+										: ''}
+								</th>
+								<th on:click={() => handleSort('generalData.timestamp')}>
+									Date Added {sortColumn === 'generalData.timestamp'
+										? sortDirection === 'asc'
+											? '▲'
+											: '▼'
+										: ''}
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+							{#each jobData as job, index}
+								<tr>
+									<td>{index + 1}</td>
+									<td>
+										<button on:click={() => showDetails(index)} class="details-button"
+											>Details</button
+										>
+									</td>
+									<td>{getStatusDisplay(job)}</td>
+									<td>{job.companyInfo?.name || 'N/A'}</td>
+									<td>{job.jobInfo?.jobTitle || 'N/A'}</td>
+									<td>{job.companyInfo?.industry || 'N/A'}</td>
+									<td>
+										{#if typeof job.Score?.totalScore === 'number'}
+											{@const score = Math.round(job.Score.totalScore)}
+											{@const normalizedScore = score / 100}
+											{@const circumference = 2 * Math.PI * 22}
+											{@const initialOffset = circumference}
+											{@const finalOffset = circumference * (1 - normalizedScore)}
+											<div class="score-cell">
+												<svg class="score-circle" viewBox="0 0 50 50">
+													<circle
+														cx="25"
+														cy="25"
+														r="22"
+														fill="none"
+														stroke="#e6e6e6"
+														stroke-width="6"
+													/>
+													<circle
+														cx="25"
+														cy="25"
+														r="22"
+														fill="none"
+														stroke={getScoreColor(score)}
+														stroke-width="6"
+														stroke-dasharray={circumference}
+														style="--initial-offset: {initialOffset}; --final-offset: {finalOffset};"
+														class="animate-fill"
+													/>
+												</svg>
+												<span class="score-text">{score}</span>
+											</div>
+										{:else}
+											N/A
+										{/if}
+									</td>
+									<td>{formatDate(job.generalData?.timestamp)}</td>
+								</tr>
+							{/each}
+						</tbody>
+					</table>
+				</div>
+			{:else}
+				<p>No job data available.</p>
+			{/if}
+
+			{#if showOverlay && jobData[currentJobIndex]}
+				<JobDetailsOverlay
+					job={jobData[currentJobIndex]}
+					{closeOverlay}
+					handleNext={markAsReadAndNext}
+					{previousJob}
+					isFirstJob={currentJobIndex === 0}
+					isLastJob={currentJobIndex === jobData.length - 1}
+					{toggleStar}
+					{hideJobAndNext}
+					{openJobLink}
+				/>
+			{/if}
+
+			<!-- Toast Notification -->
+			<Toast
+				message={toastMessage}
+				visible={showToast}
+				duration={toastDuration}
+				on:dismiss={dismissToast}
 			/>
+		{:else}
+			<p>Please sign in to view your job list.</p>
 		{/if}
-
-		<!-- Toast Notification -->
-		<Toast
-			message={toastMessage}
-			visible={showToast}
-			duration={toastDuration}
-			on:dismiss={dismissToast}
-		/>
-	{:else}
-		<p>Please sign in to view your job list.</p>
-	{/if}
+	</div>
 </main>
 
 <style>
+	.dashboard-container {
+		width: 100%;
+		display: flex;
+		justify-content: center;
+	}
+
+	.content-wrapper {
+		width: 100%;
+		max-width: 1200px;
+		padding: 0 20px;
+	}
+
 	.header {
 		display: flex;
 		justify-content: space-between;
@@ -530,7 +545,7 @@
 	}
 	.table-container {
 		overflow-x: auto;
-		max-width: 100%;
+		width: 100%;
 	}
 	table {
 		border-collapse: separate;
