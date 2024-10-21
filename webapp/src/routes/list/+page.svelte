@@ -384,16 +384,16 @@
 			<p class="error">{error}</p>
 		{:else if user}
 			<div class="header">
-				<h1>Job List</h1>
-				<button on:click={handleLogout} class="logout-button">Log Out</button>
+				<h2 class="h2">Job List</h2>
+				<button on:click={handleLogout} class="btn variant-filled-secondary">Log Out</button>
 			</div>
 
 			{#if jobData.length > 0}
 				<div class="table-container">
-					<table>
+					<table class="table table-hover">
 						<thead>
 							<tr>
-								<th>#</th>
+								<th>No.</th>
 								<th>Link</th>
 								<th on:click={() => handleSort('generalData.status')}>
 									Status {sortColumn === 'generalData.status'
@@ -543,74 +543,9 @@
 		align-items: center;
 		margin-bottom: 20px;
 	}
-	.table-container {
-		overflow-x: auto;
-		width: 100%;
-	}
-	table {
-		border-collapse: separate;
-		border-spacing: 0;
-		width: 100%;
-		margin-top: 20px;
-	}
-	th,
-	td {
-		border: 1px solid #ddd;
-		padding: 12px;
-		text-align: left;
-		vertical-align: middle;
-		word-wrap: break-word;
-	}
-	th {
-		background-color: #f2f2f2;
-		font-weight: bold;
-		position: sticky;
-		top: 0;
-		z-index: 10;
-		cursor: pointer;
-	}
-	th:hover {
-		background-color: #e6e6e6;
-	}
-
-	th:first-child,
-	td:first-child {
-		width: 40px;
-		text-align: center;
-		background-color: #f8f8f8;
-		font-weight: bold;
-	}
+	
 	.error {
 		color: red;
-	}
-	.logout-button {
-		padding: 10px 20px;
-		background-color: #a0aec0;
-		color: white;
-		border: none;
-		border-radius: 25px;
-		cursor: pointer;
-		transition:
-			background-color 0.3s ease,
-			box-shadow 0.3s ease;
-	}
-	.logout-button:hover {
-		background-color: #718096;
-		box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
-	}
-
-	.details-button {
-		padding: 5px 10px;
-		background-color: #3498db;
-		color: white;
-		border: none;
-		border-radius: 4px;
-		cursor: pointer;
-		transition: background-color 0.3s;
-		margin-left: 5px;
-	}
-	.details-button:hover {
-		background-color: #2980b9;
 	}
 
 	.score-cell {
@@ -623,12 +558,6 @@
 		transform: rotate(-90deg);
 		width: 50px;
 		height: 50px;
-	}
-
-	.circle_animation {
-		stroke-dasharray: 220; /* Adjusted for smaller circle */
-		stroke-dashoffset: 220;
-		transition: stroke-dashoffset 1s ease-out;
 	}
 
 	.score-cell {

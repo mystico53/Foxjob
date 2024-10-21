@@ -25,20 +25,3 @@ onMount(() => {
 
     
 </div>
-
-<style>
-    :global(body) {
-        margin: 0;
-        padding: 0;
-        font-family: Arial, sans-serif;
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-    }
-
-    :global(#svelte) {
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
-    }
-</style>
