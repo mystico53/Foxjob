@@ -14,6 +14,9 @@
         <li class:active={$page.url.pathname === '/match'}>
             <a href="/match">Match</a>
         </li>
+        <li class:active={$page.url.pathname === '/workflow'}>
+            <a href="/workflow">Workflow</a>
+        </li>
     </ul>
 </nav>
 
