@@ -88,37 +88,58 @@ Provide only the list of 6 requirements, one per line, without any additional te
       }
 
       // Parse requirements into individual fields
-      const requirementsLines = requirementsText.split('\n');
+      const requirementsLines = requirementsText.split('\n').filter(line => line.trim());
       const requirements = {};
-      requirementsLines.forEach(line => {
-        const [key, value] = line.split(': ');
-        const fieldName = key.replace(' ', '').toLowerCase();
-        requirements[fieldName] = value || 'na';
+      
+      requirementsLines.forEach((line, index) => {
+        if (!line.includes(':')) {
+          logger.warn(`Malformed requirement line: ${line}`);
+          return;
+        }
+        
+        const [key, ...valueParts] = line.split(':');
+        const value = valueParts.join(':').trim();
+        
+        if (!value) {
+          logger.warn(`Empty value for requirement: ${key}`);
+          return;
+        }
+        
+        const fieldName = `requirement${index + 1}`;
+        requirements[fieldName] = value;
       });
 
-      // Save requirements to Firestore
-      await jobDocRef.update({
-        requirements: requirements
-      });
+      // Only update if we have valid requirements
+      if (Object.keys(requirements).length > 0) {
+        // Save requirements to Firestore
+        await jobDocRef.update({
+          requirements: requirements,
+          requirementsUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
 
-      logger.info(`Job requirements saved to Firestore at path: ${jobDocRef.path}`);
-      logger.info(`Extracted requirements: ${JSON.stringify(requirements)}`);
+        logger.info(`Job requirements saved to Firestore at path: ${jobDocRef.path}`);
+        logger.info(`Extracted requirements: ${JSON.stringify(requirements)}`);
 
-      // Publish to "requirements-gathered" topic
-      const pubSubMessage = {
-        jobReference: docId,
-        googleId: googleId
-      };
+        // Publish to "requirements-gathered" topic
+        const pubSubMessage = {
+          jobReference: docId,
+          googleId: googleId
+        };
 
-      const topicName = 'requirements-gathered';
-      const pubSubTopic = pubSubClient.topic(topicName);
-      await pubSubTopic.publishMessage({
-        data: Buffer.from(JSON.stringify(pubSubMessage)),
-      });
+        const topicName = 'requirements-gathered';
+        const pubSubTopic = pubSubClient.topic(topicName);
+        await pubSubTopic.publishMessage({
+          data: Buffer.from(JSON.stringify(pubSubMessage)),
+        });
 
-      logger.info(`Published message to ${topicName} topic with jobReference: ${docId} and googleId: ${googleId}`);
+        logger.info(`Published message to ${topicName} topic with jobReference: ${docId} and googleId: ${googleId}`);
+      } else {
+        logger.error('No valid requirements extracted from the response');
+        throw new Error('No valid requirements extracted from the response');
+      }
 
     } catch (error) {
       logger.error('Error in extractJobRequirements:', error);
+      throw error; // Re-throw the error to ensure the function fails properly
     }
   });

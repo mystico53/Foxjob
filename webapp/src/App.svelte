@@ -8,6 +8,7 @@
 	import Navbar from '$lib/Navbar.svelte';
 	import List from './routes/list/+page.svelte';
 	import Cards from './routes/Cards.svelte';
+	import Workflow from './routes/workflow/+page.svelte';
 
 	let isAuthenticated = false;
 
@@ -42,6 +43,7 @@
 				<Route path="/" component={Login} />
 				<Route path="/list" component={List} />
 				<Route path="/cards" component={Cards} />
+				<Route path="/workflow" component={Workflow} />
 			</div>
 		</Router>
 	{/if}

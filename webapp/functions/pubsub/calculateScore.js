@@ -2,6 +2,196 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const logger = require("firebase-functions/logger");
 require('dotenv').config();
+const OpenAI = require('openai');
+const { z } = require('zod');
+const { zodResponseFormat } = require('openai/helpers/zod');
+
+const openai = new OpenAI();
+const db = admin.firestore();
+
+exports.calculateScore = functions.pubsub
+  .topic('requirements-gathered')
+  .onPublish(async (message) => {
+    try {
+      logger.info('calculateScore function called');
+      logger.info('Pub/Sub Message:', JSON.stringify(message.json));
+
+      const { googleId, jobReference } = message.json;
+
+      if (!jobReference || !googleId) {
+        logger.error('Missing jobReference or googleId in Pub/Sub message.');
+        throw new Error('Missing jobReference or googleId');
+      }
+
+      // Retrieve the user's resume
+      const userCollectionsRef = db.collection('users').doc(googleId).collection('UserCollections');
+      const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
+      const resumeSnapshot = await resumeQuery.get();
+
+      let resumeText;
+
+      if (resumeSnapshot.empty) {
+        logger.warn(`No resume found for user ID: ${googleId}. Using placeholder resume.`);
+        resumeText = placeholderResumeText; // Make sure this is defined or imported
+      } else {
+        const resumeDoc = resumeSnapshot.docs[0];
+        resumeText = resumeDoc.data().extractedText;
+      }
+
+      // Retrieve the job document and requirements
+      const jobDocRef = db
+        .collection('users')
+        .doc(googleId)
+        .collection('jobs')
+        .doc(jobReference);
+
+      const jobDoc = await jobDocRef.get();
+
+      if (!jobDoc.exists) {
+        logger.warn(`No job document found for job ID: ${jobReference}`);
+        throw new Error('No job document found');
+      }
+
+      const jobData = jobDoc.data();
+      const requirements = jobData.requirements;
+
+      if (!requirements || Object.keys(requirements).length === 0) {
+        logger.warn(`No requirements found for job ID: ${jobReference}`);
+        throw new Error('No requirements found');
+      }
+
+      // Convert requirements object to array for processing
+      const requirementsArray = Object.entries(requirements).map(([key, value]) => ({
+        key: key,
+        requirement: value
+      }));
+
+      // Call OpenAI API to match resume with job requirements
+      const matchResult = await matchResumeWithRequirements(resumeText, requirementsArray);
+
+      // Prepare the Score object to be saved in the job document
+      const scoreObject = {
+        Score: {
+          totalScore: matchResult.totalScore,
+          summary: matchResult.summary
+        }
+      };
+
+      // Add each requirement score to the Score object
+      matchResult.requirementMatches.forEach((match, index) => {
+        scoreObject.Score[`Requirement${index + 1}`] = {
+          requirement: match.requirement,
+          score: match.score,
+          assessment: match.assessment
+        };
+      });
+
+      // Update the job document with the new Score object
+      await jobDocRef.update(scoreObject);
+      logger.info(`Score saved to job document for job ID: ${jobReference}, user ID: ${googleId}`);
+
+      await jobDocRef.update({
+        'generalData.processingStatus': 'processed'
+      });
+
+      logger.info(`Processing status updated to "processed" in generalData for job ID: ${jobReference}, user ID: ${googleId}`);
+
+    } catch (error) {
+      logger.error('Error in calculateScore function:', error);
+    }
+  });
+
+async function matchResumeWithRequirements(resumeText, requirements) {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    logger.error('OpenAI API key not found');
+    throw new functions.https.HttpsError('failed-precondition', 'OpenAI API key not found');
+  }
+
+  logger.info('Requirements passed to matchResumeWithRequirements:', JSON.stringify(requirements));
+
+  const instruction = `
+    You are an insanely critical and skeptical CEO of the company that has one job to offer for the first time in 10 years. You're tasked with evaluating how well a resume matches given job. Your task is to:
+
+    1) For each of the 6 given requirements, critically analyze the candidate's experience. Provide a one-sentence assessment that references specific evidence from the resume, highlighting both strengths and gaps.
+
+    2) Assign a score between 1 - 100 to each requirement, be very critical. your companies future relies on it.
+
+    3) Calculate a total score (1 - 100), giving a critical assessment on the qualifications meeting the requirements.
+  
+    4) Write a short summary (maximum 30 words) highlighting the biggest strength and weakness, using the format: "Your experience in [area] is [assessment], but [area] is [assessment]."
+    
+    Format your response as a JSON object with the following structure:
+    {
+      "requirementMatches": [
+        {
+          "requirement": "",
+          "assessment": "",
+          "score": 0
+        },
+        // Continue for all requirements
+      ],
+      "totalScore": 0,
+      "summary": ""
+    }
+  `;
+
+  const requirementsString = requirements.map((req, index) =>
+    `Requirement ${index + 1}: ${req.requirement}`
+  ).join('\n');
+
+  const promptContent = `${instruction}\nThese are the Requirements I mentioned:\n${requirementsString}\nThese are the qualifications:\n${resumeText}\nNow go:`;
+
+  const ResearchMatchingSchema = z.object({
+    requirementMatches: z.array(
+      z.object({
+        requirement: z.string(),
+        assessment: z.string(),
+        score: z.number(), // Removed `.min(0).max(100)`
+      })
+    ),
+    totalScore: z.number(), // Removed `.min(0).max(100)`
+    summary: z.string(),
+  });
+
+  try {
+    const completion = await openai.beta.chat.completions.parse({
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: "You are an expert at structured data extraction." },
+        { role: "user", content: promptContent },
+      ],
+      response_format: zodResponseFormat(ResearchMatchingSchema, "research_matching"),
+    });
+
+    const parsedContent = completion.choices[0].message.parsed;
+
+  // Optional: Add validation for scores here
+  parsedContent.requirementMatches.forEach((match) => {
+    if (match.score < 0 || match.score > 100) {
+      throw new Error(`Score out of range: ${match.score}`);
+    }
+  });
+
+  logger.info('Parsed content:', JSON.stringify(parsedContent));
+  return parsedContent;
+
+} catch (error) {
+  logger.error('Error calling OpenAI API:', error);
+  if (error instanceof functions.https.HttpsError) {
+    throw error;
+  } else {
+    throw new functions.https.HttpsError('internal', 'Error calling OpenAI API', { message: error.message });
+  }
+}
+}
+
+
+/*const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+const logger = require("firebase-functions/logger");
+require('dotenv').config();
 
 const db = admin.firestore();
 
@@ -330,7 +520,7 @@ function escapeUnescapedQuotesInJSON(str) {
 
   return result;
 }
-
+*/
 
 
 
