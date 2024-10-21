@@ -77,7 +77,7 @@
 	  font-family: 'Quicksand', sans-serif;
 	  background-color: #f5f5f5;
 	  background-size: cover;
-	  margin: 1rem;
+	  margin: 0rem;
 	  color: #333;
 	}
   
@@ -85,7 +85,7 @@
 	.container {
 	  max-width: 1140px;
 	  margin: 0 auto;
-	  padding: 0 1rem;
+	  padding: 0 0rem;
 	}
   
 	/* Navigation Bar */
