@@ -10,9 +10,11 @@
   export let isLastJob;
   export let toggleStar;
   export let openJobLink;
+  export let hideJobAndNext; // Added missing prop
   
   let isHiding = false;
   let currentStatus = job?.generalData?.status?.toLowerCase() || '';
+  let showDescription = false; // State for toggling description
 
   // Update currentStatus whenever job changes
   $: if (job?.generalData?.status) {
@@ -34,7 +36,7 @@
           if (!userId) throw new Error('No user logged in');
           
           await jobStore.hideJob(userId, job.id);
-          await handleNext(job.id);
+          await hideJobAndNext(job.id); // Updated to use the correct prop
       } catch (error) {
           console.error('Error hiding job:', error);
       } finally {
@@ -57,65 +59,80 @@
           openJobLink(job.generalData.url);
       }
   }
+
+  function toggleDescription() {
+    showDescription = !showDescription;
+  }
 </script>
+
+
 
 <!-- Main card content -->
 <div class="card p-6 max-w-4xl mx-auto space-y-8 mb-20">
-    <!-- Header Section -->
-    <div class="flex justify-between items-start">
-      <!-- Company Info -->
-      <div>
-        <h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
-        <h2 class="h5 text-surface-600">{job.jobInfo?.jobTitle || 'N/A'}</h2>
-        <!-- Meta Information -->
-        <div class="flex flex-wrap gap-2 mt-4">
-          <span class="chip variant-ghost-success inline-flex items-center gap-2">
-            <iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
-            {job.companyInfo?.industry || 'N/A'}
+  <!-- Header Section -->
+  <div class="flex justify-between items-start">
+    <!-- Company Info -->
+    <div>
+      <h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
+      <h2 class="h5 text-surface-600">{job.jobInfo?.jobTitle || 'N/A'}</h2>
+      <!-- Meta Information -->
+      <div class="flex flex-wrap gap-2 mt-4">
+        <span class="chip variant-ghost-success inline-flex items-center gap-2">
+          <iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
+          {job.companyInfo?.industry || 'N/A'}
+        </span>
+        <span class="chip variant-ghost-surface">
+          <iconify-icon icon="solar:pin-bold"></iconify-icon>
+          {job.jobInfo?.remoteType || 'N/A'}
+        </span>
+        <span class="chip variant-ghost-secondary">
+          <iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+          {job.compensation || 'N/A'}
+        </span>
+        <span class="chip variant-ghost-primary">
+          <iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
+          {formatDate(job.generalData?.timestamp)}
+        </span>
+        {#if job.generalData?.status}
+          <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">
+            <iconify-icon icon="solar:folder-with-files-bold"></iconify-icon>
+            {currentStatus}
           </span>
-          <span class="chip variant-ghost-surface">
-            <iconify-icon icon="solar:pin-bold"></iconify-icon>
-            {job.jobInfo?.remoteType || 'N/A'}
-          </span>
-          <span class="chip variant-ghost-secondary">
-            <iconify-icon icon="solar:money-bag-bold"></iconify-icon>
-            {job.compensation || 'N/A'}
-          </span>
-          <span class="chip variant-ghost-primary">
-            <iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
-            {formatDate(job.generalData?.timestamp)}
-          </span>
-          {#if job.generalData?.status}
-            <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">
-              <iconify-icon icon="solar:folder-with-files-bold"></iconify-icon>
-              {currentStatus}
-            </span>
-          {/if}
-        </div>
+        {/if}
       </div>
-      <!-- Radial Progress Score Display -->
-      {#if job.matchResult?.totalScore !== undefined}
-      <div class="flex items-center">
-        <ProgressRadial 
-          class="w-12"
-          stroke={60} 
-          font={150} 
-          strokeLinecap=round 
-          value={Math.round(job.matchResult.totalScore)}>
-
-          {Math.round(job.matchResult.totalScore)}
-        </ProgressRadial>
-      </div>
-      
-      {/if}
     </div>
+    <!-- Radial Progress Score Display -->
+    {#if job.matchResult?.totalScore !== undefined}
+    <div class="flex items-center">
+      <ProgressRadial 
+        class="w-12"
+        stroke={60} 
+        font={150} 
+        strokeLinecap=round 
+        value={Math.round(job.matchResult.totalScore)}>
+        {Math.round(job.matchResult.totalScore)}
+      </ProgressRadial>
+    </div>
+    {/if}
+  </div>
+
+  <div class="flex gap-2">
     <button
-    class="btn variant-filled-primary"
-    on:click={handleVisitJob}
-    disabled={isHiding}
-  >
-    Visit Job
-  </button>
+      class="btn variant-filled-primary"
+      on:click={handleVisitJob}
+      disabled={isHiding}
+    >
+      Visit Job
+    </button>
+    <button
+      class="btn variant-filled-secondary"
+      on:click={toggleDescription}
+    >
+      {showDescription ? 'Show Match Results' : 'Show Description'}
+    </button>
+  </div>
+
+  {#if !showDescription}
     <!-- Match Results Table -->
     {#if job.matchResult}
       <div class="card p-4">
@@ -140,6 +157,19 @@
         </table>
       </div>
     {/if}
+  {:else}
+    <!-- Description Section -->
+    <div class="card p-4">
+      <h3 class="h5 mb-4">Job Description</h3>
+      <div class="prose max-w-none">
+        <p>
+          Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor 
+          incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis 
+          nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
+        </p>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <!-- Fixed position action buttons -->

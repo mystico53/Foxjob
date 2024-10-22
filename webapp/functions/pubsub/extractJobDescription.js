@@ -101,7 +101,7 @@ exports.extractJobDescription = functions.pubsub
       logger.info('Extracted job description saved to Firestore');
 
       // Publish a new message to the "job-description-extracted" topic
-      const newTopicName = 'job-description-extracted';
+      const newTopicName = 'job-description-extracted debug';
       
       // Ensure the new topic exists
       await pubSubClient.createTopic(newTopicName).catch((err) => {
