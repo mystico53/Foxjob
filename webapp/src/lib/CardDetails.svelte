@@ -9,7 +9,6 @@
   export let isFirstJob;
   export let isLastJob;
   export let toggleStar;
-  export let hideJobAndNext;
   export let openJobLink;
   
   let isHiding = false;
