@@ -81,7 +81,13 @@
       <!-- Radial Progress Score Display -->
       {#if job.matchResult?.totalScore !== undefined}
       <div class="flex items-center">
-        <ProgressRadial stroke={60} font={75} strokeLinecap=round value={Math.round(job.matchResult.totalScore)}>
+        <ProgressRadial 
+          class="w-12"
+          stroke={60} 
+          font={150} 
+          strokeLinecap=round 
+          value={Math.round(job.matchResult.totalScore)}>
+
           {Math.round(job.matchResult.totalScore)}
         </ProgressRadial>
       </div>
