@@ -167,9 +167,9 @@
           disabled={isHiding}
         >
           {#if currentStatus === 'starred'}
-            Save
-          {:else}
             Saved
+          {:else}
+            Save
           {/if}
         </button>
 
