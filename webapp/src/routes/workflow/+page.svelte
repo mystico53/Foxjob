@@ -4,6 +4,7 @@
   import { jobStore, sortedJobs, loading, error } from '$lib/jobStore';
   import JobCard from '$lib/JobCard.svelte';
   import CardDetails from '$lib/CardDetails.svelte';
+  import SortControls from '$lib/SortControls.svelte';
 
   let currentUser = null;
   let selectedJob = null;
@@ -100,6 +101,7 @@ async function hideJobAndNext(jobId) {
     class="w-full md:w-80 h-full border-r overflow-y-auto bg-surface-100 transition-transform transform md:translate-x-0"
     bind:this={sidebar}
   >
+    <SortControls />
     <div class="p-4">
       {#if $loading}
         <div class="flex justify-center p-4">
