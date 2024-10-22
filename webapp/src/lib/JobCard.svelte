@@ -4,6 +4,7 @@
     export let jobTitle = '';
     export let score = null;
     export let status = '';
+    export let isSelected = false;
     
     // Optional handlers
     export let handleClick = () => {};
@@ -56,7 +57,7 @@
 </script>
 
 <button 
-    class="card w-full text-left p-4 hover:bg-surface-600/10 cursor-pointer"
+    class="card w-full text-left p-4 hover:bg-surface-600/10 cursor-pointer {isSelected ? 'card-hover !bg-surface-600/20' : ''}"
     on:click={handleClick}
     aria-label="View details for {jobTitle} position at {companyName}"
 >

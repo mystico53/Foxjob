@@ -33,7 +33,8 @@
     }
 </script>
 
-<div class="card p-6 max-w-4xl mx-auto space-y-8">
+<!-- Main card content -->
+<div class="card p-6 max-w-4xl mx-auto space-y-8 mb-20"> <!-- Added margin bottom to prevent overlap with fixed buttons -->
     <!-- Header Section -->
     <div class="flex justify-between items-start">
       <!-- Company Info -->
@@ -85,9 +86,11 @@
         </table>
       </div>
     {/if}
-  
-    <!-- Action Buttons -->
-    <div class="flex gap-2 flex-wrap justify-center">
+</div>
+
+<!-- Fixed position action buttons -->
+<div class="md:ml-80 fixed bottom-0 left-0 right-0 bg-surface-100 border-t p-4 z-10">
+    <div class="max-w-4xl mx-auto flex gap-2 flex-wrap justify-center">
         <button
           class="btn variant-filled"
           on:click={previousJob}
@@ -123,5 +126,5 @@
         >
           Next
         </button>
-      </div>
+    </div>
 </div>
