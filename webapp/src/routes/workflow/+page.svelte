@@ -8,7 +8,15 @@
   let currentUser = null;
   let selectedJob = null;
   let selectedJobIndex = -1;
-  let sidebar; // Ensure sidebar is declared
+  let sidebar;
+
+  // Update selectedJob whenever sortedJobs changes to keep it in sync
+  $: if (selectedJob && $sortedJobs) {
+    const updatedJob = $sortedJobs.find(j => j.id === selectedJob.id);
+    if (updatedJob) {
+      selectedJob = updatedJob;
+    }
+  }
 
   onMount(() => {
     const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -28,35 +36,38 @@
     selectedJob = job;
     selectedJobIndex = $sortedJobs.findIndex((j) => j.id === job.id);
 
-    // For mobile: hide sidebar when a job is selected
     if (window.innerWidth <= 768) {
       sidebar.style.transform = 'translateX(-100%)';
     }
   }
 
-  // Add navigation handlers
   function handleNext(jobId) {
-      if (selectedJobIndex < $sortedJobs.length - 1) {
-          selectedJobIndex++;
-          selectedJob = $sortedJobs[selectedJobIndex];
-      }
+    if (selectedJobIndex < $sortedJobs.length - 1) {
+      selectedJobIndex++;
+      selectedJob = $sortedJobs[selectedJobIndex];
+    }
   }
 
   function handlePrevious() {
-      if (selectedJobIndex > 0) {
-          selectedJobIndex--;
-          selectedJob = $sortedJobs[selectedJobIndex];
-      }
+    if (selectedJobIndex > 0) {
+      selectedJobIndex--;
+      selectedJob = $sortedJobs[selectedJobIndex];
+    }
   }
 
   async function toggleStar(jobId) {
     try {
-        const newStatus = selectedJob.generalData?.status?.toLowerCase() === 'starred' ? 'read' : 'starred';
-        await jobStore.updateStatus(currentUser.uid, jobId, newStatus);
+      if (!currentUser?.uid) throw new Error('No user logged in');
+      const jobToUpdate = $sortedJobs.find(j => j.id === jobId);
+      if (!jobToUpdate) throw new Error('Job not found');
+      
+      const newStatus = jobToUpdate.generalData?.status?.toLowerCase() === 'starred' ? 'read' : 'starred';
+      await jobStore.updateStatus(currentUser.uid, jobId, newStatus);
+      // The store will automatically update through Firebase onSnapshot
     } catch (error) {
-        console.error('Error toggling star:', error);
+      console.error('Error toggling star:', error);
     }
-}
+  }
 
 async function hideJobAndNext(jobId) {
   try {

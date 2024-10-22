@@ -13,6 +13,12 @@
   export let openJobLink;
   
   let isHiding = false;
+  let currentStatus = job?.generalData?.status?.toLowerCase() || '';
+
+  // Update currentStatus whenever job changes
+  $: if (job?.generalData?.status) {
+    currentStatus = job.generalData.status.toLowerCase();
+  }
 
   function formatDate(timestamp) {
       if (timestamp && timestamp.toDate) {
@@ -37,6 +43,16 @@
       }
   }
 
+  async function handleStarToggle() {
+      try {
+          const newStatus = currentStatus === 'starred' ? 'read' : 'starred';
+          await toggleStar(job.id);
+          // Don't update local state immediately - let it update through the store
+      } catch (error) {
+          console.error('Error toggling star:', error);
+      }
+  }
+
   async function handleVisitJob() {
       if (job.generalData?.url) {
           openJobLink(job.generalData.url);
@@ -45,7 +61,7 @@
 </script>
 
 <!-- Main card content -->
-<div class="card p-6 max-w-4xl mx-auto space-y-8 mb-20"> <!-- Added margin bottom to prevent overlap with fixed buttons -->
+<div class="card p-6 max-w-4xl mx-auto space-y-8 mb-20">
     <!-- Header Section -->
     <div class="flex justify-between items-start">
       <!-- Company Info -->
@@ -59,7 +75,7 @@
           <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{job.compensation || 'N/A'}</span>
           <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{formatDate(job.generalData?.timestamp)}</span>
           {#if job.generalData?.status}
-            <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{job.generalData.status}</span>
+            <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{currentStatus}</span>
           {/if}
         </div>
       </div>
@@ -111,10 +127,14 @@
         </button>
         <button
           class="btn variant-soft"
-          on:click={() => toggleStar(job.id)}
+          on:click={handleStarToggle}
           disabled={isHiding}
         >
-          {job.generalData?.status?.toLowerCase() === 'starred' ? '⭐ Unstar' : '☆ Star'}
+          {#if currentStatus === 'starred'}
+            ⭐ Unstar
+          {:else}
+            ☆ Star
+          {/if}
         </button>
         <button
           class="btn variant-filled-error"
