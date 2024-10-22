@@ -3,35 +3,64 @@
   import { auth } from '$lib/firebase';
   import { jobStore, sortedJobs, loading, error } from '$lib/jobStore';
   import JobCard from '$lib/JobCard.svelte';
-  import JobDetails from '$lib/CardDetails.svelte';  // Add this import
-  
+  import CardDetails from '$lib/CardDetails.svelte';
+
   let currentUser = null;
-  let selectedJob = null;  // Add this state
-  
+  let selectedJob = null;
+  let selectedJobIndex = -1;
+  let sidebar; // Ensure sidebar is declared
+
   onMount(() => {
-      const unsubscribe = auth.onAuthStateChanged((user) => {
-          currentUser = user;
-          if (user) {
-              jobStore.init(user.uid);
-          }
-      });
-      
-      return () => {
-          unsubscribe();
-          jobStore.cleanup();
-      };
-  });
-  
-  function handleJobClick(job) {
-      selectedJob = job;  // Update selected job when clicked
-      
-      // For mobile: hide sidebar when a job is selected
-      if (window.innerWidth <= 768) {
-          const sidebar = document.querySelector('.sidebar');
-          if (sidebar) {
-              sidebar.style.transform = 'translateX(-100%)';
-          }
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      currentUser = user;
+      if (user) {
+        jobStore.init(user.uid);
       }
+    });
+
+    return () => {
+      unsubscribe();
+      jobStore.cleanup();
+    };
+  });
+
+  function handleJobClick(job) {
+    selectedJob = job;
+    selectedJobIndex = $sortedJobs.findIndex((j) => j.id === job.id);
+
+    // For mobile: hide sidebar when a job is selected
+    if (window.innerWidth <= 768) {
+      sidebar.style.transform = 'translateX(-100%)';
+    }
+  }
+
+  // Add navigation handlers
+  function handleNext(jobId) {
+      if (selectedJobIndex < $sortedJobs.length - 1) {
+          selectedJobIndex++;
+          selectedJob = $sortedJobs[selectedJobIndex];
+      }
+  }
+
+  function handlePrevious() {
+      if (selectedJobIndex > 0) {
+          selectedJobIndex--;
+          selectedJob = $sortedJobs[selectedJobIndex];
+      }
+  }
+
+  async function toggleStar(jobId) {
+      const newStatus = selectedJob.generalData?.status?.toLowerCase() === 'starred' ? 'read' : 'starred';
+      await jobStore.updateJobStatus(jobId, newStatus);
+  }
+
+  async function hideJobAndNext(jobId) {
+      await jobStore.updateJobStatus(jobId, 'hidden');
+      handleNext(jobId);
+  }
+
+  function openJobLink(url) {
+      window.open(url, '_blank');
   }
 
   // Add mobile navigation handler
@@ -44,40 +73,26 @@
   }
 </script>
 
-<!-- Your navbar remains at its current position -->
-<slot name="header" />
-
-<!-- Mobile navigation button -->
-<button 
-    class="md:hidden fixed bottom-4 right-4 z-20 bg-primary-500 text-white p-3 rounded-full shadow-lg"
-    on:click={handleMobileNav}
->
-    {#if selectedJob}
-        <span class="text-xl">←</span>
-    {:else}
-        <span class="text-xl">→</span>
-    {/if}
-</button>
-
-<!-- Main content area below navbar -->
-<div class="page-content">
+<!-- Main Content -->
+<div class="flex flex-col md:flex-row h-[calc(100vh-64px)] w-full fixed top-[64px] left-0">
   <!-- Sidebar -->
-  <aside class="sidebar">
+  <aside
+    class="w-full md:w-80 h-full border-r overflow-y-auto bg-surface-100 transition-transform transform md:translate-x-0"
+    bind:this={sidebar}
+  >
     <div class="p-4">
-      <h1 class="h3 mb-6">Job Workflow</h1>
-      
+      <h1 class="h5 mb-6">Job Workflow</h1>
+
       {#if $error}
-        <div class="alert variant-filled-error">
-          {$error}
-        </div>
+        <Alert variant="filled-error" message={$error} />
       {/if}
-      
+
       {#if $loading}
         <div class="flex justify-center p-4">
-          <div class="loading loading-spinner loading-md" />
+          <span class="loading loading-spinner loading-lg text-primary-500"></span>
         </div>
       {/if}
-      
+
       {#if $sortedJobs && $sortedJobs.length > 0}
         <div class="flex flex-col gap-4">
           {#each $sortedJobs as job (job.id)}
@@ -91,7 +106,7 @@
           {/each}
         </div>
       {:else if !$loading}
-        <div class="text-center text-surface-400-500-token p-4">
+        <div class="text-center text-surface-400 p-4">
           No jobs found.
         </div>
       {/if}
@@ -99,70 +114,47 @@
   </aside>
 
   <!-- Main content area -->
-  <main class="main-content">
+  <main class="flex-1 p-4 overflow-y-auto bg-surface-100">
     {#if selectedJob}
-        <JobDetails
-            companyName={selectedJob.companyInfo?.name || 'Unknown Company'}
-            jobTitle={selectedJob.jobInfo?.jobTitle || 'No Title'}
-            score={selectedJob.Score?.totalScore}
-            status={selectedJob.generalData?.status}
-            companyInfo={selectedJob.companyInfo}
-            jobInfo={selectedJob.jobInfo}
-            generalData={selectedJob.generalData}
-        />
+      <CardDetails
+        job={selectedJob}
+        handleNext={handleNext}
+        previousJob={handlePrevious}
+        isFirstJob={selectedJobIndex === 0}
+        isLastJob={selectedJobIndex === $sortedJobs.length - 1}
+        toggleStar={toggleStar}
+        hideJobAndNext={hideJobAndNext}
+        openJobLink={openJobLink}
+      />
     {:else}
-        <div class="flex items-center justify-center h-full">
-            <div class="text-surface-400-500-token text-center">
-                <div class="text-4xl mb-2">👈</div>
-                <div>Select a job to view details</div>
-            </div>
+      <div class="flex items-center justify-center h-full">
+        <div class="text-surface-400 text-center">
+          <div class="text-4xl mb-2">👈</div>
+          <div>Select a job to view details</div>
         </div>
+      </div>
     {/if}
   </main>
 </div>
 
+<!-- Mobile navigation button -->
+<button
+  class="md:hidden fixed bottom-4 right-4 z-20 bg-primary-500 text-white p-3 rounded-full shadow-lg"
+  on:click={handleMobileNav}
+>
+  {#if selectedJob}
+    <!-- Left Arrow Icon -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+    </svg>
+  {:else}
+    <!-- Right Arrow Icon -->
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+    </svg>
+  {/if}
+</button>
+
 <style>
-  /* Assuming your navbar height is 64px - adjust this value to match your navbar height */
-  :global(body) {
-    overflow-y: hidden;
-  }
-
-  .page-content {
-    display: flex;
-    height: calc(100vh - 64px); /* Adjust 64px to match your navbar height */
-    width: 100%;
-    position: fixed;
-    top: 64px; /* Adjust to match your navbar height */
-    left: 0;
-  }
-
-  .sidebar {
-    width: 20rem; /* 320px */
-    height: 100%;
-    border-right: 1px solid var(--color-surface-300);
-    overflow-y: auto;
-    background: var(--color-surface-100);
-    transition: transform 0.3s ease-in-out;
-  }
-
-  .main-content {
-    flex: 1;
-    padding: 1rem;
-    overflow-y: auto;
-    background: var(--color-surface-100);
-  }
-
-  /* For mobile responsiveness */
-  @media (max-width: 768px) {
-    .sidebar {
-      width: 100%;
-      position: fixed;
-      left: 0;
-      z-index: 10;
-    }
-
-    .main-content {
-      margin-left: 0;
-    }
-  }
+  /* Remove custom styles unless necssary */
 </style>
