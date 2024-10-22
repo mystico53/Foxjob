@@ -106,9 +106,16 @@
           {Math.round(job.matchResult.totalScore)}
         </ProgressRadial>
       </div>
+      
       {/if}
     </div>
-  
+    <button
+    class="btn variant-filled-primary"
+    on:click={handleVisitJob}
+    disabled={isHiding}
+  >
+    Visit Job
+  </button>
     <!-- Match Results Table -->
     {#if job.matchResult}
       <div class="card p-4">
@@ -139,43 +146,39 @@
 <div class="md:ml-80 fixed bottom-0 left-0 right-0 bg-surface-100 border-t p-4 z-10">
     <div class="max-w-4xl mx-auto flex gap-2 flex-wrap justify-center">
         <button
-          class="btn variant-filled"
+          class="btn variant-primary flex items-center gap-2"
           on:click={previousJob}
           disabled={isFirstJob || isHiding}
-        >
-          Previous
+          >
+          <iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
         </button>
+        
         <button
           class="btn variant-soft"
+          on:click={handleHide}
+          disabled={isHiding}
+        >
+          {isHiding ? 'Archiving...' : 'Archive'}
+        </button>
+
+        <button
+          class="btn variant-filled"
           on:click={handleStarToggle}
           disabled={isHiding}
         >
           {#if currentStatus === 'starred'}
-            ⭐ Unstar
+            Save
           {:else}
-            ☆ Star
+            Saved
           {/if}
         </button>
+
         <button
-          class="btn variant-filled-error"
-          on:click={handleHide}
-          disabled={isHiding}
-        >
-          {isHiding ? 'Hiding...' : 'Hide'}
-        </button>
-        <button
-          class="btn variant-filled-primary"
-          on:click={handleVisitJob}
-          disabled={isHiding}
-        >
-          Visit Job
-        </button>
-        <button
-          class="btn variant-filled"
+          class="btn variant-primary flex items-center gap-2"
           on:click={() => handleNext(job.id)}
           disabled={isLastJob || isHiding}
         >
-          Next
+          <iconify-icon icon="solar:map-arrow-right-bold"></iconify-icon>
         </button>
     </div>
 </div>
