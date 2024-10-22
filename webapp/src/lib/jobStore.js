@@ -16,6 +16,22 @@ const sortedJobs = derived(
     [jobs, sortConfig],
     ([$jobs, $sortConfig]) => {
         return [...$jobs].sort((a, b) => {
+            // Special handling for status sorting
+            if ($sortConfig.column === 'generalData.status') {
+                const statusPriority = $sortConfig.statusPriority || {};
+                const aStatus = a.generalData?.status?.toLowerCase() || 'unread';
+                const bStatus = b.generalData?.status?.toLowerCase() || 'unread';
+                
+                const aPriority = statusPriority[aStatus] || 999;
+                const bPriority = statusPriority[bStatus] || 999;
+                
+                if (aPriority !== bPriority) {
+                    return aPriority - bPriority;
+                }
+                // If status is the same, sort by score as secondary sort
+                return b.Score?.totalScore - a.Score?.totalScore;
+            }
+
             let aValue = $sortConfig.column.split('.').reduce((obj, key) => obj && obj[key], a);
             let bValue = $sortConfig.column.split('.').reduce((obj, key) => obj && obj[key], b);
 
