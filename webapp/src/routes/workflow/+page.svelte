@@ -3,8 +3,10 @@
   import { auth } from '$lib/firebase';
   import { jobStore, sortedJobs, loading, error } from '$lib/jobStore';
   import JobCard from '$lib/JobCard.svelte';
+  import JobDetails from '$lib/CardDetails.svelte';  // Add this import
   
   let currentUser = null;
+  let selectedJob = null;  // Add this state
   
   onMount(() => {
       const unsubscribe = auth.onAuthStateChanged((user) => {
@@ -21,13 +23,41 @@
   });
   
   function handleJobClick(job) {
-      console.log('Job clicked:', job);
-      // Add your navigation or detail view logic here
+      selectedJob = job;  // Update selected job when clicked
+      
+      // For mobile: hide sidebar when a job is selected
+      if (window.innerWidth <= 768) {
+          const sidebar = document.querySelector('.sidebar');
+          if (sidebar) {
+              sidebar.style.transform = 'translateX(-100%)';
+          }
+      }
+  }
+
+  // Add mobile navigation handler
+  function handleMobileNav() {
+      const sidebar = document.querySelector('.sidebar');
+      if (sidebar) {
+          const isHidden = sidebar.style.transform === 'translateX(-100%)';
+          sidebar.style.transform = isHidden ? 'translateX(0)' : 'translateX(-100%)';
+      }
   }
 </script>
 
 <!-- Your navbar remains at its current position -->
 <slot name="header" />
+
+<!-- Mobile navigation button -->
+<button 
+    class="md:hidden fixed bottom-4 right-4 z-20 bg-primary-500 text-white p-3 rounded-full shadow-lg"
+    on:click={handleMobileNav}
+>
+    {#if selectedJob}
+        <span class="text-xl">←</span>
+    {:else}
+        <span class="text-xl">→</span>
+    {/if}
+</button>
 
 <!-- Main content area below navbar -->
 <div class="page-content">
@@ -70,8 +100,24 @@
 
   <!-- Main content area -->
   <main class="main-content">
-    <!-- Your main content goes here -->
-    <div class="placeholder">Select a job to view details</div>
+    {#if selectedJob}
+        <JobDetails
+            companyName={selectedJob.companyInfo?.name || 'Unknown Company'}
+            jobTitle={selectedJob.jobInfo?.jobTitle || 'No Title'}
+            score={selectedJob.Score?.totalScore}
+            status={selectedJob.generalData?.status}
+            companyInfo={selectedJob.companyInfo}
+            jobInfo={selectedJob.jobInfo}
+            generalData={selectedJob.generalData}
+        />
+    {:else}
+        <div class="flex items-center justify-center h-full">
+            <div class="text-surface-400-500-token text-center">
+                <div class="text-4xl mb-2">👈</div>
+                <div>Select a job to view details</div>
+            </div>
+        </div>
+    {/if}
   </main>
 </div>
 
@@ -96,6 +142,7 @@
     border-right: 1px solid var(--color-surface-300);
     overflow-y: auto;
     background: var(--color-surface-100);
+    transition: transform 0.3s ease-in-out;
   }
 
   .main-content {
