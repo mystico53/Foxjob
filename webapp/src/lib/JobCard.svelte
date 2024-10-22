@@ -1,5 +1,6 @@
 <script>
     import { ProgressRadial } from '@skeletonlabs/skeleton';
+    import { fade, slide } from 'svelte/transition';
     
     // Props for the card with proper types matching store data
     export let companyName;
@@ -38,6 +39,8 @@
 </script>
 
 <button 
+    in:fade={{ duration: 400 }}
+    out:slide={{ duration: 400 }}
     class="card variant-ghost-tertiary w-full text-left p-4 hover:bg-surface-600/10 cursor-pointer {isSelected ? 'card-hover !bg-surface-600/20' : ''}"
     on:click={handleClick}
     aria-label="View details for {jobTitle} position at {companyName}"
