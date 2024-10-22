@@ -8,17 +8,27 @@
   import { flip } from 'svelte/animate';
   import SearchBar from '$lib/SearchBar.svelte';
 
-
   let currentUser = null;
   let selectedJob = null;
   let selectedJobIndex = -1;
   let sidebar;
+
+  // Add reactive statement to handle initial job selection
+  $: if (!selectedJob && $sortedJobs && $sortedJobs.length > 0) {
+    selectedJob = $sortedJobs[0];
+    selectedJobIndex = 0;
+  }
 
   // Update selectedJob whenever sortedJobs changes to keep it in sync
   $: if (selectedJob && $sortedJobs) {
     const updatedJob = $sortedJobs.find(j => j.id === selectedJob.id);
     if (updatedJob) {
       selectedJob = updatedJob;
+    } else if ($sortedJobs.length > 0) {
+      // If the selected job is no longer in the list (e.g., after filtering),
+      // select the first available job
+      selectedJob = $sortedJobs[0];
+      selectedJobIndex = 0;
     }
   }
 
@@ -73,27 +83,26 @@
     }
   }
 
-async function hideJobAndNext(jobId) {
-  try {
-    if (!currentUser?.uid) throw new Error('No user logged in');
-    await jobStore.hideJob(currentUser.uid, jobId);
-    handleNext(jobId);
-  } catch (error) {
-    console.error('Error hiding job:', error);
+  async function hideJobAndNext(jobId) {
+    try {
+      if (!currentUser?.uid) throw new Error('No user logged in');
+      await jobStore.hideJob(currentUser.uid, jobId);
+      handleNext(jobId);
+    } catch (error) {
+      console.error('Error hiding job:', error);
+    }
   }
-}
 
   function openJobLink(url) {
-      window.open(url, '_blank');
+    window.open(url, '_blank');
   }
 
-  // Add mobile navigation handler
   function handleMobileNav() {
-      const sidebar = document.querySelector('.sidebar');
-      if (sidebar) {
-          const isHidden = sidebar.style.transform === 'translateX(-100%)';
-          sidebar.style.transform = isHidden ? 'translateX(0)' : 'translateX(-100%)';
-      }
+    const sidebar = document.querySelector('.sidebar');
+    if (sidebar) {
+      const isHidden = sidebar.style.transform === 'translateX(-100%)';
+      sidebar.style.transform = isHidden ? 'translateX(0)' : 'translateX(-100%)';
+    }
   }
 </script>
 
@@ -116,19 +125,19 @@ async function hideJobAndNext(jobId) {
       {#if $sortedJobs && $sortedJobs.length > 0}
         <div class="flex flex-col gap-4">
           {#each $sortedJobs as job (job.id)}
-              <div animate:flip={{ duration: 700 }}>
-                  <JobCard
-                      companyName={job.companyInfo?.name || 'Unknown Company'}
-                      jobTitle={job.jobInfo?.jobTitle || 'No Title'}
-                      score={job.Score?.totalScore}
-                      status={job.generalData?.status}
-                      timestamp={job.generalData?.timestamp?.toDate()}
-                      handleClick={() => handleJobClick(job)}
-                      isSelected={selectedJob?.id === job.id}
-                  />
-              </div>
+            <div animate:flip={{ duration: 700 }}>
+              <JobCard
+                companyName={job.companyInfo?.name || 'Unknown Company'}
+                jobTitle={job.jobInfo?.jobTitle || 'No Title'}
+                score={job.Score?.totalScore}
+                status={job.generalData?.status}
+                timestamp={job.generalData?.timestamp?.toDate()}
+                handleClick={() => handleJobClick(job)}
+                isSelected={selectedJob?.id === job.id}
+              />
+            </div>
           {/each}
-      </div>
+        </div>
       {:else if !$loading}
         <div class="text-center text-surface-400 p-4">
           No jobs found.
@@ -180,5 +189,5 @@ async function hideJobAndNext(jobId) {
 </button>
 
 <style>
-  /* Remove custom styles unless necssary */
+  /* Remove custom styles unless necessary */
 </style>
