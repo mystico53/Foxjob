@@ -1,8 +1,6 @@
-
-
 import { writable, derived } from 'svelte/store';
-import { auth, db } from '$lib/firebase';
-import { collection, onSnapshot, doc, updateDoc, query, where } from 'firebase/firestore';
+import { db } from './firebase';
+import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 
 // Create the main stores
 const jobs = writable([]);
@@ -142,6 +140,5 @@ function createJobStore() {
     };
 }
 
-export const jobStore = createJobStore(); // Removed the extra dot
-
-export {sortedJobs, loading, error, sortConfig };
+export const jobStore = createJobStore();
+export { sortedJobs, loading, error, sortConfig };

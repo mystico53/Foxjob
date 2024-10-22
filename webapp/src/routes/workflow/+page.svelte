@@ -50,14 +50,23 @@
   }
 
   async function toggleStar(jobId) {
-      const newStatus = selectedJob.generalData?.status?.toLowerCase() === 'starred' ? 'read' : 'starred';
-      await jobStore.updateJobStatus(jobId, newStatus);
-  }
+    try {
+        const newStatus = selectedJob.generalData?.status?.toLowerCase() === 'starred' ? 'read' : 'starred';
+        await jobStore.updateStatus(currentUser.uid, jobId, newStatus);
+    } catch (error) {
+        console.error('Error toggling star:', error);
+    }
+}
 
-  async function hideJobAndNext(jobId) {
-      await jobStore.updateJobStatus(jobId, 'hidden');
-      handleNext(jobId);
+async function hideJobAndNext(jobId) {
+  try {
+    if (!currentUser?.uid) throw new Error('No user logged in');
+    await jobStore.hideJob(currentUser.uid, jobId);
+    handleNext(jobId);
+  } catch (error) {
+    console.error('Error hiding job:', error);
   }
+}
 
   function openJobLink(url) {
       window.open(url, '_blank');

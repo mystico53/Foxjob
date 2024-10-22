@@ -1,36 +1,47 @@
 <script>
-    import { ProgressRadial } from '@skeletonlabs/skeleton';
-    
-    export let job = {};
-    export let handleNext;
-    export let previousJob;
-    export let isFirstJob;
-    export let isLastJob;
-    export let toggleStar;
-    export let hideJobAndNext;
-    export let openJobLink;
-    
-    let isHiding = false;
+  import { ProgressRadial } from '@skeletonlabs/skeleton';
+  import { auth } from '$lib/firebase';
+  import { jobStore } from '$lib/jobStore';
+  
+  export let job = {};
+  export let handleNext;
+  export let previousJob;
+  export let isFirstJob;
+  export let isLastJob;
+  export let toggleStar;
+  export let hideJobAndNext;
+  export let openJobLink;
+  
+  let isHiding = false;
 
-    function formatDate(timestamp) {
-        if (timestamp && timestamp.toDate) {
-            const date = timestamp.toDate();
-            return date.toLocaleString();
-        }
-        return 'N/A';
-    }
+  function formatDate(timestamp) {
+      if (timestamp && timestamp.toDate) {
+          const date = timestamp.toDate();
+          return date.toLocaleString();
+      }
+      return 'N/A';
+  }
 
-    async function handleHide() { 
-        isHiding = true;
-        await hideJobAndNext(job.id);
-        isHiding = false;
-    }
+  async function handleHide() { 
+      try {
+          isHiding = true;
+          const userId = auth.currentUser?.uid;
+          if (!userId) throw new Error('No user logged in');
+          
+          await jobStore.hideJob(userId, job.id);
+          await handleNext(job.id);
+      } catch (error) {
+          console.error('Error hiding job:', error);
+      } finally {
+          isHiding = false;
+      }
+  }
 
-    async function handleVisitJob() {
-        if (job.generalData?.url) {
-            openJobLink(job.generalData.url);
-        }
-    }
+  async function handleVisitJob() {
+      if (job.generalData?.url) {
+          openJobLink(job.generalData.url);
+      }
+  }
 </script>
 
 <!-- Main card content -->
