@@ -1,5 +1,6 @@
 <script>
-    // Props
+    import { ProgressRadial } from '@skeletonlabs/skeleton';
+    
     export let job = {};
     export let handleNext;
     export let previousJob;
@@ -10,34 +11,6 @@
     export let openJobLink;
     
     let isHiding = false;
-    
-    function getScoreColor(score) {
-        const colorStops = [
-            { score: 40, color: { r: 255, g: 107, b: 107 } },
-            { score: 60, color: { r: 244, g: 211, b: 94 } },
-            { score: 100, color: { r: 111, g: 219, b: 111 } }
-        ];
-
-        let lowerStop = colorStops[0];
-        let upperStop = colorStops[colorStops.length - 1];
-        
-        for (let i = 0; i < colorStops.length - 1; i++) {
-            if (score >= colorStops[i].score && score <= colorStops[i + 1].score) {
-                lowerStop = colorStops[i];
-                upperStop = colorStops[i + 1];
-                break;
-            }
-        }
-
-        const range = upperStop.score - lowerStop.score;
-        const percent = range === 0 ? 1 : (score - lowerStop.score) / range;
-
-        const r = Math.round(lowerStop.color.r + percent * (upperStop.color.r - lowerStop.color.r));
-        const g = Math.round(lowerStop.color.g + percent * (upperStop.color.g - lowerStop.color.g));
-        const b = Math.round(lowerStop.color.b + percent * (upperStop.color.b - lowerStop.color.b));
-
-        return `rgb(${r}, ${g}, ${b})`;
-    }
 
     function formatDate(timestamp) {
         if (timestamp && timestamp.toDate) {
@@ -65,41 +38,28 @@
     <div class="flex justify-between items-start">
       <!-- Company Info -->
       <div>
-        <h1 class="h4">{job.companyInfo?.name || 'N/A'}</h1>
+        <h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
         <h2 class="h5 text-surface-600">{job.jobInfo?.jobTitle || 'N/A'}</h2>
         <!-- Meta Information -->
         <div class="flex flex-wrap gap-2 mt-4">
-          <span class="chip variant-filled">{job.companyInfo?.industry || 'N/A'}</span>
-          <span class="chip variant-filled">{job.jobInfo?.remoteType || 'N/A'}</span>
-          <span class="chip variant-filled">{job.compensation || 'N/A'}</span>
-          <span class="chip variant-filled">{formatDate(job.generalData?.timestamp)}</span>
+          <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{job.companyInfo?.industry || 'N/A'}</span>
+          <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{job.jobInfo?.remoteType || 'N/A'}</span>
+          <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{job.compensation || 'N/A'}</span>
+          <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{formatDate(job.generalData?.timestamp)}</span>
           {#if job.generalData?.status}
-            <span class="chip variant-filled-primary">{job.generalData.status}</span>
+            <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{job.generalData.status}</span>
           {/if}
         </div>
       </div>
-      <!-- Score Display -->
+      <!-- Radial Progress Score Display -->
       {#if job.matchResult?.totalScore !== undefined}
-        <div class="flex items-center">
-          <div class="text-center">
-            <span class="text-2xl font-bold">{Math.round(job.matchResult.totalScore)}</span>
-            <p>Score</p>
-          </div>
-        </div>
+      <div class="flex items-center">
+        <ProgressRadial stroke={60} font={75} strokeLinecap=round value={Math.round(job.matchResult.totalScore)}>
+          {Math.round(job.matchResult.totalScore)}
+        </ProgressRadial>
+      </div>
       {/if}
     </div>
-  
-    <!-- Company Focus and Job Summary -->
-    {#if job.companyInfo?.companyFocus || job.jobInfo?.jobSummary}
-      <div class="card variant-glass p-4">
-        {#if job.companyInfo?.companyFocus}
-          <p class="mb-4">{job.companyInfo.companyFocus}</p>
-        {/if}
-        {#if job.jobInfo?.jobSummary}
-          <p>{job.jobInfo.jobSummary}</p>
-        {/if}
-      </div>
-    {/if}
   
     <!-- Match Results Table -->
     {#if job.matchResult}
@@ -114,11 +74,6 @@
             </tr>
           </thead>
           <tbody>
-            <tr>
-              <td><strong>Total Score</strong></td>
-              <td><strong>{Math.round(job.matchResult.totalScore)}</strong></td>
-              <td>{job.matchResult.summary}</td>
-            </tr>
             {#each job.matchResult.keySkills as skill}
               <tr>
                 <td>{skill.skill}</td>
@@ -169,4 +124,4 @@
           Next
         </button>
       </div>
-  </div>
+</div>

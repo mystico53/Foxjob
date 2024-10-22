@@ -81,12 +81,6 @@
     bind:this={sidebar}
   >
     <div class="p-4">
-      <h1 class="h5 mb-6">Job Workflow</h1>
-
-      {#if $error}
-        <Alert variant="filled-error" message={$error} />
-      {/if}
-
       {#if $loading}
         <div class="flex justify-center p-4">
           <span class="loading loading-spinner loading-lg text-primary-500"></span>
