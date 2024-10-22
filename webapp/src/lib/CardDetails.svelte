@@ -158,7 +158,7 @@
           on:click={handleHide}
           disabled={isHiding}
         >
-          {isHiding ? 'Archiving...' : 'Archive'}
+          {isHiding ? 'Archiving...' : 'Not relevant'}
         </button>
 
         <button
