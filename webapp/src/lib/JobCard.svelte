@@ -57,7 +57,7 @@
 </script>
 
 <button 
-    class="card w-full text-left p-4 hover:bg-surface-600/10 cursor-pointer {isSelected ? 'card-hover !bg-surface-600/20' : ''}"
+    class="card variant-ghost-tertiary w-full text-left p-4 hover:bg-surface-600/10 cursor-pointer {isSelected ? 'card-hover !bg-surface-600/20' : ''}"
     on:click={handleClick}
     aria-label="View details for {jobTitle} position at {companyName}"
 >
@@ -93,11 +93,6 @@
 </button>
 
 <style>
-    .card {
-        transition: all 0.2s ease-in-out;
-        @apply bg-surface-100-800-token;
-    }
-
     .score-cell {
         position: relative;
         width: 40px;
