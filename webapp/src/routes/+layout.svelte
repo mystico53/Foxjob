@@ -3,6 +3,7 @@ import Navbar from '$lib/Navbar.svelte';
 import { page } from '$app/stores';
 import { auth } from '$lib/firebase';
 import { onMount } from 'svelte';
+import 'iconify-icon';
 
 let isAuthenticated = false;
 
@@ -25,3 +26,11 @@ onMount(() => {
 
     
 </div>
+
+<style>
+    :global(.chip) {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+  </style>

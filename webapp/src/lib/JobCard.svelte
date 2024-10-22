@@ -70,7 +70,10 @@
                     <span class="text-sm">{getStatusDisplay(status)}</span>
                 {/if}
             </div>
-            <div class="text-xs text-surface-600-300-token">{formattedDate}</div>
+            <div class="text-xs text-surface-600-300-token inline-flex items-center gap-1">
+                <iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
+                {formattedDate}
+              </div>
         </div>
     </div>
 </button>
