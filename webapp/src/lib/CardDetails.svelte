@@ -69,10 +69,10 @@
         <h2 class="h5 text-surface-600">{job.jobInfo?.jobTitle || 'N/A'}</h2>
         <!-- Meta Information -->
         <div class="flex flex-wrap gap-2 mt-4">
-          <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{job.companyInfo?.industry || 'N/A'}</span>
-          <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{job.jobInfo?.remoteType || 'N/A'}</span>
-          <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{job.compensation || 'N/A'}</span>
-          <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{formatDate(job.generalData?.timestamp)}</span>
+          <span class="chip variant-ghost-success">{job.companyInfo?.industry || 'N/A'}</span>
+          <span class="chip variant-ghost-surface">{job.jobInfo?.remoteType || 'N/A'}</span>
+          <span class="chip variant-ghost-secondary">{job.compensation || 'N/A'}</span>
+          <span class="chip variant-ghost-primary">{formatDate(job.generalData?.timestamp)}</span>
           {#if job.generalData?.status}
             <span class="chip bg-gradient-to-br variant-gradient-primary-secondary">{currentStatus}</span>
           {/if}

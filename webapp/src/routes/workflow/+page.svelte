@@ -6,6 +6,8 @@
   import CardDetails from '$lib/CardDetails.svelte';
   import SortControls from '$lib/SortControls.svelte';
   import { flip } from 'svelte/animate';
+  import SearchBar from '$lib/SearchBar.svelte';
+
 
   let currentUser = null;
   let selectedJob = null;
@@ -103,6 +105,7 @@ async function hideJobAndNext(jobId) {
     bind:this={sidebar}
   >
     <SortControls />
+    <SearchBar />
     <div class="p-4">
       {#if $loading}
         <div class="flex justify-center p-4">

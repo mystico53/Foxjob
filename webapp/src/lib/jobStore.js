@@ -1,3 +1,4 @@
+// jobStore.js
 import { writable, derived } from 'svelte/store';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
@@ -10,13 +11,27 @@ const sortConfig = writable({
     column: 'Score.totalScore',
     direction: 'desc'
 });
+const searchText = writable('');
 
-// Derived store for sorted jobs
+// Derived store for sorted and filtered jobs
 const sortedJobs = derived(
-    [jobs, sortConfig],
-    ([$jobs, $sortConfig]) => {
-        return [...$jobs].sort((a, b) => {
-            // Special handling for status sorting
+    [jobs, sortConfig, searchText],
+    ([$jobs, $sortConfig, $searchText]) => {
+        // First filter by search text
+        let filteredJobs = $jobs;
+        if ($searchText) {
+            const searchLower = $searchText.toLowerCase();
+            filteredJobs = $jobs.filter(job => {
+                return (
+                    job.companyInfo?.name?.toLowerCase().includes(searchLower) ||
+                    job.jobInfo?.jobTitle?.toLowerCase().includes(searchLower) ||
+                    job.jobInfo?.description?.toLowerCase().includes(searchLower)
+                );
+            });
+        }
+
+        // Then sort the filtered results
+        return [...filteredJobs].sort((a, b) => {
             if ($sortConfig.column === 'generalData.status') {
                 const statusPriority = $sortConfig.statusPriority || {};
                 const aStatus = a.generalData?.status?.toLowerCase() || 'unread';
@@ -28,7 +43,6 @@ const sortedJobs = derived(
                 if (aPriority !== bPriority) {
                     return aPriority - bPriority;
                 }
-                // If status is the same, sort by score as secondary sort
                 return b.Score?.totalScore - a.Score?.totalScore;
             }
 
@@ -55,8 +69,6 @@ function createJobStore() {
 
     return {
         subscribe,
-        
-        // Initialize job listener
         init: async (userId) => {
             loading.set(true);
             error.set(null);
@@ -121,7 +133,6 @@ function createJobStore() {
             }
         },
 
-        // Update job status
         updateStatus: async (userId, jobId, newStatus) => {
             try {
                 const jobRef = doc(db, 'users', userId, 'jobs', jobId);
@@ -132,7 +143,6 @@ function createJobStore() {
             }
         },
 
-        // Hide job
         hideJob: async (userId, jobId) => {
             try {
                 const jobRef = doc(db, 'users', userId, 'jobs', jobId);
@@ -143,7 +153,6 @@ function createJobStore() {
             }
         },
 
-        // Clean up
         cleanup: () => {
             if (unsubscribeJobs) {
                 unsubscribeJobs();
@@ -157,4 +166,4 @@ function createJobStore() {
 }
 
 export const jobStore = createJobStore();
-export { sortedJobs, loading, error, sortConfig };
+export { sortedJobs, loading, error, sortConfig, searchText };
