@@ -19,7 +19,7 @@ onMount(() => {
         <Navbar></Navbar>
     {/if}
 
-    <main class="flex-grow pb-16">
+    <main class="flex-grow">
         <slot></slot>
     </main>
 

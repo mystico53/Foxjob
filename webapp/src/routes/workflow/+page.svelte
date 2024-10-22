@@ -96,6 +96,7 @@
               score={job.Score?.totalScore}
               status={job.generalData?.status}
               handleClick={() => handleJobClick(job)}
+              isSelected={selectedJob?.id === job.id}
             />
           {/each}
         </div>
