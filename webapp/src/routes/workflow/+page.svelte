@@ -8,6 +8,7 @@
   import { flip } from 'svelte/animate';
   import SearchBar from '$lib/SearchBar.svelte';
 
+
   let currentUser = null;
   let selectedJob = null;
   let selectedJobIndex = -1;
