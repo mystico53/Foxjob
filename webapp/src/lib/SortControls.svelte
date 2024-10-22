@@ -3,14 +3,32 @@
     import { RadioGroup, RadioItem } from '@skeletonlabs/skeleton';
     import { sortConfig } from '$lib/jobStore';
 
-    // Radio group binding value
-    let selectedSort = $sortConfig.column || 'Score.totalScore';
+    // Set Score as default
+    let selectedSort = 'Score.totalScore';
+    
+    // Initialize sortConfig with Score if not already set
+    if (!$sortConfig.column) {
+        $sortConfig = {
+            column: 'Score.totalScore',
+            direction: 'desc'
+        };
+    }
 
     function handleSortChange(value) {
         selectedSort = value;
+        
+        // Configure sort direction and handle special case for status
+        const sortDirection = value === 'generalData.status' ? 'asc' : 'desc';
+        
         $sortConfig = {
             column: value,
-            direction: 'desc'  // Always start with newest dates and highest scores
+            direction: sortDirection,
+            // Add special handling for status to prioritize starred
+            statusPriority: value === 'generalData.status' ? {
+                starred: 1,
+                read: 2,
+                unread: 3
+            } : null
         };
     }
 </script>
@@ -23,6 +41,14 @@
         <RadioItem 
             bind:group={selectedSort} 
             name="sort" 
+            value="generalData.timestamp"
+            on:change={() => handleSortChange("generalData.timestamp")}
+        >
+            Date
+        </RadioItem>
+        <RadioItem 
+            bind:group={selectedSort} 
+            name="sort" 
             value="Score.totalScore" 
             on:change={() => handleSortChange("Score.totalScore")}
         >
@@ -31,10 +57,10 @@
         <RadioItem 
             bind:group={selectedSort} 
             name="sort" 
-            value="generalData.timestamp"
-            on:change={() => handleSortChange("generalData.timestamp")}
+            value="generalData.status"
+            on:change={() => handleSortChange("generalData.status")}
         >
-            Date
+            Status
         </RadioItem>
     </RadioGroup>
 </div>
