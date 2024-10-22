@@ -5,6 +5,7 @@
   import JobCard from '$lib/JobCard.svelte';
   import CardDetails from '$lib/CardDetails.svelte';
   import SortControls from '$lib/SortControls.svelte';
+  import { flip } from 'svelte/animate';
 
   let currentUser = null;
   let selectedJob = null;
@@ -112,17 +113,19 @@ async function hideJobAndNext(jobId) {
       {#if $sortedJobs && $sortedJobs.length > 0}
         <div class="flex flex-col gap-4">
           {#each $sortedJobs as job (job.id)}
-            <JobCard
-                companyName={job.companyInfo?.name || 'Unknown Company'}
-                jobTitle={job.jobInfo?.jobTitle || 'No Title'}
-                score={job.Score?.totalScore}
-                status={job.generalData?.status}
-                timestamp={job.generalData?.timestamp?.toDate()}
-                handleClick={() => handleJobClick(job)}
-                isSelected={selectedJob?.id === job.id}
-            />
+              <div animate:flip={{ duration: 700 }}>
+                  <JobCard
+                      companyName={job.companyInfo?.name || 'Unknown Company'}
+                      jobTitle={job.jobInfo?.jobTitle || 'No Title'}
+                      score={job.Score?.totalScore}
+                      status={job.generalData?.status}
+                      timestamp={job.generalData?.timestamp?.toDate()}
+                      handleClick={() => handleJobClick(job)}
+                      isSelected={selectedJob?.id === job.id}
+                  />
+              </div>
           {/each}
-        </div>
+      </div>
       {:else if !$loading}
         <div class="text-center text-surface-400 p-4">
           No jobs found.
