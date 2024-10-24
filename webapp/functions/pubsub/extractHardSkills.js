@@ -75,29 +75,69 @@ exports.extractHardSkills = functions.pubsub
 
       let analysisResult;
       if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-        analysisResult = JSON.parse(data.content[0].text.trim());
-        logger.info('Hard skills extracted successfully');
+        try {
+          analysisResult = JSON.parse(data.content[0].text.trim());
+          logger.info('Hard skills extracted successfully');
+        } catch (parseError) {
+          logger.error('Failed to parse JSON from Anthropic API response:', parseError);
+          throw new Error('Failed to parse JSON from Anthropic API response');
+        }
       } else {
         logger.error('Unexpected Anthropic API response structure:', data);
         throw new Error('Unexpected Anthropic API response structure');
       }
 
+      // Validate analysisResult structure
+      if (!analysisResult || typeof analysisResult !== 'object') {
+        logger.error('Invalid analysis result: not an object', analysisResult);
+        throw new Error('Invalid analysis result: not an object');
+      }
+
+      if (!analysisResult.Hardskills || typeof analysisResult.Hardskills !== 'object') {
+        logger.error('Hardskills field is missing or invalid in analysis result:', analysisResult);
+        throw new Error('Hardskills field is missing or invalid in analysis result');
+      }
+
+      logger.info(`Parsed Hardskills from API: ${JSON.stringify(analysisResult.Hardskills)}`);
+
       // Create a dynamic object for hard skills with the new structure
       const hardSkills = {};
-      
+
       // Convert the skills into the new format
       Object.entries(analysisResult.Hardskills).forEach(([key, value], index) => {
         const skillNumber = `HS${index + 1}`;
-        const skillName = key.split('. ')[1]; // Extract skill name without number
+
+        // Initialize skillName
+        let skillName = key.trim();
+
+        // Check if the key has a numerical prefix (e.g., "1. Programming")
+        const match = key.match(/^\d+\.\s*(.+)$/);
+        if (match && match[1]) {
+          skillName = match[1].trim();
+        }
+
+        // Validate skillName and value
+        if (!skillName) {
+          logger.error(`Skill name is undefined or empty for key: "${key}"`);
+          return; // Skip this entry
+        }
+
+        if (typeof value !== 'string' || value.trim() === '') {
+          logger.error(`Description is invalid for skill: "${skillName}"`);
+          return; // Skip this entry
+        }
+
         hardSkills[skillNumber] = {
           Name: skillName,
-          Description: value
+          Description: value.trim()
         };
       });
 
+      logger.info(`Formatted Hardskills for Firestore: ${JSON.stringify(hardSkills)}`);
+
       // Save analysis result to Firestore
       await jobDocRef.update({
-        'Requirements.Softskills': softSkills
+        'Requirements.Hardskills': hardSkills
       });
 
       logger.info(`Hard skills extraction saved to Firestore for googleId: ${googleId}, docId: ${docId}`);
@@ -110,17 +150,17 @@ exports.extractHardSkills = functions.pubsub
 // Anthropic instructions for hard skills extraction
 const hardSkillsInstructions = {
   model: "claude-3-haiku-20240307", 
-  prompt: `Extract the 5 most important hard skills from this job description in descending order. Use the job description to analyse if each of these skills are *required* or *preferred*. As a reminder: Hard skills are job-specific abilities learned through formal education or training, such as programming, project management, and statistics. These skills are quantifiable, often certifiable, and can be tested or demonstrated. Do ***NOT*** include either softskills or domain expertise (you will do that in another step). Soft skills are interpersonal traits that affect how people work together, like communication and teamwork. Domain expertise is deep knowledge in a specific field that must be gained through experience.
+  prompt: `Extract the 5 most important hard skills from this job description in descending order. Use the job description to analyze if each of these skills are *required* or *preferred*. As a reminder: Hard skills are job-specific abilities learned through formal education or training, such as programming, project management, and statistics. These skills are quantifiable, often certifiable, and can be tested or demonstrated. Do ***NOT*** include either softskills or domain expertise (you will do that in another step). Soft skills are interpersonal traits that affect how people work together, like communication and teamwork. Domain expertise is deep knowledge in a specific field that must be gained through experience.
 
 Format your response as a JSON object with the following structure:
 
 {
   "Hardskills": {
-    "1. Skillname": "most important hard skill: one short sentence description of this skill (required or preferred?)",
-    "2. Skillname": "second most important hard skill: one short sentence description of this skill (required or preferred?)",
-    "3. Skillname": "third most important hard skill: one short sentence description of this skill (required or preferred?)",
-    "4. Skillname": "fourth most important hard skill: one short sentence description of this skill (required or preferred?)",
-    "5. Skillname": "fifth most important hard skill: one short sentence description of this skill (required or preferred?)"
+    "Skillname1": "most important hard skill: one short sentence description of this skill (required or preferred?)",
+    "Skillname2": "second most important hard skill: one short sentence description of this skill (required or preferred?)",
+    "Skillname3": "third most important hard skill: one short sentence description of this skill (required or preferred?)",
+    "Skillname4": "fourth most important hard skill: one short sentence description of this skill (required or preferred?)",
+    "Skillname5": "fifth most important hard skill: one short sentence description of this skill (required or preferred?)"
   }
 }
 
