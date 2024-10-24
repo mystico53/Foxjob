@@ -88,10 +88,30 @@ exports.extractSoftSkills = functions.pubsub
       // Convert the skills into the new format
       Object.entries(analysisResult.Softskills).forEach(([key, value], index) => {
         const skillNumber = `SS${index + 1}`;
-        const skillName = key.split('. ')[1]; // Extract skill name without number
+      
+        // Initialize skillName
+        let skillName = key.trim();
+      
+        // Check if the key has a numerical prefix (e.g., "1. Collaboration")
+        const match = key.match(/^\d+\.\s*(.+)$/);
+        if (match && match[1]) {
+          skillName = match[1].trim();
+        }
+      
+        // Validate skillName and value
+        if (!skillName) {
+          logger.error(`Skill name is undefined or empty for key: "${key}"`);
+          return; // Skip this entry
+        }
+      
+        if (typeof value !== 'string' || value.trim() === '') {
+          logger.error(`Description is invalid for skill: "${skillName}"`);
+          return; // Skip this entry
+        }
+      
         softSkills[skillNumber] = {
           Name: skillName,
-          Description: value
+          Description: value.trim()
         };
       });
 

@@ -108,7 +108,7 @@ Format your response as a JSON object with the following structure:
 
 {
   "Domain": {
-    "Name": "name of the domain/field",
+    "Name": "name of the domain/field, max three words",
     "Description": "one short sentence describing the required domain expertise",
     "Importance": numerical_rating
   }
