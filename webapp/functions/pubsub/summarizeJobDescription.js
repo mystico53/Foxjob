@@ -142,7 +142,7 @@ Format your response as a JSON object with the following structure:
     "Skill 2", Preferred degree in X
     "Skill 3" Proven Skills in Y
   ],
-  "compensation": "Amount or 'Not mentioned, eg. 150,000 or 150k'"
+  "compensation": "Amount or 'Not mentioned, eg. 150,000 or 150k' no extra details other than the amount"
 }
 
 Ensure all fields are present in the JSON, even if empty. For 'areasOfFun' and 'mandatorySkills', include up to three items. If there are fewer, leave the remaining items as empty strings.
