@@ -22,6 +22,7 @@ const { extractHardSkills } = require('./pubsub/extractHardSkills.js');
 const { extractSoftSkills } = require('./pubsub/extractSoftSkills.js');
 const { extractDomainExpertise } = require('./pubsub/extractDomainExpertise.js');
 const { matchHardSkills } = require('./pubsub/matchHardSkills.js');
+const { matchSoftSkills } = require('./pubsub/matchSoftSkills.js');
 
 // Export all Cloud Functions
 exports.match = match;
@@ -36,3 +37,4 @@ exports.extractHardSkills = extractHardSkills;
 exports.extractSoftSkills = extractSoftSkills;
 exports.extractDomainExpertise = extractDomainExpertise;
 exports.matchHardSkills = matchHardSkills;
+exports.matchSoftSkills = matchSoftSkills;
