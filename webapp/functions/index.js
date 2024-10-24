@@ -18,6 +18,9 @@ const { extractJobDescription } = require('./pubsub/extractJobDescription');
 const { summarizeJobDescription } = require('./pubsub/summarizeJobDescription');
 const { extractJobRequirements } = require('./pubsub/extractJobRequirements');
 const { calculateScore } = require('./pubsub/calculateScore');
+const { extractHardSkills } = require('./pubsub/extractHardSkills.js');
+const { extractSoftSkills } = require('./pubsub/extractSoftSkills.js');
+const { extractDomainExpertise } = require('./pubsub/extractDomainExpertise.js');
 
 // Export all Cloud Functions
 exports.match = match;
@@ -28,3 +31,6 @@ exports.extractJobDescription = extractJobDescription;
 exports.summarizeJobDescription = summarizeJobDescription;
 exports.extractJobRequirements = extractJobRequirements;
 exports.calculateScore = calculateScore;
+exports.extractHardSkills = extractHardSkills;
+exports.extractSoftSkills = extractSoftSkills;
+exports.extractDomainExpertise = extractDomainExpertise;
