@@ -9,7 +9,7 @@ const db = admin.firestore();
 const pubSubClient = new PubSub();
 
 exports.extractJobRequirements = functions.pubsub
-  .topic('job-description-extracted')
+  .topic('job-description-extracted debug')
   .onPublish(async (message) => {
     const messageData = message.json;
     const { googleId, docId } = messageData;
