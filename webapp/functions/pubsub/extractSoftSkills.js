@@ -10,7 +10,7 @@ const db = admin.firestore();
 const pubSubClient = new PubSub();
 
 exports.extractSoftSkills = functions.pubsub
-  .topic('job-description-extracted debug')
+  .topic('job-description-extracted')
   .onPublish(async (message) => {
     const messageData = message.json;
     const { googleId, docId } = messageData;
@@ -77,16 +77,34 @@ exports.extractSoftSkills = functions.pubsub
 
       let analysisResult;
       if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-        analysisResult = JSON.parse(data.content[0].text.trim());
-        logger.info('Soft skills extracted successfully');
+        try {
+          analysisResult = JSON.parse(data.content[0].text.trim());
+          logger.info('Soft skills extracted successfully');
+        } catch (parseError) {
+          logger.error('Failed to parse JSON from Anthropic API response:', parseError);
+          throw new Error('Failed to parse JSON from Anthropic API response');
+        }
       } else {
         logger.error('Unexpected Anthropic API response structure:', data);
         throw new Error('Unexpected Anthropic API response structure');
       }
 
+      // Validate analysisResult structure
+      if (!analysisResult || typeof analysisResult !== 'object') {
+        logger.error('Invalid analysis result: not an object', analysisResult);
+        throw new Error('Invalid analysis result: not an object');
+      }
+
+      if (!analysisResult.Softskills || typeof analysisResult.Softskills !== 'object') {
+        logger.error('Softskills field is missing or invalid in analysis result:', analysisResult);
+        throw new Error('Softskills field is missing or invalid in analysis result');
+      }
+
+      logger.info(`Parsed Softskills from API: ${JSON.stringify(analysisResult.Softskills)}`);
+
       // Create a dynamic object for soft skills with the new structure
       const softSkills = {};
-      
+
       // Convert the skills into the new format
       Object.entries(analysisResult.Softskills).forEach(([key, value], index) => {
         const skillNumber = `SS${index + 1}`;
@@ -94,7 +112,7 @@ exports.extractSoftSkills = functions.pubsub
         // Initialize skillName
         let skillName = key.trim();
       
-        // Check if the key has a numerical prefix (e.g., "1. Collaboration")
+        // Check if the key has a numerical prefix (e.g., "1. Communication")
         const match = key.match(/^\d+\.\s*(.+)$/);
         if (match && match[1]) {
           skillName = match[1].trim();
@@ -111,29 +129,56 @@ exports.extractSoftSkills = functions.pubsub
           return; // Skip this entry
         }
       
-        softSkills[skillNumber] = {
-          Name: skillName,
-          Description: value.trim()
+        // Create the nested structure
+        if (!softSkills[docId]) {
+          softSkills[docId] = {};
+        }
+        if (!softSkills[docId].SkillAssessment) {
+          softSkills[docId].SkillAssessment = {};
+        }
+        if (!softSkills[docId].SkillAssessment.Softskills) {
+          softSkills[docId].SkillAssessment.Softskills = {};
+        }
+      
+        softSkills[docId].SkillAssessment.Softskills[skillNumber] = {
+          name: skillName,
+          description: value.trim()
         };
       });
-
+      
+      logger.info(`Formatted Softskills for Firestore: ${JSON.stringify(softSkills)}`);
+      
       // Save analysis result to Firestore
       await jobDocRef.update({
-        'Requirements.Softskills': softSkills
+        [`SkillAssessment.Softskills`]: softSkills[docId].SkillAssessment.Softskills
       });
 
       logger.info(`Soft skills extraction saved to Firestore for googleId: ${googleId}, docId: ${docId}`);
 
+      // Define the topic name first
+      const topicName = 'soft-skills-extracted';
+      
+      // Create topic if it doesn't exist
+      await pubSubClient.createTopic(topicName).catch((err) => {
+        if (err.code === 6) {
+          logger.info('Topic already exists');
+        } else {
+          throw err;
+        }
+      });
+      
+      // Prepare the message
       const pubSubMessage = {
         docId: docId,
         googleId: googleId
       };
       
-      const topicName = 'soft-skills-extracted';
-      const pubSubTopic = pubSubClient.topic(topicName);
-      await pubSubTopic.publishMessage({
+      // Publish the message
+      const messageId = await pubSubClient.topic(topicName).publishMessage({
         data: Buffer.from(JSON.stringify(pubSubMessage)),
       });
+
+      logger.info(`Message ${messageId} published to topic ${topicName}`);
 
     } catch (error) {
       logger.error('Error in extractSoftSkills:', error);
@@ -149,15 +194,15 @@ Format your response as a JSON object with the following structure:
 
 {
   "Softskills": {
-    "1. Skillname": "most important soft skill: one short sentence describing how this skill applies to the role (required or preferred?)",
-    "2. Skillname": "second most important soft skill: one short sentence describing how this skill applies to the role (required or preferred?)",
-    "3. Skillname": "third most important soft skill: one short sentence describing how this skill applies to the role (required or preferred?)",
-    "4. Skillname": "fourth most important soft skill: one short sentence describing how this skill applies to the role (required or preferred?)",
-    "5. Skillname": "fifth most important soft skill: one short sentence describing how this skill applies to the role (required or preferred?)"
+    "Skillname1": "most important soft skill: one short sentence description of this skill (required or preferred?)",
+    "Skillname2": "second most important soft skill: one short sentence description of this skill (required or preferred?)",
+    "Skillname3": "third most important soft skill: one short sentence description of this skill (required or preferred?)",
+    "Skillname4": "fourth most important soft skill: one short sentence description of this skill (required or preferred?)",
+    "Skillname5": "fifth most important soft skill: one short sentence description of this skill (required or preferred?)"
   }
 }
 
-The skill name should be a single word. The description should explain how this soft skill specifically applies to the role, followed by whether it's required or preferred in parentheses.
+The skill name should be a single word. The description should be one short sentence followed by whether it's required or preferred in parentheses.
 
 Here's the job description to analyze:
 
