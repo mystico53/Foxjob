@@ -3,9 +3,11 @@ const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { Firestore } = require("firebase-admin/firestore");
 const fetch = require('node-fetch');
+const { PubSub } = require('@google-cloud/pubsub');
 
 // Ensure Firestore instance is reused
 const db = admin.firestore();
+const pubSubClient = new PubSub();
 
 exports.extractHardSkills = functions.pubsub
   .topic('job-description-extracted')
@@ -106,41 +108,79 @@ exports.extractHardSkills = functions.pubsub
       // Convert the skills into the new format
       Object.entries(analysisResult.Hardskills).forEach(([key, value], index) => {
         const skillNumber = `HS${index + 1}`;
-
+      
         // Initialize skillName
         let skillName = key.trim();
-
+      
         // Check if the key has a numerical prefix (e.g., "1. Programming")
         const match = key.match(/^\d+\.\s*(.+)$/);
         if (match && match[1]) {
           skillName = match[1].trim();
         }
-
+      
         // Validate skillName and value
         if (!skillName) {
           logger.error(`Skill name is undefined or empty for key: "${key}"`);
           return; // Skip this entry
         }
-
+      
         if (typeof value !== 'string' || value.trim() === '') {
           logger.error(`Description is invalid for skill: "${skillName}"`);
           return; // Skip this entry
         }
-
-        hardSkills[skillNumber] = {
-          Name: skillName,
-          Description: value.trim()
+      
+        // Create the nested structure
+        if (!hardSkills[docId]) {
+          hardSkills[docId] = {};
+        }
+        if (!hardSkills[docId].SkillAssessment) {
+          hardSkills[docId].SkillAssessment = {};
+        }
+        if (!hardSkills[docId].SkillAssessment.Hardskills) {
+          hardSkills[docId].SkillAssessment.Hardskills = {};
+        }
+      
+        hardSkills[docId].SkillAssessment.Hardskills[skillNumber] = {
+          name: skillName,
+          description: value.trim()
         };
       });
-
+      
       logger.info(`Formatted Hardskills for Firestore: ${JSON.stringify(hardSkills)}`);
-
+      
       // Save analysis result to Firestore
       await jobDocRef.update({
-        'Requirements.Hardskills': hardSkills
+        [`SkillAssessment.Hardskills`]: hardSkills[docId].SkillAssessment.Hardskills
       });
 
       logger.info(`Hard skills extraction saved to Firestore for googleId: ${googleId}, docId: ${docId}`);
+
+      
+      // Define the topic name first
+      const topicName = 'hard-skills-extracted';
+      
+      // Create topic if it doesn't exist
+      await pubSubClient.createTopic(topicName).catch((err) => {
+        if (err.code === 6) {
+          logger.info('Topic already exists');
+        } else {
+          throw err;
+        }
+      });
+      
+      // Prepare the message
+      const pubSubMessage = {
+        docId: docId,
+        googleId: googleId
+      };
+      
+      // Publish the message
+      const messageId = await pubSubClient.topic(topicName).publishMessage({
+        data: Buffer.from(JSON.stringify(pubSubMessage)),
+      });
+
+      logger.info(`Message ${messageId} published to topic ${topicName}`);
+
 
     } catch (error) {
       logger.error('Error in extractHardSkills:', error);

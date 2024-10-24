@@ -3,12 +3,14 @@ const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { Firestore } = require("firebase-admin/firestore");
 const fetch = require('node-fetch');
+const { PubSub } = require('@google-cloud/pubsub');
 
 // Ensure Firestore instance is reused
 const db = admin.firestore();
+const pubSubClient = new PubSub();
 
 exports.extractSoftSkills = functions.pubsub
-  .topic('job-description-extracted')
+  .topic('job-description-extracted debug')
   .onPublish(async (message) => {
     const messageData = message.json;
     const { googleId, docId } = messageData;
@@ -121,6 +123,17 @@ exports.extractSoftSkills = functions.pubsub
       });
 
       logger.info(`Soft skills extraction saved to Firestore for googleId: ${googleId}, docId: ${docId}`);
+
+      const pubSubMessage = {
+        docId: docId,
+        googleId: googleId
+      };
+      
+      const topicName = 'soft-skills-extracted';
+      const pubSubTopic = pubSubClient.topic(topicName);
+      await pubSubTopic.publishMessage({
+        data: Buffer.from(JSON.stringify(pubSubMessage)),
+      });
 
     } catch (error) {
       logger.error('Error in extractSoftSkills:', error);
