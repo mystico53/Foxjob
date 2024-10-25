@@ -135,8 +135,8 @@
   {#if !showDescription}
     <!-- Match Results Table -->
     {#if job.matchResult}
-      <div class="card p-4">
-        <h3 class="h5 mb-4">Match Results</h3>
+      <div class="card p-4 border-2 border-surface-500">
+        <h3 class="h5 mb-4">Old Match Results, will be removed @Zhong</h3>
         <table class="table table-hover">
           <thead>
             <tr>
@@ -157,6 +157,143 @@
         </table>
       </div>
     {/if}
+
+<!-- Add this section after your existing Match Results table in your component -->
+
+{#if !showDescription && job.SkillAssessment}
+  <!-- Domain Expertise Section -->
+  <div class="card p-4 border-2 border-surface-500">
+    <h3 class="h5 mb-4">Domain Expertise Assessment</h3>
+    {#if job.SkillAssessment.DomainExpertise}
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Area</th>
+            <th>Score</th>
+            <th>Importance</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>{job.SkillAssessment.DomainExpertise.name || 'N/A'}</td>
+            <td>{job.SkillAssessment.DomainExpertise.score || 0}%</td>
+            <td>{job.SkillAssessment.DomainExpertise.importance || 'N/A'}/5</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="mt-4 space-y-4">
+        <div>
+          <span class="font-bold">Assessment:</span>
+          <p class="mt-2">{job.SkillAssessment.DomainExpertise.assessment || 'No assessment available'}</p>
+        </div>
+        <div>
+          <span class="font-bold">Summary:</span>
+          <p class="mt-2">{job.SkillAssessment.DomainExpertise.summary || 'No summary available'}</p>
+        </div>
+      </div>
+    {/if}
+  </div>
+
+  <!-- Hard Skills Section -->
+  <div class="card p-4 border-2 border-surface-500">
+    <h3 class="h5 mb-4">Hard Skills Assessment</h3>
+    {#if job.SkillAssessment.Hardskills.hardSkillScore}
+        <div class="mt-4">
+          <span class="font-bold">Overall Hard Skills Score:</span>
+          <p class="mt-2">{job.SkillAssessment.Hardskills.hardSkillScore.totalScore || 0}%</p>
+          <span class="font-bold">Summary:</span>
+          <p class="mt-2">{job.SkillAssessment.Hardskills.hardSkillScore.summary || 'No summary available'}</p>
+        </div>
+      {/if}
+    {#if job.SkillAssessment.Hardskills}
+      
+    <div class="table-container">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Skill</th>
+              <th>Description</th>
+              <th>Score</th>
+              <th>Required</th>
+              <th>Assessment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each ['HS1', 'HS2', 'HS3', 'HS4', 'HS5'] as key}
+              {#if job.SkillAssessment.Hardskills[key]}
+                <tr>
+                  <td class="font-medium">{job.SkillAssessment.Hardskills[key].name || 'N/A'}</td>
+                  <td>{job.SkillAssessment.Hardskills[key].description || 'N/A'}</td>
+                  <td>{job.SkillAssessment.Hardskills[key].score || 0}%</td>
+                  <td>
+                    {#if job.SkillAssessment.Hardskills[key].description}
+                      {job.SkillAssessment.Hardskills[key].description.includes('(required)') ? 'Required' : 'Preferred'}
+                    {:else}
+                      N/A
+                    {/if}
+                  </td>
+                  <td>{job.SkillAssessment.Hardskills[key].assessment || 'No assessment available'}</td>
+                </tr>
+              {/if}
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      
+    {/if}
+  </div>
+
+  <!-- Soft Skills Section -->
+  <div class="card p-4 border-2 border-surface-500
+  ">
+    <h3 class="h5 mb-4">Soft Skills Assessment</h3>
+    {#if job.SkillAssessment.Softskills.softSkillScore}
+        <div class="mt-4">
+          <span class="font-bold">Overall Soft Skills Score:</span>
+          <p class="mt-2">{job.SkillAssessment.Softskills.softSkillScore.totalScore || 0}%</p>
+          <span class="font-bold">Summary:</span>
+          <p class="mt-2">{job.SkillAssessment.Softskills.softSkillScore.summary || 'No summary available'}</p>
+        </div>
+      {/if}
+    {#if job.SkillAssessment.Softskills}
+      <div class="table-container">
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Skill</th>
+              <th>Description</th>
+              <th>Score</th>
+              <th>Required</th>
+              <th>Assessment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each ['SS1', 'SS2', 'SS3', 'SS4', 'SS5'] as key}
+              {#if job.SkillAssessment.Softskills[key]}
+                <tr>
+                  <td class="font-medium">{job.SkillAssessment.Softskills[key].name || 'N/A'}</td>
+                  <td>{job.SkillAssessment.Softskills[key].description || 'N/A'}</td>
+                  <td>{job.SkillAssessment.Softskills[key].score || 0}%</td>
+                  <td>
+                    {#if job.SkillAssessment.Softskills[key].description}
+                      {job.SkillAssessment.Softskills[key].description.includes('(required)') ? 'Required' : 'Preferred'}
+                    {:else}
+                      N/A
+                    {/if}
+                  </td>
+                  <td>{job.SkillAssessment.Softskills[key].assessment || 'No assessment available'}</td>
+                </tr>
+              {/if}
+            {/each}
+          </tbody>
+        </table>
+      </div>
+      
+    {/if}
+  </div>
+{/if}
+
+
   {:else}
     <!-- Description Section -->
     <div class="card p-4">

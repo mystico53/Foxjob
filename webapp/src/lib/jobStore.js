@@ -80,41 +80,49 @@ function createJobStore() {
                 unsubscribeJobs = onSnapshot(
                     jobsQuery,
                     async (jobsSnapshot) => {
-                        const jobPromises = jobsSnapshot.docs.map(async (jobDoc) => {
-                            const jobDataRaw = jobDoc.data();
-                            const summarizedData = jobDataRaw.summarized;
-                            const scoreData = jobDataRaw.Score;
+                        // In your jobStore.js, update the job mapping section:
+                    const jobPromises = jobsSnapshot.docs.map(async (jobDoc) => {
+                        const jobDataRaw = jobDoc.data();
+                        console.log("Raw job data:", jobDataRaw);
+                        const summarizedData = jobDataRaw.summarized;
+                        const scoreData = jobDataRaw.Score;
 
-                            if (!summarizedData || !scoreData) return null;
+                        if (!summarizedData || !scoreData) return null;
 
-                            const matchResult = {
-                                keySkills: [],
-                                totalScore: scoreData.totalScore || 0,
-                                summary: scoreData.summary || ''
-                            };
+                        const matchResult = {
+                            keySkills: [],
+                            totalScore: scoreData.totalScore || 0,
+                            summary: scoreData.summary || ''
+                        };
 
-                            Object.keys(scoreData).forEach((key) => {
-                                if (key.startsWith('Requirement')) {
-                                    const req = scoreData[key];
-                                    matchResult.keySkills.push({
-                                        skill: req.requirement,
-                                        score: req.score,
-                                        assessment: req.assessment
-                                    });
-                                }
-                            });
-
-                            return {
-                                id: jobDoc.id,
-                                ...summarizedData,
-                                generalData: {
-                                    ...jobDataRaw.generalData,
-                                    status: jobDataRaw.generalData?.status || ''
-                                },
-                                Score: scoreData,
-                                matchResult: matchResult
-                            };
+                        Object.keys(scoreData).forEach((key) => {
+                            if (key.startsWith('Requirement')) {
+                                const req = scoreData[key];
+                                matchResult.keySkills.push({
+                                    skill: req.requirement,
+                                    score: req.score,
+                                    assessment: req.assessment
+                                });
+                            }
                         });
+
+                        // Return the complete job object with SkillAssessment exactly as it is in Firestore
+                        return {
+                            id: jobDoc.id,
+                            ...summarizedData,
+                            generalData: {
+                                ...jobDataRaw.generalData,
+                                status: jobDataRaw.generalData?.status || ''
+                            },
+                            Score: scoreData,
+                            matchResult: matchResult,
+                            SkillAssessment: {
+                                DomainExpertise: jobDataRaw.SkillAssessment?.DomainExpertise || {},
+                                Hardskills: jobDataRaw.SkillAssessment?.Hardskills || {},
+                                Softskills: jobDataRaw.SkillAssessment?.Softskills || {}
+                            }
+                        };
+                    });
 
                         const jobResults = await Promise.all(jobPromises);
                         set(jobResults.filter(job => job !== null));
