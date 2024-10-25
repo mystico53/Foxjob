@@ -73,6 +73,8 @@
                     </tbody>
                 </table>
             {/if}
+
+            
         </div>
         <div class="overlay-buttons">
             <button on:click={previousJob} disabled={isFirstJob || isHiding}>Previous</button>
