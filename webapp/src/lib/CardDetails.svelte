@@ -2,6 +2,7 @@
   import { ProgressRadial } from '@skeletonlabs/skeleton';
   import { auth } from '$lib/firebase';
   import { jobStore } from '$lib/jobStore';
+  import { Accordion, AccordionItem } from '@skeletonlabs/skeleton';
   
   export let job = {};
   export let handleNext;
@@ -103,15 +104,20 @@
     </div>
     <!-- Radial Progress Score Display -->
     {#if job.matchResult?.totalScore !== undefined}
-    <div class="flex items-center">
-      <ProgressRadial 
-        class="w-12"
-        stroke={60} 
-        font={150} 
-        strokeLinecap=round 
-        value={Math.round(job.matchResult.totalScore)}>
-        {Math.round(job.matchResult.totalScore)}
-      </ProgressRadial>
+    <div class="flex items-center gap-2 relative">
+      <div class="opacity-50">
+        <ProgressRadial 
+          class="w-12"
+          stroke={60} 
+          font={150} 
+          meter="!stroke-error-500"
+          track="!stroke-error-500/30"
+          strokeLinecap="round" 
+          value={Math.round(job.matchResult.totalScore)}>
+          {Math.round(job.matchResult.totalScore)}
+        </ProgressRadial>
+      </div>
+      <span class="badge variant-filled-error absolute -top-2 -right-2">Old</span>
     </div>
     {/if}
   </div>
@@ -132,31 +138,7 @@
     </button>
   </div>
 
-  {#if !showDescription}
-    <!-- Match Results Table -->
-    {#if job.matchResult}
-      <div class="card p-4 border-2 border-surface-500">
-        <h3 class="h5 mb-4">Old Match Results, will be removed @Zhong</h3>
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>Key Skill</th>
-              <th>Score</th>
-              <th>Assessment</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each job.matchResult.keySkills as skill}
-              <tr>
-                <td>{skill.skill}</td>
-                <td>{Math.round(skill.score)}</td>
-                <td>{skill.assessment}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
+  
 
 <!-- Add this section after your existing Match Results table in your component -->
 
@@ -207,92 +189,117 @@
       {/if}
     {#if job.SkillAssessment.Hardskills}
       
-    <div class="table-container">
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>Skill</th>
-              <th>Description</th>
-              <th>Score</th>
-              <th>Required</th>
-              <th>Assessment</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each ['HS1', 'HS2', 'HS3', 'HS4', 'HS5'] as key}
-              {#if job.SkillAssessment.Hardskills[key]}
-                <tr>
-                  <td class="font-medium">{job.SkillAssessment.Hardskills[key].name || 'N/A'}</td>
-                  <td>{job.SkillAssessment.Hardskills[key].description || 'N/A'}</td>
-                  <td>{job.SkillAssessment.Hardskills[key].score || 0}%</td>
-                  <td>
+    <Accordion>
+      {#each ['HS1', 'HS2', 'HS3', 'HS4', 'HS5'] as key}
+        {#if job.SkillAssessment.Hardskills[key]}
+          <AccordionItem>
+            
+            <svelte:fragment slot="summary">
+              {job.SkillAssessment.Hardskills[key].name} ({job.SkillAssessment.Hardskills[key].score || 0}%)
+            </svelte:fragment>
+            <svelte:fragment slot="content">
+              <div class="space-y-4">
+                <div>
+                  <span class="font-semibold">Description:</span>
+                  <p class="mt-1">{job.SkillAssessment.Hardskills[key].description || 'N/A'}</p>
+                </div>
+                <div>
+                  <span class="font-semibold">Required:</span>
+                  <p class="mt-1">
                     {#if job.SkillAssessment.Hardskills[key].description}
                       {job.SkillAssessment.Hardskills[key].description.includes('(required)') ? 'Required' : 'Preferred'}
                     {:else}
                       N/A
                     {/if}
-                  </td>
-                  <td>{job.SkillAssessment.Hardskills[key].assessment || 'No assessment available'}</td>
-                </tr>
-              {/if}
-            {/each}
-          </tbody>
-        </table>
-      </div>
-      
+                  </p>
+                </div>
+                <div>
+                  <span class="font-semibold">Assessment:</span>
+                  <p class="mt-1">{job.SkillAssessment.Hardskills[key].assessment || 'No assessment available'}</p>
+                </div>
+              </div>
+            </svelte:fragment>
+          </AccordionItem>
+        {/if}
+      {/each}
+    </Accordion>
     {/if}
   </div>
 
   <!-- Soft Skills Section -->
-  <div class="card p-4 border-2 border-surface-500
-  ">
+  <div class="card p-4 border-2 border-surface-500">
     <h3 class="h5 mb-4">Soft Skills Assessment</h3>
     {#if job.SkillAssessment.Softskills.softSkillScore}
-        <div class="mt-4">
-          <span class="font-bold">Overall Soft Skills Score:</span>
-          <p class="mt-2">{job.SkillAssessment.Softskills.softSkillScore.totalScore || 0}%</p>
-          <span class="font-bold">Summary:</span>
-          <p class="mt-2">{job.SkillAssessment.Softskills.softSkillScore.summary || 'No summary available'}</p>
-        </div>
-      {/if}
-    {#if job.SkillAssessment.Softskills}
-      <div class="table-container">
-        <table class="table table-hover">
-          <thead>
-            <tr>
-              <th>Skill</th>
-              <th>Description</th>
-              <th>Score</th>
-              <th>Required</th>
-              <th>Assessment</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each ['SS1', 'SS2', 'SS3', 'SS4', 'SS5'] as key}
-              {#if job.SkillAssessment.Softskills[key]}
-                <tr>
-                  <td class="font-medium">{job.SkillAssessment.Softskills[key].name || 'N/A'}</td>
-                  <td>{job.SkillAssessment.Softskills[key].description || 'N/A'}</td>
-                  <td>{job.SkillAssessment.Softskills[key].score || 0}%</td>
-                  <td>
-                    {#if job.SkillAssessment.Softskills[key].description}
-                      {job.SkillAssessment.Softskills[key].description.includes('(required)') ? 'Required' : 'Preferred'}
-                    {:else}
-                      N/A
-                    {/if}
-                  </td>
-                  <td>{job.SkillAssessment.Softskills[key].assessment || 'No assessment available'}</td>
-                </tr>
-              {/if}
-            {/each}
-          </tbody>
-        </table>
+      <div class="mt-4">
+        <span class="font-bold">Overall Soft Skills Score:</span>
+        <p class="mt-2">{job.SkillAssessment.Softskills.softSkillScore.totalScore || 0}%</p>
+        <span class="font-bold">Summary:</span>
+        <p class="mt-2">{job.SkillAssessment.Softskills.softSkillScore.summary || 'No summary available'}</p>
       </div>
-      
+    {/if}
+    {#if job.SkillAssessment.Softskills}
+      <Accordion>
+        {#each ['SS1', 'SS2', 'SS3', 'SS4', 'SS5'] as key}
+          {#if job.SkillAssessment.Softskills[key]}
+            <AccordionItem>
+              <svelte:fragment slot="summary">
+                {job.SkillAssessment.Softskills[key].name} ({job.SkillAssessment.Softskills[key].score || 0}%)
+              </svelte:fragment>
+              <svelte:fragment slot="content">
+                <div class="space-y-4">
+                  <div>
+                    <span class="font-semibold">Description:</span>
+                    <p class="mt-1">{job.SkillAssessment.Softskills[key].description || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <span class="font-semibold">Required:</span>
+                    <p class="mt-1">
+                      {#if job.SkillAssessment.Softskills[key].description}
+                        {job.SkillAssessment.Softskills[key].description.includes('(required)') ? 'Required' : 'Preferred'}
+                      {:else}
+                        N/A
+                      {/if}
+                    </p>
+                  </div>
+                  <div>
+                    <span class="font-semibold">Assessment:</span>
+                    <p class="mt-1">{job.SkillAssessment.Softskills[key].assessment || 'No assessment available'}</p>
+                  </div>
+                </div>
+              </svelte:fragment>
+            </AccordionItem>
+          {/if}
+        {/each}
+      </Accordion>
     {/if}
   </div>
 {/if}
 
+{#if !showDescription}
+    <!-- Match Results Table -->
+    {#if job.matchResult}
+      <div class="card p-4 border-2 border-surface-500">
+        <h3 class="h5 mb-4">Old Match Results, will be removed @Zhong</h3>
+        <table class="table table-hover">
+          <thead>
+            <tr>
+              <th>Key Skill</th>
+              <th>Score</th>
+              <th>Assessment</th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each job.matchResult.keySkills as skill}
+              <tr>
+                <td>{skill.skill}</td>
+                <td>{Math.round(skill.score)}</td>
+                <td>{skill.assessment}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
 
   {:else}
     <!-- Description Section -->
