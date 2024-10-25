@@ -10,7 +10,7 @@ const db = admin.firestore();
 const pubSubClient = new PubSub();
 
 exports.extractDomainExpertise = functions.pubsub
-  .topic('job-description-extracted debug')
+  .topic('job-description-extracted')
   .onPublish(async (message) => {
     const messageData = message.json;
     const { googleId, docId } = messageData;
@@ -73,30 +73,64 @@ exports.extractDomainExpertise = functions.pubsub
 
       let analysisResult;
       if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-        analysisResult = JSON.parse(data.content[0].text.trim());
-        logger.info('Domain expertise extracted successfully');
+        try {
+          analysisResult = JSON.parse(data.content[0].text.trim());
+          logger.info('Domain expertise extracted successfully');
+        } catch (parseError) {
+          logger.error('Failed to parse JSON from Anthropic API response:', parseError);
+          throw new Error('Failed to parse JSON from Anthropic API response');
+        }
       } else {
         logger.error('Unexpected Anthropic API response structure:', data);
         throw new Error('Unexpected Anthropic API response structure');
       }
 
-      // Save analysis result to Firestore using dot notation to update only the DomainExpertise
+      // Validate analysisResult structure
+      if (!analysisResult || !analysisResult.Domain) {
+        logger.error('Invalid analysis result or missing Domain field:', analysisResult);
+        throw new Error('Invalid analysis result or missing Domain field');
+      }
+
+      // Create the domain expertise object with the new structure
+      const domainExpertise = {
+        name: analysisResult.Domain.Name,
+        assessment: analysisResult.Domain.Description,
+        importance: analysisResult.Domain.Importance
+      };
+
+      logger.info(`Formatted Domain Expertise for Firestore: ${JSON.stringify(domainExpertise)}`);
+
+      // Save to Firestore under SkillAssessment/DomainExpertise
       await jobDocRef.update({
-        'Requirements.DomainExpertise': analysisResult.Domain
+        'SkillAssessment.DomainExpertise': domainExpertise
       });
 
-      logger.info(`Domain expertise extraction saved to Firestore for googleId: ${googleId}, docId: ${docId}`);
+      logger.info(`Domain expertise saved to Firestore for googleId: ${googleId}, docId: ${docId}`);
 
+      // Define the topic name first
+      const topicName = 'domain-expertise-extracted';
+      
+      // Create topic if it doesn't exist
+      await pubSubClient.createTopic(topicName).catch((err) => {
+        if (err.code === 6) {
+          logger.info('Topic already exists');
+        } else {
+          throw err;
+        }
+      });
+      
+      // Prepare the message
       const pubSubMessage = {
         docId: docId,
         googleId: googleId
       };
       
-      const topicName = 'domain-expertise-extracted';
-      const pubSubTopic = pubSubClient.topic(topicName);
-      await pubSubTopic.publishMessage({
+      // Publish the message
+      const messageId = await pubSubClient.topic(topicName).publishMessage({
         data: Buffer.from(JSON.stringify(pubSubMessage)),
       });
+
+      logger.info(`Message ${messageId} published to topic ${topicName}`);
 
     } catch (error) {
       logger.error('Error in extractDomainExpertise:', error);

@@ -9,7 +9,7 @@ const db = admin.firestore();
 const pubSubClient = new PubSub();
 
 exports.extractJobRequirements = functions.pubsub
-  .topic('job-description-extracted debug')
+  .topic('job-description-extracted')
   .onPublish(async (message) => {
     const messageData = message.json;
     const { googleId, docId } = messageData;
@@ -114,7 +114,6 @@ Provide only the list of 6 requirements, one per line, without any additional te
         // Save requirements to Firestore
         await jobDocRef.update({
           requirements: requirements,
-          requirementsUpdatedAt: admin.firestore.FieldValue.serverTimestamp()
         });
 
         logger.info(`Job requirements saved to Firestore at path: ${jobDocRef.path}`);
