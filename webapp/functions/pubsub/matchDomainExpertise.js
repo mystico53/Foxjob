@@ -109,7 +109,7 @@ async function matchResumeWithDomainExpertise(resumeText, domainExpertise) {
 
     Your task is to:
     1) Write a critical two-sentence assessment that references specific evidence from the resume, highlighting both strengths and gaps.
-    2) Assign a score between 1 - 100, be very critical, your company's future relies on it.
+    2) Assign a score between 1 - 100, be very critical, your company's future relies on it. Only rate specific expertise mentioned, not genreal skills, e.g. management, or programming
     3) Write a short summary (maximum 15 words) highlighting the biggest strength and weakness.
     
     Format your response as a JSON object with the following structure:

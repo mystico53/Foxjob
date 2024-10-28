@@ -53,7 +53,8 @@
 
     const selectedText = selectAllText();
     console.log('Selected text length:', selectedText.length);
-    const currentUrl = window.location.href;
+    const currentUrl = document.location.href;
+    console.log('Debug - Current URL:', currentUrl);
 
     console.log('Sending text to Firebase');
 
