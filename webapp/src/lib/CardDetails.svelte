@@ -136,6 +136,43 @@
     >
       {showDescription ? 'Show Match Results' : 'Show Description'}
     </button>
+    <button type="button" class="btn variant-filled">
+      <img 
+        src="https://media.giphy.com/media/xsE65jaPsUKUo/giphy.gif"
+        alt="cute fox"
+        class="w-6 h-6"
+      />
+    </button>
+    <button type="button" class="btn-icon p-0 aspect-square rounded-full bg-orange-500 hover:bg-orange-600 hover:scale-105 transition-all duration-200 border-0" style="min-height: 80px; min-width: 80px">
+      <div class="flex flex-col items-center justify-center gap-1">
+        <img 
+          src="https://media.giphy.com/media/xsE65jaPsUKUo/giphy.gif"
+          alt="cute fox" 
+          class="w-8 h-8"
+        />
+        <span class="text-black font-semibold text-sm">Click</span>
+      </div>
+    </button>
+    <button type="button" class="btn-icon p-0 aspect-square rounded-full border-4 border-orange-500 bg-white hover:scale-105 transition-all duration-200 relative" style="min-height: 80px; min-width: 80px">
+      <div class="flex flex-col items-center justify-center gap-1">
+        <img 
+          src="https://media.giphy.com/media/xsE65jaPsUKUo/giphy.gif"
+          alt="cute fox" 
+          class="w-9 h-9"
+        />
+        <span class="text-black text-sm">Click</span>
+      </div>
+    </button>
+    <button type="button" class="btn-icon p-0 aspect-square rounded-full border-[6px] border-[#FF9C00] bg-white hover:scale-105 transition-all duration-200 relative shadow-lg" style="min-height: 80px; min-width: 80px">
+      <div class="flex flex-col items-center justify-center gap-1">
+        <img 
+          src="https://media.giphy.com/media/xsE65jaPsUKUo/giphy.gif"
+          alt="cute fox" 
+          class="w-9 h-9"
+        />
+        <span class="text-black text-sm">Click</span>
+      </div>
+    </button>
   </div>
 
   
