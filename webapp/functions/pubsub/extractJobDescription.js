@@ -7,7 +7,7 @@ const { callAnthropicAPI } = require('../services/anthropicService');
 // Configuration for the pipeline step
 const stepConfig = {
   name: 'extract_job_description',
-  instructions: "Extract and faithfully reproduce the entire job posting...", // your existing instructions
+  instructions: "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.", // your existing instructions
   inputPath: 'texts.rawText',
   outputPath: 'texts.extractedText',
   nextTopic: 'job-description-extracted',
