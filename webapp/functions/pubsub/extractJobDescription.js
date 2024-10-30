@@ -4,108 +4,109 @@ const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
 const { callAnthropicAPI } = require('../services/anthropicService');
 
+// Configuration for the pipeline step
+const stepConfig = {
+  name: 'extract_job_description',
+  instructions: "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.",
+  inputPath: 'texts.rawText',
+  outputPath: 'texts.extractedText',
+  nextTopic: 'job-description-extracted',
+  fallbackValue: 'na'
+};
+
 // Initialize
 const db = admin.firestore();
 const pubSubClient = new PubSub();
 
-// Firestore helper functions
-async function getJobDocument(googleId, docId) {
-  const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
-  const docSnapshot = await jobDocRef.get();
-  return { jobDocRef, docSnapshot };
-}
+// Core operations wrapper
+const operations = {
+  // Database operations
+  async getJobDocument(googleId, docId) {
+    const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+    const docSnapshot = await jobDocRef.get();
+    return { jobDocRef, docSnapshot };
+  },
 
-async function updateJobDescription(docRef, jobData, extractedText) {
-  await docRef.update({
-    texts: {
-      ...jobData.texts,
-      extractedText,
-    },
-  });
-  logger.info('Extracted job description saved to Firestore');
-}
-
-async function populateWithNA(docRef) {
-  try {
-    await docRef.update({
-      texts: {
-        extractedText: "na"
-      }
-    });
-    logger.info('Field populated with "na" due to error');
-  } catch (error) {
-    logger.error('Error populating field with "na":', error);
-  }
-}
-
-// PubSub helper functions
-async function createTopicIfNotExists(topicName) {
-  try {
-    await pubSubClient.createTopic(topicName);
-  } catch (err) {
-    if (err.code === 6) {
-      logger.info('Topic already exists');
+  async updateField(docRef, currentData, fieldPath, value) {
+    const update = {};
+    const pathParts = fieldPath.split('.');
+    
+    if (pathParts.length > 1) {
+      // For nested fields, use dot notation directly
+      update[fieldPath] = value;
     } else {
-      throw err;
+      // For top-level fields
+      update[fieldPath] = value;
+    }
+    
+    await docRef.update(update);
+    logger.info(`Updated ${fieldPath} successfully`);
+  },
+
+  // PubSub operations
+  async publishNext(topicName, message) {
+    try {
+      // Create topic if it doesn't exist
+      await pubSubClient.createTopic(topicName).catch(err => {
+        if (err.code !== 6) throw err; // 6 = already exists
+      });
+
+      const messageId = await pubSubClient.topic(topicName).publishMessage({
+        data: Buffer.from(JSON.stringify(message)),
+      });
+      logger.info(`Published to ${topicName}, messageId: ${messageId}`);
+    } catch (error) {
+      logger.error(`Failed to publish to ${topicName}:`, error);
+      throw error;
     }
   }
-}
-
-async function publishToPubSub(topicName, message) {
-  await createTopicIfNotExists(topicName);
-  const messageId = await pubSubClient.topic(topicName).publishMessage({
-    data: Buffer.from(JSON.stringify(message)),
-  });
-  logger.info(`Message ${messageId} published to topic ${topicName}`);
-  return messageId;
-}
+};
 
 // Main function
 exports.extractJobDescription = functions.pubsub
   .topic('raw-text-stored')
   .onPublish(async (message) => {
-    const messageData = message.json;
-    const { googleId, docId } = messageData;
+    const { googleId, docId } = message.json;
+    const startTime = Date.now();
 
-    logger.info(`Starting process for googleId: ${googleId}, docId: ${docId}`);
+    logger.info(`Starting ${stepConfig.name} for googleId: ${googleId}, docId: ${docId}`);
 
     if (!googleId || !docId) {
-      logger.error('Missing required information in the Pub/Sub message');
+      logger.error('Missing required information');
       return;
     }
 
     try {
-      // Get job document
-      const { jobDocRef, docSnapshot } = await getJobDocument(googleId, docId);
-
+      // Get document
+      const { jobDocRef, docSnapshot } = await operations.getJobDocument(googleId, docId);
+      
       if (!docSnapshot.exists) {
-        logger.error(`Document not found: ${jobDocRef.path}`);
-        await populateWithNA(jobDocRef);
+        logger.error(`Document not found: ${docId}`);
+        await operations.updateField(jobDocRef, {}, stepConfig.outputPath, stepConfig.fallbackValue);
         return;
       }
 
       const jobData = docSnapshot.data();
-      const rawJD = jobData.texts.rawText || "na";
-      logger.info('Raw job description fetched from Firestore');
-
-      // Process with Anthropic API
-      const apiResult = await callAnthropicAPI(rawJD);
+      const inputData = stepConfig.inputPath.split('.').reduce((obj, key) => obj?.[key], jobData) || stepConfig.fallbackValue;
+      
+      // Process with API
+      const apiResult = await callAnthropicAPI(inputData, stepConfig.instructions);
       
       if (apiResult.error) {
-        logger.error('API call failed:', apiResult.message);
-        await populateWithNA(jobDocRef);
-        return;
+        throw new Error(`API error: ${apiResult.message}`);
       }
 
-      // Update Firestore
-      await updateJobDescription(jobDocRef, jobData, apiResult.extractedText);
+      // Update result
+      await operations.updateField(jobDocRef, jobData, stepConfig.outputPath, apiResult.extractedText);
 
-      // Publish to next topic
-      await publishToPubSub('job-description-extracted', { googleId, docId });
+      // Trigger next step
+      await operations.publishNext(stepConfig.nextTopic, { googleId, docId });
+
+      logger.info(`Completed ${stepConfig.name} in ${Date.now() - startTime}ms`);
 
     } catch (error) {
-      logger.error('Error in extractJobDescription:', error);
-      const { jobDocRef } = await getJobDocument(googleId, docId);
-      await populateWithNA(jobDocRef);
+      logger.error(`Error in ${stepConfig.name}:`, error);
+      const { jobDocRef } = await operations.getJobDocument(googleId, docId);
+      await operations.updateField(jobDocRef, {}, stepConfig.outputPath, stepConfig.fallbackValue);
     }
   });
