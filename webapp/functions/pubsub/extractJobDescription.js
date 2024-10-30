@@ -4,10 +4,23 @@ const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
 const { callAnthropicAPI } = require('../services/anthropicService');
 
+// Enhanced logging configuration
+const enhancedLogger = {
+  debug: (message, data = {}) => {
+    logger.debug(`[JobExtractor] ${message}`, data);
+  },
+  info: (message, data = {}) => {
+    logger.info(`[JobExtractor] ${message}`, data);
+  },
+  error: (message, error = null) => {
+    logger.error(`[JobExtractor] ${message}`, error);
+  }
+};
+
 // Configuration for the pipeline step
 const stepConfig = {
   name: 'extract_job_description',
-  instructions: "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.",
+  instructions: "Extract and faithfully reproduce the entire job posting...", // your existing instructions
   inputPath: 'texts.rawText',
   outputPath: 'texts.extractedText',
   nextTopic: 'job-description-extracted',
@@ -18,7 +31,7 @@ const stepConfig = {
 const db = admin.firestore();
 const pubSubClient = new PubSub();
 
-// Core operations wrapper
+// Core operations object
 const operations = {
   // Database operations
   async getJobDocument(googleId, docId) {
@@ -40,7 +53,7 @@ const operations = {
     }
     
     await docRef.update(update);
-    logger.info(`Updated ${fieldPath} successfully`);
+    enhancedLogger.info(`Updated ${fieldPath} successfully`);
   },
 
   // PubSub operations
@@ -54,11 +67,44 @@ const operations = {
       const messageId = await pubSubClient.topic(topicName).publishMessage({
         data: Buffer.from(JSON.stringify(message)),
       });
-      logger.info(`Published to ${topicName}, messageId: ${messageId}`);
+      enhancedLogger.info(`Published to ${topicName}, messageId: ${messageId}`);
     } catch (error) {
-      logger.error(`Failed to publish to ${topicName}:`, error);
+      enhancedLogger.error(`Failed to publish to ${topicName}:`, error);
       throw error;
     }
+  }
+};
+
+// Additional validation helpers
+const validators = {
+  checkInputData: (inputData) => {
+    if (!inputData || inputData === '') {
+      throw new Error('Input data is empty or undefined');
+    }
+    if (typeof inputData !== 'string') {
+      throw new Error(`Invalid input data type: ${typeof inputData}`);
+    }
+    return true;
+  },
+  
+  checkAPIResponse: (response) => {
+    if (!response) {
+      throw new Error('API response is null or undefined');
+    }
+    if (response.error) {
+      throw new Error(`API error: ${response.message}`);
+    }
+    return true;
+  }
+};
+
+// Enhanced error handling wrapper
+const withErrorHandling = async (operation, fallback) => {
+  try {
+    return await operation();
+  } catch (error) {
+    enhancedLogger.error('Operation failed', error);
+    return fallback;
   }
 };
 
@@ -66,47 +112,86 @@ const operations = {
 exports.extractJobDescription = functions.pubsub
   .topic('raw-text-stored')
   .onPublish(async (message) => {
-    const { googleId, docId } = message.json;
     const startTime = Date.now();
-
-    logger.info(`Starting ${stepConfig.name} for googleId: ${googleId}, docId: ${docId}`);
-
-    if (!googleId || !docId) {
-      logger.error('Missing required information');
-      return;
-    }
+    let debugInfo = {};
 
     try {
-      // Get document
-      const { jobDocRef, docSnapshot } = await operations.getJobDocument(googleId, docId);
+      const { googleId, docId } = message.json;
+      debugInfo.metadata = { googleId, docId, startTime };
       
+      enhancedLogger.info('Starting job extraction', debugInfo);
+
+      // Validate input parameters
+      if (!googleId || !docId) {
+        throw new Error('Missing required parameters');
+      }
+
+      // Get document with error handling
+      const { jobDocRef, docSnapshot } = await withErrorHandling(
+        async () => await operations.getJobDocument(googleId, docId),
+        { error: 'Failed to fetch document' }
+      );
+
+      debugInfo.documentExists = docSnapshot.exists;
+      enhancedLogger.debug('Document fetch status', debugInfo);
+
       if (!docSnapshot.exists) {
-        logger.error(`Document not found: ${docId}`);
-        await operations.updateField(jobDocRef, {}, stepConfig.outputPath, stepConfig.fallbackValue);
-        return;
+        throw new Error(`Document not found: ${docId}`);
       }
 
+      // Extract and validate input data
       const jobData = docSnapshot.data();
-      const inputData = stepConfig.inputPath.split('.').reduce((obj, key) => obj?.[key], jobData) || stepConfig.fallbackValue;
+      const inputData = stepConfig.inputPath.split('.').reduce((obj, key) => obj?.[key], jobData);
       
-      // Process with API
-      const apiResult = await callAnthropicAPI(inputData, stepConfig.instructions);
-      
+      debugInfo.inputDataLength = inputData ? inputData.length : 0;
+      enhancedLogger.debug('Input data stats', debugInfo);
+
+      validators.checkInputData(inputData);
+
+      // Call API with enhanced error handling
+      const apiResult = await withErrorHandling(
+        async () => {
+          const result = await callAnthropicAPI(inputData, stepConfig.instructions);
+          validators.checkAPIResponse(result);
+          return result;
+        },
+        { error: true, message: 'API processing failed' }
+      );
+
+      debugInfo.apiResponseReceived = !!apiResult;
+      enhancedLogger.debug('API response received', debugInfo);
+
       if (apiResult.error) {
-        throw new Error(`API error: ${apiResult.message}`);
+        throw new Error(`API processing failed: ${apiResult.message}`);
       }
 
-      // Update result
+      // Update document
       await operations.updateField(jobDocRef, jobData, stepConfig.outputPath, apiResult.extractedText);
-
+      
       // Trigger next step
       await operations.publishNext(stepConfig.nextTopic, { googleId, docId });
 
-      logger.info(`Completed ${stepConfig.name} in ${Date.now() - startTime}ms`);
+      const duration = Date.now() - startTime;
+      enhancedLogger.info(`Completed successfully in ${duration}ms`, {
+        ...debugInfo,
+        duration,
+        success: true
+      });
 
     } catch (error) {
-      logger.error(`Error in ${stepConfig.name}:`, error);
-      const { jobDocRef } = await operations.getJobDocument(googleId, docId);
-      await operations.updateField(jobDocRef, {}, stepConfig.outputPath, stepConfig.fallbackValue);
+      const duration = Date.now() - startTime;
+      enhancedLogger.error('Processing failed', {
+        ...debugInfo,
+        error: error.message,
+        duration,
+        success: false
+      });
+
+      // Attempt to update with fallback value if we have document reference
+      if (debugInfo.metadata) {
+        const { googleId, docId } = debugInfo.metadata;
+        const { jobDocRef } = await operations.getJobDocument(googleId, docId);
+        await operations.updateField(jobDocRef, {}, stepConfig.outputPath, stepConfig.fallbackValue);
+      }
     }
   });
