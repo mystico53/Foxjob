@@ -8,6 +8,59 @@ const { callAnthropicAPI } = require('../services/anthropicService');
 const db = admin.firestore();
 const pubSubClient = new PubSub();
 
+// Firestore helper functions
+async function getJobDocument(googleId, docId) {
+  const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+  const docSnapshot = await jobDocRef.get();
+  return { jobDocRef, docSnapshot };
+}
+
+async function updateJobDescription(docRef, jobData, extractedText) {
+  await docRef.update({
+    texts: {
+      ...jobData.texts,
+      extractedText,
+    },
+  });
+  logger.info('Extracted job description saved to Firestore');
+}
+
+async function populateWithNA(docRef) {
+  try {
+    await docRef.update({
+      texts: {
+        extractedText: "na"
+      }
+    });
+    logger.info('Field populated with "na" due to error');
+  } catch (error) {
+    logger.error('Error populating field with "na":', error);
+  }
+}
+
+// PubSub helper functions
+async function createTopicIfNotExists(topicName) {
+  try {
+    await pubSubClient.createTopic(topicName);
+  } catch (err) {
+    if (err.code === 6) {
+      logger.info('Topic already exists');
+    } else {
+      throw err;
+    }
+  }
+}
+
+async function publishToPubSub(topicName, message) {
+  await createTopicIfNotExists(topicName);
+  const messageId = await pubSubClient.topic(topicName).publishMessage({
+    data: Buffer.from(JSON.stringify(message)),
+  });
+  logger.info(`Message ${messageId} published to topic ${topicName}`);
+  return messageId;
+}
+
+// Main function
 exports.extractJobDescription = functions.pubsub
   .topic('raw-text-stored')
   .onPublish(async (message) => {
@@ -22,8 +75,8 @@ exports.extractJobDescription = functions.pubsub
     }
 
     try {
-      const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
-      const docSnapshot = await jobDocRef.get();
+      // Get job document
+      const { jobDocRef, docSnapshot } = await getJobDocument(googleId, docId);
 
       if (!docSnapshot.exists) {
         logger.error(`Document not found: ${jobDocRef.path}`);
@@ -35,7 +88,7 @@ exports.extractJobDescription = functions.pubsub
       const rawJD = jobData.texts.rawText || "na";
       logger.info('Raw job description fetched from Firestore');
 
-      // Call the API function
+      // Process with Anthropic API
       const apiResult = await callAnthropicAPI(rawJD);
       
       if (apiResult.error) {
@@ -44,54 +97,15 @@ exports.extractJobDescription = functions.pubsub
         return;
       }
 
-      // Save to Firestore
-      await jobDocRef.update({
-        texts: {
-          ...jobData.texts,
-          extractedText: apiResult.extractedText,
-        },
-      });
-      
-      logger.info('Extracted job description saved to Firestore');
+      // Update Firestore
+      await updateJobDescription(jobDocRef, jobData, apiResult.extractedText);
 
       // Publish to next topic
-      const newTopicName = 'job-description-extracted';
-      
-      await pubSubClient.createTopic(newTopicName).catch((err) => {
-        if (err.code === 6) {
-          logger.info('Topic already exists');
-        } else {
-          throw err;
-        }
-      });
-
-      const newMessage = {
-        googleId: googleId,
-        docId: docId
-      };
-
-      const newMessageId = await pubSubClient.topic(newTopicName).publishMessage({
-        data: Buffer.from(JSON.stringify(newMessage)),
-      });
-
-      logger.info(`Message ${newMessageId} published to topic ${newTopicName}`);
+      await publishToPubSub('job-description-extracted', { googleId, docId });
 
     } catch (error) {
       logger.error('Error in extractJobDescription:', error);
+      const { jobDocRef } = await getJobDocument(googleId, docId);
       await populateWithNA(jobDocRef);
     }
   });
-
-// Helper function
-async function populateWithNA(docRef) {
-  try {
-    await docRef.update({
-      texts: {
-        extractedText: "na"
-      }
-    });
-    logger.info('Field populated with "na" due to error');
-  } catch (error) {
-    logger.error('Error populating field with "na":', error);
-  }
-}
