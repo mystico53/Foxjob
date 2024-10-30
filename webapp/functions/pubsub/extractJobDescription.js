@@ -10,6 +10,7 @@ const stepConfig = {
   instructions: "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.", // your existing instructions
   inputPath: 'texts.rawText',
   outputPath: 'texts.extractedText',
+  triggerTopic: 'raw-text-stored',
   nextTopic: 'job-description-extracted',
   fallbackValue: 'na'
 };
@@ -61,7 +62,7 @@ const operations = {
 
 // Main function
 exports.extractJobDescription = functions.pubsub
-  .topic('raw-text-stored')
+  .topic(stepConfig.triggerTopic)
   .onPublish(async (message) => {
     const { googleId, docId } = message.json;
     const startTime = Date.now();
