@@ -1,31 +1,67 @@
-// pubsub/pipelineConfig.js
-
+// pipeline-config.js
 const pipelineSteps = {
   extractJobDescription: {
     name: 'extract_job_description',
-    instructions: "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.",
-    inputPath: 'texts.rawText',
+    instructions: "Extract and faithfully reproduce the following job posting, including all details about the position, company, and application process. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.\n\nHere is the job posting to extract:\n\n{TEXT}",
+    inputs: [{
+      path: 'texts.rawText',
+      placeholder: '{TEXT}'
+    }],
     outputPath: 'texts.extractedText',
+    outputTransform: {
+      type: 'direct'
+    },
     triggerTopic: 'raw-text-stored',
     nextTopic: 'job-description-extracted',
     fallbackValue: 'na',
     collections: ['users', 'jobs'],
-    api: 'anthropic', // Specify the API to use
+    api: 'anthropic'
   },
 
   extractAllSkillsNeeded: {
     name: 'extract_all_skills_needed',
-    instructions: "List all skills needed for this job in a neutral and comprehensive way. If there is a structure of mandatory/required and or preferred/minimum, etc. keep these.",
-    inputPath: 'texts.extractedText',
-    outputPath: 'needed.skills',
+    instructions: `Extract all skills mentioned from this job description, be neutral and comprehensive. if the job description structures the skills in categories, such as e.g "required,must have, preferred, bonus, mininum," keep them and add it in brackets behind the name. if it doesnt mention it, dont create the brackets.
+
+Format your response as a JSON object with the following structure:
+
+{
+  "Skills": {
+    "skill1": {
+    "name": "name of skill (single word)",
+      "description": "one short sentence description of this skill (if mentioned "required/preferred/etc, otherwise leave blank ()",
+    },
+    "skill2": {
+    "name": "name of skill (single word)",
+      "description": "one short sentence description of this skill (if mentioned "required/preferred/etc, otherwise leave blank ()",
+    }
+    // ... not more than 10
+  }
+}
+
+Here's the job description to analyze:
+
+{TEXT}
+
+Provide only the JSON response without any additional text or explanations.`,
+    inputs: [{
+      path: 'texts.extractedText',
+      placeholder: '{TEXT}'
+    }],
+    outputPath: 'allSkills',
+    outputTransform: {
+      type: 'numbered',
+      fields: {
+        name: 'name',
+        description: 'description',
+      },
+      pattern: 'Skill{n}'
+    },
     triggerTopic: 'job-description-extracted',
     nextTopic: 'skills-needed-extracted',
-    fallbackValue: 'na',
+    fallbackValue: {},
     collections: ['users', 'jobs'],
-    api: 'openai', // Use OpenAI API for this step
-  },
-
-  // Add other pipeline steps as needed...
+    api: 'anthropic'
+  }
 };
 
-module.exports = pipelineSteps;
+module.exports = { pipelineSteps };

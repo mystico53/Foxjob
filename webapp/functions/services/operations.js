@@ -1,5 +1,4 @@
 // functions/services/operations.js
-
 const admin = require('../firebaseAdmin'); 
 const logger = require('firebase-functions/logger');
 
@@ -17,14 +16,43 @@ const operations = {
       }
     }
     const docSnapshot = await ref.get();
-    return { docRef: ref, docSnapshot };
+    
+    // Add debug logging
+    if (docSnapshot.exists) {
+      const data = docSnapshot.data();
+      logger.info('Document data:', {
+        path: ref.path,
+        data: JSON.stringify(data, null, 2)
+      });
+    }
+    
+    return { 
+      docRef: ref, 
+      docSnapshot,
+      docData: docSnapshot.exists ? docSnapshot.data() : null 
+    };
+  },
+
+  async getFieldValue(data, path) {
+    if (!path) return null;
+    return path.split('.').reduce((obj, key) => {
+      if (obj && typeof obj === 'object') {
+        return obj[key];
+      }
+      return null;
+    }, data);
   },
 
   async updateField(docRef, currentData, fieldPath, value) {
     const update = {};
     update[fieldPath] = value;
     await docRef.update(update);
-    logger.info(`Updated ${fieldPath} successfully`);
+    logger.info(`Updated ${fieldPath} successfully`, {
+      fieldPath,
+      valuePreview: typeof value === 'string' ? 
+        value.substring(0, 100) : 
+        JSON.stringify(value).substring(0, 100)
+    });
   },
 
   async publishNext(pubSubClient, topicName, message) {
@@ -38,7 +66,9 @@ const operations = {
       const messageId = await topic.publishMessage({
         data: Buffer.from(JSON.stringify(message)),
       });
-      logger.info(`Published to ${topicName}, messageId: ${messageId}`);
+      logger.info(`Published to ${topicName}, messageId: ${messageId}`, {
+        message: JSON.stringify(message)
+      });
     } catch (error) {
       logger.error(`Failed to publish to ${topicName}:`, error);
       throw error;
