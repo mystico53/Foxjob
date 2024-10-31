@@ -135,14 +135,14 @@ exports.extractJobDescription = createPipelineStep({
   collections: ['users', 'jobs'], // optional, defaults to ['users', 'jobs']
 });
 
-/*// Example usage for a different pipeline step
+// Example usage for a different pipeline step
 exports.anotherPipelineStep = createPipelineStep({
-  name: 'another_step',
-  instructions: "Different processing instructions...",
-  inputPath: 'differentField.inputText',
-  outputPath: 'differentField.processedText',
-  triggerTopic: 'different-trigger-topic',
+  name: 'extract_all_skills_needed',
+  instructions: "List all skills needed for this job in a neutral and comprehensive way. If there is a structure of mandatory/required and or preferred/minimum, etc. keep these.",
+  inputPath: 'texts.extractedText',
+  outputPath: 'needed.skills',
+  triggerTopic: 'job-description-extracted',
   nextTopic: 'different-next-topic',
-  fallbackValue: '',
-  collections: ['users', 'differentCollection'],
-});*/
+  fallbackValue: 'na',
+  collections: ['users', 'jobs'],
+});
