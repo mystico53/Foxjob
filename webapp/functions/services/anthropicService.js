@@ -2,8 +2,15 @@ const fetch = require('node-fetch');
 const { logger } = require('firebase-functions');
 const functions = require('firebase-functions');
 
-// Remove any quotes that aren't field name quotes
 const cleanJson = (text) => {
+  // First try parsing as-is
+  try {
+    JSON.parse(text);
+    return text;
+  } catch (e) {
+    // If parsing fails, proceed with cleaning
+  }
+
   // Process line by line
   const lines = text.split('\n').map(line => {
     if (line.includes(':')) {
@@ -11,25 +18,41 @@ const cleanJson = (text) => {
       const afterColon = afterColonParts.join(':');
       
       let cleanedValue = afterColon.trim();
+      
+      // Handle string values
       if (cleanedValue.startsWith('"')) {
+        // Remove start/end quotes
         cleanedValue = cleanedValue.slice(1);
         if (cleanedValue.endsWith('",') || cleanedValue.endsWith('"')) {
           cleanedValue = cleanedValue.slice(0, -1);
         }
-        // Remove ALL quotes inside the value
-        cleanedValue = cleanedValue.replace(/["""]|"/g, '');
-        // Add back JSON quotes
+        
+        // Clean up quotes and wrap properly
+        cleanedValue = cleanedValue
+          .replace(/(?<!\\)"/g, '\\"')  // Escape unescaped quotes
+          .replace(/[""]|'/g, '"');     // Replace smart quotes
+        
         cleanedValue = `"${cleanedValue}"`;
         if (afterColon.trim().endsWith(',')) {
           cleanedValue += ',';
         }
       }
-      return `${beforeColon}:${cleanedValue}`;
+      
+      return `${beforeColon.trim()}:${cleanedValue}`;
     }
     return line;
   });
   
-  return lines.join('\n');
+  const result = lines.join('\n');
+  
+  // Final validation
+  try {
+    JSON.parse(result);
+    return result;
+  } catch (error) {
+    logger.warn('JSON cleaning resulted in invalid JSON, returning original');
+    return text;
+  }
 };
 
 async function callAnthropicAPI(rawText, instructions) {
@@ -76,11 +99,8 @@ async function callAnthropicAPI(rawText, instructions) {
       const rawText = responseData.content[0].text.trim();
       
       try {
-        // Check if it's even trying to be JSON
+        // Check if it's trying to be JSON
         if (!rawText.startsWith('{') && !rawText.startsWith('[')) {
-          logger.info('Received non-JSON response, returning as-is:', {
-            textPreview: rawText.substring(0, 100) + '...'
-          });
           return {
             error: false,
             extractedText: rawText
@@ -96,10 +116,8 @@ async function callAnthropicAPI(rawText, instructions) {
           extractedText: JSON.stringify(parsedJson)
         };
       } catch (parseError) {
-        // If JSON parsing fails, return the raw text instead of error
-        logger.info('JSON parsing failed, returning raw text:', {
-          error: parseError.message,
-          textPreview: rawText.substring(0, 100) + '...'
+        logger.warn('JSON parsing failed, returning raw text:', {
+          error: parseError.message
         });
         
         return {
