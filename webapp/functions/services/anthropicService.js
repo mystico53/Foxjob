@@ -1,10 +1,17 @@
 const fetch = require('node-fetch');
 const { logger } = require('firebase-functions');
 const functions = require('firebase-functions');
+const { z } = require('zod');
+
+// Simplified approach: just clean the text before JSON parsing
+const sanitizeJsonText = (text) => {
+  return text.replace(/(?<=:\s*)"([^"]*)"(?=\s*[,}])/g, (match, p1) => {
+    return `"${p1.replace(/"/g, "'")}"`;
+  });
+};
 
 async function callAnthropicAPI(rawText, instructions) {
   try {
-    // Get API key
     const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
     
     if (!apiKey) {
@@ -14,7 +21,6 @@ async function callAnthropicAPI(rawText, instructions) {
 
     const prompt = `${instructions}\n\n${rawText}`;
     
-    // Log the request details (excluding sensitive data)
     logger.info('Anthropic API Request:', {
       model: 'claude-3-haiku-20240307',
       instructionsPreview: instructions.substring(0, 100) + '...',
@@ -40,7 +46,6 @@ async function callAnthropicAPI(rawText, instructions) {
 
     const responseData = await anthropicResponse.json();
 
-    // Log full response data
     logger.info('Full Anthropic API Response:', {
       status: anthropicResponse.status,
       headers: Object.fromEntries(anthropicResponse.headers.entries()),
@@ -53,17 +58,36 @@ async function callAnthropicAPI(rawText, instructions) {
     }
 
     if (responseData.content && responseData.content.length > 0 && responseData.content[0].type === 'text') {
-      // Log successful extraction with full text
-      logger.info('Job description extracted successfully:', {
-        fullText: responseData.content[0].text,
-        textLength: responseData.content[0].text.length,
-        contentTypes: responseData.content.map(c => c.type)
-      });
+      const rawText = responseData.content[0].text.trim();
       
-      return { 
-        error: false, 
-        extractedText: responseData.content[0].text.trim() 
-      };
+      try {
+        // Sanitize text before parsing
+        const sanitizedText = sanitizeJsonText(rawText);
+        const parsedJson = JSON.parse(sanitizedText);
+        
+        logger.info('JSON response processed successfully:', {
+          fullText: JSON.stringify(parsedJson),
+          textLength: rawText.length,
+          contentTypes: responseData.content.map(c => c.type)
+        });
+        
+        return { 
+          error: false, 
+          extractedText: JSON.stringify(parsedJson)
+        };
+      } catch (parseError) {
+        // If it's not JSON or can't be sanitized, return as-is
+        logger.info('Returning raw text response:', {
+          fullText: rawText,
+          textLength: rawText.length,
+          contentTypes: responseData.content.map(c => c.type)
+        });
+        
+        return {
+          error: false,
+          extractedText: rawText
+        };
+      }
     } else {
       logger.error('Invalid API response structure:', {
         responseData,
