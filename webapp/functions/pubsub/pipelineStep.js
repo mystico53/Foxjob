@@ -106,12 +106,11 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
 
     switch (outputTransform.type) {
       case 'direct':
-        // For 'direct' type, just use the text as-is
         return await operations.updateField(docRef, docData, outputPath, apiResult.extractedText);
 
       case 'numbered': 
       case 'extend': {
-        // Only try to parse JSON for numbered and extend types
+        // Parse JSON if needed
         if (typeof apiResult.extractedText === 'string') {
           try {
             parsedResult = JSON.parse(apiResult.extractedText);
@@ -125,23 +124,35 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
         }
 
         if (outputTransform.type === 'numbered') {
-          const numberedEntries = {};
-          Object.entries(parsedResult).forEach(([key, value], index) => {
-            const entryKey = outputTransform.pattern.replace('{n}', index + 1);
-            numberedEntries[entryKey] = {
-              [outputTransform.fields.name]: key,
-              [outputTransform.fields.description]: value
-            };
-          });
-          return await operations.updateField(docRef, docData, outputPath, numberedEntries);
+          const transformedEntries = {};
+          let index = 1;
+          
+          // Handle any object where entries should be transformed into a numbered sequence
+          for (const [key, value] of Object.entries(parsedResult)) {
+            const entryKey = outputTransform.pattern.replace('{n}', index);
+            
+            // Map fields according to the configuration
+            const transformedValue = {};
+            Object.entries(outputTransform.fields).forEach(([resultField, targetField]) => {
+              transformedValue[targetField] = value[resultField];
+            });
+            
+            transformedEntries[entryKey] = transformedValue;
+            index++;
+          }
+          
+          return await operations.updateField(docRef, docData, outputPath, transformedEntries);
         } else { // extend
           const existingData = docData[outputPath.split('.')[0]] || {};
           Object.entries(parsedResult).forEach(([key, value]) => {
             const entryKey = outputTransform.matchPattern.replace('{n}', key);
             if (existingData[entryKey]) {
+              // Map fields according to the configuration
+              const transformedValue = {};
               Object.entries(outputTransform.fields).forEach(([resultField, targetField]) => {
-                existingData[entryKey][targetField] = value[resultField];
+                transformedValue[targetField] = value[resultField];
               });
+              existingData[entryKey] = transformedValue;
             }
           });
           return await operations.updateField(docRef, docData, outputPath, existingData);
