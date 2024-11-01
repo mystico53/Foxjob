@@ -82,6 +82,12 @@ const validateConfig = (config) => {
       }
       break;
 
+      case 'fixed':
+        if (!config.outputTransform.fields) {
+          throw new Error('Fixed transform requires fields configuration');
+        }
+        break;
+
     case 'extend':
       if (!config.outputTransform.fields) {
         throw new Error('Extend transform requires fields configuration');
@@ -104,59 +110,81 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
   try {
     let parsedResult;
 
+    // Sanitize and parse JSON for relevant types
+    if (outputTransform.type === 'numbered' || outputTransform.type === 'fixed' || outputTransform.type === 'extend') {
+      if (typeof apiResult.extractedText === 'string') {
+        try {
+          // Sanitize the JSON string by replacing problematic quotes
+          const sanitizedText = apiResult.extractedText.replace(/(?<=:\s*)"([^"]*)"(?=\s*[,}])/g, (match, p1) => {
+            // Replace internal double quotes with single quotes
+            return `"${p1.replace(/"/g, "'")}"`;
+          });
+          
+          try {
+            parsedResult = JSON.parse(sanitizedText);
+          } catch (parseError) {
+            // If still failing, try more aggressive sanitization
+            const aggressiveSanitized = sanitizedText
+              .replace(/\\"/g, "'") // Replace escaped quotes with single quotes
+              .replace(/(?<=[:\s])"([^"]+)"(?=[,}\s])/g, '"$1"'); // Fix quote pairs
+            
+            parsedResult = JSON.parse(aggressiveSanitized);
+          }
+        } catch (error) {
+          logger.error(`[${executionId}] Error parsing API result:`, error);
+          logger.error(`[${executionId}] Raw API result:`, apiResult.extractedText.substring(0, 500));
+          throw error;
+        }
+      } else {
+        parsedResult = apiResult.extractedText;
+      }
+    }
+
     switch (outputTransform.type) {
       case 'direct':
         return await operations.updateField(docRef, docData, outputPath, apiResult.extractedText);
 
-      case 'numbered': 
-      case 'extend': {
-        // Parse JSON if needed
-        if (typeof apiResult.extractedText === 'string') {
-          try {
-            parsedResult = JSON.parse(apiResult.extractedText);
-          } catch (error) {
-            logger.error(`[${executionId}] Error parsing API result:`, error);
-            logger.error(`[${executionId}] Raw API result:`, apiResult.extractedText.substring(0, 500));
-            throw error;
-          }
-        } else {
-          parsedResult = apiResult.extractedText;
+      case 'numbered': {
+        const transformedEntries = {};
+        let index = 1;
+        
+        for (const [key, value] of Object.entries(parsedResult)) {
+          const entryKey = outputTransform.pattern.replace('{n}', index);
+          const transformedValue = mapFields(value, outputTransform.fields);
+          transformedEntries[entryKey] = transformedValue;
+          index++;
         }
+        
+        return await operations.updateField(docRef, docData, outputPath, transformedEntries);
+      }
 
-        if (outputTransform.type === 'numbered') {
-          const transformedEntries = {};
-          let index = 1;
-          
-          // Handle any object where entries should be transformed into a numbered sequence
-          for (const [key, value] of Object.entries(parsedResult)) {
-            const entryKey = outputTransform.pattern.replace('{n}', index);
-            
-            // Map fields according to the configuration
-            const transformedValue = {};
-            Object.entries(outputTransform.fields).forEach(([resultField, targetField]) => {
-              transformedValue[targetField] = value[resultField];
-            });
-            
-            transformedEntries[entryKey] = transformedValue;
-            index++;
+      case 'fixed': {
+        const transformedData = {};
+        for (const [key, schema] of Object.entries(outputTransform.fields)) {
+          if (parsedResult[key]) {
+            transformedData[key] = mapFields(parsedResult[key], schema);
           }
-          
-          return await operations.updateField(docRef, docData, outputPath, transformedEntries);
-        } else { // extend
-          const existingData = docData[outputPath.split('.')[0]] || {};
+        }
+        return await operations.updateField(docRef, docData, outputPath, transformedData);
+      }
+
+      case 'extend': {
+        const existingData = docData[outputPath.split('.')[0]] || {};
+        if (outputTransform.pattern) {
           Object.entries(parsedResult).forEach(([key, value]) => {
-            const entryKey = outputTransform.matchPattern.replace('{n}', key);
+            const entryKey = outputTransform.pattern.replace('{n}', key);
             if (existingData[entryKey]) {
-              // Map fields according to the configuration
-              const transformedValue = {};
-              Object.entries(outputTransform.fields).forEach(([resultField, targetField]) => {
-                transformedValue[targetField] = value[resultField];
-              });
-              existingData[entryKey] = transformedValue;
+              existingData[entryKey] = mapFields(value, outputTransform.fields);
             }
           });
-          return await operations.updateField(docRef, docData, outputPath, existingData);
+        } else {
+          Object.entries(parsedResult).forEach(([key, value]) => {
+            if (existingData[key] && outputTransform.fields[key]) {
+              existingData[key] = mapFields(value, outputTransform.fields[key]);
+            }
+          });
         }
+        return await operations.updateField(docRef, docData, outputPath, existingData);
       }
 
       default:
@@ -167,6 +195,19 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
     logger.error(`[${executionId}] Transform config:`, outputTransform);
     throw error;
   }
+};
+
+// Helper function to map fields according to schema
+const mapFields = (value, schema) => {
+  const result = {};
+  Object.entries(schema).forEach(([resultField, targetField]) => {
+    if (typeof targetField === 'object') {
+      result[resultField] = mapFields(value[resultField] || {}, targetField);
+    } else {
+      result[targetField] = value[resultField];
+    }
+  });
+  return result;
 };
 
 const callAPI = async (config, prompt, executionId) => {

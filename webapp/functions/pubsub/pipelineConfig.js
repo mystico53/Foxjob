@@ -1,5 +1,8 @@
 // pipeline-config.js
 const pipelineSteps = {
+  
+/*//extract_job_description ********************************************************************* 
+**********************************************************************/ 
   extractJobDescription: {
     name: 'extract_job_description',
     instructions: "Extract and faithfully reproduce the following job posting, including all details about the position, company, and application process. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.\n\nHere is the job posting to extract:\n\n{TEXT}",
@@ -18,6 +21,8 @@ const pipelineSteps = {
     api: 'anthropic'
   },
 
+  /*//extract_Jobs_Responsibilites ********************************************************************* 
+**********************************************************************/ 
   extractJobsResponsibilities: {
     name: 'extract_Jobs_Responsibilites',
     instructions: `You will be given a job posting to analyze. Extract and summarize in two parts:
@@ -45,6 +50,10 @@ Job posting to analyze:
     collections: ['users', 'jobs'],
     api: 'anthropic'
   },
+
+  
+  /*//extract_all_skills_needed ********************************************************************* 
+**********************************************************************/ 
 
   extractAllSkillsNeeded: {
     name: 'extract_all_skills_needed',
@@ -87,7 +96,64 @@ Provide only the JSON response without any additional text or explanations.`,
     fallbackValue: {},
     collections: ['users', 'jobs'],
     api: 'anthropic'
+  },
+
+  /*//extract_Domain_Expertise********************************************************************* 
+**********************************************************************/ 
+
+  extractDomainExpertise: {
+    name: 'extract_Domain_Expertise',
+    instructions: `if true: extract where specific domain expertise is discussed and what words are used (e.g. "required, preferred, passion, bonus, etc.") respond in this format.
+
+only pick one domain, not two. if you have more than one, pick the more domain specific one (eg. dentist-tech instead of health cloud software)
+
+if it is not strongly mentioned or formulated in a general way that applies to all proper candidates: reply with "no strong indication"
+
+instructions: Extract domain expertise requirements from the job description and analyze how they are characterized. Format your response as a JSON object according to the following structure:
+
+{
+  "domain_expertise": {
+    "field": "specific domain area in ELI5 words (use 'general' if no specific domain is mentioned)",
+    "requirement_level": "ENUM: ['required', 'preferred', 'bonus', 'passionate', 'no_strong_indication']",
+    "context": "direct quote from the text that supports this classification (leave empty if none found)",
+    "justification": "brief explanation of why this classification was chosen (1-2 sentences)"
   }
+}
+
+Format rules:
+- Use only one domain expertise field (the most prominently mentioned)
+- For requirement_level, use exactly one of the predefined ENUM values
+- If multiple requirement levels are mentioned, choose the strongest one
+- If domain expertise is mentioned but without clear requirement level, use 'no_strong_indication'
+- Context should be a direct quote if available
+- Justification should explain the reasoning behind the classification
+
+Here's the job description to analyze:
+
+{TEXT}
+
+Provide only the JSON response without any additional text or explanations.`,
+    inputs: [{
+      path: 'texts.extractedText',
+      placeholder: '{TEXT}'
+    }],
+    outputPath: 'jobdetails.domainExpertise',
+    outputTransform: {
+      type: 'fixed',
+      fields: {
+        domain_expertise: {
+          field: 'field',
+          requirement_level: 'requirement_level',
+          context: 'context',
+          justification: 'justification'
+        }
+      }
+    },
+    triggerTopic: 'job-description-extracted',
+    fallbackValue: 'na',
+    collections: ['users', 'jobs'],
+    api: 'anthropic'
+  },
 };
 
 module.exports = { pipelineSteps };
