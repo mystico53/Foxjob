@@ -37,29 +37,15 @@ const logApiOperation = (operation, details, executionId) => {
 const getInputData = async (inputs, docData, context) => {
   const inputData = {};
   
-  logger.info('Getting input data:', {
-    availableFields: Object.keys(docData),
-    docData: JSON.stringify(docData, null, 2).substring(0, 500) + '...'
-  });
-  
   for (const input of inputs) {
     const resolvedPath = input.path.replace(/{(\w+)}/g, (match, key) => context[key] || match);
-    
-    // Get nested value
-    const value = await operations.getFieldValue(docData, resolvedPath);
+    const value = resolvedPath.split('.')
+      .reduce((obj, key) => (obj && obj[key] !== undefined ? obj[key] : null), docData);
       
-    if (value === null || value === undefined) {
-      logger.warn(`Input data not found for path: ${resolvedPath}`, {
-        availablePaths: Object.keys(docData).join(', ')
-      });
+    if (value === null) {
+      logger.warn(`Input data not found for path: ${resolvedPath}`);
       continue;
     }
-    
-    logger.info(`Found value for ${resolvedPath}:`, {
-      preview: typeof value === 'string' ? 
-        value.substring(0, 100) : 
-        JSON.stringify(value).substring(0, 100)
-    });
     
     inputData[input.placeholder] = value;
   }
