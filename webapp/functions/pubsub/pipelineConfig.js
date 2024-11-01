@@ -18,6 +18,34 @@ const pipelineSteps = {
     api: 'anthropic'
   },
 
+  extractJobsResponsibilities: {
+    name: 'extract_Jobs_Responsibilites',
+    instructions: `You will be given a job posting to analyze. Extract and summarize in two parts:
+1. A single sentence describing what the company does and their domain expertise
+2. A single sentence describing what the role is about at a high level
+
+Format your response exactly like this:
+Company: [One sentence description]
+Role: [One sentence description]
+
+Do not include any specific requirements or qualifications.
+
+Job posting to analyze:
+{TEXT}`,
+    inputs: [{
+      path: 'texts.extractedText',
+      placeholder: '{TEXT}'
+    }],
+    outputPath: 'jobdetails.jobsresponsibilities',
+    outputTransform: {
+      type: 'direct'
+    },
+    triggerTopic: 'job-description-extracted',
+    fallbackValue: 'na',
+    collections: ['users', 'jobs'],
+    api: 'anthropic'
+  },
+
   extractAllSkillsNeeded: {
     name: 'extract_all_skills_needed',
     instructions: `Extract all skills mentioned from this job description, be neutral and comprehensive. if the job description structures the skills in categories, such as e.g "required,must have, preferred, bonus, mininum," keep them and add it in brackets behind the name. if it doesnt mention it, dont create the brackets.

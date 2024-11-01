@@ -57,7 +57,7 @@ const validateConfig = (config) => {
   // Basic field validation
   const requiredFields = [
     'name', 'instructions', 'inputs', 'outputPath', 'outputTransform',
-    'triggerTopic', 'nextTopic', 'fallbackValue', 'api', 'collections'
+    'triggerTopic', 'fallbackValue', 'api', 'collections'
   ];
   
   const missingFields = requiredFields.filter(field => !config[field]);
