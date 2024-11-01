@@ -25,17 +25,15 @@ const pipelineSteps = {
 Format your response as a JSON object with the following structure:
 
 {
-  "Skills": {
-    "skill1": {
+  "skill1": {
     "name": "name of skill (single word)",
-      "description": "one short sentence description of this skill (if mentioned "required/preferred/etc, otherwise leave blank ()",
-    },
-    "skill2": {
+    "description": "one short sentence description of this skill (if mentioned required/preferred/etc, otherwise leave blank ())"
+  },
+  "skill2": {
     "name": "name of skill (single word)",
-      "description": "one short sentence description of this skill (if mentioned "required/preferred/etc, otherwise leave blank ()",
-    }
-    // ... not more than 10
+    "description": "one short sentence description of this skill (if mentioned required/preferred/etc, otherwise leave blank ())"
   }
+  // ... not more than 10
 }
 
 Here's the job description to analyze:
@@ -50,11 +48,11 @@ Provide only the JSON response without any additional text or explanations.`,
     outputPath: 'allSkills',
     outputTransform: {
       type: 'numbered',
+      pattern: 'skill{n}',
       fields: {
         name: 'name',
-        description: 'description',
-      },
-      pattern: 'Skill{n}'
+        description: 'description'
+      }
     },
     triggerTopic: 'job-description-extracted',
     nextTopic: 'skills-needed-extracted',
