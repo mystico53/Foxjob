@@ -38,16 +38,39 @@ const getInputData = async (inputs, docData, context) => {
   const inputData = {};
   
   for (const input of inputs) {
-    const resolvedPath = input.path.replace(/{(\w+)}/g, (match, key) => context[key] || match);
-    const value = resolvedPath.split('.')
-      .reduce((obj, key) => (obj && obj[key] !== undefined ? obj[key] : null), docData);
+    if (Array.isArray(input.path)) {
+      // Handle array of paths
+      const values = await Promise.all(input.path.map(async (pathStr) => {
+        const resolvedPath = pathStr.trim().replace(/{(\w+)}/g, (match, key) => context[key] || match);
+        const value = resolvedPath.split('.')
+          .reduce((obj, key) => (obj && obj[key] !== undefined ? obj[key] : null), docData);
+          
+        if (value === null) {
+          logger.warn(`Input data not found for path: ${resolvedPath}`);
+          return null;
+        }
+        return value;
+      }));
       
-    if (value === null) {
-      logger.warn(`Input data not found for path: ${resolvedPath}`);
-      continue;
+      // Combine values with separator or default to space
+      const combinedValue = values
+        .filter(v => v !== null)
+        .join(input.separator || ' ');
+      
+      inputData[input.placeholder] = combinedValue;
+    } else {
+      // Original single path logic
+      const resolvedPath = input.path.replace(/{(\w+)}/g, (match, key) => context[key] || match);
+      const value = resolvedPath.split('.')
+        .reduce((obj, key) => (obj && obj[key] !== undefined ? obj[key] : null), docData);
+        
+      if (value === null) {
+        logger.warn(`Input data not found for path: ${resolvedPath}`);
+        continue;
+      }
+      
+      inputData[input.placeholder] = value;
     }
-    
-    inputData[input.placeholder] = value;
   }
   
   return inputData;
