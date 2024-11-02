@@ -103,7 +103,9 @@ Provide only the JSON response without any additional text or explanations.`,
 
   extractDomainExpertise: {
     name: 'extract_Domain_Expertise',
-    instructions: `if true: extract where specific domain expertise is discussed and what words are used (e.g. "required, preferred, passion, bonus, etc.") respond in this format.
+    instructions: `if true: extract where specific domain expertise is discussed and what words are used (e.g. "required, preferred, passion, bonus, etc.") respond in this format. a lot of jbo descriptions do not indicate it strongly - that's ok too. 
+
+    Domain expertise is the in-depth knowledge and specialized skills in a particular field, industry, or area of work. It involves having a thorough understanding of the nuances, best practices, trends, challenges, and key concepts specific to that field. Ignore any standard skills that are expected for this kind of job and mark them as no_strong_indication.
 
 only pick one domain, not two. if you have more than one, pick the more domain specific one (eg. dentist-tech instead of health cloud software)
 
@@ -113,7 +115,7 @@ instructions: Extract domain expertise requirements from the job description and
 
 {
   "domain_expertise": {
-    "field": "specific domain area in ELI5 words (use 'general' if no specific domain is mentioned)",
+    "field": "specific domain area in ELI5 words (use 'not specified' if no specific domain is mentioned)",
     "requirement_level": "ENUM: ['required', 'preferred', 'bonus', 'passionate', 'no_strong_indication']",
     "context": "direct quote from the text that supports this classification (leave empty if none found)",
     "justification": "brief explanation of why this classification was chosen (1-2 sentences)"
