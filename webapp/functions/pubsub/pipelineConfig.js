@@ -156,6 +156,63 @@ Provide only the JSON response without any additional text or explanations.`,
     collections: ['users', 'jobs'],
     api: 'anthropic'
   },
+
+
+  /*//match_top_skills********************************************************************* 
+**********************************************************************/ 
+
+matchTopSkills: {
+  name: 'match_top_skills',
+  instructions: `Based on job and its responsibilities, rank the following skills by importance. Then split them into three equally sized categories:
+
+1. must have
+2. should have
+3. could have
+
+Format your response as a JSON object with the following structure:
+
+{
+  "skill1": {
+    "name": "name of skill (single word)",
+    "description": "why it is important",
+    "category": "must have/could have/should have"
+  },
+  "skill2": {
+    "name": "name of skill (single word)",
+    "description": "why it is important",
+    "category": "must have/could have/should have"
+  }
+  // ... continue for all skills
+}
+
+Here's the jobs responsibilities and the skills to analyze:
+
+{TEXT}
+
+Provide only the JSON response without any additional text or explanations.`,
+  inputs: [
+    {
+      path: ['allSkills', 'jobdetails.jobsresponsibilities'],
+      placeholder: '{TEXT}',
+      separator: '\n\nJob Responsibilities:\n'
+    }
+  ],
+  outputPath: 'topSkills',
+  outputTransform: {
+    type: 'numbered',
+    pattern: 'skill{n}',
+    fields: {
+      name: 'name',
+      description: 'description',
+      category: 'category'
+    }
+  },
+  triggerTopic: 'skills-needed-extracted',
+  fallbackValue: {},
+  collections: ['users', 'jobs'],
+  api: 'anthropic'
+}
 };
+
 
 module.exports = { pipelineSteps };
