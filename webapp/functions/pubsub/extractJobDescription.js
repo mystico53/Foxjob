@@ -5,7 +5,7 @@ const { Firestore } = require("firebase-admin/firestore");
 const { PubSub } = require('@google-cloud/pubsub');
 const { callAnthropicAPI } = require('.services/anthropic-service');
 
-// Ensure Firestore instance is reused
+// Initialize
 const db = admin.firestore();
 const FieldValue = admin.firestore.FieldValue;
 const pubSubClient = new PubSub();
@@ -24,10 +24,7 @@ exports.extractJobDescription = functions.pubsub
     }
 
     try {
-      // Create document reference using googleId and docId
       const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
-
-      // Fetch job data from Firestore
       const docSnapshot = await jobDocRef.get();
 
       if (!docSnapshot.exists) {
@@ -37,40 +34,29 @@ exports.extractJobDescription = functions.pubsub
       }
 
       const jobData = docSnapshot.data();
-      const rawJD = jobData.texts.rawText || "na"; // Use "na" if rawText is not available
+      const rawJD = jobData.texts.rawText || "na";
       logger.info('Raw job description fetched from Firestore');
 
-      if (rawJD === "na") {
-        logger.warn('No raw text found for job');
-        await populateWithNA(jobDocRef);
-        return;
-      }
-
-      // Process text with Anthropic API using the new service
-      const instruction = "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.";
-
-      logger.info('Calling Anthropic API through service');
+      // Call the API function
+      const apiResult = await callAnthropicAPI(rawJD);
       
-      const apiResult = await callAnthropicAPI(rawJD, instruction);
-
       if (apiResult.error) {
-        logger.error('Error from Anthropic API service:', apiResult);
+        logger.error('API call failed:', apiResult.message);
         await populateWithNA(jobDocRef);
         return;
       }
 
-      logger.info('Received response from Anthropic API service');
-
-      // Save extracted job description to Firestore
+      // Save to Firestore
       await jobDocRef.update({
         texts: {
-          ...jobData.texts, // Spread the existing texts object
-          extractedText: apiResult.extractedText || "na",
+          ...jobData.texts,
+          extractedText: apiResult.extractedText,
         },
       });
       
       logger.info('Extracted job description saved to Firestore');
 
+      // Publish to next topic
       const newTopicName = 'job-description-extracted';
       
       await pubSubClient.createTopic(newTopicName).catch((err) => {
@@ -98,7 +84,7 @@ exports.extractJobDescription = functions.pubsub
     }
   });
 
-// Helper function to populate fields with "na"
+// Helper function
 async function populateWithNA(docRef) {
   try {
     await docRef.update({

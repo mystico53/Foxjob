@@ -1,46 +1,42 @@
-// index.js
 const { initializeApp } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
 const { onRequest } = require("firebase-functions/v2/https");
-const admin = require('firebase-admin');
-const logger = require('firebase-functions/logger');
+const logger = require("firebase-functions/logger");
 
-// Initialize Firebase Admin
-admin.initializeApp();
-
-// Import pipeline components - Fix is here: destructure pipelineSteps
-const { createPipelineStep } = require('./pubsub/pipelineStep');
-const { pipelineSteps } = require('./pubsub/pipelineConfig');  // 👈 Changed this line
+// Initialize Firebase Admin SDK
+initializeApp();
 
 // Get Firestore instance
 const db = getFirestore();
 
-// Import your non-pipeline functions
+// Import your function modules
+
 const { publishJobText } = require('./publishJobText');
+//const { processPubSubText } = require('./processPubSubText');
 const { saveRawPubSubMessage } = require('./pubsub/saveRawPubSubMessage');
+const { extractJobDescription } = require('./pubsub/extractJobDescription');
+const { summarizeJobDescription } = require('./pubsub/summarizeJobDescription');
+const { extractJobRequirements } = require('./pubsub/extractJobRequirements');
+const { calculateScore } = require('./pubsub/calculateScore');
+const { extractHardSkills } = require('./pubsub/extractHardSkills.js');
+const { extractSoftSkills } = require('./pubsub/extractSoftSkills.js');
+const { extractDomainExpertise } = require('./pubsub/extractDomainExpertise.js');
+const { matchHardSkills } = require('./pubsub/matchHardSkills.js');
+const { matchSoftSkills } = require('./pubsub/matchSoftSkills.js');
+const { matchDomainExpertise } = require('./pubsub/matchDomainExpertise.js');
 
-// Add some debug logging
-logger.info('Loaded pipeline steps:', Object.keys(pipelineSteps));
-
-// Create pipeline functions from config
-const pipelineFunctions = Object.entries(pipelineSteps).reduce((acc, [key, config]) => {
-  
-  try {
-    acc[key] = createPipelineStep(config);
-    
-  } catch (error) {
-    logger.error(`Failed to create pipeline function ${key}:`, error);
-    throw error;
-  }
-  return acc;
-}, {});
-  
 // Export all Cloud Functions
-module.exports = {
-  // Non-pipeline functions
-  publishJobText,
-  saveRawMessage: saveRawPubSubMessage,
-  
-  // Pipeline functions
-  ...pipelineFunctions,
-};
+
+exports.publishJobText = publishJobText;
+//exports.processText = processPubSubText;
+exports.saveRawMessage = saveRawPubSubMessage;
+exports.extractJobDescription = extractJobDescription;
+exports.summarizeJobDescription = summarizeJobDescription;
+exports.extractJobRequirements = extractJobRequirements;
+exports.calculateScore = calculateScore;
+exports.extractHardSkills = extractHardSkills;
+exports.extractSoftSkills = extractSoftSkills;
+exports.extractDomainExpertise = extractDomainExpertise;
+exports.matchHardSkills = matchHardSkills;
+exports.matchSoftSkills = matchSoftSkills;
+exports.matchDomainExpertise = matchDomainExpertise;
