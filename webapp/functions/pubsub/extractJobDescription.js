@@ -1,21 +1,32 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
-const { Firestore } = require("firebase-admin/firestore");
 const { PubSub } = require('@google-cloud/pubsub');
-const { callAnthropicAPI } = require('.services/anthropic-service');
+const { callAnthropicAPI } = require('../services/anthropicService');
 
 // Initialize
 const db = admin.firestore();
-const FieldValue = admin.firestore.FieldValue;
 const pubSubClient = new PubSub();
 
 exports.extractJobDescription = functions.pubsub
   .topic('raw-text-stored')
   .onPublish(async (message) => {
-    const messageData = message.json;
-    const { googleId, docId } = messageData;
+    // Safely parse the message data
+    let messageData;
+    try {
+      // Check if message.data exists and decode it
+      if (!message.data) {
+        throw new Error('No message data received');
+      }
+      
+      const decodedData = Buffer.from(message.data, 'base64').toString();
+      messageData = JSON.parse(decodedData);
+    } catch (error) {
+      logger.error('Error parsing message data:', error);
+      return;
+    }
 
+    const { googleId, docId } = messageData;
     logger.info(`Starting process for googleId: ${googleId}, docId: ${docId}`);
 
     if (!googleId || !docId) {
@@ -23,8 +34,9 @@ exports.extractJobDescription = functions.pubsub
       return;
     }
 
+    let jobDocRef;
     try {
-      const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+      jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
       const docSnapshot = await jobDocRef.get();
 
       if (!docSnapshot.exists) {
@@ -34,7 +46,7 @@ exports.extractJobDescription = functions.pubsub
       }
 
       const jobData = docSnapshot.data();
-      const rawJD = jobData.texts.rawText || "na";
+      const rawJD = jobData.texts?.rawText || "na";
       logger.info('Raw job description fetched from Firestore');
 
       // Call the API function
@@ -46,30 +58,32 @@ exports.extractJobDescription = functions.pubsub
         return;
       }
 
-      // Save to Firestore
-      await jobDocRef.update({
+      // Save to Firestore with merge to preserve existing data
+      await jobDocRef.set({
         texts: {
           ...jobData.texts,
           extractedText: apiResult.extractedText,
         },
-      });
+      }, { merge: true });
       
       logger.info('Extracted job description saved to Firestore');
 
       // Publish to next topic
       const newTopicName = 'job-description-extracted';
       
-      await pubSubClient.createTopic(newTopicName).catch((err) => {
+      try {
+        await pubSubClient.createTopic(newTopicName);
+      } catch (err) {
         if (err.code === 6) {
           logger.info('Topic already exists');
         } else {
           throw err;
         }
-      });
+      }
 
       const newMessage = {
-        googleId: googleId,
-        docId: docId
+        googleId,
+        docId
       };
 
       const newMessageId = await pubSubClient.topic(newTopicName).publishMessage({
@@ -80,18 +94,20 @@ exports.extractJobDescription = functions.pubsub
 
     } catch (error) {
       logger.error('Error in extractJobDescription:', error);
-      await populateWithNA(jobDocRef);
+      if (jobDocRef) {
+        await populateWithNA(jobDocRef);
+      }
     }
   });
 
 // Helper function
 async function populateWithNA(docRef) {
   try {
-    await docRef.update({
+    await docRef.set({
       texts: {
         extractedText: "na"
       }
-    });
+    }, { merge: true });
     logger.info('Field populated with "na" due to error');
   } catch (error) {
     logger.error('Error populating field with "na":', error);
