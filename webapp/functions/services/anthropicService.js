@@ -66,10 +66,30 @@ async function callAnthropicAPI(rawText, instructions) {
 
     const prompt = `${instructions}\n\n${rawText}`;
     
+    // Log the complete input data
+    logger.info('Full Anthropic API Input:', {
+      instructions: instructions,
+      rawText: rawText,
+      fullPrompt: prompt
+    });
+
     logger.info('Anthropic API Request:', {
       model: 'claude-3-haiku-20240307',
       instructionsPreview: instructions.substring(0, 100) + '...',
       promptLength: prompt.length
+    });
+
+    const requestBody = {
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 4096,
+      messages: [
+        { role: 'user', content: prompt }
+      ],
+    };
+
+    // Log the exact request body being sent
+    logger.debug('Anthropic API Request Body:', {
+      requestBody: JSON.stringify(requestBody)
     });
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
@@ -79,16 +99,15 @@ async function callAnthropicAPI(rawText, instructions) {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
       },
-      body: JSON.stringify({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 4096,
-        messages: [
-          { role: 'user', content: prompt }
-        ],
-      }),
+      body: JSON.stringify(requestBody),
     });
 
     const responseData = await anthropicResponse.json();
+
+    // Log the raw response data
+    logger.debug('Anthropic API Raw Response:', {
+      responseData: JSON.stringify(responseData)
+    });
 
     if (!anthropicResponse.ok) {
       logger.error('Anthropic API error response:', responseData);
@@ -98,9 +117,15 @@ async function callAnthropicAPI(rawText, instructions) {
     if (responseData.content && responseData.content.length > 0 && responseData.content[0].type === 'text') {
       const rawText = responseData.content[0].text.trim();
       
+      // Log the raw text response
+      logger.debug('Anthropic API Raw Text Response:', {
+        rawText: rawText
+      });
+      
       try {
         // Check if it's trying to be JSON
         if (!rawText.startsWith('{') && !rawText.startsWith('[')) {
+          logger.info('Response is not JSON format, returning raw text');
           return {
             error: false,
             extractedText: rawText
@@ -111,13 +136,20 @@ async function callAnthropicAPI(rawText, instructions) {
         const cleanedText = cleanJson(rawText);
         const parsedJson = JSON.parse(cleanedText);
         
+        // Log the cleaned and parsed JSON
+        logger.debug('Cleaned and Parsed JSON Response:', {
+          cleanedText: cleanedText,
+          parsedJson: JSON.stringify(parsedJson)
+        });
+        
         return { 
           error: false, 
           extractedText: JSON.stringify(parsedJson)
         };
       } catch (parseError) {
         logger.warn('JSON parsing failed, returning raw text:', {
-          error: parseError.message
+          error: parseError.message,
+          rawText: rawText
         });
         
         return {
