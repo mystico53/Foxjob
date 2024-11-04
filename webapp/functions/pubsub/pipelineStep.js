@@ -142,9 +142,6 @@ const validateConfig = (config) => {
       if (!config.outputTransform.fields) {
         throw new Error('Extend transform requires fields configuration');
       }
-      if (!config.outputTransform.matchPattern) {
-        throw new Error('Extend transform requires matchPattern');
-      }
       break;
 
     default:

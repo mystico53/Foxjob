@@ -45,7 +45,7 @@ Job posting to analyze:
     outputTransform: {
       type: 'direct'
     },
-    triggerTopic: 'job-description-extracted',
+    triggerTopic: 'job-description-extracted debug',
     fallbackValue: 'na',
     collectionPath: ['jobs'],
     api: 'anthropic'
@@ -97,6 +97,104 @@ Provide only the JSON response without any additional text or explanations.`,
     collectionPath: ['jobs'],
     api: 'anthropic'
   },
+
+  /*//match_top_skills test********************************************************************* 
+**********************************************************************/ 
+
+matchTopSkills: {
+  name: 'match_top_skills',
+  instructions: `Read the skills and add the word "fun" in front of each one.
+
+Format your response as a JSON object with the following structure:
+
+{
+  "skill1": {
+    "add fun": "fun + name of skill",
+  }
+  // ... continue for all skills
+}
+
+Here are the skills {ALLSKILLS}.
+
+Provide only the JSON response without any additional text or explanations.`,
+inputs: [
+  {
+    path: 'allSkills',
+    placeholder: '{ALLSKILLS}',
+  },
+],
+  outputPath: 'allSkills',
+  outputTransform: {
+    type: 'extend',
+    pattern: 'skill{n}',
+    fields: {
+      funname: 'funname',
+    }
+  },
+  triggerTopic: 'skills-needed-extracted',
+  fallbackValue: {},
+  collectionPath: ['jobs'],
+  api: 'anthropic'
+},
+
+  /*//match_top_skills backup********************************************************************* 
+**********************************************************************/ /*
+
+matchTopSkills: {
+  name: 'match_top_skills',
+  instructions: `Based on job and its responsibilities, rank the following skills by importance. Then split them into three equally sized categories:
+
+1. must have
+2. should have
+3. could have
+
+Format your response as a JSON object with the following structure:
+
+{
+  "skill1": {
+    "name": "name of skill (single word)",
+    "description": "why it is important",
+    "category": "must have/could have/should have"
+  },
+  "skill2": {
+    "name": "name of skill (single word)",
+    "description": "why it is important",
+    "category": "must have/could have/should have"
+  }
+  // ... continue for all skills
+}
+
+Here's the jobs responsibilities and the skills to analyze:
+
+{RESPONSIBILITIES}, {TEXT}
+
+Provide only the JSON response without any additional text or explanations.`,
+inputs: [
+  {
+    path: 'allSkills',  // First input from allSkills
+    placeholder: '{TEXT}',
+    separator: '\n\nJob Responsibilities:\n'
+  },
+  {
+    path: 'jobdetails.jobsresponsibilities',  // Second input from jobdetails
+    placeholder: '{RESPONSIBILITIES}'
+  }
+],
+  outputPath: 'topSkills',
+  outputTransform: {
+    type: 'numbered',
+    pattern: 'skill{n}',
+    fields: {
+      name: 'name',
+      description: 'description',
+      category: 'category'
+    }
+  },
+  triggerTopic: 'skills-needed-extracted',
+  fallbackValue: {},
+  collectionPath: ['jobs'],
+  api: 'anthropic'
+},*/
 
   /*//extract_Domain_Expertise********************************************************************* 
 **********************************************************************/ 
@@ -157,66 +255,6 @@ Provide only the JSON response without any additional text or explanations.`,
     api: 'anthropic'
   },
 
-
-  /*//match_top_skills********************************************************************* 
-**********************************************************************/ 
-
-matchTopSkills: {
-  name: 'match_top_skills',
-  instructions: `Based on job and its responsibilities, rank the following skills by importance. Then split them into three equally sized categories:
-
-1. must have
-2. should have
-3. could have
-
-Format your response as a JSON object with the following structure:
-
-{
-  "skill1": {
-    "name": "name of skill (single word)",
-    "description": "why it is important",
-    "category": "must have/could have/should have"
-  },
-  "skill2": {
-    "name": "name of skill (single word)",
-    "description": "why it is important",
-    "category": "must have/could have/should have"
-  }
-  // ... continue for all skills
-}
-
-Here's the jobs responsibilities and the skills to analyze:
-
-{RESPONSIBILITIES}, {TEXT}
-
-Provide only the JSON response without any additional text or explanations.`,
-inputs: [
-  {
-    path: 'allSkills',  // First input from allSkills
-    placeholder: '{TEXT}',
-    separator: '\n\nJob Responsibilities:\n'
-  },
-  {
-    path: 'jobdetails.jobsresponsibilities',  // Second input from jobdetails
-    placeholder: '{RESPONSIBILITIES}'
-  }
-],
-  outputPath: 'topSkills',
-  outputTransform: {
-    type: 'numbered',
-    pattern: 'skill{n}',
-    fields: {
-      name: 'name',
-      description: 'description',
-      category: 'category'
-    }
-  },
-  triggerTopic: 'skills-needed-extracted',
-  fallbackValue: {},
-  collectionPath: ['jobs'],
-  api: 'anthropic'
-},
-
     /*//match_resume_with_top_skills********************************************************************* 
   **********************************************************************/ 
 
@@ -264,7 +302,7 @@ inputs: [
         category: 'category'
       }
     },
-    triggerTopic: 'skills-needed-extracted',
+    triggerTopic: 'skills-needed-extracted debug',
     fallbackValue: {},
     collectionPath: [
       { collectionPath: 'jobs' }, // uses default docId
