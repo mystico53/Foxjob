@@ -161,50 +161,43 @@ const validateConfig = (config) => {
 
 const transformOutput = async (apiResult, config, docRef, docData, executionId) => {
   const { outputTransform, outputPath } = config;
-  
+
   try {
     let parsedResult;
 
-    // First check if we already have JSON
-    if (typeof apiResult.extractedText === 'object') {
-      parsedResult = apiResult.extractedText;
-    } else {
-      try {
-        // Try to parse as JSON first
-        parsedResult = JSON.parse(apiResult.extractedText);
-      } catch (parseError) {
-        // If JSON parsing fails, handle as plain text
-        logger.info(`[${executionId}] Handling response as plain text`);
-        
-        // Handle plain text based on the output path
-        if (outputPath === 'texts.extractedText') {
-          // If we're updating extractedText, use the text directly
-          return await operations.updateField(docRef, docData, outputPath, apiResult.extractedText);
-        } else if (outputPath === 'jobdetails.jobsresponsibilities') {
-          // If we're updating job responsibilities, create a structured object
-          const responsibilities = apiResult.extractedText
-            .split('\n')
-            .filter(line => line.trim().length > 0)
-            .map(line => line.trim());
-            
-          return await operations.updateField(docRef, docData, outputPath, {
-            text: apiResult.extractedText,
-            list: responsibilities
-          });
-        } else {
-          // For other paths, create a basic structured object
-          const structuredResult = {
-            content: apiResult.extractedText,
-            timestamp: new Date().toISOString(),
-            source: config.name
-          };
+    // Consolidate the API result into a string
+    const apiResponseText = apiResult.extractedText || apiResult;
 
-          return await operations.updateField(docRef, docData, outputPath, structuredResult);
+    // Attempt to extract JSON from the API response
+    const jsonMatch = apiResponseText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const jsonString = jsonMatch[0];
+      try {
+        parsedResult = JSON.parse(jsonString);
+      } catch (parseError) {
+        logger.error(`[${executionId}] Error parsing extracted JSON:`, {
+          error: parseError.message,
+          resultPreview: jsonString.substring(0, 200)
+        });
+        // If parsing fails and type is 'direct', return the raw text
+        if (outputTransform.type === 'direct') {
+          parsedResult = apiResponseText;
+        } else {
+          // For other types, return fallback value
+          return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
         }
+      }
+    } else {
+      logger.error(`[${executionId}] No JSON found in API result`);
+      // Handle based on outputTransform.type
+      if (outputTransform.type === 'direct') {
+        parsedResult = apiResponseText;
+      } else {
+        return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
       }
     }
 
-    // If we got here, we successfully parsed JSON, continue with existing transform logic
+    // Proceed with transformation
     let transformedResult;
     switch (outputTransform.type) {
       case 'direct':
@@ -214,9 +207,10 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
       case 'numbered': {
         const transformedEntries = {};
         let index = 1;
-        
+
         for (const [key, value] of Object.entries(parsedResult)) {
-          const entryKey = outputTransform.pattern.replace('{n}', index);
+          // Use the key as is if it matches 'criteria{n}', else generate key
+          const entryKey = key.startsWith('criteria') ? key : `criteria${index}`;
           const transformedValue = mapFields(value, outputTransform.fields);
           transformedEntries[entryKey] = transformedValue;
           index++;
@@ -239,27 +233,22 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
         throw new Error(`Unknown transform type: ${outputTransform.type}`);
     }
 
-    // Update the document with transformed result
+    // Update the document with the transformed result
     return await operations.updateField(docRef, docData, outputPath, transformedResult);
 
   } catch (error) {
-    logger.error(`[${executionId}] Error in transform:`, {
+    logger.error(`[${executionId}] Error in transformOutput:`, {
       error: error.message,
-      stack: error.stack,
-      apiResult: apiResult.extractedText?.substring(0, 200) // Log first 200 chars
+      stack: error.stack
     });
 
-    // Create a safe fallback value that maintains structure
-    const fallbackValue = {
-      content: config.fallbackValue,
-      error: error.message,
-      timestamp: new Date().toISOString()
-    };
-
-    // Update with structured fallback value on error
-    return await operations.updateField(docRef, docData, outputPath, fallbackValue);
+    // Update with fallback value on error
+    return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
   }
 };
+
+
+
 
 // Helper function to map fields according to schema
 const mapFields = (value, schema) => {
