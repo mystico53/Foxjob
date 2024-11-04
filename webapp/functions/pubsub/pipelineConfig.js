@@ -250,7 +250,7 @@ inputs: [
         separator: '\n\nResume:\n'
       },
       {
-        path: 'UserCollections.resume.extractedText',
+        path: 'UserCollections.extractedText',
         placeholder: '{RESUME}'
       }
     ],
@@ -266,7 +266,10 @@ inputs: [
     },
     triggerTopic: 'skills-needed-extracted',
     fallbackValue: {},
-    collectionPath: ['jobs', 'UserCollections'],
+    collectionPath: [
+      { collectionPath: 'jobs' }, // uses default docId
+      { collectionPath: 'UserCollections', customDocId: 'resume' } // uses 'resume' as docId
+    ],
     api: 'anthropic'
   }
 };
