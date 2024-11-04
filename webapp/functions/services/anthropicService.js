@@ -125,7 +125,7 @@ async function callAnthropicAPI(rawText, instructions) {
       try {
         // Check if it's trying to be JSON
         if (!rawText.startsWith('{') && !rawText.startsWith('[')) {
-          logger.info('Response is not JSON format, returning raw text');
+          logger.info('Anthropic Response is not JSON format, just text');
           return {
             error: false,
             extractedText: rawText
