@@ -151,7 +151,7 @@ Provide only the JSON response without any additional text or explanations.`,
         }
       }
     },
-    triggerTopic: 'job-description-extracted',
+    triggerTopic: 'job-description-extracted debug',
     fallbackValue: 'na',
     collectionPath: ['jobs'],
     api: 'anthropic'
@@ -192,12 +192,12 @@ Here's the jobs responsibilities and the skills to analyze:
 Provide only the JSON response without any additional text or explanations.`,
 inputs: [
   {
-    path: 'jobs.allSkills',  // First input from allSkills
+    path: 'allSkills',  // First input from allSkills
     placeholder: '{TEXT}',
     separator: '\n\nJob Responsibilities:\n'
   },
   {
-    path: 'jobs.jobdetails.jobsresponsibilities',  // Second input from jobdetails
+    path: 'jobdetails.jobsresponsibilities',  // Second input from jobdetails
     placeholder: '{RESPONSIBILITIES}'
   }
 ],

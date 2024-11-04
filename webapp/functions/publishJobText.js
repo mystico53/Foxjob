@@ -1,5 +1,4 @@
 const { onRequest } = require("firebase-functions/v2/https");
-const { logger } = require("firebase-functions");
 const cors = require('cors')({ origin: true });
 const { PubSub } = require('@google-cloud/pubsub');
 
@@ -23,23 +22,17 @@ const publishJobText = onRequest(async (req, res) => {
       const [exists] = await topic.exists();
       if (!exists) {
         await topic.create();
-        logger.info(`Topic ${topicName} created.`);
       }
 
       const messageBuffer = Buffer.from(JSON.stringify(req.body.message));
-      
-      logger.info('Message being sent to topic:', req.body.message);
-
       const messageId = await topic.publish(messageBuffer);
 
-      logger.info(`Message ${messageId} published.`);
       res.status(200).json({
         status: 'success',
         message: 'Text published successfully.',
         messageId: messageId,
       });
     } catch (error) {
-      logger.error('Error publishing Text', error);
       res.status(500).json({ error: `Internal Server Error: ${error.message}` });
     }
   });

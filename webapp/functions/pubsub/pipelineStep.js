@@ -164,35 +164,40 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
 
   try {
     let parsedResult;
-
-    // Consolidate the API result into a string
     const apiResponseText = apiResult.extractedText || apiResult;
 
-    // Attempt to extract JSON from the API response
-    const jsonMatch = apiResponseText.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const jsonString = jsonMatch[0];
+    // For 'direct' type, use the raw text if JSON parsing fails
+    if (outputTransform.type === 'direct') {
+      const jsonMatch = apiResponseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        try {
+          parsedResult = JSON.parse(jsonMatch[0]);
+        } catch (parseError) {
+          // If parsing fails for 'direct' type, use raw text
+          logger.error(`[${executionId}] Error parsing extracted JSON:`, {
+            error: parseError.message,
+            resultPreview: jsonMatch[0].substring(0, 200)
+          });
+          parsedResult = apiResponseText;
+        }
+      } else {
+        parsedResult = apiResponseText;
+      }
+    } else {
+      // For other types, JSON is required
+      const jsonMatch = apiResponseText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        logger.error(`[${executionId}] No JSON found in API result`);
+        return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
+      }
+
       try {
-        parsedResult = JSON.parse(jsonString);
+        parsedResult = JSON.parse(jsonMatch[0]);
       } catch (parseError) {
         logger.error(`[${executionId}] Error parsing extracted JSON:`, {
           error: parseError.message,
-          resultPreview: jsonString.substring(0, 200)
+          resultPreview: jsonMatch[0].substring(0, 200)
         });
-        // If parsing fails and type is 'direct', return the raw text
-        if (outputTransform.type === 'direct') {
-          parsedResult = apiResponseText;
-        } else {
-          // For other types, return fallback value
-          return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
-        }
-      }
-    } else {
-      logger.error(`[${executionId}] No JSON found in API result`);
-      // Handle based on outputTransform.type
-      if (outputTransform.type === 'direct') {
-        parsedResult = apiResponseText;
-      } else {
         return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
       }
     }
@@ -246,7 +251,6 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
     return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
   }
 };
-
 
 
 
