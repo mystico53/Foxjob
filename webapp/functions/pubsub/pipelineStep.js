@@ -34,6 +34,7 @@ const logApiOperation = (operation, details, executionId) => {
   logger.info(`[${executionId}] API ${operation}:`, safeStringify(sanitizedDetails));
 };
 
+// Modified getInputData function to handle nested paths in multi-collection data
 const getInputData = async (inputs, docData, context) => {
   const inputData = {};
   
@@ -41,12 +42,11 @@ const getInputData = async (inputs, docData, context) => {
     if (Array.isArray(input.path)) {
       // Handle array of paths
       const values = await Promise.all(input.path.map(async (pathStr) => {
-        const resolvedPath = pathStr.trim().replace(/{(\w+)}/g, (match, key) => context[key] || match);
-        const value = resolvedPath.split('.')
+        const value = pathStr.split('.')
           .reduce((obj, key) => (obj && obj[key] !== undefined ? obj[key] : null), docData);
           
         if (value === null) {
-          logger.warn(`Input data not found for path: ${resolvedPath}`);
+          logger.warn(`Input data not found for path: ${pathStr}`);
           return null;
         }
         return value;
@@ -59,19 +59,30 @@ const getInputData = async (inputs, docData, context) => {
       
       inputData[input.placeholder] = combinedValue;
     } else {
-      // Original single path logic
-      const resolvedPath = input.path.replace(/{(\w+)}/g, (match, key) => context[key] || match);
-      const value = resolvedPath.split('.')
+      // Use rawText if we're looking for texts.extractedText and it doesn't exist
+      if (input.path === 'texts.extractedText' && 
+          (!docData.texts || !docData.texts.extractedText) && 
+          docData.texts?.rawText) {
+        inputData[input.placeholder] = docData.texts.rawText;
+        continue;
+      }
+
+      const value = input.path.split('.')
         .reduce((obj, key) => (obj && obj[key] !== undefined ? obj[key] : null), docData);
         
       if (value === null) {
-        logger.warn(`Input data not found for path: ${resolvedPath}`);
+        logger.warn(`Input data not found for path: ${input.path}`);
         continue;
       }
       
       inputData[input.placeholder] = value;
     }
   }
+  
+  logger.debug('Processed input data:', {
+    inputs: JSON.stringify(inputs),
+    result: JSON.stringify(inputData)
+  });
   
   return inputData;
 };
@@ -80,13 +91,29 @@ const validateConfig = (config) => {
   // Basic field validation
   const requiredFields = [
     'name', 'instructions', 'inputs', 'outputPath', 'outputTransform',
-    'triggerTopic', 'fallbackValue', 'api', 'collections'
+    'triggerTopic', 'fallbackValue', 'api'
   ];
   
+  // Add collection validation - either collections or collectionPath must exist
+  if (!config.collections && !config.collectionPath) {
+    throw new Error('Missing required field: either collections or collectionPath must be specified');
+  }
+
   const missingFields = requiredFields.filter(field => !config[field]);
   if (missingFields.length > 0) {
     throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
   }
+
+  // Validate inputs format
+  if (!Array.isArray(config.inputs)) {
+    throw new Error('inputs must be an array');
+  }
+
+  config.inputs.forEach((input, index) => {
+    if (!input.path || !input.placeholder) {
+      throw new Error(`Input at index ${index} missing required fields: path and placeholder`);
+    }
+  });
 
   // Validate outputTransform based on type
   const { type } = config.outputTransform;
@@ -105,11 +132,11 @@ const validateConfig = (config) => {
       }
       break;
 
-      case 'fixed':
-        if (!config.outputTransform.fields) {
-          throw new Error('Fixed transform requires fields configuration');
-        }
-        break;
+    case 'fixed':
+      if (!config.outputTransform.fields) {
+        throw new Error('Fixed transform requires fields configuration');
+      }
+      break;
 
     case 'extend':
       if (!config.outputTransform.fields) {
@@ -124,6 +151,11 @@ const validateConfig = (config) => {
       throw new Error(`Unknown transform type: ${type}`);
   }
 
+  // If using collectionPath, validate it's an array
+  if (config.collectionPath && !Array.isArray(config.collectionPath)) {
+    throw new Error('collectionPath must be an array');
+  }
+
   return true;
 };
 
@@ -133,39 +165,41 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
   try {
     let parsedResult;
 
-    // Sanitize and parse JSON for relevant types
-    if (outputTransform.type === 'numbered' || outputTransform.type === 'fixed' || outputTransform.type === 'extend') {
-      if (typeof apiResult.extractedText === 'string') {
-        try {
-          // Sanitize the JSON string by replacing problematic quotes
-          const sanitizedText = apiResult.extractedText.replace(/(?<=:\s*)"([^"]*)"(?=\s*[,}])/g, (match, p1) => {
-            // Replace internal double quotes with single quotes
-            return `"${p1.replace(/"/g, "'")}"`;
-          });
-          
-          try {
-            parsedResult = JSON.parse(sanitizedText);
-          } catch (parseError) {
-            // If still failing, try more aggressive sanitization
-            const aggressiveSanitized = sanitizedText
-              .replace(/\\"/g, "'") // Replace escaped quotes with single quotes
-              .replace(/(?<=[:\s])"([^"]+)"(?=[,}\s])/g, '"$1"'); // Fix quote pairs
-            
-            parsedResult = JSON.parse(aggressiveSanitized);
-          }
-        } catch (error) {
-          logger.error(`[${executionId}] Error parsing API result:`, error);
-          logger.error(`[${executionId}] Raw API result:`, apiResult.extractedText.substring(0, 500));
-          throw error;
+    // First check if we already have JSON
+    if (typeof apiResult.extractedText === 'object') {
+      parsedResult = apiResult.extractedText;
+    } else {
+      try {
+        // Try to parse the response as JSON
+        parsedResult = JSON.parse(apiResult.extractedText);
+      } catch (parseError) {
+        logger.error(`[${executionId}] Error parsing API result:`, {
+          error: parseError,
+          result: apiResult.extractedText.substring(0, 200)  // Log first 200 chars
+        });
+
+        // If parsing fails, return fallback value based on transform type
+        switch (outputTransform.type) {
+          case 'numbered':
+            return await operations.updateField(docRef, docData, outputPath, {});
+          case 'fixed':
+            const fallbackObj = {};
+            Object.keys(outputTransform.fields).forEach(key => {
+              fallbackObj[key] = {};
+            });
+            return await operations.updateField(docRef, docData, outputPath, fallbackObj);
+          default:
+            return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
         }
-      } else {
-        parsedResult = apiResult.extractedText;
       }
     }
 
+    // Transform the parsed result based on type
+    let transformedResult;
     switch (outputTransform.type) {
       case 'direct':
-        return await operations.updateField(docRef, docData, outputPath, apiResult.extractedText);
+        transformedResult = parsedResult;
+        break;
 
       case 'numbered': {
         const transformedEntries = {};
@@ -177,46 +211,35 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
           transformedEntries[entryKey] = transformedValue;
           index++;
         }
-        
-        return await operations.updateField(docRef, docData, outputPath, transformedEntries);
+        transformedResult = transformedEntries;
+        break;
       }
 
       case 'fixed': {
-        const transformedData = {};
+        transformedResult = {};
         for (const [key, schema] of Object.entries(outputTransform.fields)) {
           if (parsedResult[key]) {
-            transformedData[key] = mapFields(parsedResult[key], schema);
+            transformedResult[key] = mapFields(parsedResult[key], schema);
           }
         }
-        return await operations.updateField(docRef, docData, outputPath, transformedData);
-      }
-
-      case 'extend': {
-        const existingData = docData[outputPath.split('.')[0]] || {};
-        if (outputTransform.pattern) {
-          Object.entries(parsedResult).forEach(([key, value]) => {
-            const entryKey = outputTransform.pattern.replace('{n}', key);
-            if (existingData[entryKey]) {
-              existingData[entryKey] = mapFields(value, outputTransform.fields);
-            }
-          });
-        } else {
-          Object.entries(parsedResult).forEach(([key, value]) => {
-            if (existingData[key] && outputTransform.fields[key]) {
-              existingData[key] = mapFields(value, outputTransform.fields[key]);
-            }
-          });
-        }
-        return await operations.updateField(docRef, docData, outputPath, existingData);
+        break;
       }
 
       default:
         throw new Error(`Unknown transform type: ${outputTransform.type}`);
     }
+
+    // Update the document with transformed result
+    return await operations.updateField(docRef, docData, outputPath, transformedResult);
+
   } catch (error) {
-    logger.error(`[${executionId}] Error in transform:`, error);
-    logger.error(`[${executionId}] Transform config:`, outputTransform);
-    throw error;
+    logger.error(`[${executionId}] Error in transform:`, {
+      error: error.message,
+      stack: error.stack
+    });
+
+    // Update with fallback value on error
+    return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
   }
 };
 
@@ -264,7 +287,6 @@ const callAPI = async (config, prompt, executionId) => {
 };
 
 const createPipelineStep = (config) => {
-  // Validate config with enhanced validation
   validateConfig(config);
 
   return functions.pubsub.onMessagePublished(config.triggerTopic, async (event) => {
@@ -278,11 +300,14 @@ const createPipelineStep = (config) => {
 
     let docRef;
     try {
-      // Get document
-      const { docRef: ref, docData } = await operations.getDocument(googleId, docId, config.collections);
-      docRef = ref;
+      // Get document(s)
+      const collectionPath = config.collectionPath || config.collections;
+      const result = await operations.getDocument(googleId, docId, collectionPath);
+      
+      docRef = result.docRef;
+      const docData = result.docData;
 
-      // Get all input data
+      // Get input data
       const inputData = await getInputData(config.inputs, docData, context);
       
       // Prepare prompt
@@ -302,7 +327,7 @@ const createPipelineStep = (config) => {
       // Transform and store result
       await transformOutput(apiResult, config, docRef, docData, executionId);
 
-      // Trigger next step
+      // Trigger next step if configured
       if (config.nextTopic) {
         await operations.publishNext(pubSubClient, config.nextTopic, context);
         logger.info(`[${executionId}] Published to next topic: ${config.nextTopic}`);

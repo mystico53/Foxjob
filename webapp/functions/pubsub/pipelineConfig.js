@@ -17,7 +17,7 @@ const pipelineSteps = {
     triggerTopic: 'raw-text-stored',
     nextTopic: 'job-description-extracted',
     fallbackValue: 'na',
-    collections: ['users', 'jobs'],
+    collectionPath: ['jobs'],
     api: 'anthropic'
   },
 
@@ -47,7 +47,7 @@ Job posting to analyze:
     },
     triggerTopic: 'job-description-extracted',
     fallbackValue: 'na',
-    collections: ['users', 'jobs'],
+    collectionPath: ['jobs'],
     api: 'anthropic'
   },
 
@@ -94,7 +94,7 @@ Provide only the JSON response without any additional text or explanations.`,
     triggerTopic: 'job-description-extracted',
     nextTopic: 'skills-needed-extracted',
     fallbackValue: {},
-    collections: ['users', 'jobs'],
+    collectionPath: ['jobs'],
     api: 'anthropic'
   },
 
@@ -153,7 +153,7 @@ Provide only the JSON response without any additional text or explanations.`,
     },
     triggerTopic: 'job-description-extracted',
     fallbackValue: 'na',
-    collections: ['users', 'jobs'],
+    collectionPath: ['jobs'],
     api: 'anthropic'
   },
 
@@ -187,16 +187,20 @@ Format your response as a JSON object with the following structure:
 
 Here's the jobs responsibilities and the skills to analyze:
 
-{TEXT}
+{RESPONSIBILITIES}, {TEXT}
 
 Provide only the JSON response without any additional text or explanations.`,
-  inputs: [
-    {
-      path: ['allSkills', 'jobdetails.jobsresponsibilities'],
-      placeholder: '{TEXT}',
-      separator: '\n\nJob Responsibilities:\n'
-    }
-  ],
+inputs: [
+  {
+    path: 'jobs.allSkills',  // First input from allSkills
+    placeholder: '{TEXT}',
+    separator: '\n\nJob Responsibilities:\n'
+  },
+  {
+    path: 'jobs.jobdetails.jobsresponsibilities',  // Second input from jobdetails
+    placeholder: '{RESPONSIBILITIES}'
+  }
+],
   outputPath: 'topSkills',
   outputTransform: {
     type: 'numbered',
@@ -209,9 +213,62 @@ Provide only the JSON response without any additional text or explanations.`,
   },
   triggerTopic: 'skills-needed-extracted',
   fallbackValue: {},
-  collections: ['users', 'jobs'],
+  collectionPath: ['jobs'],
   api: 'anthropic'
-}
+},
+
+    /*//match_resume_with_top_skills********************************************************************* 
+  **********************************************************************/ 
+
+  matchResumeWithTopSkills: {
+    name: 'match_resume_with_top_skills',
+    instructions: `Compare the resume with the top skills. divide the skills in two buckets "Capable" and "Gaps" based on how well the candidate matches the top skills (required is more important than preferred, or bonus)
+
+  Format your response as a JSON object with the following structure:
+
+  {
+  "criteria1": {
+    "name": "name of skill (single word)",
+    "description": "why you picked the category",
+    "category": "gap or capable"
+  },
+  "criteria2": {
+    "name": "name of skill (single word)",
+    "description": "why you picked the category",
+    "category": "gap or capable"
+  }
+  // ... continue for all skills
+  }
+
+  Here's the jobs top skills {TEXT} and the resume '{RESUME}' to analyze:
+
+  Provide only the JSON response without any additional text or explanations.`,
+    inputs: [
+      {
+        path: 'jobs.topSkills',
+        placeholder: '{TEXT}',
+        separator: '\n\nResume:\n'
+      },
+      {
+        path: 'UserCollections.resume.extractedText',
+        placeholder: '{RESUME}'
+      }
+    ],
+    outputPath: 'matchGaps',
+    outputTransform: {
+      type: 'numbered',
+      pattern: 'criteria{n}',
+      fields: {
+        name: 'name',
+        description: 'description',
+        category: 'category'
+      }
+    },
+    triggerTopic: 'skills-needed-extracted',
+    fallbackValue: {},
+    collectionPath: ['jobs', 'UserCollections'],
+    api: 'anthropic'
+  }
 };
 
 
