@@ -170,31 +170,41 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
       parsedResult = apiResult.extractedText;
     } else {
       try {
-        // Try to parse the response as JSON
+        // Try to parse as JSON first
         parsedResult = JSON.parse(apiResult.extractedText);
       } catch (parseError) {
-        logger.error(`[${executionId}] Error parsing API result:`, {
-          error: parseError,
-          result: apiResult.extractedText.substring(0, 200)  // Log first 200 chars
-        });
+        // If JSON parsing fails, handle as plain text
+        logger.info(`[${executionId}] Handling response as plain text`);
+        
+        // Handle plain text based on the output path
+        if (outputPath === 'texts.extractedText') {
+          // If we're updating extractedText, use the text directly
+          return await operations.updateField(docRef, docData, outputPath, apiResult.extractedText);
+        } else if (outputPath === 'jobdetails.jobsresponsibilities') {
+          // If we're updating job responsibilities, create a structured object
+          const responsibilities = apiResult.extractedText
+            .split('\n')
+            .filter(line => line.trim().length > 0)
+            .map(line => line.trim());
+            
+          return await operations.updateField(docRef, docData, outputPath, {
+            text: apiResult.extractedText,
+            list: responsibilities
+          });
+        } else {
+          // For other paths, create a basic structured object
+          const structuredResult = {
+            content: apiResult.extractedText,
+            timestamp: new Date().toISOString(),
+            source: config.name
+          };
 
-        // If parsing fails, return fallback value based on transform type
-        switch (outputTransform.type) {
-          case 'numbered':
-            return await operations.updateField(docRef, docData, outputPath, {});
-          case 'fixed':
-            const fallbackObj = {};
-            Object.keys(outputTransform.fields).forEach(key => {
-              fallbackObj[key] = {};
-            });
-            return await operations.updateField(docRef, docData, outputPath, fallbackObj);
-          default:
-            return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
+          return await operations.updateField(docRef, docData, outputPath, structuredResult);
         }
       }
     }
 
-    // Transform the parsed result based on type
+    // If we got here, we successfully parsed JSON, continue with existing transform logic
     let transformedResult;
     switch (outputTransform.type) {
       case 'direct':
@@ -235,11 +245,19 @@ const transformOutput = async (apiResult, config, docRef, docData, executionId) 
   } catch (error) {
     logger.error(`[${executionId}] Error in transform:`, {
       error: error.message,
-      stack: error.stack
+      stack: error.stack,
+      apiResult: apiResult.extractedText?.substring(0, 200) // Log first 200 chars
     });
 
-    // Update with fallback value on error
-    return await operations.updateField(docRef, docData, outputPath, config.fallbackValue);
+    // Create a safe fallback value that maintains structure
+    const fallbackValue = {
+      content: config.fallbackValue,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    };
+
+    // Update with structured fallback value on error
+    return await operations.updateField(docRef, docData, outputPath, fallbackValue);
   }
 };
 
@@ -301,10 +319,18 @@ const createPipelineStep = (config) => {
     let docRef;
     try {
       // Get document(s)
-      const collectionPath = config.collectionPath || config.collections;
-      const result = await operations.getDocument(googleId, docId, collectionPath);
-      
-      docRef = result.docRef;
+      const collectionInfo = config.collectionPath || config.collections;
+
+      let result;
+      if (Array.isArray(collectionInfo) && collectionInfo[0] && typeof collectionInfo[0] === 'object') {
+        // collectionInfo is an array of objects with collectionPath and customDocId
+        result = await operations.getDocuments(googleId, docId, collectionInfo);
+      } else {
+        // For backward compatibility, if collectionInfo is a string or array of strings
+        result = await operations.getDocument(googleId, docId, collectionInfo);
+      }
+
+      const docRef = result.docRef;
       const docData = result.docData;
 
       // Get input data

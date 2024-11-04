@@ -16,57 +16,62 @@ const operations = {
         : [];
   },
 
-  async getDocuments(googleId, docId, collectionPaths) {
-    try {
-      logger.info('Starting multiple document retrieval:', {
-        googleId,
-        docId,
-        collectionPaths
-      });
+  // functions/services/operations.js
+async getDocuments(googleId, docId, collectionInfo) {
+  try {
+    logger.info('Starting multiple document retrieval:', {
+      googleId,
+      docId,
+      collectionInfo
+    });
 
-      // Get documents from each collection
-      const results = await Promise.all(
-        collectionPaths.map(collectionPath => {
-          let ref = db.collection('users').doc(googleId).collection(collectionPath).doc(docId);
-          return ref.get().then(snapshot => ({
-            collection: collectionPath,
-            data: snapshot.exists ? snapshot.data() : null
-          }));
-        })
-      );
+    // Get documents from each collection
+    const results = await Promise.all(
+      collectionInfo.map(({ collectionPath, customDocId }) => {
+        const finalDocId = customDocId || docId;
+        let ref = db.collection('users').doc(googleId).collection(collectionPath).doc(finalDocId);
+        return ref.get().then(snapshot => ({
+          collection: collectionPath,
+          data: snapshot.exists ? snapshot.data() : null
+        }));
+      })
+    );
 
-      // Combine data with collection names as top-level keys
-      const combinedData = {};
-      results.forEach(({ collection, data }) => {
-        if (data) {
-          combinedData[collection] = data;
-        }
-      });
+    // Combine data with collection names as top-level keys
+    const combinedData = {};
+    results.forEach(({ collection, data }) => {
+      if (data) {
+        combinedData[collection] = data;
+      }
+    });
 
-      logger.debug('Combined document data:', {
-        data: JSON.stringify(combinedData)
-      });
+    logger.debug('Combined document data:', {
+      data: JSON.stringify(combinedData)
+    });
 
-      // Use the first document's reference for updates
-      const primaryRef = db.collection('users').doc(googleId)
-        .collection(collectionPaths[0]).doc(docId);
+    // Use the first document's reference for updates
+    const primaryRef = db.collection('users').doc(googleId)
+      .collection(collectionInfo[0].collectionPath).doc(docId);
 
-      return {
-        docRef: primaryRef,
-        docData: combinedData
-      };
+    return {
+      docRef: primaryRef,
+      docData: combinedData
+    };
 
-    } catch (error) {
-      logger.error('Error in getDocuments:', {
-        googleId,
-        docId,
-        collectionPaths,
-        error: error.message,
-        stack: error.stack
-      });
-      throw error;
-    }
-  },
+  } catch (error) {
+    logger.error('Error in getDocuments:', {
+      googleId,
+      docId,
+      collectionInfo,
+      error: error.message,
+      stack: error.stack
+    });
+    throw error;
+  }
+},
+
+  
+  
 
   async getDocument(googleId, docId, collectionPath) {
     try {
