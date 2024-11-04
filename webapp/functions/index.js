@@ -24,10 +24,10 @@ logger.info('Loaded pipeline steps:', Object.keys(pipelineSteps));
 
 // Create pipeline functions from config
 const pipelineFunctions = Object.entries(pipelineSteps).reduce((acc, [key, config]) => {
-  logger.info(`Creating pipeline function: ${key}`);
+  
   try {
     acc[key] = createPipelineStep(config);
-    logger.info(`Successfully created pipeline function: ${key}`);
+    
   } catch (error) {
     logger.error(`Failed to create pipeline function ${key}:`, error);
     throw error;
