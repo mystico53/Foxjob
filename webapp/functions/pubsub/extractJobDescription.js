@@ -1,148 +1,113 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
+const { Firestore } = require("firebase-admin/firestore");
 const { PubSub } = require('@google-cloud/pubsub');
-const { callAnthropicAPI } = require('../services/anthropicService');
+const { callAnthropicAPI } = require('.services/anthropic-service');
 
-// Initialize Firebase Admin SDK and Pub/Sub client outside the function to avoid multiple initializations
+// Ensure Firestore instance is reused
 const db = admin.firestore();
+const FieldValue = admin.firestore.FieldValue;
 const pubSubClient = new PubSub();
 
-// Factory function to create pipeline step
-const createPipelineStep = (config) => {
-  // Validate config
-  const requiredFields = ['name', 'instructions', 'inputPath', 'outputPath', 'triggerTopic', 'nextTopic', 'fallbackValue'];
-  for (const field of requiredFields) {
-    if (!config[field]) {
-      throw new Error(`Missing required config field: ${field}`);
+exports.extractJobDescription = functions.pubsub
+  .topic('raw-text-stored')
+  .onPublish(async (message) => {
+    const messageData = message.json;
+    const { googleId, docId } = messageData;
+
+    logger.info(`Starting process for googleId: ${googleId}, docId: ${docId}`);
+
+    if (!googleId || !docId) {
+      logger.error('Missing required information in the Pub/Sub message');
+      return;
     }
-  }
 
-  // Core operations wrapper
-  const operations = {
-    // Database operations
-    async getDocument(googleId, docId, collections = ['users', 'jobs']) {
-      let ref = db;
-      for (let i = 0; i < collections.length; i++) {
-        const collection = collections[i];
-        const docIdToUse = (i === 0) ? googleId : (i === collections.length - 1) ? docId : null;
-        ref = ref.collection(collection);
-        if (docIdToUse) {
-          ref = ref.doc(docIdToUse);
-        }
-      }
-      const docSnapshot = await ref.get();
-      return { docRef: ref, docSnapshot };
-    },
+    try {
+      // Create document reference using googleId and docId
+      const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
 
-    async updateField(docRef, currentData, fieldPath, value) {
-      const update = {};
-      update[fieldPath] = value;
-      await docRef.update(update);
-      logger.info(`Updated ${fieldPath} successfully`);
-    },
+      // Fetch job data from Firestore
+      const docSnapshot = await jobDocRef.get();
 
-    // PubSub operations
-    async publishNext(topicName, message) {
-      try {
-        const topic = pubSubClient.topic(topicName);
-        const [exists] = await topic.exists();
-        if (!exists) {
-          await pubSubClient.createTopic(topicName);
-        }
-
-        const messageId = await topic.publishMessage({
-          data: Buffer.from(JSON.stringify(message)),
-        });
-        logger.info(`Published to ${topicName}, messageId: ${messageId}`);
-      } catch (error) {
-        logger.error(`Failed to publish to ${topicName}:`, error);
-        throw error;
-      }
-    },
-  };
-
-  // Return the cloud function
-  return functions.pubsub
-    .topic(config.triggerTopic)
-    .onPublish(async (message) => {
-      const { googleId, docId } = message.json;
-      const startTime = Date.now();
-
-      logger.info(`Starting ${config.name} for googleId: ${googleId}, docId: ${docId}`);
-
-      if (!googleId || !docId) {
-        logger.error('Missing required information');
+      if (!docSnapshot.exists) {
+        logger.error(`Document not found: ${jobDocRef.path}`);
+        await populateWithNA(jobDocRef);
         return;
       }
 
-      let docRef;
-      try {
-        // Get document
-        const result = await operations.getDocument(googleId, docId, config.collections);
-        docRef = result.docRef;
-        const docSnapshot = result.docSnapshot;
+      const jobData = docSnapshot.data();
+      const rawJD = jobData.texts.rawText || "na"; // Use "na" if rawText is not available
+      logger.info('Raw job description fetched from Firestore');
 
-        if (!docSnapshot.exists) {
-          logger.error(`Document not found: ${docId}`);
-          await operations.updateField(docRef, {}, config.outputPath, config.fallbackValue);
-          return;
+      if (rawJD === "na") {
+        logger.warn('No raw text found for job');
+        await populateWithNA(jobDocRef);
+        return;
+      }
+
+      // Process text with Anthropic API using the new service
+      const instruction = "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.";
+
+      logger.info('Calling Anthropic API through service');
+      
+      const apiResult = await callAnthropicAPI(rawJD, instruction);
+
+      if (apiResult.error) {
+        logger.error('Error from Anthropic API service:', apiResult);
+        await populateWithNA(jobDocRef);
+        return;
+      }
+
+      logger.info('Received response from Anthropic API service');
+
+      // Save extracted job description to Firestore
+      await jobDocRef.update({
+        texts: {
+          ...jobData.texts, // Spread the existing texts object
+          extractedText: apiResult.extractedText || "na",
+        },
+      });
+      
+      logger.info('Extracted job description saved to Firestore');
+
+      const newTopicName = 'job-description-extracted';
+      
+      await pubSubClient.createTopic(newTopicName).catch((err) => {
+        if (err.code === 6) {
+          logger.info('Topic already exists');
+        } else {
+          throw err;
         }
+      });
 
-        // Get input data
-        const docData = docSnapshot.data();
-        const inputData = config.inputPath.split('.').reduce((obj, key) => (obj && obj[key] !== undefined) ? obj[key] : null, docData);
+      const newMessage = {
+        googleId: googleId,
+        docId: docId
+      };
 
-        if (!inputData) {
-          logger.error('Input data not found');
-          await operations.updateField(docRef, {}, config.outputPath, config.fallbackValue);
-          return;
-        }
+      const newMessageId = await pubSubClient.topic(newTopicName).publishMessage({
+        data: Buffer.from(JSON.stringify(newMessage)),
+      });
 
-        // Process with API
-        const apiResult = await callAnthropicAPI(inputData, config.instructions);
+      logger.info(`Message ${newMessageId} published to topic ${newTopicName}`);
 
-        if (apiResult.error) {
-          throw new Error(`API error: ${apiResult.message}`);
-        }
+    } catch (error) {
+      logger.error('Error in extractJobDescription:', error);
+      await populateWithNA(jobDocRef);
+    }
+  });
 
-        // Update result
-        await operations.updateField(docRef, docData, config.outputPath, apiResult.extractedText);
-
-        // Trigger next step
-        await operations.publishNext(config.nextTopic, { googleId, docId });
-
-        logger.info(`Completed ${config.name} in ${Date.now() - startTime}ms`);
-
-      } catch (error) {
-        logger.error(`Error in ${config.name}:`, error);
-        if (docRef) {
-          await operations.updateField(docRef, {}, config.outputPath, config.fallbackValue);
-        }
+// Helper function to populate fields with "na"
+async function populateWithNA(docRef) {
+  try {
+    await docRef.update({
+      texts: {
+        extractedText: "na"
       }
     });
-};
-
-// Example usage for job description extraction
-exports.extractJobDescription = createPipelineStep({
-  name: 'extract_job_description',
-  instructions: "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.",
-  inputPath: 'texts.rawText',
-  outputPath: 'texts.extractedText',
-  triggerTopic: 'raw-text-stored',
-  nextTopic: 'job-description-extracted',
-  fallbackValue: 'na',
-  collections: ['users', 'jobs'], // optional, defaults to ['users', 'jobs']
-});
-
-// Example usage for a different pipeline step
-exports.anotherPipelineStep = createPipelineStep({
-  name: 'extract_all_skills_needed',
-  instructions: "List all skills needed for this job in a neutral and comprehensive way. If there is a structure of mandatory/required and or preferred/minimum, etc. keep these.",
-  inputPath: 'texts.extractedText',
-  outputPath: 'needed.skills',
-  triggerTopic: 'job-description-extracted',
-  nextTopic: 'different-next-topic',
-  fallbackValue: 'na',
-  collections: ['users', 'jobs'],
-});
+    logger.info('Field populated with "na" due to error');
+  } catch (error) {
+    logger.error('Error populating field with "na":', error);
+  }
+}
