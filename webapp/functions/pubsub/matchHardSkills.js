@@ -2,12 +2,9 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const logger = require("firebase-functions/logger");
 require('dotenv').config();
-const OpenAI = require('openai');
-const { z } = require('zod');
-const { zodResponseFormat } = require('openai/helpers/zod');
+const { callOpenAIAPI } = require('../services/openaiService');  // Import just the function we need
 
 // Initialize
-const openai = new OpenAI();
 const db = admin.firestore();
 
 // ===== Config =====
@@ -19,9 +16,6 @@ const CONFIG = {
   collections: {
     users: 'users',
     jobs: 'jobs'
-  },
-  openai: {
-    model: "gpt-4o-mini"
   },
   defaultValues: {
     placeholderResumeText: `
@@ -101,6 +95,7 @@ PeaceApp-Award, Cyprus, $5,000 for first place amongst 100 submissions).
   }
 };
 
+
 // ===== Firestore Service =====
 const firestoreService = {
   async getResumeText(googleId) {
@@ -150,84 +145,6 @@ const firestoreService = {
   }
 };
 
-// ===== OpenAI Service =====
-const openAiService = {
-  validateApiKey() {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
-      throw new Error('OpenAI API key not found');
-    }
-    return apiKey;
-  },
-
-  getHardSkillMatchingSchema() {
-    return z.object({
-      hardSkillMatches: z.array(
-        z.object({
-          hardSkill: z.string(),
-          assessment: z.string(),
-          score: z.number(),
-        })
-      ),
-      totalScore: z.number(),
-      summary: z.string(),
-    });
-  },
-
-  async matchSkills(resumeText, hardSkills) {
-    this.validateApiKey();
-
-    const hardSkillsString = hardSkills
-      .map((skill, index) => `Hard Skill ${index + 1}: ${skill.hardSkill}`)
-      .join('\n');
-
-    const promptContent = `
-      ${CONFIG.instructions.skillMatching}
-      These are the Hard Skills I mentioned:
-      ${hardSkillsString}
-      These are the qualifications:
-      ${resumeText}
-      Now go:
-    `;
-
-    try {
-      const completion = await openai.beta.chat.completions.parse({
-        model: CONFIG.openai.model,
-        messages: [
-          { role: "system", content: "You are an expert at structured data extraction." },
-          { role: "user", content: promptContent },
-        ],
-        response_format: zodResponseFormat(
-          this.getHardSkillMatchingSchema(),
-          "hard_skill_matching"
-        ),
-      });
-
-      const parsedContent = completion.choices[0].message.parsed;
-      this.validateScores(parsedContent);
-      
-      logger.info('Parsed content:', parsedContent);
-      return parsedContent;
-
-    } catch (error) {
-      logger.error('Error calling OpenAI API:', error);
-      throw new functions.https.HttpsError(
-        'internal',
-        'Error calling OpenAI API',
-        { message: error.message }
-      );
-    }
-  },
-
-  validateScores(parsedContent) {
-    parsedContent.hardSkillMatches.forEach((match) => {
-      if (match.score < 0 || match.score > 100) {
-        throw new Error(`Score out of range: ${match.score}`);
-      }
-    });
-  }
-};
-
 // ===== Skills Processor =====
 const skillsProcessor = {
   extractHardSkillsArray(hardSkills) {
@@ -242,36 +159,106 @@ const skillsProcessor = {
   },
 
   formatSkillAssessment(matchResult, originalHardSkills) {
-    const skillAssessment = {};
+    try {
+      const parsedResult = typeof matchResult === 'string' ? 
+        JSON.parse(matchResult) : matchResult;
 
-    matchResult.hardSkillMatches.forEach((match, index) => {
-      const skillNumber = `HS${index + 1}`;
-      
-      skillAssessment[skillNumber] = {
-        name: originalHardSkills[skillNumber].name,
-        description: originalHardSkills[skillNumber].description,
-        assessment: match.assessment,
-        score: match.score
+      const skillAssessment = {};
+
+      parsedResult.hardSkillMatches.forEach((match, index) => {
+        const skillNumber = `HS${index + 1}`;
+        
+        skillAssessment[skillNumber] = {
+          name: originalHardSkills[skillNumber].name,
+          description: originalHardSkills[skillNumber].description,
+          assessment: match.assessment,
+          score: match.score
+        };
+      });
+
+      skillAssessment.hardSkillScore = {
+        totalScore: parsedResult.totalScore,
+        summary: parsedResult.summary
       };
+
+      return skillAssessment;
+    } catch (error) {
+      logger.error('Error formatting skill assessment:', error);
+      throw new Error('Failed to format skill assessment: ' + error.message);
+    }
+  },
+
+  validateScores(parsedContent) {
+    if (typeof parsedContent === 'string') {
+      parsedContent = JSON.parse(parsedContent);
+    }
+    
+    parsedContent.hardSkillMatches.forEach((match) => {
+      if (match.score < 0 || match.score > 100) {
+        throw new Error(`Score out of range: ${match.score}`);
+      }
     });
-
-    skillAssessment.hardSkillScore = {
-      totalScore: matchResult.totalScore,
-      summary: matchResult.summary
-    };
-
-    return skillAssessment;
+    
+    if (parsedContent.totalScore < 0 || parsedContent.totalScore > 100) {
+      throw new Error(`Total score out of range: ${parsedContent.totalScore}`);
+    }
   }
 };
 
-// ===== Error Handlers =====
-const errorHandlers = {
-  handleProcessingError(error, context = {}) {
-    logger.error('Processing Error:', error, context);
-    if (error instanceof functions.https.HttpsError) {
-      throw error;
-    } else {
-      throw new functions.https.HttpsError('internal', error.message);
+// ===== Skills Matching Service =====
+// ===== Skills Matching Service =====
+const skillsMatchingService = {
+  async matchSkills(resumeText, hardSkills) {
+    const hardSkillsString = hardSkills
+      .map((skill, index) => `Hard Skill ${index + 1}: ${skill.hardSkill}`)
+      .join('\n');
+
+    const instruction = `
+      ${CONFIG.instructions.skillMatching}
+      These are the Hard Skills I mentioned:
+      ${hardSkillsString}
+      Now go:
+    `;
+
+    try {
+      const result = await callOpenAIAPI(resumeText, instruction);
+      
+      if (result.error) {
+        throw new Error(result.message || 'Error calling OpenAI API');
+      }
+
+      // The response might already be an object or a JSON string
+      let parsedContent;
+      if (typeof result.extractedText === 'string') {
+        try {
+          parsedContent = JSON.parse(result.extractedText);
+        } catch (parseError) {
+          logger.error('Failed to parse response as JSON:', result.extractedText);
+          throw new Error('Invalid JSON response: ' + parseError.message);
+        }
+      } else {
+        // If it's already an object, use it directly
+        parsedContent = result.extractedText;
+      }
+
+      // Validate the parsed content structure
+      if (!parsedContent || !Array.isArray(parsedContent.hardSkillMatches)) {
+        logger.error('Invalid response structure:', parsedContent);
+        throw new Error('Invalid response structure: missing hardSkillMatches array');
+      }
+
+      skillsProcessor.validateScores(parsedContent);
+      
+      logger.info('Parsed content:', parsedContent);
+      return parsedContent;
+
+    } catch (error) {
+      logger.error('Error in matchSkills:', error);
+      throw new functions.https.HttpsError(
+        'internal',
+        'Error matching skills',
+        { message: error.message }
+      );
     }
   }
 };
@@ -299,7 +286,7 @@ exports.matchHardSkills = functions.pubsub
 
       // Process hard skills
       const hardSkillsArray = skillsProcessor.extractHardSkillsArray(jobData.SkillAssessment?.Hardskills);
-      const matchResult = await openAiService.matchSkills(resumeText, hardSkillsArray);
+      const matchResult = await skillsMatchingService.matchSkills(resumeText, hardSkillsArray);
 
       // Format and update results
       const skillAssessment = skillsProcessor.formatSkillAssessment(
@@ -310,6 +297,7 @@ exports.matchHardSkills = functions.pubsub
       await firestoreService.updateSkillAssessment(jobDocRef, skillAssessment);
 
     } catch (error) {
-      errorHandlers.handleProcessingError(error, { message });
+      logger.error('Processing Error:', error);
+      throw new functions.https.HttpsError('internal', error.message);
     }
   });
