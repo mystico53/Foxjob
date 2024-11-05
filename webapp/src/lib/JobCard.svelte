@@ -55,6 +55,8 @@
 					class="progress-radial w-8"
 					value={Math.round(score)}
 					stroke={60}
+					meter="!stroke-primary-500"
+					track="!stroke-tertiary-500/30"
 					font={180}
 					strokeLinecap="round"
 				>
