@@ -20,7 +20,8 @@
             padding: 10px 20px;
             box-sizing: border-box;
             display: flex;
-            background-color: #deb934;
+            position: relative;
+            min-height: 150px;
         }
 
         .counter-column {
@@ -124,15 +125,64 @@
             margin-top: 10px;
             display: none;
         }
+
+        .button-container {
+            position: absolute;
+            bottom: 10px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .button-container button:first-child {
+            margin-right: auto;
+        }
+
+        #signInOutButton {
+            background: none;
+            border: none;
+            padding: 0;
+            color: black;
+            cursor: pointer;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            text-decoration: none;
+        }
+
+        #signInOutButton:hover {
+            text-decoration: underline;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .library-button {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: white;
+            color: black;
+            border: 2px solid #FF9C00;
+            border-radius: 20px;
+            text-decoration: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .library-button:hover {
+            background-color: #FFF5E6;
+        }
     </style>
 </head>
 
 <body>
     <div id="popup-container">
         <div class="counter-column">
-            <div class="counter-text">Collected</div>
             <div class="counter-number" id="counterNumber">0</div>
-            <div class="counter-text">Jobs today</div>
+            <div class="counter-text">Jobs collected today</div>
         </div>
         <div class="content-column">
             <div class="header">
@@ -140,11 +190,13 @@
                     <div id="status">Please sign in to process text</div>
                     <div id="loadingSpinner" class="spinner"></div>
                 </div>
-                <button id="signInOutButton" title="">Sign In</button>
             </div>
             <div id="collectedStatus"></div>
-            <p>When you're done, click <a href="https://jobille-45494.web.app/" target="_blank">here</a> to see your
-                results</p>
+        </div>
+        <div class="button-container">
+            <button id="signInOutButton" title="">Sign In</button>
+            <button id="libraryButton" class="library-button hidden"
+                onclick="window.open('https://jobille-45494.web.app/', '_blank')">Visit your library</button>
         </div>
     </div>
     <!-- Load your custom scripts -->
