@@ -13,5 +13,5 @@
   "include": [
     "src/**/*.js",
     "src/**/*.svelte"
-  ]
+, "src/my-custom-theme.ts"  ]
 }

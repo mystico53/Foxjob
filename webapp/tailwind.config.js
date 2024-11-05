@@ -1,29 +1,35 @@
-
 // @ts-check
 import { join } from 'path';
 
 // 1. Import the Skeleton plugin
 import { skeleton } from '@skeletonlabs/tw-plugin';
 
+// 2. Import your custom theme
+import { myCustomTheme } from './src/my-custom-theme.ts';
+
 /** @type {import('tailwindcss').Config} */
 export default {
-	// 2. Opt for dark mode to be handled via the class method
-	darkMode: 'class',
-	content: [
-		'./src/**/*.{html,js,svelte,ts}',
-		// 3. Append the path to the Skeleton package
-		join(require.resolve(
-			'@skeletonlabs/skeleton'),
-			'../**/*.{html,js,svelte,ts}'
-		)
-	],
-	theme: {
-		extend: {},
-	},
-	plugins: [
-		skeleton({
-			themes: { preset: [ "modern" ] }
-		})
-	]
+    // 3. Opt for dark mode to be handled via the class method
+    darkMode: 'class',
+    content: [
+        './src/**/*.{html,js,svelte,ts}',
+        // 4. Append the path to the Skeleton package
+        join(require.resolve(
+            '@skeletonlabs/skeleton'),
+            '../**/*.{html,js,svelte,ts}'
+        )
+    ],
+    theme: {
+        extend: {},
+    },
+    plugins: [
+        skeleton({
+            themes: {
+                preset: ["modern"],  // Keep your preset theme
+                custom: [
+                    myCustomTheme   // Add your custom theme
+                ]
+            }
+        })
+    ]
 }
-						
