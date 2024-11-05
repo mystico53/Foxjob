@@ -2,9 +2,7 @@ const fetch = require('node-fetch');
 const { logger } = require('firebase-functions');
 const functions = require('firebase-functions');
 
-const instruction = "Extract and faithfully reproduce the entire job posting, including all details about the position, company, and application process. Maintain the original structure, tone, and level of detail. Include the job title, location, salary (if provided), company overview, full list of responsibilities and qualifications (both required and preferred), unique aspects of the role or company, benefits, work environment details, and any specific instructions or encouragement for applicants. Preserve all original phrasing, formatting, and stylistic elements such as questions, exclamations, or creative language. Do not summarize, condense, or omit any information. The goal is to create an exact replica of the original job posting, ensuring all content and nuances are captured.";
-
-async function callAnthropicAPI(rawText) {
+async function callAnthropicAPI(rawText, instruction) {
   try {
     // Get API key
     const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
