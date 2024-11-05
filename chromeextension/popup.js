@@ -5,6 +5,7 @@ import Counter from './counter.js';
 let statusDiv;
 let popupContainer;
 let collectedStatusDiv;
+let libraryButton;
 
 document.addEventListener('DOMContentLoaded', initializePopup);
 
@@ -28,6 +29,14 @@ function initializePopup() {
   statusDiv = document.getElementById('status');
   popupContainer = document.getElementById('popup-container');
   collectedStatusDiv = document.getElementById('collectedStatus');
+  libraryButton = document.getElementById('libraryButton');
+
+  // Initialize library button click handler
+  if (libraryButton) {
+    libraryButton.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://jobille-45494.web.app/' });
+    });
+  }
 
   const signInOutButton = document.getElementById('signInOutButton');
   if (signInOutButton) {
@@ -42,6 +51,7 @@ function initializePopup() {
       console.log('User is signed in');
       updateSignInButtonState(true, result.userName);
       updateStatus('Signed in. Processing text...');
+      toggleLibraryButton(true);
 
       // Automatically trigger the main action
       injectContentScriptAndProcess();
@@ -49,15 +59,16 @@ function initializePopup() {
       console.log('User is signed out');
       updateSignInButtonState(false);
       updateStatus('Please sign in to process text');
+      toggleLibraryButton(false);
     }
   });
 
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
     console.log('Message received:', request);
-  if (request.action === 'updateCounter') {
-    console.log('Updating counter with new count:', request.count);
-    updateCounter();
-  }
+    if (request.action === 'updateCounter') {
+      console.log('Updating counter with new count:', request.count);
+      updateCounter();
+    }
     
     if (request.action === 'updateStatus') {
       updateStatus(request.message, request.isLoading);
@@ -65,14 +76,28 @@ function initializePopup() {
       if (request.user) {
         updateSignInButtonState(true, request.user.displayName);
         updateStatus('Signed in. Ready to process text.');
+        toggleLibraryButton(true);
       } else {
         updateSignInButtonState(false);
         updateStatus('Please sign in to process text');
+        toggleLibraryButton(false);
       }
     }
   });
 
   updateCounter();
+}
+
+function toggleLibraryButton(show) {
+  if (libraryButton) {
+    if (show) {
+      libraryButton.classList.remove('hidden');
+    } else {
+      libraryButton.classList.add('hidden');
+    }
+  } else {
+    console.error('Library button not found');
+  }
 }
 
 function handleSignInOut() {
