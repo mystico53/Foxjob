@@ -6,10 +6,8 @@ const { callAnthropicAPI } = require('../services/anthropicService');
 const { PubSub } = require('@google-cloud/pubsub');
 const pubSubClient = new PubSub();
 
-// Initialize
 const db = admin.firestore();
 
-// Config
 const CONFIG = {
   topics: {
     hardSkillsMatched: 'hard-skills-matched'
@@ -58,7 +56,6 @@ const CONFIG = {
   }
 };
 
-// Services
 const services = {
   documentReader: {
     async getJobDocument(googleId, docId) {
@@ -83,7 +80,6 @@ const services = {
           rawData: jobData
         };
       } catch (error) {
-        logger.error('Error reading job fields:', error);
         throw error;
       }
     },
@@ -124,28 +120,19 @@ const services = {
       `;
 
       try {
-        logger.info('Sending instruction to Anthropic:', instruction);
-
         const result = await callAnthropicAPI(JSON.stringify(documentData), instruction);
-        logger.info('Raw Anthropic API Response:', result);
         
         if (result.error) {
-          logger.error('Anthropic API error:', result.message, result.details || '');
           throw new Error(result.message || 'API error');
         }
 
-        // Parse the response text as JSON
         try {
-          const parsedVerdict = JSON.parse(result.extractedText);
-          logger.info('Parsed verdict:', parsedVerdict);
-          return parsedVerdict;
+          return JSON.parse(result.extractedText);
         } catch (parseError) {
-          logger.error('Failed to parse response as JSON:', result.extractedText);
           throw new Error('Invalid JSON response');
         }
 
       } catch (error) {
-        logger.error('Error in getFinalVerdict:', error);
         throw error;
       }
     }
@@ -160,37 +147,27 @@ const services = {
         .doc(docId);
   
       await jobDocRef.update({
-        'verdict': verdict.verdict, // Store only the verdict object
+        'verdict': verdict.verdict,
         'generalData.processingStatus': 'completed'
       });
-      
-      logger.info('Updated verdict in Firestore:', verdict.verdict);
     }
   }
 };
 
-// Main Function
 exports.finalVerdict = functions.pubsub
   .topic(CONFIG.topics.hardSkillsMatched)
   .onPublish(async (message) => {
     try {
       const messageData = message.json;
       const { googleId, docId } = messageData;
-      
-      logger.info(`Starting final verdict analysis for document: users/${googleId}/jobs/${docId}`);
 
       const documentData = await services.documentReader.getJobDocument(googleId, docId);
-      logger.info('Document data retrieved:', documentData);
-
       const parsedVerdict = await services.api.getFinalVerdict(documentData);
-      logger.info('Parsed verdict:', parsedVerdict);
-
       await services.firestore.updateVerdict(googleId, docId, parsedVerdict);
 
       return parsedVerdict;
 
     } catch (error) {
-      logger.error('Processing Error:', error);
       throw new functions.https.HttpsError('internal', error.message);
     }
   });
