@@ -301,21 +301,10 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   }
 });
 
-chrome.action.onClicked.addListener((tab) => {
-  chrome.sidePanel.open({ windowId: tab.windowId });
-});
-
-// Handle keyboard shortcut
 chrome.commands.onCommand.addListener((command) => {
-if (command === "toggle-feature") {
-  console.log("Keyboard shortcut Alt+S was pressed");
-  chrome.sidePanel.open();
-}
-});
-
-chrome.webNavigation.onCompleted.addListener(function(details) {
-  if (details.url.includes('linkedin.com/jobs')) {
-    chrome.sidePanel.open();
+  if (command === "toggle-feature") {
+    console.log("Keyboard shortcut Alt+S was pressed");
+    chrome.action.openPopup();
   }
 });
 
