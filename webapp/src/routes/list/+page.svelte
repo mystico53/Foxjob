@@ -269,6 +269,7 @@
 	}
 
 	// Function to mark as "Read" if status is "New" and navigate to next job
+	/*
 	async function markAsReadAndNext(jobId) {
 		const job = jobData.find((job) => job.id === jobId);
 		if (job && job.generalData?.status.toLowerCase() === 'new') {
@@ -276,6 +277,7 @@
 		}
 		nextJob();
 	}
+	*/
 
 	async function hideJobAndNext(jobId) {
 		try {
@@ -316,7 +318,7 @@
 			if (jobIndex === -1) return;
 
 			const currentStatus = jobData[jobIndex].generalData?.status || '';
-			const newStatus = currentStatus.toLowerCase() === 'starred' ? '' : 'starred';
+			const newStatus = currentStatus.toLowerCase() === 'bookmarked' ? '' : 'bookmarked';
 
 			await updateJobStatus(jobId, newStatus);
 		} catch (err) {
@@ -325,7 +327,6 @@
 		}
 	}
 
-	// Enhanced getStatusDisplay function to include "Read" status
 	function getStatusDisplay(job) {
 		const status = job.generalData?.status;
 		console.log('Status for job', job.id, ':', status);
@@ -333,12 +334,9 @@
 		if (!status) return '';
 
 		switch (status.toLowerCase()) {
-			case 'starred':
-				return '⭐ Starred';
-			case 'new':
-				return '🆕 New';
-			case 'read':
-				return '📖 Read';
+			case 'bookmarked':
+				return 'bookmarked';
+
 			default:
 				return status;
 		}
@@ -390,7 +388,7 @@
 
 			{#if jobData.length > 0}
 				<div class="table-container">
-					<table class="table table-hover">
+					<table class="table-hover table">
 						<thead>
 							<tr>
 								<th>No.</th>
@@ -543,7 +541,7 @@
 		align-items: center;
 		margin-bottom: 20px;
 	}
-	
+
 	.error {
 		color: red;
 	}
