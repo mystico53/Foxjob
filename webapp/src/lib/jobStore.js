@@ -31,34 +31,20 @@ const sortedJobs = derived(
         }
 
         // Then sort the filtered results
+        // Then sort the filtered results
         return [...filteredJobs].sort((a, b) => {
-            if ($sortConfig.column === 'generalData.status') {
-                const statusPriority = $sortConfig.statusPriority || {};
-                const aStatus = a.generalData?.status?.toLowerCase() || 'unread';
-                const bStatus = b.generalData?.status?.toLowerCase() || 'unread';
-                
-                const aPriority = statusPriority[aStatus] || 999;
-                const bPriority = statusPriority[bStatus] || 999;
-                
-                if (aPriority !== bPriority) {
-                    return aPriority - bPriority;
-                }
-                return b.Score?.totalScore - a.Score?.totalScore;
+            if ($sortConfig.column === 'Score.totalScore') {
+                const scoreA = a.Score?.totalScore || 0;
+                const scoreB = b.Score?.totalScore || 0;
+                return scoreB - scoreA; // Higher scores first
             }
-
-            let aValue = $sortConfig.column.split('.').reduce((obj, key) => obj && obj[key], a);
-            let bValue = $sortConfig.column.split('.').reduce((obj, key) => obj && obj[key], b);
-
-            if ($sortConfig.column === 'generalData.timestamp') {
-                aValue = a.generalData?.timestamp?.toDate?.() || new Date(0);
-                bValue = b.generalData?.timestamp?.toDate?.() || new Date(0);
-            }
-
-            if (aValue < bValue) return $sortConfig.direction === 'asc' ? -1 : 1;
-            if (aValue > bValue) return $sortConfig.direction === 'asc' ? 1 : -1;
-            return 0;
+        
+            // Default sort by date (timestamp)
+            const aDate = a.generalData?.timestamp?.toDate?.() || new Date(0);
+            const bDate = b.generalData?.timestamp?.toDate?.() || new Date(0);
+            return bDate - aDate; // Newer dates first
         });
-    }
+            }
 );
 
 // Store actions
