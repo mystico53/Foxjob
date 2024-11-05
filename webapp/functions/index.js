@@ -24,6 +24,7 @@ const { extractDomainExpertise } = require('./pubsub/extractDomainExpertise.js')
 const { matchHardSkills } = require('./pubsub/matchHardSkills.js');
 //const { matchSoftSkills } = require('./pubsub/matchSoftSkills.js');
 const { matchDomainExpertise } = require('./pubsub/matchDomainExpertise.js');
+const { finalVerdict } = require('./pubsub/finalVerdict.js');
 
 // Export all Cloud Functions
 
@@ -40,3 +41,4 @@ exports.extractDomainExpertise = extractDomainExpertise;
 exports.matchHardSkills = matchHardSkills;
 //exports.matchSoftSkills = matchSoftSkills;
 exports.matchDomainExpertise = matchDomainExpertise;
+exports.finalVerdict = finalVerdict;
