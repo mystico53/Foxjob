@@ -311,8 +311,8 @@
 		showToast = false;
 	}
 
-	// Refactored toggleStar function using updateJobStatus
-	async function toggleStar(jobId) {
+	// Refactored toggleBookmark function using updateJobStatus
+	async function toggleBookmark(jobId) {
 		try {
 			const jobIndex = jobData.findIndex((job) => job.id === jobId);
 			if (jobIndex === -1) return;
@@ -503,7 +503,7 @@
 					{previousJob}
 					isFirstJob={currentJobIndex === 0}
 					isLastJob={currentJobIndex === jobData.length - 1}
-					{toggleStar}
+					{toggleBookmark}
 					{hideJobAndNext}
 					{openJobLink}
 				/>

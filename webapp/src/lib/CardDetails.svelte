@@ -9,7 +9,7 @@
 	export let previousJob;
 	export let isFirstJob;
 	export let isLastJob;
-	export let toggleStar;
+	export let toggleBookmark;
 	export let openJobLink;
 	export let hideJobAndNext; // Added missing prop
 
@@ -48,7 +48,7 @@
 	async function handleBookmark() {
 		try {
 			const newStatus = currentStatus === 'bookmarked' ? 'read' : 'bookmarked';
-			await toggleStar(job.id);
+			await toggleBookmark(job.id);
 			// Don't update local state immediately - let it update through the store
 		} catch (error) {
 			console.error('Error toggling bookmark:', error);

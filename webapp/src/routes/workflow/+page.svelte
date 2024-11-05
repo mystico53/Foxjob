@@ -69,7 +69,7 @@
 		}
 	}
 
-	async function toggleStar(jobId) {
+	async function toggleBookmark(jobId) {
 		try {
 			if (!currentUser?.uid) throw new Error('No user logged in');
 			const jobToUpdate = $sortedJobs.find((j) => j.id === jobId);
@@ -135,7 +135,9 @@
 								status={job.generalData?.status}
 								timestamp={job.generalData?.timestamp?.toDate()}
 								handleClick={() => handleJobClick(job)}
+								jobId={job.id}
 								isSelected={selectedJob?.id === job.id}
+								{toggleBookmark}
 							/>
 						</div>
 					{/each}
@@ -155,7 +157,7 @@
 				previousJob={handlePrevious}
 				isFirstJob={selectedJobIndex === 0}
 				isLastJob={selectedJobIndex === $sortedJobs.length - 1}
-				{toggleStar}
+				{toggleBookmark}
 				{hideJobAndNext}
 				{openJobLink}
 			/>

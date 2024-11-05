@@ -5,7 +5,7 @@
 	export let previousJob;
 	export let isFirstJob;
 	export let isLastJob;
-	export let toggleStar;
+	export let toggleBookmark;
 	export let hideJobAndNext;
 	export let openJobLink;
 
@@ -77,7 +77,7 @@
 		<div class="overlay-buttons">
 			<button on:click={previousJob} disabled={isFirstJob || isHiding}>Previous</button>
 
-			<button on:click={() => toggleStar(job.id)} class="bookmark-button" disabled={isHiding}>
+			<button on:click={() => toggleBookmark(job.id)} class="bookmark-button" disabled={isHiding}>
 				{job.generalData?.status.toLowerCase() === 'bookmarked' ? 'Dont bookmark' : 'bookmark'}
 			</button>
 
