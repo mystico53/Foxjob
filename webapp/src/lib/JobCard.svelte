@@ -47,7 +47,7 @@
 	on:click={handleClick}
 	aria-label="View details for {jobTitle} position at {companyName}"
 >
-	<div class="card-content grid grid-cols-[auto_1fr] items-start gap-4">
+	<div class="card-content grid grid-cols-[auto_1fr_auto] items-start gap-4">
 		<!-- Column for ProgressRadial -->
 		<div class="progress-column flex justify-center">
 			{#if score !== null}
@@ -67,17 +67,19 @@
 
 		<!-- Column for Main Content -->
 		<div class="content-column space-y-2">
-			<div class="flex items-center justify-between">
-				<h3 class="company-name h3 font-bold">{companyName}</h3>
-				{#if status}
-					<span class="status text-sm">{getStatusDisplay(status)}</span>
-				{/if}
-			</div>
+			<h3 class="company-name h3 font-bold">{companyName}</h3>
 			<div class="job-title text-surface-600-300-token text-sm">{jobTitle}</div>
 			<div class="timestamp text-surface-600-300-token inline-flex items-center gap-1 text-xs">
 				<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
 				{formattedDate}
 			</div>
 		</div>
+
+		<!-- Column for Status -->
+		{#if status}
+			<div class="status-column flex items-center text-sm">
+				<span class="status">{getStatusDisplay(status)}</span>
+			</div>
+		{/if}
 	</div>
 </button>

@@ -15,7 +15,7 @@ body {
 	display: grid;
 	width: 30rem; /* Adjust to your desired width */
 	max-width: 100%;
-	grid-template-columns: auto 1fr;
+	grid-template-columns: auto 1fr auto;
 	gap: 1rem;
 	align-items: start;
 }
@@ -55,6 +55,14 @@ body {
 	display: inline-flex;
 	align-items: center;
 	font-size: 0.75rem;
+}
+
+.status-column {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	font-size: 0.875rem;
+	color: var(--surface-500);
 }
 
 .status {
