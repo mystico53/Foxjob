@@ -3,7 +3,8 @@
 
 <head>
     <title>Jobille Extension</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Protest+Riot&display=swap"
+        rel="stylesheet">
     <style>
         body,
         html {
@@ -40,8 +41,27 @@
             display: flex;
             flex-direction: column;
             justify-content: center;
-            align-items: center;
-            text-align: center;
+            align-items: flex-start;
+            text-align: left;
+            position: relative;
+        }
+
+        .foxjob-title {
+            position: absolute;
+            top: 0;
+            right: 0;
+            font-size: 28px;
+            font-weight: 700;
+            background: linear-gradient(to right, #FD5440 0%, #FF9C00 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            padding: 0;
+            line-height: 1;
+            z-index: 1;
+            display: inline-block;
+            /* Added to ensure gradient spans the text width */
         }
 
         .counter-number {
@@ -66,27 +86,37 @@
         #status {
             color: #555;
             font-size: 14px;
+            text-align: left;
+            margin-bottom: 8px;
         }
 
         .status-container {
             display: flex;
             flex-direction: column;
-            align-items: center;
+            align-items: flex-start;
             gap: 8px;
+            width: 100%;
         }
 
         .progress-container {
-            width: 200px;
-            height: 4px;
+            width: 100%;
+            height: 6px;
             background-color: #f3f3f3;
             border-radius: 2px;
             overflow: hidden;
+            margin: 0 0 20px 0;
         }
 
         .progress-bar {
             width: 0%;
             height: 100%;
-            background-color: #3498db;
+            background: linear-gradient(to right,
+                    #FF9C00 0%,
+                    #E05D02 20%,
+                    #DC3701 40%,
+                    #941A02 60%,
+                    #510603 80%,
+                    #0A0809 100%);
             transition: width 1500ms linear;
         }
 
@@ -115,6 +145,7 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            width: 100%;
         }
 
         #signInOutButton {
@@ -194,6 +225,7 @@
             <div class="counter-text">Jobs collected today</div>
         </div>
         <div class="content-column">
+            <h1 class="foxjob-title">Foxjob</h1>
             <div class="header">
                 <div class="status-container">
                     <div id="status">Please sign in to process text</div>
