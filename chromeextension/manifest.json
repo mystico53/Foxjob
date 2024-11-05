@@ -1,21 +1,26 @@
 {
   "manifest_version": 3,
-  "name": "JobHunter",
+  "name": "FoxJob",
   "version": "0.11",
-  "description": "JobHunter fasst Stellenbeschreibungen zusammen und stimmt sie mit deinen Fähigkeiten ab, um dir bei der Jobsuche zu helfen.",
+  "description": "Find jobs that are worth your time",
   "permissions": [
     "activeTab",
     "scripting",
     "storage",
     "identity",
-    "offscreen"
+    "offscreen",
+    "sidePanel",
+    "webNavigation"
   ],
   "host_permissions": [
     "<all_urls>",
     "https://jobille-45494.web.app/*"
   ],
   "action": {
-    "default_popup": "popup.html"
+    
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
   },
   "background": {
     "service_worker": "background.js",
