@@ -70,28 +70,33 @@
 
         .status-container {
             display: flex;
+            flex-direction: column;
             align-items: center;
+            gap: 8px;
         }
 
-        .spinner {
-            border: 2px solid #f3f3f3;
-            border-top: 2px solid #3498db;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            animation: spin 1s linear infinite;
-            margin-left: 10px;
-            display: none;
-            flex-shrink: 0;
+        .progress-container {
+            width: 200px;
+            height: 4px;
+            background-color: #f3f3f3;
+            border-radius: 2px;
+            overflow: hidden;
         }
 
-        @keyframes spin {
-            0% {
-                transform: rotate(0deg);
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background-color: #3498db;
+            transition: width 1500ms linear;
+        }
+
+        @keyframes fillProgress {
+            from {
+                width: 0%;
             }
 
-            100% {
-                transform: rotate(360deg);
+            to {
+                width: 100%;
             }
         }
 
@@ -192,7 +197,9 @@
             <div class="header">
                 <div class="status-container">
                     <div id="status">Please sign in to process text</div>
-                    <div id="loadingSpinner" class="spinner"></div>
+                    <div class="progress-container">
+                        <div id="progressBar" class="progress-bar"></div>
+                    </div>
                 </div>
             </div>
             <div id="collectedStatus"></div>

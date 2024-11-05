@@ -49,7 +49,7 @@
     console.log('Selecting all text');
 
     // **Send status update to background script**
-    chrome.runtime.sendMessage({ action: 'statusUpdate', message: 'Selecting all text...' });
+    //chrome.runtime.sendMessage({ action: 'statusUpdate', message: 'Selecting all text...' });
 
     const selectedText = selectAllText();
     console.log('Selected text length:', selectedText.length);
@@ -57,9 +57,6 @@
     console.log('Debug - Current URL:', currentUrl);
 
     console.log('Sending text to Firebase');
-
-    // **Send status update to background script**
-    chrome.runtime.sendMessage({ action: 'statusUpdate', message: 'Sending text to Firebase...' });
 
     chrome.runtime.sendMessage({
       action: "publishText",

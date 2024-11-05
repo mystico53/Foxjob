@@ -173,7 +173,7 @@ async function sendToPubSub(text, url, googleId) {
     }
   
     // Send a simple status update to the popup
-    chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
+    //chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
   
     return { success: true };
   } catch (error) {
@@ -250,7 +250,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   switch (request.action) {
     case "publishText":
       console.log('Handling publishText action from tab:', sender.tab.id);
-      chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Sending text to Pub/Sub...', isLoading: true });
+      //chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Sending text to Pub/Sub...', isLoading: true });
 
       chrome.storage.local.get(['userId'], function(result) {
         const googleId = result.userId || 'anonymous';

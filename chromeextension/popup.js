@@ -174,7 +174,7 @@ function injectContentScriptAndProcess() {
 }
 
 function selectAllTextAndProcess(tabId) {
-  updateStatus('Selecting and processing text...', true);
+  updateStatus('Processing text...', true);
 
   try {
     chrome.tabs.sendMessage(tabId, { action: "selectAllText" }, async function(response) {
@@ -185,8 +185,15 @@ function selectAllTextAndProcess(tabId) {
       }
 
       if (response && response.success) {
-        // Directly update the status without expecting a message
-        updateStatus('Processing completed.');
+        const progressBar = document.getElementById('progressBar');
+        if (progressBar) {
+          // Immediately set to 100% without animation
+          progressBar.style.transition = 'none';
+          progressBar.style.width = '100%';
+        }
+        if (statusDiv) {
+          statusDiv.textContent = 'Completed';
+        }
       } else if (response && response.error) {
         updateStatus('Error: ' + response.error);
         console.error('Processing error:', response.error);
@@ -201,35 +208,40 @@ function selectAllTextAndProcess(tabId) {
   }
 }
 
-// These functions are now called from background.js via messages
+function startProgress() {
+  const progressBar = document.getElementById('progressBar');
+  if (progressBar) {
+    progressBar.style.transition = 'width 1500ms linear';
+    progressBar.style.width = '0%';
+    // Force a reflow
+    progressBar.offsetHeight;
+    progressBar.style.width = '100%';
+  } else {
+    console.error('Progress bar not found');
+  }
+}
+
+function resetProgress() {
+  const progressBar = document.getElementById('progressBar');
+  if (progressBar) {
+    progressBar.style.transition = 'none';
+    progressBar.style.width = '0%';
+  } else {
+    console.error('Progress bar not found');
+  }
+}
+
+// Updated updateStatus function
 function updateStatus(message, isLoading = false) {
   if (statusDiv) {
     statusDiv.textContent = message;
-    if (isLoading) {
-      showSpinner();
-    } else {
-      hideSpinner();
+    if (isLoading && message !== 'Completed') {
+      startProgress();
+    } else if (message !== 'Completed') {
+      resetProgress();
     }
   } else {
     console.error('Status div not found');
-  }
-}
-
-function showSpinner() {
-  const spinner = document.getElementById('loadingSpinner');
-  if (spinner) {
-    spinner.style.display = 'block';
-  } else {
-    console.error('Loading spinner not found');
-  }
-}
-
-function hideSpinner() {
-  const spinner = document.getElementById('loadingSpinner');
-  if (spinner) {
-    spinner.style.display = 'none';
-  } else {
-    console.error('Loading spinner not found');
   }
 }
 
