@@ -13,7 +13,6 @@ async function callAnthropicAPI(rawText, instruction) {
     }
 
     const prompt = `${instruction}\n\n${rawText}`;
-    logger.info('Calling Anthropic API');
 
     const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
