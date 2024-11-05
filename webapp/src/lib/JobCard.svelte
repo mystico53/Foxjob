@@ -26,8 +26,8 @@
 	function getStatusDisplay(status) {
 		if (!status) return '';
 		switch (status.toLowerCase()) {
-			case 'starred':
-				return 'Starred';
+			case 'bookmarked':
+				return 'bookmarked';
 			case 'new':
 				return 'New';
 			case 'read':
@@ -42,7 +42,7 @@
 	in:fade={{ duration: 400 }}
 	out:slide={{ duration: 400 }}
 	class="card variant-ghost-tertiary hover:bg-surface-600/10 w-full cursor-pointer border-2 border-transparent p-4 text-left hover:border-orange-500 {isSelected
-		? 'scale-105 border-orange-500 shadow-lg'
+		? 'border-orange-500 shadow-lg'
 		: ''} transition-all duration-300 hover:scale-105 hover:shadow-lg"
 	on:click={handleClick}
 	aria-label="View details for {jobTitle} position at {companyName}"
@@ -76,10 +76,13 @@
 		</div>
 
 		<!-- Column for Status -->
-		{#if status}
-			<div class="status-column flex items-center text-sm">
-				<span class="status">{getStatusDisplay(status)}</span>
-			</div>
-		{/if}
+		<!-- Column for Status -->
+		<div class="status-column flex items-center text-sm">
+			{#if getStatusDisplay(status) === 'bookmarked'}
+				<iconify-icon class="text-xl text-black" icon="solar:bookmark-bold"></iconify-icon>
+			{:else}
+				<iconify-icon class="text-xl text-black" icon="solar:bookmark-outline"></iconify-icon>
+			{/if}
+		</div>
 	</div>
 </button>

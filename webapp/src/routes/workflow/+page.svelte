@@ -76,11 +76,11 @@
 			if (!jobToUpdate) throw new Error('Job not found');
 
 			const newStatus =
-				jobToUpdate.generalData?.status?.toLowerCase() === 'starred' ? 'read' : 'starred';
+				jobToUpdate.generalData?.status?.toLowerCase() === 'bookmarked' ? 'read' : 'bookmarked';
 			await jobStore.updateStatus(currentUser.uid, jobId, newStatus);
 			// The store will automatically update through Firebase onSnapshot
 		} catch (error) {
-			console.error('Error toggling star:', error);
+			console.error('Error toggling bookmark:', error);
 		}
 	}
 
