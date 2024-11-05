@@ -3,6 +3,8 @@ const admin = require('firebase-admin');
 const logger = require("firebase-functions/logger");
 require('dotenv').config();
 const { callOpenAIAPI } = require('../services/openaiService');  // Import just the function we need
+const { PubSub } = require('@google-cloud/pubsub');
+const pubSubClient = new PubSub();
 
 // Initialize
 const db = admin.firestore();
@@ -145,6 +147,48 @@ const firestoreService = {
   }
 };
 
+const pubSubService = {
+  parseMessage(message) {
+    if (!message.data) {
+      throw new Error('No message data received');
+    }
+    const data = message.json;
+    if (!data) {
+      throw new Error('Invalid JSON in message data');
+    }
+    return data;
+  },
+
+  validateMessageData(data) {
+    const { googleId, docId } = data;
+    if (!googleId || !docId) {
+      throw new Error('Missing required fields in message data');
+    }
+    return { googleId, docId };
+  },
+
+  async ensureTopicExists(topicName) {
+    try {
+      await pubSubClient.createTopic(topicName);
+    } catch (err) {
+      if (err.code !== 6) { // 6 = already exists
+        throw err;
+      }
+    }
+  },
+
+  async publishMessage(topicName, message) {
+    await this.ensureTopicExists(topicName);
+    const messageId = await pubSubClient
+      .topic(topicName)
+      .publishMessage({
+        data: Buffer.from(JSON.stringify(message)),
+      });
+    logger.info(`Message ${messageId} published to ${topicName}`);
+    return messageId;
+  }
+};
+
 // ===== Skills Processor =====
 const skillsProcessor = {
   extractHardSkillsArray(hardSkills) {
@@ -205,7 +249,7 @@ const skillsProcessor = {
   }
 };
 
-// ===== Skills Matching Service =====
+
 // ===== Skills Matching Service =====
 const skillsMatchingService = {
   async matchSkills(resumeText, hardSkills) {
@@ -268,15 +312,9 @@ exports.matchHardSkills = functions.pubsub
   .topic(CONFIG.topics.hardSkillsExtracted)
   .onPublish(async (message) => {
     try {
-      // Parse message
-      const messageData = message.data ? 
-        JSON.parse(Buffer.from(message.data, 'base64').toString()) :
-        {};
-
-      const { googleId, docId } = messageData;
-      if (!docId || !googleId) {
-        throw new Error('Missing docId or googleId');
-      }
+      // Parse message using pubSubService instead of manual parsing
+      const messageData = pubSubService.parseMessage(message);
+      const { googleId, docId } = pubSubService.validateMessageData(messageData);
 
       logger.info(`Processing skills match for googleId: ${googleId}, docId: ${docId}`);
 
@@ -295,6 +333,14 @@ exports.matchHardSkills = functions.pubsub
       );
       
       await firestoreService.updateSkillAssessment(jobDocRef, skillAssessment);
+
+      // Publish to next topic using pubSubService
+      await pubSubService.publishMessage(
+        CONFIG.topics.hardSkillsMatched,
+        { googleId, docId }
+      );
+
+      logger.info(`Successfully completed skills matching for docId: ${docId}`);
 
     } catch (error) {
       logger.error('Processing Error:', error);
