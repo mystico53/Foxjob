@@ -1,79 +1,81 @@
 <script>
-    import { ProgressRadial } from '@skeletonlabs/skeleton';
-    import { fade, slide } from 'svelte/transition';
-    
-    // Props for the card with proper types matching store data
-    export let companyName;
-    export let jobTitle;
-    export let score;
-    export let status;
-    export let timestamp;
-    export let isSelected;
-    
-    // Optional handlers
-    export let handleClick = () => {};
+	import { ProgressRadial } from '@skeletonlabs/skeleton';
+	import { fade, slide } from 'svelte/transition';
 
-    $: formattedDate = timestamp ? new Intl.DateTimeFormat('en-US', {
-        month: '2-digit',
-        day: '2-digit',
-        year: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: false
-    }).format(timestamp).replace(',', ' -') : 'No date';
+	export let companyName;
+	export let jobTitle;
+	export let score;
+	export let status;
+	export let timestamp;
+	export let isSelected;
+	export let handleClick = () => {};
 
-    function getStatusDisplay(status) {
-        if (!status) return '';
+	$: formattedDate = timestamp
+		? new Intl.DateTimeFormat('en-US', {
+				month: '2-digit',
+				day: '2-digit',
+				year: '2-digit',
+				hour: '2-digit',
+				minute: '2-digit',
+				hour12: false
+			})
+				.format(timestamp)
+				.replace(',', ' -')
+		: 'No date';
 
-        switch (status.toLowerCase()) {
-            case 'starred':
-                return '⭐ Starred';
-            case 'new':
-                return '🆕 New';
-            case 'read':
-                return '📖 Read';
-            default:
-                return status;
-        }
-    }
+	function getStatusDisplay(status) {
+		if (!status) return '';
+		switch (status.toLowerCase()) {
+			case 'starred':
+				return 'Starred';
+			case 'new':
+				return 'New';
+			case 'read':
+				return 'Read';
+			default:
+				return status;
+		}
+	}
 </script>
 
-<button 
-    in:fade={{ duration: 400 }}
-    out:slide={{ duration: 400 }}
-    class="card variant-ghost-tertiary w-full text-left p-4 hover:bg-surface-600/10 cursor-pointer {isSelected ? 'card-hover !bg-surface-600/20' : ''}"
-    on:click={handleClick}
-    aria-label="View details for {jobTitle} position at {companyName}"
+<button
+	in:fade={{ duration: 400 }}
+	out:slide={{ duration: 400 }}
+	class="card variant-ghost-tertiary hover:bg-surface-600/10 w-full cursor-pointer p-4 text-left {isSelected
+		? 'card-hover !bg-surface-600/20'
+		: ''}"
+	on:click={handleClick}
+	aria-label="View details for {jobTitle} position at {companyName}"
 >
-    <div class="space-y-4">
-        <div class="flex justify-between items-start">
-            <h3 class="h3 font-bold">{companyName}</h3>
-            {#if score !== null}
-            <div> 
-                <ProgressRadial 
-                    class="w-8"    
-                    value={Math.round(score)}
-                    stroke={60}
-                    font={180}
-                    strokeLinecap="round"
-                >
-                    {Math.round(score)}
-                </ProgressRadial>
-            </div>
-            {/if}
-        </div>
-        
-        <div class="flex flex-col gap-2">
-            <div class="flex justify-between items-center">
-                <span class="text-sm text-surface-600-300-token">{jobTitle}</span>
-                {#if status}
-                    <span class="text-sm">{getStatusDisplay(status)}</span>
-                {/if}
-            </div>
-            <div class="text-xs text-surface-600-300-token inline-flex items-center gap-1">
-                <iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
-                {formattedDate}
-              </div>
-        </div>
-    </div>
+	<div class="card-content grid grid-cols-[auto_1fr] items-start gap-4">
+		<!-- Column for ProgressRadial -->
+		<div class="progress-column flex justify-center">
+			{#if score !== null}
+				<ProgressRadial
+					class="progress-radial w-8"
+					value={Math.round(score)}
+					stroke={60}
+					font={180}
+					strokeLinecap="round"
+				>
+					{Math.round(score)}
+				</ProgressRadial>
+			{/if}
+		</div>
+
+		<!-- Column for Main Content -->
+		<div class="content-column space-y-2">
+			<div class="flex items-center justify-between">
+				<h3 class="company-name h3 font-bold">{companyName}</h3>
+				{#if status}
+					<span class="status text-sm">{getStatusDisplay(status)}</span>
+				{/if}
+			</div>
+			<div class="job-title text-surface-600-300-token text-sm">{jobTitle}</div>
+			<div class="timestamp text-surface-600-300-token inline-flex items-center gap-1 text-xs">
+				<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
+				{formattedDate}
+			</div>
+		</div>
+	</div>
 </button>
