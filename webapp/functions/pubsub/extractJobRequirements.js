@@ -1,144 +1,208 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
-const { Firestore } = require("firebase-admin/firestore");
 const { PubSub } = require('@google-cloud/pubsub');
 
-// Ensure Firestore instance is reused
+// Initialize
 const db = admin.firestore();
 const pubSubClient = new PubSub();
 
-exports.extractJobRequirements = functions.pubsub
-  .topic('job-description-extracted')
-  .onPublish(async (message) => {
-    const messageData = message.json;
-    const { googleId, docId } = messageData;
+// ===== Config =====
+const CONFIG = {
+  topics: {
+    jobDescriptionExtracted: 'job-description-extracted',
+    requirementsGathered: 'requirements-gathered'
+  },
+  collections: {
+    users: 'users',
+    jobs: 'jobs'
+  },
+  defaultValues: {
+    naText: 'na'
+  },
+  instructions: {
+    requirementsExtraction: `Extract the 6 most needed key requirements for this job, dont choose basic, trivial skills (e.g. stakeholder management, find industry and job specific stuff), this should include experience in the industry, education, job specifics, skills. Format each requirement as "Requirement X: Specific requirement", where X is a number from 1 to 6. Ensure there are exactly 6 requirements.
 
-    logger.info(`Starting job requirements extraction for googleId: ${googleId}, docId: ${docId}`);
+Provide only the list of 6 requirements, one per line, without any additional text or explanations.`
+  }
+};
 
-    if (!googleId || !docId) {
-      logger.error('Missing required information in the Pub/Sub message');
-      return;
+// ===== Firestore Service =====
+const firestoreService = {
+  getDocRef(googleId, docId) {
+    const path = `users/${googleId}/jobs/${docId}`;
+    logger.info('DocRef:', { path });
+    return db.collection('users')
+      .doc(googleId)
+      .collection('jobs')
+      .doc(docId);
+  },
+
+  async getJobDocument(docRef) {
+    logger.info('Get:', { path: docRef.path });
+    
+    const snapshot = await docRef.get();
+    if (!snapshot.exists) {
+      logger.warn('404:', { path: docRef.path });
+      throw new Error(`Document not found: ${docRef.path}`);
     }
 
+    const data = snapshot.data();
+    logger.info('Found:', { 
+      path: docRef.path,
+      fields: Object.keys(data || {})
+    });
+
+    return data;
+  },
+
+  async updateJobRequirements(docRef, requirements) {
+    logger.info('Update:', { 
+      path: docRef.path,
+      fields: ['requirements']
+    });
+
+    await docRef.update({ requirements });
+    logger.info('Updated:', { path: docRef.path });
+  }
+};
+
+// ===== PubSub Service =====
+const pubSubService = {
+  parseMessage(message) {
+    if (!message.data) {
+      throw new Error('No message data received');
+    }
+    const data = message.json;
+    if (!data) {
+      throw new Error('Invalid JSON in message data');
+    }
+    return data;
+  },
+
+  validateMessageData(data) {
+    const { googleId, docId } = data;
+    if (!googleId || !docId) {
+      throw new Error('Missing required fields in message data');
+    }
+    return { googleId, docId };
+  },
+
+  async ensureTopicExists(topicName) {
     try {
-      // Create document reference using googleId and docId
-      const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+      await pubSubClient.createTopic(topicName);
+    } catch (err) {
+      if (err.code !== 6) { // 6 = already exists
+        throw err;
+      }
+    }
+  },
 
-      // Fetch job data from Firestore
-      const docSnapshot = await jobDocRef.get();
+  async publishMessage(topicName, message) {
+    await this.ensureTopicExists(topicName);
+    const messageId = await pubSubClient
+      .topic(topicName)
+      .publishMessage({
+        data: Buffer.from(JSON.stringify(message)),
+      });
+    logger.info(`Message ${messageId} published to ${topicName}`);
+    return messageId;
+  }
+};
 
-      if (!docSnapshot.exists) {
-        logger.error(`Document not found: ${jobDocRef.path}`);
+// ===== Anthropic Service =====
+const { callAnthropicAPI } = require('../services/anthropicService');
+
+// ===== Requirements Parser =====
+const requirementsParser = {
+  parseRequirements(text) {
+    const lines = text.split('\n').filter(line => line.trim());
+    const requirements = {};
+
+    lines.forEach((line, index) => {
+      if (!line.includes(':')) {
+        logger.warn(`Malformed requirement line: ${line}`);
         return;
       }
-
-      const jobData = docSnapshot.data();
-      const extractedText = jobData.texts.extractedText;
-      logger.info('Extracted job description fetched from Firestore');
-
-      // Process text with Anthropic API
-      const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
-
-      if (!apiKey) {
-        logger.error('Anthropic API key not found');
-        throw new Error('Anthropic API key not found');
-      }
-
-      const prompt = `Extract the 6 most needed key requirements for this job, dont choose basic, trivial skills (e.g. stakeholder management, find industry and job specific stuff), this should include experience in the industry, education, job specifics, skills. Format each requirement as "Requirement X: Specific requirement", where X is a number from 1 to 6. Ensure there are exactly 6 requirements. Here's the job description:
-
-${extractedText}
-
-Provide only the list of 6 requirements, one per line, without any additional text or explanations.`;
-
-      logger.info('Calling Anthropic API for job requirements extraction');
-
-      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: "claude-3-haiku-20240307",
-          max_tokens: 4096,
-          messages: [
-            { role: 'user', content: prompt }
-          ],
-        }),
-      });
-
-      const data = await anthropicResponse.json();
-
-      if (!anthropicResponse.ok) {
-        logger.error('Anthropic API error response:', data);
-        throw new Error(`Anthropic API Error: ${JSON.stringify(data)}`);
-      }
-
-      logger.info('Received response from Anthropic API');
-
-      let requirementsText;
-      if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-        requirementsText = data.content[0].text.trim();
-        logger.info('Job requirements extracted successfully');
-      } else {
-        logger.error('Unexpected Anthropic API response structure:', data);
-        throw new Error('Unexpected Anthropic API response structure');
-      }
-
-      // Parse requirements into individual fields
-      const requirementsLines = requirementsText.split('\n').filter(line => line.trim());
-      const requirements = {};
       
-      requirementsLines.forEach((line, index) => {
-        if (!line.includes(':')) {
-          logger.warn(`Malformed requirement line: ${line}`);
-          return;
-        }
-        
-        const [key, ...valueParts] = line.split(':');
-        const value = valueParts.join(':').trim();
-        
-        if (!value) {
-          logger.warn(`Empty value for requirement: ${key}`);
-          return;
-        }
-        
-        const fieldName = `requirement${index + 1}`;
-        requirements[fieldName] = value;
-      });
-
-      // Only update if we have valid requirements
-      if (Object.keys(requirements).length > 0) {
-        // Save requirements to Firestore
-        await jobDocRef.update({
-          requirements: requirements,
-        });
-
-        logger.info(`Job requirements saved to Firestore at path: ${jobDocRef.path}`);
-        logger.info(`Extracted requirements: ${JSON.stringify(requirements)}`);
-
-        // Publish to "requirements-gathered" topic
-        const pubSubMessage = {
-          jobReference: docId,
-          googleId: googleId
-        };
-
-        const topicName = 'requirements-gathered';
-        const pubSubTopic = pubSubClient.topic(topicName);
-        await pubSubTopic.publishMessage({
-          data: Buffer.from(JSON.stringify(pubSubMessage)),
-        });
-
-        logger.info(`Published message to ${topicName} topic with jobReference: ${docId} and googleId: ${googleId}`);
-      } else {
-        logger.error('No valid requirements extracted from the response');
-        throw new Error('No valid requirements extracted from the response');
+      const [key, ...valueParts] = line.split(':');
+      const value = valueParts.join(':').trim();
+      
+      if (!value) {
+        logger.warn(`Empty value for requirement: ${key}`);
+        return;
       }
+      
+      const fieldName = `requirement${index + 1}`;
+      requirements[fieldName] = value;
+    });
+
+    if (Object.keys(requirements).length === 0) {
+      throw new Error('No valid requirements extracted from the response');
+    }
+
+    return requirements;
+  }
+};
+
+// ===== Error Handlers =====
+const errorHandlers = {
+  async handleProcessingError(error, docRef, context = {}) {
+    logger.error('Processing Error:', error, context);
+    throw error;
+  },
+
+  handleAndThrow(error, message) {
+    logger.error(message, error);
+    throw error;
+  }
+};
+
+// ===== Main Function =====
+exports.extractJobRequirements = functions.pubsub
+  .topic(CONFIG.topics.jobDescriptionExtracted)
+  .onPublish(async (message) => {
+    let docRef;
+    try {
+      // Parse and validate message
+      const messageData = pubSubService.parseMessage(message);
+      const { googleId, docId } = pubSubService.validateMessageData(messageData);
+      logger.info(`Processing requirements for googleId: ${googleId}, docId: ${docId}`);
+
+      // Get Firestore document
+      docRef = firestoreService.getDocRef(googleId, docId);
+      const jobData = await firestoreService.getJobDocument(docRef);
+      
+      // Process job requirements
+      const extractedText = jobData.texts?.extractedText;
+      if (!extractedText || extractedText === CONFIG.defaultValues.naText) {
+        throw new Error('Invalid extracted text for processing');
+      }
+
+      const apiResponse = await callAnthropicAPI(
+        extractedText,
+        CONFIG.instructions.requirementsExtraction
+      );
+      
+      if (apiResponse.error) {
+        throw new Error(`API Error: ${apiResponse.message}`);
+      }
+
+      const requirementsText = apiResponse.extractedText;
+      
+      // Parse and validate requirements
+      const requirements = requirementsParser.parseRequirements(requirementsText);
+      
+      // Update Firestore
+      await firestoreService.updateJobRequirements(docRef, requirements);
+
+      // Publish next message
+      await pubSubService.publishMessage(
+        CONFIG.topics.requirementsGathered,
+        { googleId, docId }
+      );
 
     } catch (error) {
-      logger.error('Error in extractJobRequirements:', error);
-      throw error; // Re-throw the error to ensure the function fails properly
+      await errorHandlers.handleProcessingError(error, docRef, { message });
     }
   });
