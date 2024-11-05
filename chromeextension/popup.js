@@ -6,6 +6,7 @@ let statusDiv;
 let popupContainer;
 let collectedStatusDiv;
 let libraryButton;
+let giphyContainer;
 
 document.addEventListener('DOMContentLoaded', initializePopup);
 
@@ -30,6 +31,7 @@ function initializePopup() {
   popupContainer = document.getElementById('popup-container');
   collectedStatusDiv = document.getElementById('collectedStatus');
   libraryButton = document.getElementById('libraryButton');
+  giphyContainer = document.querySelector('.giphy-container');
 
   // Initialize library button click handler
   if (libraryButton) {
@@ -52,6 +54,7 @@ function initializePopup() {
       updateSignInButtonState(true, result.userName);
       updateStatus('Signed in. Processing text...');
       toggleLibraryButton(true);
+      hideGiphy();
 
       // Automatically trigger the main action
       injectContentScriptAndProcess();
@@ -60,6 +63,7 @@ function initializePopup() {
       updateSignInButtonState(false);
       updateStatus('Please sign in to process text');
       toggleLibraryButton(false);
+      hideGiphy();
     }
   });
 
@@ -77,15 +81,30 @@ function initializePopup() {
         updateSignInButtonState(true, request.user.displayName);
         updateStatus('Signed in. Ready to process text.');
         toggleLibraryButton(true);
+        hideGiphy();
       } else {
         updateSignInButtonState(false);
         updateStatus('Please sign in to process text');
         toggleLibraryButton(false);
+        hideGiphy();
       }
     }
   });
 
   updateCounter();
+}
+
+// New functions to handle Giphy visibility
+function showGiphy() {
+  if (giphyContainer) {
+    giphyContainer.classList.add('visible');
+  }
+}
+
+function hideGiphy() {
+  if (giphyContainer) {
+    giphyContainer.classList.remove('visible');
+  }
 }
 
 function toggleLibraryButton(show) {
@@ -175,12 +194,14 @@ function injectContentScriptAndProcess() {
 
 function selectAllTextAndProcess(tabId) {
   updateStatus('Processing text...', true);
+  hideGiphy();
 
   try {
     chrome.tabs.sendMessage(tabId, { action: "selectAllText" }, async function(response) {
       if (chrome.runtime.lastError) {
         console.error("Runtime error:", chrome.runtime.lastError);
         updateStatus('Error: ' + chrome.runtime.lastError.message);
+        hideGiphy();
         return;
       }
 
@@ -192,19 +213,23 @@ function selectAllTextAndProcess(tabId) {
           progressBar.style.width = '100%';
         }
         if (statusDiv) {
-          statusDiv.textContent = 'Completed';
+          statusDiv.textContent = 'Ready For Next Scan';
+          showGiphy();
         }
       } else if (response && response.error) {
         updateStatus('Error: ' + response.error);
         console.error('Processing error:', response.error);
+        hideGiphy();
       } else {
         updateStatus('Unexpected response from processing.');
         console.error('Unexpected response:', response);
+        hideGiphy();
       }
     });
   } catch (error) {
     console.error("Error sending message:", error);
     updateStatus('Error: Unable to communicate with the page');
+    hideGiphy();
   }
 }
 
@@ -237,8 +262,13 @@ function updateStatus(message, isLoading = false) {
     statusDiv.textContent = message;
     if (isLoading && message !== 'Completed') {
       startProgress();
-    } else if (message !== 'Completed') {
+      hideGiphy(); // Hide Giphy when loading starts
+    } else if (message === 'Completed') {
       resetProgress();
+      showGiphy(); // Show Giphy when completed
+    } else {
+      resetProgress();
+      hideGiphy(); // Hide Giphy for other status messages
     }
   } else {
     console.error('Status div not found');
