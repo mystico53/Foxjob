@@ -1,6 +1,5 @@
 <!-- SortControls.svelte -->
 <script>
-	import { ListBox, ListBoxItem } from '@skeletonlabs/skeleton';
 	import { sortConfig, sortedJobs } from '$lib/jobStore';
 
 	// Set Date as default
@@ -14,7 +13,8 @@
 		};
 	}
 
-	function handleSortChange() {
+	function handleSortChange(event) {
+		selectedSort = event.target.value;
 		$sortConfig = {
 			column: selectedSort,
 			direction: 'desc' // Both Score and Date should be desc (highest/newest first)
@@ -22,27 +22,17 @@
 	}
 </script>
 
-<div class="flex items-center justify-between border-b p-4">
+<div class="flex items-center justify-between p-4">
 	<div class="text-2xl font-bold">
 		{$sortedJobs?.length || 0} jobs
 	</div>
 
-	<ListBox>
-		<ListBoxItem
-			bind:group={selectedSort}
-			name="sort"
-			value="generalData.timestamp"
-			on:change={handleSortChange}
-		>
-			View by Date
-		</ListBoxItem>
-		<ListBoxItem
-			bind:group={selectedSort}
-			name="sort"
-			value="Score.totalScore"
-			on:change={handleSortChange}
-		>
-			View by Score
-		</ListBoxItem>
-	</ListBox>
+	<select
+		value={selectedSort}
+		on:change={handleSortChange}
+		class="w-44 rounded-lg border border-gray-200 bg-white p-2"
+	>
+		<option value="generalData.timestamp">View by Date</option>
+		<option value="Score.totalScore">View by Score</option>
+	</select>
 </div>
