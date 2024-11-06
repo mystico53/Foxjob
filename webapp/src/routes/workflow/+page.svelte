@@ -108,7 +108,7 @@
 </script>
 
 <!-- Main Content -->
-<div class="fixed left-0 top-[64px] flex h-[calc(100vh-64px)] w-full flex-col md:flex-row">
+<div class="fixed left-0 top-[72px] flex h-[calc(100vh-64px)] w-full flex-col md:flex-row">
 	<!-- Sidebar -->
 	<aside
 		class="bg-surface-100 custom-scrollbar h-full w-full transform overflow-y-auto border-r transition-transform md:w-80 md:translate-x-0"
