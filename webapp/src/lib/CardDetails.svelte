@@ -324,7 +324,9 @@
 </div>
 
 <!-- Fixed position action buttons -->
-<div class="bg-surface-100 fixed bottom-0 left-0 right-0 z-10 border-t p-4 md:ml-80">
+<div
+	class="bg-surface-100 fixed inset-x-0 bottom-0 z-10 border-t p-4 md:left-[25rem] md:right-[1rem]"
+>
 	<div class="mx-auto flex max-w-4xl flex-wrap justify-center gap-2">
 		<button
 			class="btn variant-primary flex items-center gap-2"
