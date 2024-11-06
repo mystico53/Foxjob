@@ -4,7 +4,6 @@
 	import { AppBar, Avatar } from '@skeletonlabs/skeleton';
 	import { goto } from '$app/navigation';
 
-	// Derive active state for navigation items
 	$: currentPath = $page.url.pathname;
 
 	const navItems = [
@@ -24,15 +23,21 @@
 	}
 </script>
 
-<AppBar background="bg-surface-100-800-token" class="px-4 py-2">
+<AppBar
+	background="bg-surface-100-800-token"
+	class="px-4 py-2"
+	gridColumns="grid-cols-3"
+	slotDefault="place-self-center"
+	slotTrail="place-self-end"
+>
 	<svelte:fragment slot="lead">
-		<strong class="text-xl uppercase">JobMatch</strong>
+		<strong class="text-xl uppercase">Foxbjob</strong>
 	</svelte:fragment>
 
 	<svelte:fragment slot="default">
 		{#if $authStore}
 			<div class="hidden md:block">
-				<ul class="flex space-x-4">
+				<ul class="flex justify-center space-x-4">
 					{#each navItems as { href, label }}
 						<li>
 							<a
@@ -51,13 +56,13 @@
 	<svelte:fragment slot="trail">
 		<div class="flex items-center gap-4">
 			{#if $authStore}
-				<button class="btn btn-sm variant-ghost" on:click={handleLogout}> Logout </button>
+				<button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
 				<Avatar
 					initials={$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
 					background="bg-primary-500"
 				/>
 			{:else}
-				<a href="/auth/signin" class="btn btn-sm variant-filled-primary"> Login </a>
+				<a href="/auth/signin" class="btn btn-sm variant-filled-primary">Login</a>
 			{/if}
 		</div>
 	</svelte:fragment>
