@@ -1,49 +1,64 @@
-<!-- C:\coding\jobmatch-extension\webapp\src\lib\Navbar.svelte -->
 <script>
-    import { page } from '$app/stores';
+	import { page } from '$app/stores';
+	import { authStore } from '../stores/authStore';
+	import { AppBar, Avatar } from '@skeletonlabs/skeleton';
+	import { goto } from '$app/navigation';
+
+	// Derive active state for navigation items
+	$: currentPath = $page.url.pathname;
+
+	const navItems = [
+		{ href: '/list', label: 'List' },
+		{ href: '/cards', label: 'Cards' },
+		{ href: '/match', label: 'Match' },
+		{ href: '/workflow', label: 'Workflow' }
+	];
+
+	async function handleLogout() {
+		try {
+			await authStore.signOut();
+			goto('/');
+		} catch (err) {
+			console.error('Error signing out:', err);
+		}
+	}
 </script>
 
-<nav>
-    <ul>
-        <li class:active={$page.url.pathname === '/list'}>
-            <a href="/list">List</a>
-        </li>
-        <li class:active={$page.url.pathname === '/cards'}>
-            <a href="/cards">Cards</a>
-        </li>
-        <li class:active={$page.url.pathname === '/match'}>
-            <a href="/match">Match</a>
-        </li>
-        <li class:active={$page.url.pathname === '/workflow'}>
-            <a href="/workflow">Workflow</a>
-        </li>
-    </ul>
-</nav>
+<AppBar background="bg-surface-100-800-token" class="px-4 py-2">
+	<svelte:fragment slot="lead">
+		<strong class="text-xl uppercase">JobMatch</strong>
+	</svelte:fragment>
 
-<style>
-    nav {
-        background-color: #333;
-        padding: 10px;
-    }
+	<svelte:fragment slot="default">
+		{#if $authStore}
+			<div class="hidden md:block">
+				<ul class="flex space-x-4">
+					{#each navItems as { href, label }}
+						<li>
+							<a
+								{href}
+								class="btn btn-sm {currentPath === href ? 'variant-filled' : 'variant-ghost'}"
+							>
+								{label}
+							</a>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
+	</svelte:fragment>
 
-    ul {
-        list-style-type: none;
-        margin: 0;
-        padding: 0;
-        display: flex;
-    }
-
-    li {
-        margin-right: 20px;
-    }
-
-    a {
-        color: white;
-        text-decoration: none;
-        font-weight: bold;
-    }
-
-    .active a {
-        color: #ffa500;
-    }
-</style>
+	<svelte:fragment slot="trail">
+		<div class="flex items-center gap-4">
+			{#if $authStore}
+				<button class="btn btn-sm variant-ghost" on:click={handleLogout}> Logout </button>
+				<Avatar
+					initials={$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
+					background="bg-primary-500"
+				/>
+			{:else}
+				<a href="/auth/signin" class="btn btn-sm variant-filled-primary"> Login </a>
+			{/if}
+		</div>
+	</svelte:fragment>
+</AppBar>
