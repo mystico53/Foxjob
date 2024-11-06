@@ -8,7 +8,7 @@
 
 	const navItems = [
 		{ href: '/list', label: 'Dashboard' },
-		{ href: '/workflow', label: 'Scanned Jobs' }
+		{ href: '/workflow', label: 'Jobs' }
 	];
 
 	async function handleLogout() {
@@ -38,17 +38,17 @@
 			<div class="hidden md:block">
 				<ul class="flex justify-center space-x-8">
 					{#each navItems as { href, label }}
-						<li class="relative pb-2">
+						<li class="relative px-4">
 							<a
 								{href}
-								class="text-base font-medium {currentPath === href
+								class="text-base font-bold {currentPath === href
 									? 'text-[#B45309]'
 									: 'text-gray-600 hover:text-gray-900'}"
 							>
 								{label}
 							</a>
 							{#if currentPath === href}
-								<div class="absolute bottom-[-24px] left-0 h-0.5 w-full bg-[#B45309]"></div>
+								<div class="bg-primary-500 absolute bottom-[-20px] left-[0%] h-1 w-[100%]"></div>
 							{/if}
 						</li>
 					{/each}
@@ -62,6 +62,7 @@
 			{#if $authStore}
 				<button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
 				<Avatar
+					width="w-12"
 					initials={$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
 					background="bg-primary-500"
 				/>
