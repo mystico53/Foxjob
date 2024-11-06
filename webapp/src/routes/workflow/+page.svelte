@@ -205,5 +205,5 @@
 </button>
 
 <style>
-	/* Remove custom styles unless necessary */
+	/* Target all cards and their borders */
 </style>

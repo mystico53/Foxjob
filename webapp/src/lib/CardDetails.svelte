@@ -67,7 +67,7 @@
 </script>
 
 <!-- Main card content -->
-<div class="card mx-auto mb-20 max-w-4xl space-y-8 p-6">
+<div class="bg-surface-100 mx-auto mb-20 max-w-4xl space-y-8 p-6">
 	<!-- Header Section -->
 	<div class="flex items-start justify-between">
 		<!-- Company Info -->
@@ -130,11 +130,9 @@
 		</button>
 	</div>
 
-	<!-- Add this section after your existing Match Results table in your component -->
-
 	{#if !showDescription && job.SkillAssessment}
 		<!-- Domain Expertise Section -->
-		<div class="card border-surface-500 border-2 p-4">
+		<div class="card p-4">
 			<h3 class="h5 mb-4">Domain Expertise Assessment</h3>
 			{#if job.SkillAssessment.DomainExpertise}
 				<table class="table-hover table">
@@ -171,7 +169,7 @@
 		</div>
 
 		<!-- Hard Skills Section -->
-		<div class="card border-surface-500 border-2 p-4">
+		<div class="card p-4">
 			<h3 class="h5 mb-4">Hard Skills Assessment</h3>
 			{#if job.SkillAssessment.Hardskills.hardSkillScore}
 				<div class="mt-4">
@@ -227,7 +225,7 @@
 		</div>
 
 		<!-- Soft Skills Section -->
-		<div class="card border-surface-500 border-2 p-4">
+		<div class="card p-4">
 			<h3 class="h5 mb-4">Soft Skills Assessment</h3>
 			{#if job.SkillAssessment.Softskills.softSkillScore}
 				<div class="mt-4">
@@ -286,7 +284,7 @@
 	{#if !showDescription}
 		<!-- Match Results Table -->
 		{#if job.matchResult}
-			<div class="card border-surface-500 border-2 p-4">
+			<div class="card p-4">
 				<h3 class="h5 mb-4">Old Match Results, will be removed @Zhong</h3>
 				<table class="table-hover table">
 					<thead>
