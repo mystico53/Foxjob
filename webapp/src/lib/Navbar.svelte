@@ -23,7 +23,8 @@
 
 <AppBar
 	background="bg-white"
-	class="border-b-2 border-gray-200 px-4 py-2"
+	class="border-b-2 px-4 py-2"
+	style="border-color: rgb(107, 114, 128);"
 	gridColumns="grid-cols-3"
 	slotDefault="place-self-center"
 	slotTrail="place-self-end"
@@ -37,7 +38,7 @@
 			<div class="hidden md:block">
 				<ul class="flex justify-center space-x-8">
 					{#each navItems as { href, label }}
-						<li>
+						<li class="relative">
 							<a
 								{href}
 								class="text-base font-medium {currentPath === href
@@ -46,6 +47,9 @@
 							>
 								{label}
 							</a>
+							{#if currentPath === href}
+								<div class="absolute bottom-[-18px] left-0 h-1 w-full bg-orange-500"></div>
+							{/if}
 						</li>
 					{/each}
 				</ul>
