@@ -38,7 +38,7 @@
 			<div class="hidden md:block">
 				<ul class="flex justify-center space-x-8">
 					{#each navItems as { href, label }}
-						<li class="relative">
+						<li class="relative pb-2">
 							<a
 								{href}
 								class="text-base font-medium {currentPath === href
@@ -48,7 +48,7 @@
 								{label}
 							</a>
 							{#if currentPath === href}
-								<div class="absolute bottom-[-18px] left-0 h-1 w-full bg-orange-500"></div>
+								<div class="absolute bottom-[-24px] left-0 h-0.5 w-full bg-[#B45309]"></div>
 							{/if}
 						</li>
 					{/each}
