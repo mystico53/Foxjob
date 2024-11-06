@@ -129,10 +129,12 @@
 					{#each $sortedJobs as job (job.id)}
 						<div animate:flip={{ duration: 700 }}>
 							<JobCard
-								companyName={job.companyInfo?.name || 'Unknown Company'}
-								jobTitle={job.jobInfo?.jobTitle || 'No Title'}
+								companyName={job.companyInfo?.name || 'no info'}
+								jobTitle={job.jobInfo?.jobTitle || 'no info'}
 								score={job.Score?.totalScore}
 								status={job.generalData?.status}
+								remoteType={job.jobInfo?.remoteType || 'no info'}
+								compensation={job.compensation || 'no info'}
 								timestamp={job.generalData?.timestamp?.toDate()}
 								handleClick={() => handleJobClick(job)}
 								jobId={job.id}

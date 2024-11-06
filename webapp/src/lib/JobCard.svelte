@@ -11,6 +11,8 @@
 	export let handleClick = () => {};
 	export let jobId;
 	export let toggleBookmark;
+	export let remoteType;
+	export let compensation;
 
 	$: formattedDate = timestamp
 		? new Intl.DateTimeFormat('en-US', {
@@ -42,6 +44,11 @@
 	async function handleBookmarkClick(event) {
 		event.stopPropagation();
 		await toggleBookmark(jobId); // Pass the jobId to toggleBookmark
+	}
+
+	function truncate(str, maxLength = 25) {
+		if (!str) return '';
+		return str.length > maxLength ? str.substring(0, maxLength) + '...' : str;
 	}
 </script>
 
@@ -76,9 +83,31 @@
 		<div class="content-column space-y-2">
 			<h3 class="company-name h3 font-bold">{companyName}</h3>
 			<div class="job-title text-surface-600-300-token text-sm">{jobTitle}</div>
-			<div class="timestamp text-surface-600-300-token inline-flex items-center gap-1 text-xs">
-				<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
-				{formattedDate}
+			<div class="flex flex-col gap-3 text-xs">
+				<div class="flex items-center justify-between">
+					<div class="inline-flex items-center gap-1">
+						<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
+						<span>{formattedDate}</span>
+					</div>
+					{#if remoteType}
+						<div class="inline-flex items-center gap-1">
+							<iconify-icon icon="solar:global-linear"></iconify-icon>
+							<span class="max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
+								>{truncate(remoteType, 12)}</span
+							>
+						</div>
+					{/if}
+				</div>
+				{#if compensation}
+					<div class="flex items-center">
+						<div class="inline-flex items-center gap-1">
+							<iconify-icon icon="solar:dollar-minimalistic-linear"></iconify-icon>
+							<span class="max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
+								>{truncate(compensation, 30)}</span
+							>
+						</div>
+					</div>
+				{/if}
 			</div>
 		</div>
 
