@@ -52,9 +52,9 @@
 <button
 	in:fade={{ duration: 400 }}
 	out:slide={{ duration: 400 }}
-	class="card variant-ghost-tertiary hover:bg-surface-600/10 w-full cursor-pointer border-2 border-transparent p-4 text-left hover:border-orange-500 {isSelected
-		? 'border-orange-500 shadow-lg'
-		: ''} transition-all duration-300 hover:shadow-lg"
+	class="card variant-ghost-tertiary w-full cursor-pointer border-2 p-4 text-left transition-all duration-300 hover:shadow-lg {isSelected
+		? 'bg-surface-600/10 border-orange-500'
+		: 'hover:bg-surface-600/10 border-transparent hover:border-orange-500'}"
 	on:click={handleClick}
 	aria-label="View details for {jobTitle} position at {companyName}"
 >
