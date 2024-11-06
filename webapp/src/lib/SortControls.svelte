@@ -2,13 +2,13 @@
 <script>
 	import { sortConfig, sortedJobs } from '$lib/jobStore';
 
-	// Set Date as default
-	let selectedSort = 'generalData.timestamp';
+	// Set Score as default to match actual behavior
+	let selectedSort = 'Score.totalScore';
 
-	// Initialize sortConfig with Date if not already set
+	// Initialize sortConfig with Score as default
 	if (!$sortConfig.column) {
 		$sortConfig = {
-			column: 'generalData.timestamp',
+			column: 'Score.totalScore',
 			direction: 'desc'
 		};
 	}
@@ -32,7 +32,7 @@
 		on:change={handleSortChange}
 		class="w-44 rounded-lg border border-gray-200 bg-white p-2"
 	>
-		<option value="generalData.timestamp">View by Date</option>
 		<option value="Score.totalScore">View by Score</option>
+		<option value="generalData.timestamp">View by Date</option>
 	</select>
 </div>
