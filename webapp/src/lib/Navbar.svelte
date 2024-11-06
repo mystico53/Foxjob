@@ -7,10 +7,8 @@
 	$: currentPath = $page.url.pathname;
 
 	const navItems = [
-		{ href: '/list', label: 'List' },
-		{ href: '/cards', label: 'Cards' },
-		{ href: '/match', label: 'Match' },
-		{ href: '/workflow', label: 'Workflow' }
+		{ href: '/list', label: 'Dashboard' },
+		{ href: '/workflow', label: 'Scanned Jobs' }
 	];
 
 	async function handleLogout() {
@@ -24,8 +22,8 @@
 </script>
 
 <AppBar
-	background="bg-surface-100-800-token"
-	class="px-4 py-2"
+	background="bg-white"
+	class="border-b-2 border-gray-200 px-4 py-2"
 	gridColumns="grid-cols-3"
 	slotDefault="place-self-center"
 	slotTrail="place-self-end"
@@ -37,12 +35,14 @@
 	<svelte:fragment slot="default">
 		{#if $authStore}
 			<div class="hidden md:block">
-				<ul class="flex justify-center space-x-4">
+				<ul class="flex justify-center space-x-8">
 					{#each navItems as { href, label }}
 						<li>
 							<a
 								{href}
-								class="btn btn-sm {currentPath === href ? 'variant-filled' : 'variant-ghost'}"
+								class="text-base font-medium {currentPath === href
+									? 'text-[#B45309]'
+									: 'text-gray-600 hover:text-gray-900'}"
 							>
 								{label}
 							</a>
