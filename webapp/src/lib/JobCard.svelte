@@ -43,13 +43,10 @@
 
 	async function handleBookmarkClick(event) {
 		event.stopPropagation();
-		await toggleBookmark(jobId); // Pass the jobId to toggleBookmark
+		await toggleBookmark(jobId);
 	}
 
-	function truncate(str, maxLength = 25) {
-		if (!str) return '';
-		return str.length > maxLength ? str.substring(0, maxLength) + '...' : str;
-	}
+	// Remove truncate function since we'll handle it with CSS
 </script>
 
 <button
@@ -93,26 +90,29 @@
 						<div class="inline-flex items-center gap-1">
 							<iconify-icon icon="solar:global-linear"></iconify-icon>
 							<span class="max-w-[100px] overflow-hidden text-ellipsis whitespace-nowrap"
-								>{truncate(remoteType, 12)}</span
+								>{remoteType}</span
 							>
 						</div>
 					{/if}
 				</div>
 				{#if compensation}
-					<div class="flex items-center">
+					<div class="group relative flex items-center">
 						<div class="inline-flex items-center gap-1">
 							<iconify-icon icon="solar:dollar-minimalistic-linear"></iconify-icon>
-							<span class="max-w-[120px] overflow-hidden text-ellipsis whitespace-nowrap"
-								>{truncate(compensation, 30)}</span
+							<!-- Added wider max-width and tooltip -->
+							<span
+								class="hover:bg-surface-100 max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap hover:rounded"
+								title={compensation}
 							>
+								{compensation}
+							</span>
 						</div>
 					</div>
 				{/if}
 			</div>
 		</div>
 
-		<!-- Updated Status Column -->
-		<!-- Updated Status Column -->
+		<!-- Status Column -->
 		<div class="status-column flex items-center text-sm">
 			<button
 				class="hover:bg-surface-100 flex items-center justify-center rounded-full p-1"
