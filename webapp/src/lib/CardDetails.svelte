@@ -72,7 +72,19 @@
 	<div class="flex items-start justify-between">
 		<!-- Company Info -->
 		<div>
-			<h2 class="h5 pb-2">{job.jobInfo?.jobTitle || 'N/A'}</h2>
+			<div class="flex items-center gap-2 pb-4">
+				<h5 class="h5 m-0 flex items-center">{job.jobInfo?.jobTitle || 'N/A'}</h5>
+				<!-- svelte-ignore a11y-invalid-attribute -->
+				<button
+					type="button"
+					class="flex cursor-pointer items-center"
+					on:click={handleVisitJob}
+					on:keydown={(e) => e.key === 'Enter' && handleVisitJob()}
+					aria-label="Visit Job"
+				>
+					<iconify-icon icon="solar:file-right-linear"></iconify-icon>
+				</button>
+			</div>
 			<h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
 			<!-- Meta Information -->
 			<div class="mt-4 flex flex-wrap gap-2">
@@ -97,31 +109,19 @@
 		<!-- Radial Progress Score Display -->
 		{#if job.matchResult?.totalScore !== undefined}
 			<div class="relative flex items-center gap-2">
-				<div class="opacity-50">
-					<ProgressRadial
-						class="w-12"
-						stroke={60}
-						font={150}
-						meter="!stroke-error-500"
-						track="!stroke-error-500/30"
-						strokeLinecap="round"
-						value={Math.round(job.matchResult.totalScore)}
-					>
-						{Math.round(job.matchResult.totalScore)}
-					</ProgressRadial>
-				</div>
-				<span class="badge variant-filled-error absolute -right-2 -top-2">Old</span>
+				<ProgressRadial
+					class="!w-32"
+					stroke={60}
+					font={150}
+					meter="!stroke-primary-500"
+					track="!stroke-tertiary-500/30"
+					strokeLinecap="round"
+					value={Math.round(job.matchResult.totalScore)}
+				>
+					{Math.round(job.matchResult.totalScore)}
+				</ProgressRadial>
 			</div>
 		{/if}
-	</div>
-
-	<div class="flex gap-2">
-		<button class="btn variant-filled-primary" on:click={handleVisitJob} disabled={isHiding}>
-			Visit Job
-		</button>
-		<button class="btn variant-filled-secondary" on:click={toggleDescription}>
-			{showDescription ? 'Show Match Results' : 'Show Description'}
-		</button>
 	</div>
 
 	{#if !showDescription && job.SkillAssessment}

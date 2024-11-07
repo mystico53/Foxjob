@@ -68,11 +68,6 @@ body {
 	align-items: center;
 }
 
-.progress-radial {
-	width: 2rem;
-	height: 2rem;
-}
-
 .content-column {
 	display: flex;
 	flex-direction: column;
