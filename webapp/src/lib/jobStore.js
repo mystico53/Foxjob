@@ -1,4 +1,3 @@
-// jobStore.js
 import { writable, derived } from 'svelte/store';
 import { db } from './firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
@@ -8,7 +7,7 @@ const jobs = writable([]);
 const loading = writable(true);
 const error = writable(null);
 const sortConfig = writable({
-    column: 'Score.totalScore',
+    column: 'AccumulatedScores.accumulatedScore', // Updated to use accumulated score
     direction: 'desc'
 });
 const searchText = writable('');
@@ -31,11 +30,10 @@ const sortedJobs = derived(
         }
 
         // Then sort the filtered results
-        // Then sort the filtered results
         return [...filteredJobs].sort((a, b) => {
-            if ($sortConfig.column === 'Score.totalScore') {
-                const scoreA = a.Score?.totalScore || 0;
-                const scoreB = b.Score?.totalScore || 0;
+            if ($sortConfig.column === 'AccumulatedScores.accumulatedScore') {
+                const scoreA = a.AccumulatedScores?.accumulatedScore || 0;
+                const scoreB = b.AccumulatedScores?.accumulatedScore || 0;
                 return scoreB - scoreA; // Higher scores first
             }
         
@@ -44,7 +42,7 @@ const sortedJobs = derived(
             const bDate = b.generalData?.timestamp?.toDate?.() || new Date(0);
             return bDate - aDate; // Newer dates first
         });
-            }
+    }
 );
 
 // Store actions
@@ -66,57 +64,55 @@ function createJobStore() {
                 unsubscribeJobs = onSnapshot(
                     jobsQuery,
                     async (jobsSnapshot) => {
-                        // In your jobStore.js, update the job mapping section:
-                    const jobPromises = jobsSnapshot.docs.map(async (jobDoc) => {
-                        const jobDataRaw = jobDoc.data();
-                        console.log("Raw job data:", jobDataRaw);
-                        const summarizedData = jobDataRaw.summarized;
-                        const scoreData = jobDataRaw.Score;
+                        const jobPromises = jobsSnapshot.docs.map(async (jobDoc) => {
+                            const jobDataRaw = jobDoc.data();
+                            console.log("Raw job data:", jobDataRaw);
+                            const summarizedData = jobDataRaw.summarized;
+                            const scoreData = jobDataRaw.Score;
 
-                        if (!summarizedData || !scoreData) return null;
+                            if (!summarizedData || !scoreData) return null;
 
-                        const matchResult = {
-                            keySkills: [],
-                            totalScore: scoreData.totalScore || 0,
-                            summary: scoreData.summary || ''
-                        };
+                            const matchResult = {
+                                keySkills: [],
+                                totalScore: scoreData.totalScore || 0,
+                                summary: scoreData.summary || ''
+                            };
 
-                        Object.keys(scoreData).forEach((key) => {
-                            if (key.startsWith('Requirement')) {
-                                const req = scoreData[key];
-                                matchResult.keySkills.push({
-                                    skill: req.requirement,
-                                    score: req.score,
-                                    assessment: req.assessment
-                                });
-                            }
+                            Object.keys(scoreData).forEach((key) => {
+                                if (key.startsWith('Requirement')) {
+                                    const req = scoreData[key];
+                                    matchResult.keySkills.push({
+                                        skill: req.requirement,
+                                        score: req.score,
+                                        assessment: req.assessment
+                                    });
+                                }
+                            });
+
+                            return {
+                                id: jobDoc.id,
+                                ...summarizedData,
+                                generalData: {
+                                    ...jobDataRaw.generalData,
+                                    status: jobDataRaw.generalData?.status || ''
+                                },
+                                Score: scoreData,
+                                matchResult: matchResult,
+                                SkillAssessment: {
+                                    DomainExpertise: jobDataRaw.SkillAssessment?.DomainExpertise || {},
+                                    Hardskills: jobDataRaw.SkillAssessment?.Hardskills || {},
+                                    Softskills: jobDataRaw.SkillAssessment?.Softskills || {}
+                                },
+                                verdict: jobDataRaw.verdict || null,
+                                AccumulatedScores: jobDataRaw.AccumulatedScores || {
+                                    accumulatedScore: 0,
+                                    domainScore: 0,
+                                    hardSkillScore: 0,
+                                    requirementScore: 0,
+                                    verdictScore: 0
+                                }
+                            }; 
                         });
-
-                        // Return the complete job object with SkillAssessment exactly as it is in Firestore
-                        return {
-                            id: jobDoc.id,
-                            ...summarizedData,
-                            generalData: {
-                                ...jobDataRaw.generalData,
-                                status: jobDataRaw.generalData?.status || ''
-                            },
-                            Score: scoreData,
-                            matchResult: matchResult,
-                            SkillAssessment: {
-                                DomainExpertise: jobDataRaw.SkillAssessment?.DomainExpertise || {},
-                                Hardskills: jobDataRaw.SkillAssessment?.Hardskills || {},
-                                Softskills: jobDataRaw.SkillAssessment?.Softskills || {}
-                            },
-                            verdict: jobDataRaw.verdict || null,
-                            AccumulatedScores: jobDataRaw.AccumulatedScores || {
-                                accumulatedScore: 0,
-                                domainScore: 0,
-                                hardSkillScore: 0,
-                                requirementScore: 0,
-                                verdictScore: 0
-                            }
-                        }; 
-                    });
 
                         const jobResults = await Promise.all(jobPromises);
                         set(jobResults.filter(job => job !== null));

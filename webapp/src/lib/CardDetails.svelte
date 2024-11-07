@@ -270,11 +270,11 @@
 			<iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
 		</button>
 
-		<button class="btn variant-soft" on:click={handleHide} disabled={isHiding}>
+		<button class="btn variant-secondary" on:click={handleHide} disabled={isHiding}>
 			{isHiding ? 'Archiving...' : 'Archive'}
 		</button>
 
-		<button class="btn variant-filled" on:click={handleBookmark} disabled={isHiding}>
+		<button class="btn variant-primary" on:click={handleBookmark} disabled={isHiding}>
 			{#if currentStatus === 'bookmarked'}
 				Bookmarked
 			{:else}
