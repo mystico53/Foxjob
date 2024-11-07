@@ -72,11 +72,11 @@
 	<div class="flex items-start justify-between">
 		<!-- Company Info -->
 		<div>
+			<h2 class="h5 pb-2">{job.jobInfo?.jobTitle || 'N/A'}</h2>
 			<h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
-			<h2 class="h5 text-surface-600">{job.jobInfo?.jobTitle || 'N/A'}</h2>
 			<!-- Meta Information -->
 			<div class="mt-4 flex flex-wrap gap-2">
-				<span class="chip variant-ghost-success inline-flex items-center gap-2">
+				<span class="chip variant-ghost-surface">
 					<iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
 					{job.companyInfo?.industry || 'N/A'}
 				</span>
@@ -84,20 +84,14 @@
 					<iconify-icon icon="solar:pin-bold"></iconify-icon>
 					{job.jobInfo?.remoteType || 'N/A'}
 				</span>
-				<span class="chip variant-ghost-secondary">
+				<span class="chip variant-ghost-surface">
 					<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
 					{job.compensation || 'N/A'}
 				</span>
-				<span class="chip variant-ghost-primary">
+				<span class="chip variant-ghost-surface">
 					<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
 					{formatDate(job.generalData?.timestamp)}
 				</span>
-				{#if job.generalData?.status}
-					<span class="chip variant-gradient-primary-secondary bg-gradient-to-br">
-						<iconify-icon icon="solar:folder-with-files-bold"></iconify-icon>
-						{currentStatus}
-					</span>
-				{/if}
 			</div>
 		</div>
 		<!-- Radial Progress Score Display -->
