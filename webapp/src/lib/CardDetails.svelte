@@ -3,6 +3,7 @@
 	import { auth } from '$lib/firebase';
 	import { jobStore } from '$lib/jobStore';
 	import { Accordion, AccordionItem } from '@skeletonlabs/skeleton';
+	import { popup } from '@skeletonlabs/skeleton';
 
 	export let job = {};
 	export let handleNext;
@@ -12,8 +13,17 @@
 	export let toggleBookmark;
 	export let openJobLink;
 
+	const popupHover = {
+        event: 'hover',
+        target: 'popupHover',
+        placement: 'left',
+        duration: 0
+    };
+
 	let isHiding = false;
 	let currentStatus = job?.generalData?.status?.toLowerCase() || '';
+
+	
 
 	// Update currentStatus whenever job changes
 	$: if (job?.generalData?.status) {
@@ -130,27 +140,52 @@
 					</span>
 				</div>
 			</div>
-		</div>
-
-		<!-- Right Column: Radial Progress -->
-		{#if job.AccumulatedScores?.accumulatedScore !== undefined}
-			<div class="flex items-start justify-end">
+		</div><!-- Wrap the ProgressRadial in a container for the popup -->
+		{#if job?.AccumulatedScores?.accumulatedScore !== undefined}
+		<div class="flex items-start justify-end">
+			<div class="relative" use:popup={popupHover}>
 				<ProgressRadial
-					class="!w-32"
+					class="!w-32 cursor-pointer"
 					stroke={60}
 					font={150}
 					meter="!stroke-primary-500"
 					track="!stroke-tertiary-500/30"
 					strokeLinecap="round"
-					value={Math.round(job.AccumulatedScores.accumulatedScore)}
+					value={Math.round(job.AccumulatedScores.accumulatedScore || 0)}
 				>
-					{Math.round(job.AccumulatedScores.accumulatedScore)}
+					{Math.round(job.AccumulatedScores.accumulatedScore || 0)}
 				</ProgressRadial>
 			</div>
-		{/if}
-	</div>
+		
+			<!-- Popup Content -->
+			<div class="card p-4 variant-filled-secondary" data-popup="popupHover">
+				<div class="space-y-2">
+					<div class="grid grid-cols-2 gap-x-4 gap-y-1">
+						<span class="text-sm opacity-75">Accumulated Score:</span>
+						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.accumulatedScore || 0)}</span>
 
-	<div class="card p-4 w-full">
+						<span class="text-sm opacity-75">Quick Scan Score:</span>
+						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.requirementScore || 0)}</span>
+						
+						<span class="text-sm opacity-75">Domain Score:</span>
+						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.domainScore || 0)}</span>
+						
+						<span class="text-sm opacity-75">Hard Skill Score:</span>
+						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.hardSkillScore || 0)}</span>		
+						
+						<span class="text-sm opacity-75">Verdict Score:</span>
+						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.verdictScore || 0)}</span>
+					</div>
+				</div>
+				<div class="arrow variant-filled-secondary" />
+			</div>
+		</div>
+		
+		{/if}</div>
+
+		
+
+	<div class="card p-4 w-full border-0">
 		<p class="text-sm mb-4">
 			<span class="font-bold">Company Focus: </span>
 			{job?.companyInfo?.companyFocus || 'No company focus information available'}
