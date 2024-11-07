@@ -75,25 +75,29 @@
 <!-- Main card content -->
 <div class="bg-surface-100 mx-auto mb-20 max-w-4xl space-y-8 p-6">
 	<!-- Header Section -->
-	<div class="flex items-start justify-between">
-		<!-- Company Info -->
-		<div>
-			<div class="flex items-center gap-2 pb-4">
-				<h5 class="h5 m-0 flex items-center">{job.jobInfo?.jobTitle || 'N/A'}</h5>
-				<!-- svelte-ignore a11y-invalid-attribute -->
-				<button
-					type="button"
-					class="flex cursor-pointer items-center"
-					on:click={handleVisitJob}
-					on:keydown={(e) => e.key === 'Enter' && handleVisitJob()}
-					aria-label="Visit Job"
-				>
-					<iconify-icon icon="solar:file-right-linear"></iconify-icon>
-				</button>
+	<div class="flex w-full justify-between gap-4">
+		<!-- Left Column: All info except radial -->
+		<div class="flex-1 space-y-4">
+			<!-- Company and Title -->
+			<div>
+				<div class="flex items-center gap-2 pb-4">
+					<h5 class="h5 m-0 flex items-center">{job.jobInfo?.jobTitle || 'N/A'}</h5>
+					<!-- svelte-ignore a11y-invalid-attribute -->
+					<button
+						type="button"
+						class="flex cursor-pointer items-center"
+						on:click={handleVisitJob}
+						on:keydown={(e) => e.key === 'Enter' && handleVisitJob()}
+						aria-label="Visit Job"
+					>
+						<iconify-icon icon="solar:file-right-linear"></iconify-icon>
+					</button>
+				</div>
+				<h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
 			</div>
-			<h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
+
 			<!-- Meta Information -->
-			<div class="py-4">
+			<div class="space-y-2">
 				<!-- First Row -->
 				<div class="flex w-full justify-between gap-24">
 					<span class="chip variant-ghost-surface">
@@ -119,9 +123,10 @@
 				</div>
 			</div>
 		</div>
-		<!-- Radial Progress Score Display -->
+
+		<!-- Right Column: Radial Progress -->
 		{#if job.matchResult?.totalScore !== undefined}
-			<div class="relative flex items-center gap-2">
+			<div class="flex items-start justify-end">
 				<ProgressRadial
 					class="!w-32"
 					stroke={60}
