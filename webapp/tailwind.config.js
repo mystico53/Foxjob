@@ -7,6 +7,8 @@ import { skeleton } from '@skeletonlabs/tw-plugin';
 // 2. Import your custom theme
 import { myCustomTheme } from './src/my-custom-theme.ts';
 
+import forms from '@tailwindcss/forms';
+
 /** @type {import('tailwindcss').Config} */
 export default {
     // 3. Opt for dark mode to be handled via the class method
@@ -23,6 +25,7 @@ export default {
         extend: {},
     },
     plugins: [
+        forms,
         skeleton({
             themes: {
                 preset: ["modern"],  // Keep your preset theme
