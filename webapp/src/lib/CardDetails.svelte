@@ -261,7 +261,7 @@
 <div
 	class="bg-surface-100 fixed inset-x-0 bottom-0 z-10 border-t p-4 md:left-[25rem] md:right-[1rem]"
 >
-	<div class="mx-auto flex max-w-4xl flex-wrap justify-center gap-2">
+	<div class="mx-auto flex max-w-4xl flex-wrap justify-center gap-24">
 		<button
 			class="btn variant-primary flex items-center gap-2"
 			on:click={previousJob}
@@ -270,14 +270,25 @@
 			<iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
 		</button>
 
-		<button class="btn variant-ghost-tertiary" on:click={handleHide} disabled={isHiding}>
-			{isHiding ? 'Archiving...' : 'Archive'}
-		</button>
+		<button class="btn variant-ghost-tertiary flex items-center gap-2" on:click={handleHide} disabled={isHiding}>
+			{#if isHiding}
+			  Archiving...
+			{:else}
+			  <iconify-icon class="text-xl" icon="solar:archive-bold"></iconify-icon>
+			  Archive
+			{/if}
+		  </button>
 
-		<button class="btn variant-filled-primary" on:click={handleBookmark} disabled={isHiding}>
+		<button 
+			class="btn variant-filled-primary flex items-center gap-2" 
+			on:click={handleBookmark} 
+			disabled={isHiding}
+		>
 			{#if currentStatus === 'bookmarked'}
+				<iconify-icon class="text-xl" icon="solar:bookmark-bold"></iconify-icon>
 				Bookmarked
 			{:else}
+				<iconify-icon class="text-xl" icon="solar:bookmark-outline"></iconify-icon>
 				Bookmark
 			{/if}
 		</button>
