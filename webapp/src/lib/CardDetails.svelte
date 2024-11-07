@@ -70,6 +70,12 @@
 	function toggleDescription() {
 		showDescription = !showDescription;
 	}
+
+	// Add this helper function in your script section
+	function truncateText(text, maxLength = 50) {
+		if (!text) return 'N/A';
+		return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+	}
 </script>
 
 <!-- Main card content -->
@@ -100,25 +106,33 @@
 			<div class="space-y-2">
 				<!-- First Row -->
 				<div class="flex w-full justify-between gap-24">
-					<span class="chip variant-ghost-surface">
+					<span class="chip variant-ghost-surface" title={job.companyInfo?.industry || 'N/A'}>
 						<iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
-						{job.companyInfo?.industry || 'N/A'}
+						<span>
+							{truncateText(job.companyInfo?.industry)}
+						</span>
 					</span>
-					<span class="chip variant-ghost-surface">
+					<span class="chip variant-ghost-surface" title={job.jobInfo?.remoteType || 'N/A'}>
 						<iconify-icon icon="solar:pin-bold"></iconify-icon>
-						{job.jobInfo?.remoteType || 'N/A'}
+						<span>
+							{truncateText(job.jobInfo?.remoteType)}
+						</span>
 					</span>
 				</div>
 
 				<!-- Second Row -->
 				<div class="flex w-full justify-between">
-					<span class="chip variant-ghost-surface">
+					<span class="chip variant-ghost-surface" title={job.compensation || 'N/A'}>
 						<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
-						{job.compensation || 'N/A'}
+						<span>
+							{truncateText(job.compensation)}
+						</span>
 					</span>
-					<span class="chip variant-ghost-surface">
+					<span class="chip variant-ghost-surface" title={formatDate(job.generalData?.timestamp)}>
 						<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
-						{formatDate(job.generalData?.timestamp)}
+						<span>
+							{truncateText(formatDate(job.generalData?.timestamp))}
+						</span>
 					</span>
 				</div>
 			</div>
