@@ -87,23 +87,30 @@
 			</div>
 			<h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
 			<!-- Meta Information -->
-			<div class="mt-4 flex flex-wrap gap-2">
-				<span class="chip variant-ghost-surface">
-					<iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
-					{job.companyInfo?.industry || 'N/A'}
-				</span>
-				<span class="chip variant-ghost-surface">
-					<iconify-icon icon="solar:pin-bold"></iconify-icon>
-					{job.jobInfo?.remoteType || 'N/A'}
-				</span>
-				<span class="chip variant-ghost-surface">
-					<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
-					{job.compensation || 'N/A'}
-				</span>
-				<span class="chip variant-ghost-surface">
-					<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
-					{formatDate(job.generalData?.timestamp)}
-				</span>
+			<div class="space-y-4 py-4">
+				<!-- First Row -->
+				<div class="flex w-full justify-between gap-24">
+					<span class="chip variant-ghost-surface">
+						<iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
+						{job.companyInfo?.industry || 'N/A'}
+					</span>
+					<span class="chip variant-ghost-surface">
+						<iconify-icon icon="solar:pin-bold"></iconify-icon>
+						{job.jobInfo?.remoteType || 'N/A'}
+					</span>
+				</div>
+
+				<!-- Second Row -->
+				<div class="flex w-full justify-between">
+					<span class="chip variant-ghost-surface">
+						<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+						{job.compensation || 'N/A'}
+					</span>
+					<span class="chip variant-ghost-surface">
+						<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
+						{formatDate(job.generalData?.timestamp)}
+					</span>
+				</div>
 			</div>
 		</div>
 		<!-- Radial Progress Score Display -->
