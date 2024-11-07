@@ -84,16 +84,6 @@
 		}
 	}
 
-	async function hideJobAndNext(jobId) {
-		try {
-			if (!currentUser?.uid) throw new Error('No user logged in');
-			await jobStore.hideJob(currentUser.uid, jobId);
-			handleNext(jobId);
-		} catch (error) {
-			console.error('Error hiding job:', error);
-		}
-	}
-
 	function openJobLink(url) {
 		window.open(url, '_blank');
 	}
@@ -131,7 +121,7 @@
 							<JobCard
 								companyName={job.companyInfo?.name || 'no info'}
 								jobTitle={job.jobInfo?.jobTitle || 'no info'}
-								score={job.Score?.totalScore}
+								score={job.AccumulatedScores.accumulatedScore}
 								status={job.generalData?.status}
 								remoteType={job.jobInfo?.remoteType || 'no info'}
 								compensation={job.compensation || 'no info'}
@@ -160,7 +150,7 @@
 				isFirstJob={selectedJobIndex === 0}
 				isLastJob={selectedJobIndex === $sortedJobs.length - 1}
 				{toggleBookmark}
-				{hideJobAndNext}
+				
 				{openJobLink}
 			/>
 		{:else}

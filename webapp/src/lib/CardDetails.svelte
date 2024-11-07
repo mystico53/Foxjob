@@ -11,7 +11,6 @@
 	export let isLastJob;
 	export let toggleBookmark;
 	export let openJobLink;
-	export let hideJobAndNext;
 
 	let isHiding = false;
 	let currentStatus = job?.generalData?.status?.toLowerCase() || '';
@@ -34,21 +33,23 @@
 		}
 		return 'N/A';
 	}
+	
 
 	async function handleHide() {
-		try {
-			isHiding = true;
-			const userId = auth.currentUser?.uid;
-			if (!userId) throw new Error('No user logged in');
+    try {
+        isHiding = true;
+        const userId = auth.currentUser?.uid;
+        if (!userId) throw new Error('No user logged in');
 
-			await jobStore.hideJob(userId, job.id);
-			await hideJobAndNext(job.id);
-		} catch (error) {
-			console.error('Error hiding job:', error);
-		} finally {
-			isHiding = false;
-		}
-	}
+        await jobStore.hideJob(userId, job.id);
+        // After successfully hiding, move to next job
+        handleNext(job.id);
+    } catch (error) {
+        console.error('Error hiding job:', error);
+    } finally {
+        isHiding = false;
+    }
+}
 
 	async function handleBookmark() {
 		try {
