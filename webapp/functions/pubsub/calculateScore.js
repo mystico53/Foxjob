@@ -16,11 +16,11 @@ exports.calculateScore = functions.pubsub
       logger.info('calculateScore function called');
       logger.info('Pub/Sub Message:', JSON.stringify(message.json));
 
-      const { googleId, jobReference } = message.json;
+      const { googleId, docId } = message.json;
 
-      if (!jobReference || !googleId) {
-        logger.error('Missing jobReference or googleId in Pub/Sub message.');
-        throw new Error('Missing jobReference or googleId');
+      if (!docId || !googleId) {
+        logger.error('Missing docId or googleId in Pub/Sub message.');
+        throw new Error('Missing docId or googleId');
       }
 
       // Retrieve the user's resume
@@ -43,12 +43,12 @@ exports.calculateScore = functions.pubsub
         .collection('users')
         .doc(googleId)
         .collection('jobs')
-        .doc(jobReference);
+        .doc(docId);
 
       const jobDoc = await jobDocRef.get();
 
       if (!jobDoc.exists) {
-        logger.warn(`No job document found for job ID: ${jobReference}`);
+        logger.warn(`No job document found for job ID: ${docId}`);
         throw new Error('No job document found');
       }
 
@@ -56,7 +56,7 @@ exports.calculateScore = functions.pubsub
       const requirements = jobData.requirements;
 
       if (!requirements || Object.keys(requirements).length === 0) {
-        logger.warn(`No requirements found for job ID: ${jobReference}`);
+        logger.warn(`No requirements found for job ID: ${docId}`);
         throw new Error('No requirements found');
       }
 
@@ -88,13 +88,13 @@ exports.calculateScore = functions.pubsub
 
       // Update the job document with the new Score object
       await jobDocRef.update(scoreObject);
-      logger.info(`Score saved to job document for job ID: ${jobReference}, user ID: ${googleId}`);
+      logger.info(`Score saved to job document for job ID: ${docId}, user ID: ${googleId}`);
 
       await jobDocRef.update({
         'generalData.processingStatus': 'processed'
       });
 
-      logger.info(`Processing status updated to "processed" in generalData for job ID: ${jobReference}, user ID: ${googleId}`);
+      logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${googleId}`);
 
     } catch (error) {
       logger.error('Error in calculateScore function:', error);
@@ -202,11 +202,11 @@ exports.calculateScore = functions.pubsub
       logger.info('calculateScore function called');
       logger.info('Pub/Sub Message:', JSON.stringify(message.json));
 
-      const { googleId, jobReference } = message.json;
+      const { googleId, docId } = message.json;
 
-      if (!jobReference || !googleId) {
-        logger.error('Missing jobReference or googleId in Pub/Sub message.');
-        throw new Error('Missing jobReference or googleId');
+      if (!docId || !googleId) {
+        logger.error('Missing docId or googleId in Pub/Sub message.');
+        throw new Error('Missing docId or googleId');
       }
 
       // Retrieve the user's resume
@@ -229,12 +229,12 @@ exports.calculateScore = functions.pubsub
         .collection('users')
         .doc(googleId)
         .collection('jobs')
-        .doc(jobReference);
+        .doc(docId);
 
       const jobDoc = await jobDocRef.get();
 
       if (!jobDoc.exists) {
-        logger.warn(`No job document found for job ID: ${jobReference}`);
+        logger.warn(`No job document found for job ID: ${docId}`);
         throw new Error('No job document found');
       }
 
@@ -242,10 +242,10 @@ exports.calculateScore = functions.pubsub
       const requirements = jobData.requirements;
 
       // Log the requirements
-      logger.info(`Requirements for job ID ${jobReference}:`, JSON.stringify(requirements));
+      logger.info(`Requirements for job ID ${docId}:`, JSON.stringify(requirements));
 
       if (!requirements || Object.keys(requirements).length === 0) {
-        logger.warn(`No requirements found for job ID: ${jobReference}`);
+        logger.warn(`No requirements found for job ID: ${docId}`);
         throw new Error('No requirements found');
       }
 
@@ -256,7 +256,7 @@ exports.calculateScore = functions.pubsub
       }));
 
       // Log the requirementsArray
-      logger.info(`Requirements array for job ID ${jobReference}:`, JSON.stringify(requirementsArray));
+      logger.info(`Requirements array for job ID ${docId}:`, JSON.stringify(requirementsArray));
 
       // Call Anthropic API to match resume with job requirements
       const matchResult = await matchResumeWithRequirements(resumeText, requirementsArray);
@@ -279,18 +279,18 @@ exports.calculateScore = functions.pubsub
       });
 
       // Log the scoreObject
-      logger.info(`Score object for job ID ${jobReference}:`, JSON.stringify(scoreObject));
+      logger.info(`Score object for job ID ${docId}:`, JSON.stringify(scoreObject));
 
       // Update the job document with the new Score object
       await jobDocRef.update(scoreObject);
 
-      logger.info(`Score saved to job document for job ID: ${jobReference}, user ID: ${googleId}`);
+      logger.info(`Score saved to job document for job ID: ${docId}, user ID: ${googleId}`);
 
       await jobDocRef.update({
         'generalData.processingStatus': 'processed'
       });
 
-      logger.info(`Processing status updated to "processed" in generalData for job ID: ${jobReference}, user ID: ${googleId}`);
+      logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${googleId}`);
 
     } catch (error) {
       logger.error('Error in calculateScore function:', error);

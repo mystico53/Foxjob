@@ -20,7 +20,7 @@ const CONFIG = {
     finalVerdict: `
     Based on the provided document data, create a structured assessment following these specific rules. 
 
-    write a one sentence verdict with a final score that should give the applicant an idea of how succesful his application could be, be realistic.
+    write a one sentence verdict with a very critical, final score that should give the applicant an idea of how succesful his application could be - be sober in your assesment, no empathy for the applicant.
 
     Required JSON Structure:
     {
@@ -53,6 +53,29 @@ const CONFIG = {
 
     Provide ONLY the JSON response with no additional text or explanation.
     `
+  }
+};
+
+// ===== Tree Logging Service =====
+const treeLogger = {
+  traverseObject(obj, indent = '', excludePaths = []) {
+    if (!obj || typeof obj !== 'object') return;
+    
+    Object.entries(obj).forEach(([key, value], index, array) => {
+      // Skip excluded paths
+      if (key === 'texts') return;
+      
+      const isLast = index === array.length - 1;
+      const prefix = isLast ? '└── ' : '├── ';
+      const childIndent = indent + (isLast ? '    ' : '│   ');
+      
+      if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+        logger.info(`${indent}${prefix}${key}`);
+        this.traverseObject(value, childIndent, excludePaths);
+      } else {
+        logger.info(`${indent}${prefix}${key}`);
+      }
+    });
   }
 };
 
@@ -161,13 +184,81 @@ exports.finalVerdict = functions.pubsub
       const messageData = message.json;
       const { googleId, docId } = messageData;
 
+      // Process the document
       const documentData = await services.documentReader.getJobDocument(googleId, docId);
       const parsedVerdict = await services.api.getFinalVerdict(documentData);
       await services.firestore.updateVerdict(googleId, docId, parsedVerdict);
 
+      // After everything is processed and written, get the final state and log it
+      const finalJobDoc = await db
+        .collection(CONFIG.collections.users)
+        .doc(googleId)
+        .collection(CONFIG.collections.jobs)
+        .doc(docId)
+        .get();
+
+      if (!finalJobDoc.exists) {
+        logger.info('❌ Job document not found');
+        throw new Error('Job document not found');
+      }
+
+      // Log the final structure
+      logger.info('📂 Final Job Structure After Processing');
+      logger.info(`users/${googleId}/jobs/${docId}`);
+      treeLogger.traverseObject(finalJobDoc.data());
+
+      // Calculate and log accumulated score
+      const calculateAccumulatedScore = (docData) => {
+        const scores = {
+          requirementScore: docData.Score?.totalScore || 0,
+          domainScore: docData.SkillAssessment?.DomainExpertise?.score || 0,
+          hardSkillScore: docData.SkillAssessment?.Hardskills?.hardSkillScore?.totalScore || 0,
+          verdictScore: docData.verdict?.confidenceScore || 0
+        };
+
+        logger.info('🎯 Score Breakdown:');
+        logger.info(`├── Requirements Score: ${scores.requirementScore}`);
+        logger.info(`├── Domain Expertise Score: ${scores.domainScore}`);
+        logger.info(`├── Hard Skills Score: ${scores.hardSkillScore}`);
+        logger.info(`└── Verdict Confidence Score: ${scores.verdictScore}`);
+
+        const accumulatedScore = Math.round(
+          (scores.requirementScore + 
+          scores.domainScore + 
+          scores.hardSkillScore + 
+          scores.verdictScore) / 4
+        );
+
+        logger.info(`📊 Accumulated Score: ${accumulatedScore}`);
+        
+        return {
+          scores,
+          accumulatedScore
+        };
+      };
+
+      const { scores, accumulatedScore } = calculateAccumulatedScore(finalJobDoc.data());
+
+      // Save all scores to Firestore
+      await db
+        .collection(CONFIG.collections.users)
+        .doc(googleId)
+        .collection(CONFIG.collections.jobs)
+        .doc(docId)
+        .update({
+          'AccumulatedScores': {
+            requirementScore: scores.requirementScore,
+            domainScore: scores.domainScore,
+            hardSkillScore: scores.hardSkillScore,
+            verdictScore: scores.verdictScore,
+            accumulatedScore: accumulatedScore
+          }
+        });
+
       return parsedVerdict;
 
     } catch (error) {
+      logger.error('Error:', error);
       throw new functions.https.HttpsError('internal', error.message);
     }
   });
