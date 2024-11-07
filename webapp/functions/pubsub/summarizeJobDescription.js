@@ -125,7 +125,7 @@ Format your response as a JSON object with the following structure:
   "companyInfo": {
     "name": "Company Name",
     "industry": "Specific Industry branch, not just software development, but what kind exactly"
-    "companyFocus": "What makes the company truly unique? Explain short in simple terms (keep it short)"
+    "companyFocus": "Company does....What makes the company truly unique? Explain short in simple terms (keep it short)"
   },
   "jobInfo": {
     "jobTitle": "What is job title?",
