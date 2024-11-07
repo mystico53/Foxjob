@@ -132,7 +132,7 @@
 		</div>
 
 		<!-- Right Column: Radial Progress -->
-		{#if job.matchResult?.totalScore !== undefined}
+		{#if job.AccumulatedScores?.accumulatedScore !== undefined}
 			<div class="flex items-start justify-end">
 				<ProgressRadial
 					class="!w-32"
@@ -141,22 +141,11 @@
 					meter="!stroke-primary-500"
 					track="!stroke-tertiary-500/30"
 					strokeLinecap="round"
-					value={Math.round(job.matchResult.totalScore)}
+					value={Math.round(job.AccumulatedScores.accumulatedScore)}
 				>
-					{Math.round(job.matchResult.totalScore)}
+					{Math.round(job.AccumulatedScores.accumulatedScore)}
 				</ProgressRadial>
 			</div>
-		{/if}
-	</div>
-	
-	<!-- Test Confidence Score -->
-	<div class="p-4">
-		{#if job?.verdict?.confidenceScore !== undefined}
-			<div class="chip variant-filled-primary">
-				Confidence Score: {job.verdict.confidenceScore}
-			</div>
-		{:else}
-			<div class="chip variant-ghost">No score available</div>
 		{/if}
 	</div>
 
@@ -167,22 +156,17 @@
 				<h3 class="h5 mb-2">Final Verdict</h3>
 				<p>{job.verdict?.finalVerdict || 'No verdict available'}</p>
 			</div>
-			{#if job.verdict?.confidenceScore !== undefined}
-				<div class="chip variant-filled-primary">
-					Score: {job.verdict.confidenceScore}
-				</div>
-			{/if}
 		</div>
 		
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 			<!-- Key Strengths -->
 			<div>
-				<h4 class="h6 mb-4">Key Strengths</h4>
+				<h4 class="font-semibold block">Your Strenghts</h4>
 				<div class="space-y-3">
 					{#if job.verdict?.keyStrengths}
 						{#each Object.entries(job.verdict.keyStrengths) as [key, value]}
 							<div class="border-l-4 border-primary-500 pl-3 py-2">
-								<span class="font-semibold block">{key}</span>
+								<span class="h6 mb-4">{key}</span>
 								<p class="mt-1 text-sm">{value || 'N/A'}</p>
 							</div>
 						{/each}
@@ -194,12 +178,12 @@
 
 			<!-- Key Gaps -->
 			<div>
-				<h4 class="h6 mb-4">Areas for Improvement</h4>
+				<h4 class="font-semibold block">Your Gaps</h4>
 				<div class="space-y-3">
 					{#if job.verdict?.keyGaps}
 						{#each Object.entries(job.verdict.keyGaps) as [key, value]}
 							<div class="border-l-4 border-warning-500 pl-3 py-2">
-								<span class="font-semibold block">{key}</span>
+								<span class="h6 mb-4">{key}</span>
 								<p class="mt-1 text-sm">{value || 'N/A'}</p>
 							</div>
 						{/each}
