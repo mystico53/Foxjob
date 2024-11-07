@@ -3,6 +3,7 @@
 	import { authStore } from '../stores/authStore';
 	import { AppBar, Avatar } from '@skeletonlabs/skeleton';
 	import { goto } from '$app/navigation';
+	import foxIcon from '../assets/Fox_Icon_128x128-nobg.png';
 
 	$: currentPath = $page.url.pathname;
 
@@ -30,7 +31,10 @@
 	slotTrail="place-self-end"
 >
 	<svelte:fragment slot="lead">
-		<strong class="text-xl uppercase">Foxbjob</strong>
+		<div class="flex items-center gap-2">
+			<img src={foxIcon} alt="Fox Icon" class="h-12 w-12" />
+			<strong class="foxjob-title text-xl uppercase">Foxjob</strong>
+		</div>
 	</svelte:fragment>
 
 	<svelte:fragment slot="default">
@@ -72,3 +76,18 @@
 		</div>
 	</svelte:fragment>
 </AppBar>
+
+<style>
+	@import url('https://fonts.googleapis.com/css2?family=Protest+Riot&display=swap');
+
+	.foxjob-title {
+		font-family: 'Protest Riot', sans-serif;
+		background: linear-gradient(to right, #fd5440 0%, #ff9c00 100%);
+		-webkit-background-clip: text;
+		background-clip: text;
+		-webkit-text-fill-color: transparent;
+		font-size: 32px;
+		line-height: 1;
+		letter-spacing: 0.02em;
+	}
+</style>

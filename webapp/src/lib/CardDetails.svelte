@@ -25,7 +25,13 @@
 	function formatDate(timestamp) {
 		if (timestamp && timestamp.toDate) {
 			const date = timestamp.toDate();
-			return date.toLocaleString();
+			return date.toLocaleString(undefined, {
+				year: 'numeric',
+				month: 'numeric',
+				day: 'numeric',
+				hour: 'numeric',
+				minute: 'numeric'
+			});
 		}
 		return 'N/A';
 	}
@@ -87,7 +93,7 @@
 			</div>
 			<h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
 			<!-- Meta Information -->
-			<div class="space-y-4 py-4">
+			<div class="py-4">
 				<!-- First Row -->
 				<div class="flex w-full justify-between gap-24">
 					<span class="chip variant-ghost-surface">
