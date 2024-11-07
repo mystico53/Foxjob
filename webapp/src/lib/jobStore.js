@@ -7,7 +7,7 @@ const jobs = writable([]);
 const loading = writable(true);
 const error = writable(null);
 const sortConfig = writable({
-    column: 'AccumulatedScores.accumulatedScore', // Updated to use accumulated score
+    column: 'AccumulatedScores.accumulatedScore',
     direction: 'desc'
 });
 const searchText = writable('');
