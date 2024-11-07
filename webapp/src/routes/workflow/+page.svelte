@@ -166,7 +166,7 @@
 		{:else}
 			<div class="flex h-full items-center justify-center">
 				<div class="text-surface-400 text-center">
-					<div class="mb-2 text-4xl">👈</div>
+					<div class="mb-2 text-4xl">👈 we're loading your jobs</div>
 					<div>Select a job to view details</div>
 				</div>
 			</div>
