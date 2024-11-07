@@ -4,6 +4,9 @@ import { page } from '$app/stores';
 import { auth } from '$lib/firebase';
 import { onMount } from 'svelte';
 import 'iconify-icon';
+import { computePosition, autoUpdate, offset, shift, flip, arrow } from '@floating-ui/dom';
+import { storePopup } from '@skeletonlabs/skeleton';
+storePopup.set({ computePosition, autoUpdate, offset, shift, flip, arrow });
 
 let isAuthenticated = false;
 
