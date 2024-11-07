@@ -148,48 +148,64 @@
 			</div>
 		{/if}
 	</div>
+	
+	<!-- Test Confidence Score -->
+	<div class="p-4">
+		{#if job?.verdict?.confidenceScore !== undefined}
+			<div class="chip variant-filled-primary">
+				Confidence Score: {job.verdict.confidenceScore}
+			</div>
+		{:else}
+			<div class="chip variant-ghost">No score available</div>
+		{/if}
+	</div>
 
 	<!-- Final Verdict Section -->
 	<div class="card p-4 w-full">
-		<h3 class="h5 mb-4">Final Verdict</h3>
-		<p class="mb-6">{job.verdict?.finalVerdict || 'No verdict available'}</p>
+		<div class="flex justify-between items-start mb-6">
+			<div>
+				<h3 class="h5 mb-2">Final Verdict</h3>
+				<p>{job.verdict?.finalVerdict || 'No verdict available'}</p>
+			</div>
+			{#if job.verdict?.confidenceScore !== undefined}
+				<div class="chip variant-filled-primary">
+					Score: {job.verdict.confidenceScore}
+				</div>
+			{/if}
+		</div>
 		
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 			<!-- Key Strengths -->
 			<div>
 				<h4 class="h6 mb-4">Key Strengths</h4>
 				<div class="space-y-3">
-					<div>
-						<span class="font-semibold">Strength 1:</span>
-						<p class="mt-1">{job.verdict?.keyStrengths?.field1 || 'N/A'}</p>
-					</div>
-					<div>
-						<span class="font-semibold">Strength 2:</span>
-						<p class="mt-1">{job.verdict?.keyStrengths?.field2 || 'N/A'}</p>
-					</div>
-					<div>
-						<span class="font-semibold">Strength 3:</span>
-						<p class="mt-1">{job.verdict?.keyStrengths?.field3 || 'N/A'}</p>
-					</div>
+					{#if job.verdict?.keyStrengths}
+						{#each Object.entries(job.verdict.keyStrengths) as [key, value]}
+							<div class="border-l-4 border-primary-500 pl-3 py-2">
+								<span class="font-semibold block">{key}</span>
+								<p class="mt-1 text-sm">{value || 'N/A'}</p>
+							</div>
+						{/each}
+					{:else}
+						<p class="text-surface-600-300-token">No strengths assessed yet</p>
+					{/if}
 				</div>
 			</div>
 
 			<!-- Key Gaps -->
 			<div>
-				<h4 class="h6 mb-4">Key Gaps</h4>
+				<h4 class="h6 mb-4">Areas for Improvement</h4>
 				<div class="space-y-3">
-					<div>
-						<span class="font-semibold">Gap 1:</span>
-						<p class="mt-1">{job.verdict?.keyGaps?.field1 || 'N/A'}</p>
-					</div>
-					<div>
-						<span class="font-semibold">Gap 2:</span>
-						<p class="mt-1">{job.verdict?.keyGaps?.field2 || 'N/A'}</p>
-					</div>
-					<div>
-						<span class="font-semibold">Gap 3:</span>
-						<p class="mt-1">{job.verdict?.keyGaps?.field3 || 'N/A'}</p>
-					</div>
+					{#if job.verdict?.keyGaps}
+						{#each Object.entries(job.verdict.keyGaps) as [key, value]}
+							<div class="border-l-4 border-warning-500 pl-3 py-2">
+								<span class="font-semibold block">{key}</span>
+								<p class="mt-1 text-sm">{value || 'N/A'}</p>
+							</div>
+						{/each}
+					{:else}
+						<p class="text-surface-600-300-token">No gaps assessed yet</p>
+					{/if}
 				</div>
 			</div>
 		</div>

@@ -106,8 +106,16 @@ function createJobStore() {
                                 DomainExpertise: jobDataRaw.SkillAssessment?.DomainExpertise || {},
                                 Hardskills: jobDataRaw.SkillAssessment?.Hardskills || {},
                                 Softskills: jobDataRaw.SkillAssessment?.Softskills || {}
+                            },
+                            verdict: jobDataRaw.verdict || null,
+                            AccumulatedScores: jobDataRaw.AccumulatedScores || {
+                                accumulatedScore: 0,
+                                domainScore: 0,
+                                hardSkillScore: 0,
+                                requirementScore: 0,
+                                verdictScore: 0
                             }
-                        };
+                        }; 
                     });
 
                         const jobResults = await Promise.all(jobPromises);
