@@ -4,6 +4,7 @@
 	import { jobStore } from '$lib/jobStore';
 	import { Accordion, AccordionItem } from '@skeletonlabs/skeleton';
 	import { popup } from '@skeletonlabs/skeleton';
+	import { onMount, onDestroy } from 'svelte';
 
 	export let job = {};
 	export let handleNext;
@@ -17,8 +18,26 @@
         event: 'hover',
         target: 'popupHover',
         placement: 'left',
-        duration: 0
+        duration: 200  // Added a small duration to smooth the transition
     };
+
+    let popupInstance;
+    
+    onMount(() => {
+        // Give the DOM a moment to fully render
+        setTimeout(() => {
+            const trigger = document.querySelector('[data-popup="popupHover"]');
+            if (trigger) {
+                trigger.style.opacity = '1';
+            }
+        }, 100);
+    });
+
+    onDestroy(() => {
+        if (popupInstance) {
+            popupInstance.destroy();
+        }
+    });
 
 	let isHiding = false;
 	let currentStatus = job?.generalData?.status?.toLowerCase() || '';
@@ -142,46 +161,62 @@
 			</div>
 		</div><!-- Wrap the ProgressRadial in a container for the popup -->
 		{#if job?.AccumulatedScores?.accumulatedScore !== undefined}
-		<div class="flex items-start justify-end">
-			<div class="relative" use:popup={popupHover}>
-				<ProgressRadial
-					class="!w-32 cursor-pointer"
-					stroke={60}
-					font={150}
-					meter="!stroke-primary-500"
-					track="!stroke-tertiary-500/30"
-					strokeLinecap="round"
-					value={Math.round(job.AccumulatedScores.accumulatedScore || 0)}
-				>
-					{Math.round(job.AccumulatedScores.accumulatedScore || 0)}
-				</ProgressRadial>
-			</div>
-		
-			<!-- Popup Content -->
-			<div class="card p-4 variant-filled-secondary" data-popup="popupHover">
-				<div class="space-y-2">
-					<div class="grid grid-cols-2 gap-x-4 gap-y-1">
-						<span class="text-sm opacity-75">Accumulated Score:</span>
-						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.accumulatedScore || 0)}</span>
+			<div class="flex items-start justify-end">
+				<div class="relative">
+					<div class="relative">
+						<ProgressRadial
+							class="!w-32"
+							stroke={60}
+							font={150}
+							meter="!stroke-primary-500"
+							track="!stroke-tertiary-500/30"
+							strokeLinecap="round"
+							value={Math.round(job.AccumulatedScores.accumulatedScore || 0)}
+						>
+							{Math.round(job.AccumulatedScores.accumulatedScore || 0)}
+						</ProgressRadial>
+						<!-- Info badge with tooltip -->
+							<div class="absolute -right-2 -top-2" use:popup={popupHover}>
+								<iconify-icon 
+									icon="solar:info-circle-bold" 
+									class="text-tertiary-900 rounded-full cursor-pointer"
+								></iconify-icon>
+								<!-- Tooltip with opacity transition -->
+										<div 
+										class="card p-4 variant-filled-tertiary opacity-0 transition-opacity duration-200 w-[400px]" 
+										data-popup="popupHover"
+										>
+										<div class="space-y-4">
+											<!-- Explanation text with proper wrapping -->
+											<p class="text-sm opacity-75 break-words hyphens-auto">
+												Heads up! The score is estimated by an LLM, which can make mistakes. Please double-check the result. The LLM compares different parts of your resume to the job requirements. Feedback from curious people like yourself  improves its accuracy. 🦊
+											</p>
+											
+											<div class="grid grid-cols-[1fr,auto] gap-x-6 gap-y-2 w-full">
+												<span class="text-sm font-semibold opacity-75">Main score = Average of the following scores:</span>
+												<span class="text-sm font-semibold text-right">{Math.round(job.AccumulatedScores?.accumulatedScore || 0)}</span>
 
-						<span class="text-sm opacity-75">Quick Scan Score:</span>
-						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.requirementScore || 0)}</span>
-						
-						<span class="text-sm opacity-75">Domain Score:</span>
-						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.domainScore || 0)}</span>
-						
-						<span class="text-sm opacity-75">Hard Skill Score:</span>
-						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.hardSkillScore || 0)}</span>		
-						
-						<span class="text-sm opacity-75">Verdict Score:</span>
-						<span class="text-sm font-semibold">{Math.round(job.AccumulatedScores?.verdictScore || 0)}</span>
+												<span class="text-sm opacity-75">Six most important requirements</span>
+												<span class="text-sm text-right">{Math.round(job.AccumulatedScores?.requirementScore || 0)}</span>
+												
+												<span class="text-sm opacity-75">Does domain expertise match?</span>
+												<span class="text-sm text-right">{Math.round(job.AccumulatedScores?.domainScore || 0)}</span>
+												
+												<span class="text-sm opacity-75">Hard Skills:</span>
+												<span class="text-sm text-right">{Math.round(job.AccumulatedScores?.hardSkillScore || 0)}</span>        
+												
+												<span class="text-sm opacity-75">All infos considered:</span>
+												<span class="text-sm text-right">{Math.round(job.AccumulatedScores?.verdictScore || 0)}</span>
+											</div>
+										</div>
+										<div class="arrow variant-filled-secondary" />
+										</div>
+							</div>
 					</div>
 				</div>
-				<div class="arrow variant-filled-secondary" />
 			</div>
-		</div>
-		
-		{/if}</div>
+			{/if}
+			</div>
 
 		
 
