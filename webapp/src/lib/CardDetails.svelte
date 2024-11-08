@@ -263,13 +263,13 @@
                 Object.keys(job.verdict.keyStrengths || {}).length,
                 Object.keys(job.verdict.keyGaps || {}).length
             ) }) as _, index}
-                <div class="grid grid-cols-2 gap-6 border-b last:border-b-0">
+                <div class="grid grid-cols-2 gap-6 last:border-b-0">
                     <!-- Strength Item -->
                     <div class="pb-6">
                         {#if Object.entries(job.verdict.keyStrengths || {})[index]}
                             {@const [key, value] = Object.entries(job.verdict.keyStrengths)[index]}
                             <div class="text-sm">
-                                <div class="flex justify-between items-center mb-2">
+                                <div class="flex gap-2 items-center mb-2">
                                     <span class="font-bold text-base">{key}</span>
                                     {#if job?.id}
                                         <FeedbackButtons 
@@ -292,7 +292,7 @@
                         {#if Object.entries(job.verdict.keyGaps || {})[index]}
                             {@const [key, value] = Object.entries(job.verdict.keyGaps)[index]}
                             <div class="text-sm">
-                                <div class="flex justify-between items-center mb-2">
+                                <div class="flex gap-2 items-center mb-2">
                                     <span class="font-bold text-base">{key}</span>
                                     {#if job?.id}
                                         <FeedbackButtons 
