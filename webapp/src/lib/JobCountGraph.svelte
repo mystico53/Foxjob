@@ -24,6 +24,14 @@
             year: 'numeric'
         });
     }
+
+    // Function to calculate bar width based on the maximum count across all days
+    function calculateBarWidth(count, maxCount) {
+        if (maxCount === 0) return 0;
+        return (count / maxCount) * 100;
+    }
+    
+    let maxDailyJobs = 0;
     
     // Subscribe to the jobStore's sortedJobs
     $: {
@@ -33,24 +41,43 @@
         
         $jobStore.forEach(job => {
           if (job.generalData?.timestamp) {
-            // Use local date string instead of ISO
             const date = getLocalDateString(job.generalData.timestamp);
-            dateGroups[date] = (dateGroups[date] || 0) + 1;
+            
+            if (!dateGroups[date]) {
+                dateGroups[date] = {
+                    total: 0,
+                    bookmarked: 0
+                };
+            }
+            
+            dateGroups[date].total += 1;
+            
+            // Check if job is bookmarked
+            if (job.generalData?.status === 'bookmarked') {
+                dateGroups[date].bookmarked += 1;
+            }
           }
         });
   
+        // Find the maximum daily total for scaling
+        maxDailyJobs = Math.max(...Object.values(dateGroups).map(counts => counts.total));
+
         // Convert to array for table display
         jobsByDate = Object.entries(dateGroups)
-          .map(([date, count]) => ({
+          .map(([date, counts]) => ({
             date,
-            count
+            total: counts.total,
+            bookmarked: counts.bookmarked
           }))
           .sort((a, b) => b.date.localeCompare(a.date)); // Sort by date descending
       }
     }
-  </script>
+
+    let totalBookmarked = 0;
+    $: totalBookmarked = jobsByDate.reduce((sum, { bookmarked }) => sum + bookmarked, 0);
+</script>
   
-  <div class="card p-4">
+<div class="card p-4">
     
     {#if jobsByDate.length === 0}
       <p class="text-center py-4">No job data available</p>
@@ -60,17 +87,37 @@
           <thead>
             <tr>
               <th>Date</th>
-              <th>Number of scanned jobs</th>
+              <th>Jobs</th>
             </tr>
           </thead>
           <tbody>
-            {#each jobsByDate as { date, count }}
+            {#each jobsByDate as { date, total, bookmarked }}
               <tr>
                 <td>{formatDate(date)}</td>
-                <td>
-                  <div class="flex items-center gap-2">
-                    <span class="badge variant-filled-primary">{count}</span>
-                    <div class="w-24 h-2 rounded-full bg-primary-500" style="width: {Math.min(count * 20, 100)}%"></div>
+                <td class="w-full">
+                  <div class="flex flex-col gap-1">
+                    <div class="flex items-center gap-2">
+                      <div class="flex gap-2">
+                        <span class="badge variant-filled-primary">{total}</span>
+                        {#if bookmarked > 0}
+                          <span class="badge variant-filled-warning">{bookmarked}</span>
+                        {/if}
+                      </div>
+                      <div class="relative w-full h-2 bg-surface-500/30 rounded-full overflow-hidden">
+                        <!-- Total jobs bar -->
+                        <div 
+                          class="absolute left-0 top-0 h-full bg-primary-500 rounded-full" 
+                          style="width: {calculateBarWidth(total, maxDailyJobs)}%"
+                        ></div>
+                        <!-- Bookmarked jobs bar - percentage of the total bar -->
+                        {#if bookmarked > 0}
+                          <div 
+                            class="absolute left-0 top-0 h-full bg-black rounded-full" 
+                            style="width: {calculateBarWidth(bookmarked, maxDailyJobs)}%"
+                          ></div>
+                        {/if}
+                      </div>
+                    </div>
                   </div>
                 </td>
               </tr>
@@ -79,13 +126,14 @@
         </table>
       </div>
   
-      <div class="mt-4">
-        <p class="text-sm">Total jobs scanned: {jobsByDate.reduce((sum, { count }) => sum + count, 0)}</p>
+      <div class="mt-4 flex gap-4">
+        <p class="text-sm">Total jobs scanned: {jobsByDate.reduce((sum, { total }) => sum + total, 0)}</p>
+        <p class="text-sm">Total bookmarked: {totalBookmarked}</p>
       </div>
     {/if}
-  </div>
+</div>
   
-  <style>
+<style>
     .table-container {
       overflow-x: auto;
     }
@@ -94,4 +142,4 @@
       min-width: 2rem;
       text-align: center;
     }
-  </style>
+</style>
