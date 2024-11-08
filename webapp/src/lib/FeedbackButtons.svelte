@@ -99,25 +99,25 @@
     }
 </script>
 
-<div class="inline-flex gap-1 items-center group">
+<div class="inline-flex gap-0.5 items-center">
     <button
-        class="btn btn-sm {userVote === 'upvote' ? 'variant-filled-success' : 'variant-ghost-success'}"
+        class="p-1 transition-colors {userVote === 'upvote' ? 'text-green-600' : 'text-gray-400 hover:text-green-600'}"
         on:click={() => handleFeedback('upvote')}
         disabled={isLoading}
         title="This is accurate"
     >
-        <iconify-icon icon="heroicons-solid:thumb-up"></iconify-icon>
+        <iconify-icon icon="heroicons-solid:thumb-up" width="14" height="14"></iconify-icon>
     </button>
     <button
-        class="btn btn-sm {userVote === 'downvote' ? 'variant-filled-error' : 'variant-ghost-error'}"
+        class="p-1 transition-colors {userVote === 'downvote' ? 'text-red-600' : 'text-gray-400 hover:text-red-600'}"
         on:click={() => handleFeedback('downvote')}
         disabled={isLoading}
         title="This needs improvement"
     >
-        <iconify-icon icon="heroicons-solid:thumb-down"></iconify-icon>
+        <iconify-icon icon="heroicons-solid:thumb-down" width="14" height="14"></iconify-icon>
     </button>
     
     {#if isLoading}
-        <span class="text-xs">...</span>
+        <span class="text-xs text-gray-400">...</span>
     {/if}
 </div>
