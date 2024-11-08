@@ -106,7 +106,7 @@
         disabled={isLoading}
         title="This is accurate"
     >
-        <iconify-icon icon="solar:thumbs-up-bold" width="16"></iconify-icon>
+        <iconify-icon icon="heroicons-solid:thumb-up"></iconify-icon>
     </button>
     <button
         class="btn btn-sm {userVote === 'downvote' ? 'variant-filled-error' : 'variant-ghost-error'}"
@@ -114,7 +114,7 @@
         disabled={isLoading}
         title="This needs improvement"
     >
-        <iconify-icon icon="solar:thumbs-down-bold" width="16"></iconify-icon>
+        <iconify-icon icon="heroicons-solid:thumb-down"></iconify-icon>
     </button>
     
     {#if isLoading}
