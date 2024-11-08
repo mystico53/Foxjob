@@ -9,6 +9,30 @@ initializeApp();
 // Get Firestore instance
 const db = getFirestore();
 
+// Initialize feedback collection
+async function initializeFeedbackCollection() {
+    try {
+        const feedbackRef = db.collection('feedback').doc('_init');
+        const doc = await feedbackRef.get();
+        
+        if (!doc.exists) {
+            await feedbackRef.set({
+                initialized: true,
+                timestamp: new Date(),
+                description: 'Feedback collection initialization document'
+            });
+            logger.info('Feedback collection initialized successfully');
+        }
+    } catch (error) {
+        logger.error('Error initializing feedback collection:', error);
+    }
+}
+
+// Call initialization when the app starts
+initializeFeedbackCollection()
+    .then(() => logger.info('Feedback collection check completed'))
+    .catch(error => logger.error('Failed to check feedback collection:', error));
+
 // Import your function modules
 
 const { publishJobText } = require('./publishJobText');
