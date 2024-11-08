@@ -109,12 +109,24 @@ const services = {
 
     extractFields(obj, prefix = '') {
       let fields = [];
-
+    
       for (const [key, value] of Object.entries(obj)) {
         const fieldPath = prefix ? `${prefix}.${key}` : key;
-
-        if (key === 'generalData' || key === 'texts') continue;
-
+    
+        // Skip entire sections or specific fields
+        if (
+          key === 'generalData' || 
+          key === 'texts' ||
+          key === 'summarized' ||  // Skip entire summarized section
+          (fieldPath === 'Score.totalScore') ||
+          (fieldPath === 'Score.summary') ||
+          (fieldPath.match(/Score\.Requirement\d+\.requirement/)) || // Skip requirement field in each Requirement
+          (fieldPath.match(/SkillAssessment\.Hardskills\.HS\d+\.description/)) || // Skip description in each HS
+          (fieldPath.match(/SkillAssessment\.DomainExpertise\.(assessment|importance|name|score|summary)/)) // Skip specific DomainExpertise fields
+        ) {
+          continue;
+        }
+    
         if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
           fields = fields.concat(this.extractFields(value, fieldPath));
         } else {
@@ -124,7 +136,7 @@ const services = {
           });
         }
       }
-
+    
       return fields;
     }
   },
