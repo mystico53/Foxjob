@@ -11,6 +11,7 @@
     let uploadFeedbackColor = 'variant-filled-surface';
     let resumeUploaded = false;
     let extractedText = '';
+    let currentFileName = ''; // Added to store the current file name
 
     onMount(async () => {
         const script = document.createElement('script');
@@ -47,7 +48,8 @@
                 const doc = querySnapshot.docs[0];
                 const data = doc.data();
                 const timestamp = data.timestamp.toDate();
-                uploadFeedback = `Resume successfully uploaded on ${timestamp.toLocaleString()}`;
+                currentFileName = data.fileName || 'Unknown'; // Get stored filename
+                uploadFeedback = `Resume "${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
                 uploadFeedbackColor = 'variant-filled-success';
                 resumeUploaded = true;
             } else {
@@ -67,6 +69,7 @@
         const fileInput = event.target;
         if (fileInput && fileInput.files && fileInput.files.length > 0) {
             const file = fileInput.files[0];
+            currentFileName = file.name; // Store the filename
             console.log('File selected:', file);
             if (file.type === 'application/pdf') {
                 await processFile(file);
@@ -139,11 +142,12 @@
             await addDoc(userCollectionsRef, {
                 type: 'Resume',
                 extractedText: text,
+                fileName: currentFileName, // Store the filename
                 timestamp: serverTimestamp()
             });
             
             const timestamp = new Date();
-            uploadFeedback = `Resume successfully uploaded on ${timestamp.toLocaleString()}`;
+            uploadFeedback = `Resume "${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
             uploadFeedbackColor = 'variant-filled-success';
             resumeUploaded = true;
         } catch (error) {
@@ -164,10 +168,11 @@
                 const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
                 await Promise.all(deletePromises);
                 
-                uploadFeedback = "Resume deleted successfully";
+                uploadFeedback = `Resume "${currentFileName}" deleted successfully`;
                 uploadFeedbackColor = 'variant-filled-success';
                 resumeUploaded = false;
                 extractedText = '';
+                currentFileName = '';
             } else {
                 uploadFeedback = "No resume found to delete";
                 uploadFeedbackColor = 'variant-filled-warning';

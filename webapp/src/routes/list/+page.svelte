@@ -13,7 +13,7 @@
 
         <!-- Right Column -->
         <div class="col-span-1">
-            <h2 class="h3">Resume Upload</h2>
+            <h2 class="h3 py-4">Upload your resume</h2>
             <CollectionLoader />
         </div>
     </div>
