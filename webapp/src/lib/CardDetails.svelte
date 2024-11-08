@@ -250,11 +250,10 @@
 				</div>
 				<div class="space-y-2">
 					{#if job.verdict?.keyStrengths}
-						<ul class="list-disc pl-5 space-y-2">
+						<ul class="space-y-2">
 							{#each Object.entries(job.verdict.keyStrengths) as [key, value]}
-								<li class="text-sm flex items-start gap-2">
-									<span class="font-bold">{key}:</span> {value || 'N/A'}
-									{#if job?.id} <!-- Add this check -->
+								<li class="text-sm flex items-start gap-4">
+									{#if job?.id}
 										<FeedbackButtons 
 											jobId={job.id}
 											path={`verdict.keyStrengths.${key}`}
@@ -262,6 +261,10 @@
 											currentData={job.verdict.keyStrengths[key]}
 										/>
 									{/if}
+									<div class="grid grid-cols-[120px_1fr] gap-4 min-w-0">
+										<span class="font-bold break-words">{key}:</span>
+										<span class="break-words">{value || 'N/A'}</span>
+									</div>
 								</li>
 							{/each}
 						</ul>
@@ -269,33 +272,44 @@
 						<p class="text-surface-600-300-token">No strengths assessed yet</p>
 					{/if}
 				</div>
-			</div>
-		
-			
-			<div>
-				<div class="flex flex-col items-center mb-6">
-					<iconify-icon 
-						icon="solar:minus-square-bold" 
-						class="text-4xl mb-2 text-primary-500"
-						width="48" 
-						height="48"
-					></iconify-icon>
-					<h4 class="font-semibold block">Your Gaps</h4>
 				</div>
-				<div class="space-y-2">
-					{#if job.verdict?.keyGaps}
-						<ul class="list-disc pl-5 space-y-2">
-							{#each Object.entries(job.verdict.keyGaps) as [key, value]}
-								<li class="text-sm">
-									<span class="font-bold">{key}:</span> {value || 'N/A'}
-								</li>
-							{/each}
-						</ul>
-					{:else}
-						<p class="text-surface-600-300-token">No gaps assessed yet</p>
-					{/if}
+				
+				<div>
+					<div class="flex flex-col items-center mb-6">
+						<iconify-icon 
+							icon="solar:minus-square-bold" 
+							class="text-4xl mb-2 text-primary-500"
+							width="48" 
+							height="48"
+						></iconify-icon>
+						<h4 class="font-semibold block">Your Gaps</h4>
+					</div>
+					<div class="space-y-2">
+						{#if job.verdict?.keyGaps}
+							<ul class="space-y-2">
+								{#each Object.entries(job.verdict.keyGaps) as [key, value]}
+									<li class="text-sm flex items-start gap-4">
+										{#if job?.id}
+											<FeedbackButtons 
+												jobId={job.id}
+												path={`verdict.keyGaps.${key}`}
+												itemId={key}
+												currentData={job.verdict.keyGaps[key]}
+											/>
+										{/if}
+										<div class="grid grid-cols-[120px_1fr] gap-4 min-w-0">
+											<span class="font-bold break-words">{key}:</span>
+											<span class="break-words">{value || 'N/A'}</span>
+										</div>
+									</li>
+								{/each}
+							</ul>
+						{:else}
+							<p class="text-surface-600-300-token">No gaps assessed yet</p>
+						{/if}
+					</div>
 				</div>
-			</div>
+				
 		</div>
 		
 	</div>
