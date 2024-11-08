@@ -62,19 +62,27 @@
 	</svelte:fragment>
 
 	<svelte:fragment slot="trail">
-		<div class="flex items-center gap-4">
-			{#if $authStore}
-				<button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
-				<Avatar
-					width="w-12"
-					initials={$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
-					background="bg-primary-500"
-				/>
-			{:else}
-				<a href="/auth/signin" class="btn btn-sm variant-filled-primary">Login</a>
-			{/if}
-		</div>
-	</svelte:fragment>
+    <div class="flex items-center gap-4">
+        {#if $authStore}
+            <!-- Add admin icon link -->
+            <a 
+                href="/admin" 
+                class="btn btn-sm variant-ghost"
+                title="Admin Panel"
+            >
+                <iconify-icon icon="dashicons:admin-collapse"></iconify-icon>
+            </a>
+            <button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
+            <Avatar
+                width="w-12"
+                initials={$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
+                background="bg-primary-500"
+            />
+        {:else}
+            <a href="/auth/signin" class="btn btn-sm variant-filled-primary">Login</a>
+        {/if}
+    </div>
+</svelte:fragment>
 </AppBar>
 
 <style>
