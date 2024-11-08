@@ -1,7 +1,8 @@
 <!-- FeedbackButtons.svelte -->
 <script>
-    import { getFirestore, updateDoc, setDoc, arrayUnion, arrayRemove, doc, increment, getDoc } from 'firebase/firestore';
+    import { getFirestore, setDoc, doc, getDoc } from 'firebase/firestore';
     import { auth } from '$lib/firebase';
+    import { onMount } from 'svelte';
 
     export let jobId;
     export let path;
@@ -11,6 +12,8 @@
     const db = getFirestore();
     let isLoading = false;
     let userVote = null;
+    let currentUserId = null;
+    let mounted = false;
     
     const FEEDBACK_COLLECTION = 'feedback';
 
@@ -21,43 +24,55 @@
     
     // Check if user has already voted by querying the feedback collection
     async function checkExistingVote() {
-        if (!auth.currentUser) return;
+        if (!auth.currentUser || !mounted) return;
         
         const sanitizedItemId = sanitizeForId(itemId);
         const feedbackRef = doc(db, FEEDBACK_COLLECTION, `${jobId}_${sanitizedItemId}_${auth.currentUser.uid}`);
         
-        console.log('Checking feedback document:', feedbackRef.path);
-        
         const feedbackSnap = await getDoc(feedbackRef);
         if (feedbackSnap.exists()) {
-            userVote = feedbackSnap.data().type;
+            const data = feedbackSnap.data();
+            if (data.active && data.itemId === itemId) {
+                userVote = data.type;
+            } else {
+                userVote = null;
+            }
+        } else {
+            userVote = null;
         }
     }
 
-    // Initial check for existing vote
-    $: if (auth.currentUser) {
+    // Initialize vote state for this specific instance
+    onMount(() => {
+        mounted = true;
+        currentUserId = auth.currentUser?.uid;
+        if (currentUserId) {
+            checkExistingVote();
+        }
+    });
+
+    // Watch for changes in auth or itemId
+    $: if (mounted && auth.currentUser?.uid !== currentUserId) {
+        currentUserId = auth.currentUser?.uid;
+        checkExistingVote();
+    }
+
+    // Watch for changes in itemId
+    $: if (mounted && itemId) {
         checkExistingVote();
     }
 
     async function handleFeedback(type) {
-        if (isLoading) return;
+        if (isLoading || !mounted) return;
         
         try {
             isLoading = true;
             const userId = auth.currentUser?.uid;
             if (!userId) return;
 
-            // Create a unique ID for this feedback using sanitized itemId
             const sanitizedItemId = sanitizeForId(itemId);
             const feedbackId = `${jobId}_${sanitizedItemId}_${userId}`;
             const feedbackRef = doc(db, FEEDBACK_COLLECTION, feedbackId);
-
-            console.log('=== Operation Details ===');
-            console.log('Feedback ID:', feedbackId);
-            console.log('Job ID:', jobId);
-            console.log('Original Item ID:', itemId);
-            console.log('Sanitized Item ID:', sanitizedItemId);
-            console.log('Type:', type);
 
             if (userVote === type) {
                 // Remove vote
@@ -77,31 +92,22 @@
                     active: true,
                     timestamp: new Date(),
                     updatedAt: new Date(),
-                    value: currentData, // Store the actual text/value being rated
-                    sanitizedItemId // Store this for reference
+                    value: currentData,
+                    sanitizedItemId
                 }, { merge: true });
                 userVote = type;
             }
-
-            console.log('=== Operation Completed Successfully ===');
-            console.log('Document path:', feedbackRef.path);
         } catch (error) {
             console.error('Error saving feedback:', error);
-            console.error('Context:', {
-                jobId,
-                itemId,
-                sanitizedItemId: sanitizeForId(itemId),
-                userId: auth.currentUser?.uid
-            });
         } finally {
             isLoading = false;
         }
     }
 </script>
 
-<div class="inline-flex gap-0.5 items-center">
+<div class="inline-flex items-center">
     <button
-        class="p-1 transition-colors {userVote === 'upvote' ? 'text-green-600' : 'text-gray-400 hover:text-green-600'}"
+        class="p-0.2 transition-colors {userVote === 'upvote' ? 'text-green-600' : 'text-gray-400 hover:text-green-600'}"
         on:click={() => handleFeedback('upvote')}
         disabled={isLoading}
         title="This is accurate"
@@ -109,7 +115,7 @@
         <iconify-icon icon="heroicons-solid:thumb-up" width="14" height="14"></iconify-icon>
     </button>
     <button
-        class="p-1 transition-colors {userVote === 'downvote' ? 'text-red-600' : 'text-gray-400 hover:text-red-600'}"
+        class="p-0.2 transition-colors {userVote === 'downvote' ? 'text-red-600' : 'text-gray-400 hover:text-red-600'}"
         on:click={() => handleFeedback('downvote')}
         disabled={isLoading}
         title="This needs improvement"
