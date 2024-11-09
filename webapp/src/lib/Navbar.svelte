@@ -76,7 +76,7 @@
             <Avatar
                 width="w-12"
                 initials={$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
-                background="bg-primary-500"
+                background="bg-tertiary-500"
             />
         {:else}
             <a href="/auth/signin" class="btn btn-sm variant-filled-primary">Login</a>
