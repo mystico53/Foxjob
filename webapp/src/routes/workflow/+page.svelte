@@ -156,7 +156,14 @@
 		{:else}
 			<div class="flex h-full items-center justify-center">
 				<div class="text-surface-400 text-center">
-					<div class="mb-2 text-4xl">👈 we're loading your jobs</div>
+					<div class="giphy-container mb-2">
+						<iframe 
+							src="https://giphy.com/embed/xsE65jaPsUKUo" 
+							frameBorder="0" 
+							class="giphy-embed"
+							allowFullScreen
+						></iframe>
+					</div>
 					<div>Select a job to view details</div>
 				</div>
 			</div>
