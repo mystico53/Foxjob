@@ -1,20 +1,33 @@
 <script>
-    import { onMount } from 'svelte';
+
     import { getFirestore, doc, getDoc } from 'firebase/firestore';
     import CardDetails from '$lib/CardDetails.svelte';
-
     export let feedback;
-    export let isFirstFeedback = false;
-    export let isLastFeedback = false;
 
     const db = getFirestore();
     let job = null;
     let loading = true;
     let error = null;
+    
+    // Function to get the userId from the feedback
+    // Make sure it handles both cases where userId might be stored
+    function getUserId() {
+        // Log the feedback object to debug
+        console.log('Feedback object:', feedback);
+        
+        // Check different possible locations of userId
+        return feedback?.userId || feedback?.user?.uid || feedback?.user || null;
+    }
 
     async function loadJobData() {
-        if (!feedback?.jobId) {
+        const userId = getUserId();
+        console.log('UserId from feedback:', userId);
+        console.log('JobId from feedback:', feedback?.jobId);
+
+        if (!feedback?.jobId || !userId) {
+            console.log('Missing required IDs:', { jobId: feedback?.jobId, userId });
             loading = false;
+            error = 'Missing required job or user information';
             return;
         }
 
@@ -22,15 +35,72 @@
             loading = true;
             error = null;
             
-            const jobRef = doc(db, 'jobs', feedback.jobId);
+            // Construct the full path
+            const fullPath = `users/${userId}/jobs/${feedback.jobId}`;
+            console.log('Attempting to load from path:', fullPath);
+            
+            const jobRef = doc(db, 'users', userId, 'jobs', feedback.jobId);
             const jobDoc = await getDoc(jobRef);
             
             if (jobDoc.exists()) {
+                console.log('Job data found:', jobDoc.data());
+                const jobData = jobDoc.data();
+                
+                // Process Firestore timestamp
+                if (jobData.generalData?.timestamp) {
+                    jobData.generalData.timestamp = jobData.generalData.timestamp;
+                }
+
                 job = {
                     id: jobDoc.id,
-                    ...jobDoc.data()
+                    generalData: {
+                        status: jobData.generalData?.status || 'read',
+                        timestamp: jobData.generalData?.timestamp,
+                        url: jobData.generalData?.url
+                    },
+                    companyInfo: {
+                        name: jobData.summarized?.companyInfo?.name || 'N/A',
+                        industry: jobData.summarized?.companyInfo?.industry || 'N/A',
+                        companyFocus: jobData.summarized?.companyInfo?.companyFocus || 'N/A'
+                    },
+                    jobInfo: {
+                        jobTitle: jobData.summarized?.jobInfo?.jobTitle || 'N/A',
+                        remoteType: jobData.summarized?.jobInfo?.remoteType || 'N/A',
+                        jobSummary: jobData.summarized?.jobInfo?.jobSummary || 'N/A'
+                    },
+                    compensation: jobData.compensation || 'N/A',
+                    AccumulatedScores: {
+                        accumulatedScore: jobData.AccumulatedScores?.accumulatedScore || 0,
+                        requirementScore: jobData.AccumulatedScores?.requirementScore || 0,
+                        domainScore: jobData.AccumulatedScores?.domainScore || 0,
+                        hardSkillScore: jobData.AccumulatedScores?.hardSkillScore || 0,
+                        verdictScore: jobData.AccumulatedScores?.verdictScore || 0
+                    },
+                    verdict: jobData.verdict || {
+                        keyStrengths: jobData.verdict?.keyStrengths || {},
+                        keyGaps: jobData.verdict?.keyGaps || {}
+                    },
+                    SkillAssessment: {
+                        DomainExpertise: jobData.SkillAssessment?.DomainExpertise || {},
+                        Hardskills: {
+                            hardSkillScore: jobData.SkillAssessment?.Hardskills?.hardSkillScore || {
+                                totalScore: 0,
+                                summary: ''
+                            },
+                            ...jobData.SkillAssessment?.Hardskills || {}
+                        },
+                        Softskills: {
+                            softSkillScore: jobData.SkillAssessment?.Softskills?.softSkillScore || {
+                                totalScore: 0,
+                                summary: ''
+                            },
+                            ...jobData.SkillAssessment?.Softskills || {}
+                        }
+                    },
+                    matchResult: jobData.matchResult || { keySkills: [] }
                 };
             } else {
+                console.log('No job document found');
                 error = 'Job not found';
             }
         } catch (err) {
@@ -41,15 +111,27 @@
         }
     }
 
+    // Function to open job link
+    function openJobLink(url) {
+        if (url) {
+            window.open(url, '_blank');
+        }
+    }
+
+    // Handle UI state
+    let isHiding = false;
+
     // Reload job data when feedback changes
-    $: if (feedback?.jobId) {
+    $: if (feedback) {
+        console.log('Feedback changed, reloading job data');
         loadJobData();
     }
 </script>
 
-<div class="space-y-8">
+<div class="space-y-8"> 
+
     <!-- Feedback Information -->
-    <div class="card p-4">
+    <div class="card p-4 variant-ghost-warning">
         <h3 class="h3 mb-4">Feedback Details</h3>
         <div class="grid grid-cols-2 gap-4">
             <div>
@@ -67,6 +149,10 @@
             <div>
                 <span class="font-bold">Job ID:</span>
                 <span class="ml-2">{feedback.jobId || 'N/A'}</span>
+            </div>
+            <div>
+                <span class="font-bold">User ID:</span>
+                <span class="ml-2">{getUserId() || 'N/A'}</span>
             </div>
             <div>
                 <span class="font-bold">Item:</span>
@@ -98,7 +184,7 @@
             isFirstJob={true}
             isLastJob={true}
             toggleBookmark={() => {}}
-            openJobLink={(url) => window.open(url, '_blank')}
+            {openJobLink}
         />
     {:else}
         <div class="alert variant-filled-warning">
