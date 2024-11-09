@@ -1,6 +1,7 @@
 <script>
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
+    import FeedbackTable from '$lib/FeedbackTable.svelte';
     
     // You can move this to an environment variable or config file
     const ADMIN_PASSWORD = 'foxie';
@@ -74,7 +75,7 @@
         <div class="grid gap-4">
             <div class="card p-4">
                 <h2 class="h2">User Feedback</h2>
-                <!-- Add feedback content -->
+                <FeedbackTable />
             </div>
             
             <div class="card p-4">
