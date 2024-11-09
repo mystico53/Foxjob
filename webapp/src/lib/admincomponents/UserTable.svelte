@@ -1,21 +1,54 @@
 <!-- UserTable.svelte -->
 <script>
-    import { getFirestore, collection, getDocs, doc, getDoc } from 'firebase/firestore';
     import { onMount } from 'svelte';
-    import { app } from '$lib/firebase';
+    import { auth, db } from '$lib/firebase';
+    import { collection, getDocs, doc } from 'firebase/firestore';
+    import { onAuthStateChanged } from 'firebase/auth';
 
-    const db = getFirestore(app);
     let users = [];
     let loading = true;
     let error = null;
 
-    // List of known user IDs from your screenshot
-    const knownUserIds = [
-        '6s2CLcw8fpRkS79tjwxy1w7Mxbw1',
-        'U0KC8SusvzcGV6Nstvc6b82HVHh2',
-        'VCvUK0pLeDVXJ0JHJsNBwxLgvd02',
-        'anonymous'
-    ];
+    function formatDate(timestamp) {
+        if (!timestamp || !timestamp.toDate) return 'Unknown';
+        const date = timestamp.toDate();
+        return date.toLocaleDateString('en-US', { 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric'
+        });
+    }
+
+    async function getJobsByDay(userId) {
+        try {
+            const jobsRef = collection(db, 'users', userId, 'jobs');
+            const jobsSnap = await getDocs(jobsRef);
+            
+            // Group jobs by day
+            const jobsByDay = {};
+            jobsSnap.forEach(doc => {
+                const data = doc.data();
+                const timestamp = data.generalData?.timestamp;
+                if (timestamp) {
+                    const dateKey = formatDate(timestamp);
+                    jobsByDay[dateKey] = (jobsByDay[dateKey] || 0) + 1;
+                }
+            });
+
+            // Convert to array and sort by date (most recent first)
+            const sortedDays = Object.entries(jobsByDay)
+                .sort((a, b) => new Date(b[0]) - new Date(a[0]))
+                .map(([date, count]) => ({ date, count }));
+
+            return {
+                totalJobs: jobsSnap.size,
+                dailyCounts: sortedDays
+            };
+        } catch (e) {
+            console.error(`Error getting jobs for ${userId}:`, e);
+            return { totalJobs: 0, dailyCounts: [] };
+        }
+    }
 
     async function loadUsers() {
         try {
@@ -23,52 +56,27 @@
             error = null;
             users = [];
 
-            console.log('Starting to load users...');
+            const knownIds = [
+                '6s2CLcw8fpRkS79tjwxy1w7Mxbw1',
+                'U0KC8SusvzcGV6Nstvc6b82HVHh2',
+                'VCvUK0pLeDVXJ0JHJsNBwxLgvdO2'
+            ];
 
-            // First try collection approach
-            const usersRef = collection(db, 'users');
-            const snapshot = await getDocs(usersRef);
-            console.log('Collection query found:', snapshot.size, 'documents');
+            const userPromises = knownIds.map(async (userId) => {
+                const jobsData = await getJobsByDay(userId);
+                return {
+                    id: userId,
+                    isCurrentUser: userId === auth?.currentUser?.uid,
+                    totalJobs: jobsData.totalJobs,
+                    dailyJobs: jobsData.dailyCounts
+                };
+            });
 
-            // Then try individual document approach
-            for (const userId of knownUserIds) {
-                try {
-                    console.log('Trying to fetch user:', userId);
-                    const userRef = doc(db, 'users', userId);
-                    const userDoc = await getDoc(userRef);
-                    
-                    console.log(`User ${userId} exists:`, userDoc.exists());
-                    console.log(`User ${userId} data:`, userDoc.data());
+            const results = await Promise.all(userPromises);
+            users = results
+                .filter(user => user.totalJobs > 0)
+                .sort((a, b) => b.totalJobs - a.totalJobs);
 
-                    if (userDoc.exists()) {
-                        const userData = userDoc.data();
-                        users.push({
-                            id: userId,
-                            email: userData?.email || 'N/A',
-                            displayName: userData?.displayName || userId.slice(0, 6) + '...',
-                            lastLogin: userData?.lastLoginTime || 'Never',
-                            isAdmin: userData?.isAdmin || false,
-                            provider: userData?.provider || 'N/A',
-                            ...userData
-                        });
-                    } else {
-                        console.log(`Document ${userId} exists in collection but has no data`);
-                        users.push({
-                            id: userId,
-                            email: 'N/A',
-                            displayName: userId.slice(0, 6) + '...',
-                            lastLogin: 'Never',
-                            isAdmin: false,
-                            provider: 'N/A'
-                        });
-                    }
-                } catch (e) {
-                    console.error(`Error fetching user ${userId}:`, e);
-                }
-            }
-
-            console.log('Final processed users:', users);
-            
         } catch (err) {
             console.error('Error loading users:', err);
             error = 'Failed to load user data';
@@ -78,7 +86,13 @@
     }
 
     onMount(() => {
-        loadUsers();
+        const unsubscribe = onAuthStateChanged(auth, (user) => {
+            if (user) {
+                loadUsers();
+            }
+        });
+
+        return () => unsubscribe();
     });
 </script>
 
@@ -96,40 +110,31 @@
     {:else}
         <div class="card p-4">
             <div class="mb-4">
-                <h3 class="h3">Users ({users.length} total)</h3>
-                <p class="text-sm opacity-75">Check console for detailed debugging information</p>
+                <h3 class="h3">Users ({users.length})</h3>
             </div>
 
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th>User ID</th>
-                        <th>Display Name</th>
-                        <th>Email</th>
-                        <th>Last Login</th>
-                        <th>Provider</th>
-                        <th>Role</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each users as user}
-                        <tr>
-                            <td class="font-mono text-sm break-all">{user.id}</td>
-                            <td>{user.displayName}</td>
-                            <td>{user.email}</td>
-                            <td>{user.lastLogin}</td>
-                            <td>{user.provider}</td>
-                            <td>
-                                {#if user.isAdmin}
-                                    <span class="badge bg-warning">Admin</span>
-                                {:else}
-                                    <span class="badge bg-info">User</span>
-                                {/if}
-                            </td>
-                        </tr>
-                    {/each}
-                </tbody>
-            </table>
+            {#each users as user}
+                <div class="mb-6 border-b pb-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="font-mono text-sm">{user.id}</span>
+                        {#if user.isCurrentUser}
+                            <span class="badge">You</span>
+                        {/if}
+                        <span class="badge bg-success ml-auto">
+                            Total: {user.totalJobs} jobs
+                        </span>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                        {#each user.dailyJobs as { date, count }}
+                            <div class="flex justify-between items-center p-2 bg-surface-500/10 rounded">
+                                <span class="text-sm">{date}</span>
+                                <span class="badge bg-success">{count}</span>
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            {/each}
         </div>
     {/if}
 </div>
@@ -139,28 +144,11 @@
         @apply animate-pulse text-center py-4;
     }
     
-    .table {
-        @apply w-full;
-    }
-    
-    .table th,
-    .table td {
-        @apply p-2 text-left border-b;
-    }
-    
-    .table th {
-        @apply bg-surface-100-800-token;
-    }
-    
     .badge {
         @apply px-2 py-1 rounded text-sm;
     }
-    
-    .bg-warning {
-        @apply bg-yellow-500 text-white;
-    }
-    
-    .bg-info {
-        @apply bg-blue-500 text-white;
+
+    .bg-success {
+        @apply bg-green-500 text-white;
     }
 </style>
