@@ -3,6 +3,7 @@
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import FeedbackTable from '$lib/admincomponents/FeedbackTable.svelte';
+    import UserTable from '$lib/admincomponents/UserTable.svelte';
     
     const ADMIN_PASSWORD = 'foxie';
     let isAuthenticated = false;
@@ -90,7 +91,7 @@
             
             <div class="card p-4">
                 <h2 class="h2">User Management</h2>
-                <!-- Add user management content -->
+                <UserTable />
             </div>
         </div>
     </div>
