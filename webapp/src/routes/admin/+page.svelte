@@ -1,16 +1,14 @@
+
 <script>
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
-    import FeedbackTable from '$lib/FeedbackTable.svelte';
+    import FeedbackTable from '$lib/admincomponents/FeedbackTable.svelte';
     
-    // You can move this to an environment variable or config file
     const ADMIN_PASSWORD = 'foxie';
-    
     let isAuthenticated = false;
     let password = '';
     let error = '';
 
-    // Check if we have an admin session
     onMount(() => {
         const adminAuth = sessionStorage.getItem('adminAuth');
         if (adminAuth === ADMIN_PASSWORD) {
@@ -33,6 +31,10 @@
     function handleLogout() {
         isAuthenticated = false;
         sessionStorage.removeItem('adminAuth');
+    }
+
+    function goToFeedbackDetails() {
+        goto('/admin/feedback');
     }
 </script>
 
@@ -71,10 +73,18 @@
             </button>
         </div>
         
-        <!-- Your admin content here -->
         <div class="grid gap-4">
             <div class="card p-4">
-                <h2 class="h2">User Feedback</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="h2">User Feedback</h2>
+                    <button 
+                        class="btn variant-filled-primary"
+                        on:click={goToFeedbackDetails}
+                    >
+                        <iconify-icon icon="solar:card-layout-bold" class="mr-2" />
+                        View Detailed Feedback
+                    </button>
+                </div>
                 <FeedbackTable />
             </div>
             

@@ -70,7 +70,7 @@
                 class="btn btn-sm variant-ghost"
                 title="Admin Panel"
             >
-                <iconify-icon icon="dashicons:admin-collapse"></iconify-icon>
+			<iconify-icon icon="gis:coord-system-3d-alt"></iconify-icon>
             </a>
             <button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
             <Avatar
