@@ -157,6 +157,7 @@
 			<div class="flex h-full items-center justify-center">
 				<div class="text-surface-400 text-center">
 					<div class="giphy-container mb-2">
+						<!-- svelte-ignore a11y-missing-attribute -->
 						<iframe 
 							src="https://giphy.com/embed/xsE65jaPsUKUo" 
 							frameBorder="0" 

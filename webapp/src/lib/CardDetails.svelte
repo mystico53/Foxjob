@@ -488,46 +488,50 @@
 
 <!-- Fixed position action buttons -->
 <div
-	class="bg-surface-100 fixed inset-x-0 bottom-0 z-10 border-t p-4 md:left-[25rem] md:right-[1rem]"
+    class="bg-surface-100 fixed inset-x-0 bottom-0 z-10 border-t p-4 md:left-[25rem] md:right-[1rem]"
 >
-	<div class="mx-auto flex max-w-4xl flex-wrap justify-center gap-24">
-		<button
-			class="btn variant-primary flex items-center gap-2"
-			on:click={previousJob}
-			disabled={isFirstJob || isHiding}
-		>
-			<iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
-		</button>
+    <div class="mx-auto flex max-w-4xl flex-wrap justify-center gap-24">
+        <button
+            class="btn variant-primary rounded flex items-center gap-2"
+            on:click={previousJob}
+            disabled={isFirstJob || isHiding}
+        >
+            <iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
+        </button>
 
-		<button class="btn variant-ghost-tertiary flex items-center gap-2" on:click={handleHide} disabled={isHiding}>
-			{#if isHiding}
-			  Archiving...
-			{:else}
-			  <iconify-icon class="text-xl" icon="solar:archive-bold"></iconify-icon>
-			  Archive
-			{/if}
-		  </button>
+        <button 
+            class="btn variant-ghost-tertiary rounded flex items-center gap-2" 
+            on:click={handleHide} 
+            disabled={isHiding}
+        >
+            {#if isHiding}
+                Archiving...
+            {:else}
+                <iconify-icon class="text-xl" icon="solar:archive-bold"></iconify-icon>
+                Archive
+            {/if}
+        </button>
 
-		<button 
-			class="btn variant-filled-primary flex items-center gap-2" 
-			on:click={handleBookmark} 
-			disabled={isHiding}
-		>
-			{#if currentStatus === 'bookmarked'}
-				<iconify-icon class="text-xl" icon="solar:bookmark-bold"></iconify-icon>
-				Bookmarked
-			{:else}
-				<iconify-icon class="text-xl" icon="solar:bookmark-outline"></iconify-icon>
-				Bookmark
-			{/if}
-		</button>
+        <button 
+            class="btn variant-filled-primary rounded  flex items-center gap-2" 
+            on:click={handleBookmark} 
+            disabled={isHiding}
+        >
+            {#if currentStatus === 'bookmarked'}
+                <iconify-icon class="text-xl" icon="solar:bookmark-bold"></iconify-icon>
+                Bookmarked
+            {:else}
+                <iconify-icon class="text-xl" icon="solar:bookmark-outline"></iconify-icon>
+                Bookmark
+            {/if}
+        </button>
 
-		<button
-			class="btn variant-primary flex items-center gap-2"
-			on:click={() => handleNext(job.id)}
-			disabled={isLastJob || isHiding}
-		>
-			<iconify-icon icon="solar:map-arrow-right-bold"></iconify-icon>
-		</button>
-	</div>
+        <button
+            class="btn variant-primary rounded flex items-center gap-2"
+            on:click={() => handleNext(job.id)}
+            disabled={isLastJob || isHiding}
+        >
+            <iconify-icon icon="solar:map-arrow-right-bold"></iconify-icon>
+        </button>
+    </div>
 </div>
