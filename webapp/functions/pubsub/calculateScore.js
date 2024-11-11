@@ -19,7 +19,11 @@ exports.calculateScore = onMessagePublished(
       logger.info('calculateScore function called');
       logger.info('Pub/Sub Message:', JSON.stringify(message.json));
 
-      const { googleId, docId } = message.json;
+      const messageData = event.data.message.json;
+      if (!messageData || !messageData.googleId || !messageData.docId) {
+        throw new Error('Invalid message format: missing required fields');
+      }
+      const { googleId, docId } = messageData;
 
       if (!docId || !googleId) {
         logger.error('Missing docId or googleId in Pub/Sub message.');

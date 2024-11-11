@@ -12,8 +12,18 @@ const pubSubClient = new PubSub();
 exports.extractDomainExpertise = onMessagePublished(
   { topic: 'job-description-extracted' },
   async (event) => {
-    const message = event.data;
-    const messageData = message.json;
+    const messageData = (() => {
+      try {
+        if (!event?.data?.message?.data) {
+          throw new Error('Invalid message format received');
+        }
+        const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+        return JSON.parse(decodedData);
+      } catch (error) {
+        logger.error('Error parsing message data:', error);
+        throw error;
+      }
+    })();
     const { googleId, docId } = messageData;
 
     logger.info(`Starting domain expertise extraction for googleId: ${googleId}, docId: ${docId}`);
