@@ -225,8 +225,18 @@ exports.embeddingMatch = onMessagePublished(
   { topic: CONFIG.topics.jobDescriptionExtracted },
   async (event) => {
     try {
-      const message = event.data;
-      const messageData = message.json;
+      const messageData = (() => {
+        try {
+          if (!event?.data?.message?.data) {
+            throw new Error('Invalid message format received');
+          }
+          const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+          return JSON.parse(decodedData);
+        } catch (error) {
+          logger.error('Error parsing message data:', error);
+          throw error;
+        }
+      })();
       const { googleId, docId } = messageData;
       
       logger.info('Starting match processing', { googleId, docId });

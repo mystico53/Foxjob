@@ -12,6 +12,7 @@ const pubSubClient = new PubSub();
 exports.extractDomainExpertise = onMessagePublished(
   { topic: 'job-description-extracted' },
   async (event) => {
+    // Parse the message data using IIFE
     const messageData = (() => {
       try {
         if (!event?.data?.message?.data) {
@@ -24,6 +25,7 @@ exports.extractDomainExpertise = onMessagePublished(
         throw error;
       }
     })();
+
     const { googleId, docId } = messageData;
 
     logger.info(`Starting domain expertise extraction for googleId: ${googleId}, docId: ${docId}`);

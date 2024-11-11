@@ -312,9 +312,18 @@ exports.matchHardSkills = onMessagePublished(
   { topic: CONFIG.topics.hardSkillsExtracted },
   async (event) => {
     try {
-      const message = event.data; 
-      // Parse message using pubSubService instead of manual parsing
-      const messageData = pubSubService.parseMessage(message);
+      const messageData = (() => {
+        try {
+          if (!event?.data?.message?.data) {
+            throw new Error('Invalid message format received');
+          }
+          const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+          return JSON.parse(decodedData);
+        } catch (error) {
+          logger.error('Error parsing message data:', error);
+          throw error;
+        }
+      })();
       const { googleId, docId } = pubSubService.validateMessageData(messageData);
 
       logger.info(`Processing skills match for googleId: ${googleId}, docId: ${docId}`);
