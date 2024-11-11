@@ -15,8 +15,18 @@ exports.matchDomainExpertise = onMessagePublished(
     try {
       logger.info('matchDomainExpertise function called');
       
-      const message = event.data;
-      const messageData = message.json;
+      const messageData = (() => {
+        try {
+          if (!event?.data?.message?.data) {
+            throw new Error('Invalid message format received');
+          }
+          const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+          return JSON.parse(decodedData);
+        } catch (error) {
+          logger.error('Error parsing message data:', error);
+          throw error;
+        }
+      })();
 
       logger.info('Parsed Pub/Sub message data:', messageData);
 
