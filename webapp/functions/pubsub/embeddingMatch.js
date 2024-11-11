@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { OpenAI } = require('openai');
@@ -145,53 +145,89 @@ const embeddingService = {
 
 // ===== Matching Service =====
 const matchingService = {
-  async processMatch(jobText, resumeText) {
-    try {
-      // Get embeddings
-      const [jobEmbedding, resumeEmbedding] = await Promise.all([
-        embeddingService.getEmbedding(jobText),
-        embeddingService.getEmbedding(resumeText)
-      ]);
-
-      // Calculate similarity
-      const similarityScore = embeddingService.calculateSimilarity(
-        jobEmbedding, 
-        resumeEmbedding
-      );
-
-      // Normalize to 0-100 scale
-      const score = Math.round(similarityScore * 100);
-
-      return matchResultSchema.parse({
-        score,
-        timestamp: new Date(),
-        matchDetails: {
-          similarityScore,
-          keySkillMatches: [], // Could be enhanced with skill extraction
-          recommendations: this.generateRecommendations(score)
-        }
-      });
-    } catch (error) {
-      logger.error('Error processing match:', error);
-      throw error;
+    async processMatch(jobText, resumeText) {
+      try {
+        // Get embeddings
+        const [jobEmbedding, resumeEmbedding] = await Promise.all([
+          embeddingService.getEmbedding(jobText),
+          embeddingService.getEmbedding(resumeText)
+        ]);
+  
+        // Calculate similarity
+        const rawSimilarity = embeddingService.calculateSimilarity(
+          jobEmbedding, 
+          resumeEmbedding
+        );
+  
+        // Debug raw similarity
+        logger.info('Raw similarity score:', {
+          rawSimilarity,
+          firstFewDimensions: {
+            job: jobEmbedding.slice(0, 5),
+            resume: resumeEmbedding.slice(0, 5)
+          }
+        });
+  
+        // Adjust the scoring to be more strict
+        // Current formula just multiplies by 100
+        // Let's make it more strict with a custom scaling function
+        const adjustedScore = this.calculateAdjustedScore(rawSimilarity);
+  
+        logger.info('Score comparison:', {
+          rawSimilarity,
+          oldScore: Math.round(rawSimilarity * 100),
+          newAdjustedScore: adjustedScore
+        });
+  
+        return matchResultSchema.parse({
+          score: adjustedScore,
+          timestamp: new Date(),
+          matchDetails: {
+            similarityScore: rawSimilarity,
+            keySkillMatches: [], 
+            recommendations: this.generateRecommendations(adjustedScore)
+          }
+        });
+      } catch (error) {
+        logger.error('Error processing match:', error);
+        throw error;
+      }
+    },
+  
+    calculateAdjustedScore(rawSimilarity) {
+      // Cosine similarity typically gives high raw scores (0.7-0.9) even for moderate matches
+      // because embeddings capture general semantic similarity
+      
+      // Let's make it more strict:
+      // 1. Normalize the typical range (0.7-0.9) to (0-1)
+      const normalized = Math.max(0, (rawSimilarity - 0.7) / 0.2);
+      
+      // 2. Apply a power function to make it harder to get high scores
+      const powered = Math.pow(normalized, 1.5);
+      
+      // 3. Scale to 0-100
+      const finalScore = Math.round(powered * 100);
+      
+      // 4. Cap at 50 for now
+      return Math.min(finalScore, 50);
+    },
+  
+    generateRecommendations(score) {
+      // Updated thresholds for new scoring
+      if (score > 45) return "Good match, but review requirements carefully before applying.";
+      if (score > 35) return "Moderate match. Consider highlighting relevant experience more clearly.";
+      return "Low match. This role might require different experience or skills than shown in your resume.";
     }
-  },
-
-  generateRecommendations(score) {
-    if (score > 85) return "Strong match! Consider applying immediately.";
-    if (score > 70) return "Good match. Review specific requirements before applying.";
-    return "Consider enhancing resume to better match job requirements.";
-  }
-};
+  };
 
 // ===== Main Function =====
-exports.embeddingMatch = functions.pubsub
-  .topic(CONFIG.topics.jobDescriptionExtracted)
-  .onPublish(async (message) => {
+exports.embeddingMatch = onMessagePublished(
+  { topic: CONFIG.topics.jobDescriptionExtracted },
+  async (event) => {
     try {
-      // Parse message data
-      const decodedData = Buffer.from(message.data, 'base64').toString();
-      const { googleId, docId } = JSON.parse(decodedData);
+      const message = event.data;
+      const messageData = message.json;
+      const { googleId, docId } = messageData;
       
       logger.info('Starting match processing', { googleId, docId });
 

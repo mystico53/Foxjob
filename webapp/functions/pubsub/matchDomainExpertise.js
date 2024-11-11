@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
 const logger = require("firebase-functions/logger");
 require('dotenv').config();
@@ -9,15 +9,14 @@ const { zodResponseFormat } = require('openai/helpers/zod');
 const openai = new OpenAI();
 const db = admin.firestore();
 
-exports.matchDomainExpertise = functions.pubsub
-  .topic('domain-expertise-extracted')
-  .onPublish(async (message) => {
+exports.matchDomainExpertise = onMessagePublished(
+  { topic: 'domain-expertise-extracted' },
+  async (event) => {
     try {
       logger.info('matchDomainExpertise function called');
       
-      const messageData = message.data ? 
-        JSON.parse(Buffer.from(message.data, 'base64').toString()) :
-        {};
+      const message = event.data;
+      const messageData = message.json;
 
       logger.info('Parsed Pub/Sub message data:', messageData);
 

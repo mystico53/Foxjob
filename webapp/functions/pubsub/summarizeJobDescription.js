@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { Firestore } = require("firebase-admin/firestore");
@@ -7,10 +7,23 @@ const fetch = require('node-fetch');
 // Ensure Firestore instance is reused
 const db = admin.firestore();
 
-exports.summarizeJobDescription = functions.pubsub
-  .topic('job-description-extracted')
-  .onPublish(async (message) => {
-    const messageData = message.json;
+exports.summarizeJobDescription = onMessagePublished(
+  {
+    topic: 'job-description-extracted',
+  },
+  async (event) => {
+    const messageData = (() => {
+      try {
+        if (!event?.data?.message?.data) {
+          throw new Error('Invalid message format received');
+        }
+        const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+        return JSON.parse(decodedData);
+      } catch (error) {
+        logger.error('Error parsing message data:', error);
+        throw error;
+      }
+    })();
     const { googleId, docId } = messageData;
 
     logger.info(`Starting job description analysis for googleId: ${googleId}, docId: ${docId}`);
@@ -24,7 +37,7 @@ exports.summarizeJobDescription = functions.pubsub
       // Create document reference using googleId and docId
       const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
 
-      // Fetch job data from Firestore
+      // Rest of your code remains the same...
       const docSnapshot = await jobDocRef.get();
 
       if (!docSnapshot.exists) {
@@ -37,7 +50,7 @@ exports.summarizeJobDescription = functions.pubsub
       logger.info('Extracted job description fetched from Firestore');
 
       // Process text with Anthropic API
-      const apiKey = process.env.ANTHROPIC_API_KEY || functions.config().anthropic.api_key;
+      const apiKey = process.env.ANTHROPIC_API_KEY || process.env.FIREBASE_CONFIG?.anthropic?.api_key;
 
       if (!apiKey) {
         logger.error('Anthropic API key not found');
@@ -106,7 +119,8 @@ exports.summarizeJobDescription = functions.pubsub
     } catch (error) {
       logger.error('Error in summarizeJobDescription:', error);
     }
-  });
+  }
+);
 
 // Anthropic instructions
 const anthropicInstructions = {

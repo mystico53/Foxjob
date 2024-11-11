@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
 const logger = require("firebase-functions/logger");
 require('dotenv').config();
@@ -308,10 +308,11 @@ const skillsMatchingService = {
 };
 
 // ===== Main Function =====
-exports.matchHardSkills = functions.pubsub
-  .topic(CONFIG.topics.hardSkillsExtracted)
-  .onPublish(async (message) => {
+exports.matchHardSkills = onMessagePublished(
+  { topic: CONFIG.topics.hardSkillsExtracted },
+  async (event) => {
     try {
+      const message = event.data; 
       // Parse message using pubSubService instead of manual parsing
       const messageData = pubSubService.parseMessage(message);
       const { googleId, docId } = pubSubService.validateMessageData(messageData);

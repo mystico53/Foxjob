@@ -25,13 +25,19 @@ async function initializeFeedbackCollection() {
         }
     } catch (error) {
         logger.error('Error initializing feedback collection:', error);
+        throw error; // Propagate the error
     }
 }
 
-// Call initialization when the app starts
-initializeFeedbackCollection()
-    .then(() => logger.info('Feedback collection check completed'))
-    .catch(error => logger.error('Failed to check feedback collection:', error));
+// Export initialization function instead of running it immediately
+exports.initFeedback = onRequest(async (request, response) => {
+    try {
+        await initializeFeedbackCollection();
+        response.json({ success: true });
+    } catch (error) {
+        response.status(500).json({ error: error.message });
+    }
+});
 
 // Import your function modules
 

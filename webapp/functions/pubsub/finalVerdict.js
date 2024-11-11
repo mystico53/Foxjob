@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
 const logger = require("firebase-functions/logger");
 require('dotenv').config();
@@ -189,10 +189,11 @@ const services = {
   }
 };
 
-exports.finalVerdict = functions.pubsub
-  .topic(CONFIG.topics.hardSkillsMatched)
-  .onPublish(async (message) => {
+exports.finalVerdict = onMessagePublished(
+  { topic: CONFIG.topics.hardSkillsMatched },
+  async (event) => {
     try {
+      const message = event.data;
       const messageData = message.json;
       const { googleId, docId } = messageData;
 
