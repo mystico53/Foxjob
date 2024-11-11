@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
@@ -159,13 +159,27 @@ const errorHandlers = {
 };
 
 // ===== Main Function =====
-exports.extractJobRequirements = functions.pubsub
-  .topic(CONFIG.topics.jobDescriptionExtracted)
-  .onPublish(async (message) => {
+exports.extractJobRequirements = onMessagePublished(
+  {
+    topic: CONFIG.topics.jobDescriptionExtracted,
+  },
+  async (event) => {
     let docRef;
+    const message = event.data;
     try {
       // Parse and validate message
-      const messageData = pubSubService.parseMessage(message);
+      const messageData = (() => {
+        try {
+          if (!event?.data?.message?.data) {
+            throw new Error('Invalid message format received');
+          }
+          const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+          return JSON.parse(decodedData);
+        } catch (error) {
+          logger.error('Error parsing message data:', error);
+          throw error;
+        }
+      })();
       const { googleId, docId } = pubSubService.validateMessageData(messageData);
       logger.info(`Processing requirements for googleId: ${googleId}, docId: ${docId}`);
 

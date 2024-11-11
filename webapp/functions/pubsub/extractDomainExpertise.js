@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { Firestore } = require("firebase-admin/firestore");
@@ -9,9 +9,10 @@ const { PubSub } = require('@google-cloud/pubsub');
 const db = admin.firestore();
 const pubSubClient = new PubSub();
 
-exports.extractDomainExpertise = functions.pubsub
-  .topic('job-description-extracted')
-  .onPublish(async (message) => {
+exports.extractDomainExpertise = onMessagePublished(
+  { topic: 'job-description-extracted' },
+  async (event) => {
+    const message = event.data;
     const messageData = message.json;
     const { googleId, docId } = messageData;
 

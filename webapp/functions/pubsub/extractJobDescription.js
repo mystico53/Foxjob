@@ -1,4 +1,5 @@
-const functions = require('firebase-functions');
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { defineString } = require("firebase-functions/params");
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
@@ -80,12 +81,20 @@ const firestoreService = {
 
 // ===== PubSub Service =====
 const pubSubService = {
-  parseMessage(message) {
-    if (!message.data) {
-      throw new Error('No message data received');
+  parseMessage(event) {
+    // Check if we have the expected event structure
+    if (!event?.data?.message?.data) {
+      throw new Error('Invalid message format received');
     }
-    const decodedData = Buffer.from(message.data, 'base64').toString();
-    return JSON.parse(decodedData);
+
+    // Decode the base64 data from the message
+    const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+    
+    try {
+      return JSON.parse(decodedData);
+    } catch (error) {
+      throw new Error(`Failed to parse message data: ${error.message}`);
+    }
   },
 
   validateMessageData(data) {
@@ -148,37 +157,36 @@ const errorHandlers = {
 };
 
 // ===== Main Function =====
-exports.extractJobDescription = functions.pubsub
-  .topic(CONFIG.topics.rawTextStored)
-  .onPublish(async (message) => {
+exports.extractJobDescription = onMessagePublished(
+  {
+    topic: CONFIG.topics.rawTextStored,
+  }, 
+  async (event) => {
     let docRef;
     try {
       // Parse and validate message
-      const messageData = pubSubService.parseMessage(message);
+      const messageData = pubSubService.parseMessage(event);
       const { googleId, docId } = pubSubService.validateMessageData(messageData);
       logger.info(`Processing job for googleId: ${googleId}, docId: ${docId}`);
 
-      // Get Firestore document
+      // Rest of your function remains the same...
       docRef = firestoreService.getDocRef(googleId, docId);
       const jobData = await firestoreService.getJobDocument(docRef);
       
-      // Process job description
       const rawJD = jobData.texts?.rawText || "na";
       const extractedText = await apiService.processJobDescription(
         rawJD, 
         CONFIG.instructions.jobExtraction
       );
       
-      // Update Firestore
       await firestoreService.updateJobDocument(docRef, extractedText, jobData.texts);
 
-      // Publish next message
       await pubSubService.publishMessage(
         CONFIG.topics.jobDescriptionExtracted,
         { googleId, docId }
       );
 
     } catch (error) {
-      await errorHandlers.handleProcessingError(error, docRef, { message });
+      await errorHandlers.handleProcessingError(error, docRef, { event });
     }
-  });
+});

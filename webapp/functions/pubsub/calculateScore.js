@@ -1,4 +1,4 @@
-const functions = require('firebase-functions');
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
 const logger = require("firebase-functions/logger");
 require('dotenv').config();
@@ -9,9 +9,12 @@ const { zodResponseFormat } = require('openai/helpers/zod');
 const openai = new OpenAI();
 const db = admin.firestore();
 
-exports.calculateScore = functions.pubsub
-  .topic('requirements-gathered')
-  .onPublish(async (message) => {
+exports.calculateScore = onMessagePublished(
+  {
+    topic: 'requirements-gathered',
+  },
+  async (event) => {
+    const message = event.data;  
     try {
       logger.info('calculateScore function called');
       logger.info('Pub/Sub Message:', JSON.stringify(message.json));
