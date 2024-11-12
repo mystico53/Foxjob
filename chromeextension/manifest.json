@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "JobHunter",
-  "version": "0.11",
-  "description": "JobHunter fasst Stellenbeschreibungen zusammen und stimmt sie mit deinen Fähigkeiten ab, um dir bei der Jobsuche zu helfen.",
+  "name": "Foxjob",
+  "version": "0.14",
+  "description": "FoxJob uses AI to analyze job postings, matching your skills to the best opportunities. Focus on quality applications that matter.",
   "permissions": [
     "activeTab",
     "scripting",
@@ -11,7 +11,6 @@
     "offscreen"
   ],
   "host_permissions": [
-    "<all_urls>",
     "https://jobille-45494.web.app/*"
   ],
   "action": {
@@ -26,7 +25,7 @@
       "suggested_key": {
         "default": "Alt+S"
       },
-      "description": "Hauptfunktion der Erweiterung auslösen"
+      "description": "Trigger main function of the extension"
     }
   },
   "content_security_policy": {
