@@ -112,143 +112,122 @@
 <!-- Main card content -->
 <div class="bg-surface-100 mx-auto mb-20 max-w-4xl space-y-8 p-6">
 	<!-- Header Section -->
-	<div class="flex w-full justify-between gap-4">
-		<!-- Left Column: All info except radial -->
-		<div class="flex-1 space-y-4">
-			<!-- Company and Title -->
-			<div>
-				<div class="flex items-center gap-2 pb-4">
-					<h5 class="h5 m-0 flex items-center">{job.jobInfo?.jobTitle || 'N/A'}</h5>
-					<!-- svelte-ignore a11y-invalid-attribute -->
-					<button
-						type="button"
-						class="flex cursor-pointer items-center"
-						on:click={handleVisitJob}
-						on:keydown={(e) => e.key === 'Enter' && handleVisitJob()}
-						aria-label="Visit Job"
-					>
-						<iconify-icon icon="solar:file-right-linear"></iconify-icon>
-					</button>
-				</div>
-				<h1 class="h1">{job.companyInfo?.name || 'N/A'}</h1>
-			</div>
+	<div class="card p-8">
+        <div class="flex w-full justify-between gap-4">
+            <!-- Left Column: All info except radial -->
+            <div class="flex-1 space-y-4">
+                <!-- Company and Title -->
+                <div>
+                    <h5 class="h5 m-0 flex items-center pb-4">{job.jobInfo?.jobTitle || 'N/A'}</h5>				
+                    <h1 class="h1 font-bold pb-2">{job.companyInfo?.name || 'N/A'}</h1>
+                </div>
 
-			<!-- Meta Information -->
-			<div class="space-y-2">
-				<!-- First Row -->
-				<div class="flex w-full justify-between gap-24">
-					<span class="chip variant-ghost-surface" title={job.companyInfo?.industry || 'N/A'}>
-						<iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
-						<span>
-							{truncateText(job.companyInfo?.industry)}
-						</span>
-					</span>
-					<span class="chip variant-ghost-surface" title={job.jobInfo?.remoteType || 'N/A'}>
-						<iconify-icon icon="solar:pin-bold"></iconify-icon>
-						<span>
-							{truncateText(job.jobInfo?.remoteType)}
-						</span>
-					</span>
-				</div>
-
-				<!-- Second Row -->
-				<div class="flex w-full justify-between">
-					<span class="chip variant-ghost-surface" title={job.compensation || 'N/A'}>
-						<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
-						<span>
-							{truncateText(job.compensation)}
-						</span>
-					</span>
-					<span class="chip variant-ghost-surface" title={formatDate(job.generalData?.timestamp)}>
-						<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
-						<span>
-							{truncateText(formatDate(job.generalData?.timestamp))}
-						</span>
-					</span>
-				</div>
-			</div>
-		</div><!-- Wrap the ProgressRadial in a container for the popup -->
-		<!-- Replace just the ProgressRadial section in your code -->
-        {#if job?.AccumulatedScores?.accumulatedScore !== undefined}
-        {#key job.id}
-    {#if isVisible}
-        <div class="flex items-start justify-end">
-            <div class="relative">
-                <div class="relative w-32 h-32 flex items-center justify-center">
-                    <div
-                        in:fade={{ duration: 400, delay: 100 }}
-                        class="relative w-full h-full flex items-center justify-center"
-                    >
-                        <ProgressRadial
-                            class="!w-32"
-                            stroke={60}
-                            font={150}
-                            meter="!stroke-primary-500"
-                            track="!stroke-tertiary-500/30"
-                            strokeLinecap="round"
-                            value={Math.round(score || 0)}
-                        >
-                            {Math.round(score || 0)}
-                        </ProgressRadial>
-                    </div>
-                    
-                    <div class="absolute -right-2 -top-2" use:popup={popupHover}>
-                        <iconify-icon 
-                            icon="solar:info-circle-bold" 
-                            class="text-tertiary-900 rounded-full cursor-pointer"
-                        />
-                        <div 
-                            class="card p-4 variant-filled-tertiary w-[400px]" 
-                            data-popup="popupHover"
-                        >
-                            <div class="space-y-4">
-                                <p class="text-sm opacity-75 break-words hyphens-auto">
-                                    Heads up! The score is estimated by an LLM, which can make mistakes. Please double-check the result. The LLM compares different parts of your resume to the job requirements. Feedback from curious people like yourself improves its accuracy. 🦊
-                                </p>
-                                
-                                <div class="grid grid-cols-[1fr,auto] gap-x-6 gap-y-2 w-full">
-                                    <span class="text-sm font-semibold opacity-75">Main score = Average of the following scores:</span>
-                                    <span class="text-sm font-semibold text-right">{Math.round(score || 0)}</span>
-
-                                    <!-- Only render these if job.AccumulatedScores exists -->
-                                    {#if job.AccumulatedScores}
-                                        <span class="text-sm opacity-75">Six most important requirements</span>
-                                        <span class="text-sm text-right">{Math.round(job.AccumulatedScores?.requirementScore || 0)}</span>
-                                        
-                                        <span class="text-sm opacity-75">Does domain expertise match?</span>
-                                        <span class="text-sm text-right">{Math.round(job.AccumulatedScores?.domainScore || 0)}</span>
-                                        
-                                        <span class="text-sm opacity-75">Hard Skills:</span>
-                                        <span class="text-sm text-right">{Math.round(job.AccumulatedScores?.hardSkillScore || 0)}</span>
-                                        
-                                        <span class="text-sm opacity-75">All infos considered:</span>
-                                        <span class="text-sm text-right">{Math.round(job.AccumulatedScores?.verdictScore || 0)}</span>
-                                    {/if}
-                                </div>
-                            </div>
-                            <div class="arrow variant-filled-secondary" />
-                        </div>
-                    </div>
+                <!-- Meta Information -->
+                <div class="flex flex-row flex-wrap max-w-2xl">
+                    <span class="chip variant-ghost-surface" title={job.companyInfo?.industry || 'N/A'}>
+                    <iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
+                    <span>{truncateText(job.companyInfo?.industry)}</span>
+                    </span>
+                
+                    <span class="chip variant-ghost-surface" title={job.jobInfo?.remoteType || 'N/A'}>
+                    <iconify-icon icon="solar:pin-bold"></iconify-icon>
+                    <span>{truncateText(job.jobInfo?.remoteType)}</span>
+                    </span>
+                
+                    <span class="chip variant-ghost-surface" title={job.compensation || 'N/A'}>
+                    <iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+                    <span>{truncateText(job.compensation)}</span>
+                    </span>
+                
+                    <span class="chip variant-ghost-surface" title={formatDate(job.generalData?.timestamp)}>
+                    <iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
+                    <span>{truncateText(formatDate(job.generalData?.timestamp))}</span>
+                    </span>
                 </div>
             </div>
-        </div>
-    {/if}
-{/key}
-    {/if}
+            <!-- ProgressRadial section -->
+            {#if job?.AccumulatedScores?.accumulatedScore !== undefined}
+                    {#key job.id}
+                        {#if isVisible}
+                            <div class="flex items-start justify-end">
+                                <div class="relative">
+                                    <div class="relative w-32 h-32 flex items-center justify-center">
+                                        <div
+                                            in:fade={{ duration: 400, delay: 100 }}
+                                            class="relative w-full h-full flex items-center justify-center"
+                                        >
+                                            <ProgressRadial
+                                                class="!w-32"
+                                                stroke={60}
+                                                font={150}
+                                                meter="!stroke-primary-500"
+                                                track="!stroke-tertiary-500/30"
+                                                strokeLinecap="round"
+                                                value={Math.round(score || 0)}
+                                            >
+                                                {Math.round(score || 0)}
+                                            </ProgressRadial>
+                                        </div>
+                                        
+                                        <div class="absolute -right-2 -top-2" use:popup={popupHover}>
+                                            <iconify-icon 
+                                                icon="solar:info-circle-bold" 
+                                                class="text-tertiary-900 rounded-full cursor-pointer"
+                                            />
+                                            <div 
+                                                class="card p-4 variant-filled-tertiary w-[400px]" 
+                                                data-popup="popupHover"
+                                            >
+                                                <div class="space-y-4">
+                                                    <p class="text-sm opacity-75 break-words hyphens-auto">
+                                                        Heads up! The score is estimated by an LLM, which can make mistakes. Please double-check the result. The LLM compares different parts of your resume to the job requirements. Feedback from curious people like yourself improves its accuracy. 🦊
+                                                    </p>
+                                                    
+                                                    <div class="grid grid-cols-[1fr,auto] gap-x-6 gap-y-2 w-full">
+                                                        <span class="text-sm font-semibold opacity-75">Main score = Average of the following scores:</span>
+                                                        <span class="text-sm font-semibold text-right">{Math.round(score || 0)}</span>
+
+                                                        <!-- Only render these if job.AccumulatedScores exists -->
+                                                        {#if job.AccumulatedScores}
+                                                            <span class="text-sm opacity-75">Six most important requirements</span>
+                                                            <span class="text-sm text-right">{Math.round(job.AccumulatedScores?.requirementScore || 0)}</span>
+                                                            
+                                                            <span class="text-sm opacity-75">Does domain expertise match?</span>
+                                                            <span class="text-sm text-right">{Math.round(job.AccumulatedScores?.domainScore || 0)}</span>
+                                                            
+                                                            <span class="text-sm opacity-75">Hard Skills:</span>
+                                                            <span class="text-sm text-right">{Math.round(job.AccumulatedScores?.hardSkillScore || 0)}</span>
+                                                            
+                                                            <span class="text-sm opacity-75">All infos considered:</span>
+                                                            <span class="text-sm text-right">{Math.round(job.AccumulatedScores?.verdictScore || 0)}</span>
+                                                        {/if}
+                                                    </div>
+                                                </div>
+                                                <div class="arrow variant-filled-secondary" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {/if}
+                {/key}
+                
+            {/if}
         </div>
 
-		
+        <div class="pt-8 w-full">
+            <p class="text-sm mb-4">
+                <span class="font-bold">Company Focus: </span>
+                {job?.companyInfo?.companyFocus || 'No company focus information available'}
+            </p>
+            <p class="text-sm mb-4">
+                <span class="font-bold">Job Description: </span>
+                {job?.jobInfo?.jobSummary || 'No job summary available'}
+            </p>
+        </div>
+</div>	
 
-	<div class="card p-4 w-full border-0">
-		<p class="text-sm mb-4">
-			<span class="font-bold">Company Focus: </span>
-			{job?.companyInfo?.companyFocus || 'No company focus information available'}
-		</p>
-		<p class="text-sm mb-4">
-			<span class="font-bold">Job Description: </span>
-			{job?.jobInfo?.jobSummary || 'No job summary available'}
-		</p>
-	</div>
+	
 
 <!-- Final Verdict Section -->
 <div class="card p-4 w-full">
@@ -372,32 +351,40 @@
             <iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
         </button>
 
-        <button 
-            class="btn variant-ghost-tertiary rounded flex items-center gap-2" 
-            on:click={handleHide} 
-            disabled={isHiding}
-        >
-            {#if isHiding}
-                Archiving...
-            {:else}
-                <iconify-icon class="text-xl" icon="solar:archive-bold"></iconify-icon>
-                Archive
-            {/if}
-        </button>
+        <div class="flex gap-4">
+            <button 
+                class="btn variant-ghost-tertiary rounded  flex items-center gap-2" 
+                on:click={handleBookmark} 
+                disabled={isHiding}
+            >
+                {#if currentStatus === 'bookmarked'}
+                    <iconify-icon class="text-xl" icon="solar:bookmark-bold"></iconify-icon>
+                {:else}
+                    <iconify-icon class="text-xl" icon="solar:bookmark-outline"></iconify-icon>
+                {/if}
+            </button>
 
-        <button 
-            class="btn variant-filled-primary rounded  flex items-center gap-2" 
-            on:click={handleBookmark} 
-            disabled={isHiding}
-        >
-            {#if currentStatus === 'bookmarked'}
-                <iconify-icon class="text-xl" icon="solar:bookmark-bold"></iconify-icon>
-                Bookmarked
-            {:else}
-                <iconify-icon class="text-xl" icon="solar:bookmark-outline"></iconify-icon>
-                Bookmark
-            {/if}
-        </button>
+            <button 
+                class="btn variant-filled-primary rounded flex items-center gap-2" 
+                on:click={handleVisitJob} 
+                disabled={isHiding}
+            >
+                Apply to Job
+            </button>
+
+            <button 
+                class="btn variant-ghost-tertiary rounded flex items-center gap-2" 
+                on:click={handleHide} 
+                disabled={isHiding}
+            >
+                {#if isHiding}
+                    <iconify-icon icon="solar:archive-check-bold"></iconify-icon>
+                {:else}
+                    <iconify-icon class="text-xl" icon="solar:archive-bold"></iconify-icon>
+                    
+                {/if}
+            </button>
+        </div>
 
         <button
             class="btn variant-primary rounded flex items-center gap-2"
