@@ -4,11 +4,11 @@
     import JobCountGraph from '$lib/JobCountGraph.svelte';
 </script>
 
-<div class="container mx-auto p-4 w-full lg:w-3/4 xl:w-2/3">
+<!-- Parent container -->
+<div class="container mx-auto p-4 w-full lg:w-3/4 xl:w-1/2"> <!-- Made container smaller -->
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Left Column -->
-        <div class="card variant-glass-secondary p-4">
-            
+        <div class="card variant-glass-secondary p-4"> <!-- Removed fixed aspect ratio -->
             <JobCountGraph />
         </div>
 
@@ -23,7 +23,3 @@
         <Datatable />
     </div>
 </div>
-
-<style>
-    /* Remove the max-width from here since we're handling it with Tailwind classes */
-</style>

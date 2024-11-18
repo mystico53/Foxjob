@@ -57,46 +57,47 @@
   ];
 </script>
 
-<div class="card p-4">
-  <div class="flex justify-between items-center mb-6">
-      <h2 class="text-[20px] font-bold">Jobs Collected</h2>
-      <div class="flex items-center gap-2">
-          <select
-              class="select bg-surface-200 dark:bg-surface-700 p-2 rounded-container-token w-24"
-              bind:value={$timePeriod}
-          >
-              {#each timeOptions as option}
-                  <option value={option.value}>{option.label}</option>
-              {/each}
-          </select>
-      </div>
-  </div>
-
-  <div class="flex flex-col items-center gap-4">
-      <div class="w-32 h-32">
-          <ProgressRadial
-              class="progress-radial w-8"
-              value={progressPercentage}
-              stroke={40}
-              meter="stroke-primary-500"
-              track="stroke-tertiary-700/30"
-              font={180}
-              strokeLinecap="round"
-          >
-              {totalJobs}
-          </ProgressRadial>
-      </div>
-      <div class="flex items-center gap-2">
-        <div class="w-3 h-3 rounded-full" style="background-color: #FF9C00;"></div>
-        <p class="text-sm">{highScoringJobs} Jobs with a Score of 75 or above</p>
+<div class="h-full w-full flex flex-col">
+    <div class="flex justify-between items-center mb-4">
+        <h2 class="text-[20px] font-bold">Jobs Collected</h2>
+        <div class="flex items-center gap-2">
+            <select
+                class="select bg-surface-200 dark:bg-surface-700 p-2 rounded-container-token w-24"
+                bind:value={$timePeriod}
+            >
+                {#each timeOptions as option}
+                    <option value={option.value}>{option.label}</option>
+                {/each}
+            </select>
+        </div>
     </div>
-      
+  
+    <div class="flex-1 flex flex-col items-center justify-center">
+        <div class="relative w-full flex items-center justify-center">
+            <div class="w-40 h-40"> <!-- Fixed size for the progress radial container -->
+                <ProgressRadial
+                    class="progress-radial"
+                    value={progressPercentage}
+                    stroke={40}
+                    meter="stroke-primary-500"
+                    track="stroke-tertiary-700/30"
+                    font={180}
+                    strokeLinecap="round"
+                >
+                    {totalJobs}
+                </ProgressRadial>
+            </div>
+        </div>
+        <div class="flex items-center gap-2 mt-4">
+            <div class="w-3 h-3 rounded-full" style="background-color: #FF9C00;"></div>
+            <p class="text-sm">{highScoringJobs} Jobs with a Score of 75 or above</p>
+        </div>
+    </div>
   </div>
-</div>
-
-<style>
-  :global(.progress-radial) {
-      width: 100% !important;
-      height: 100% !important;
-  }
-</style>
+  
+  <style>
+    :global(.progress-radial) {
+        width: 100% !important;
+        height: 100% !important;
+    }
+  </style>
