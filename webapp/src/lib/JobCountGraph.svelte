@@ -61,7 +61,6 @@
   <div class="flex justify-between items-center mb-6">
       <h2 class="text-[20px]">Jobs Collected</h2>
       <div class="flex items-center gap-2">
-          <span class="text-sm">View by</span>
           <select
               class="select bg-surface-200 dark:bg-surface-700 p-2 rounded-container-token w-24"
               bind:value={$timePeriod}
@@ -78,9 +77,9 @@
           <ProgressRadial
               class="progress-radial w-8"
               value={progressPercentage}
-              stroke={60}
-              meter="!stroke-primary-500"
-              track="!stroke-tertiary-500/30"
+              stroke={40}
+              meter="stroke-primary-500"
+              track="stroke-tertiary-700/30"
               font={180}
               strokeLinecap="round"
           >
