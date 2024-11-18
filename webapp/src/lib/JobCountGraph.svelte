@@ -88,7 +88,7 @@
       </div>
       <div class="flex items-center gap-2">
         <div class="w-3 h-3 rounded-full" style="background-color: #FF9C00;"></div>
-        <p class="text-sm">{highScoringJobs} Jobs with a Score of 75+</p>
+        <p class="text-sm">{highScoringJobs} Jobs with a Score of 75 or above</p>
     </div>
       
   </div>

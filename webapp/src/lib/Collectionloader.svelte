@@ -48,7 +48,7 @@
                 const doc = querySnapshot.docs[0];
                 const data = doc.data();
                 const timestamp = data.timestamp.toDate();
-                currentFileName = data.fileName || 'Unknown'; // Get stored filename
+                currentFileName = data.fileName || 'Unknown';
                 uploadFeedback = `Resume "${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
                 uploadFeedbackColor = 'variant-filled-success';
                 resumeUploaded = true;
@@ -69,7 +69,7 @@
         const fileInput = event.target;
         if (fileInput && fileInput.files && fileInput.files.length > 0) {
             const file = fileInput.files[0];
-            currentFileName = file.name; // Store the filename
+            currentFileName = file.name;
             console.log('File selected:', file);
             if (file.type === 'application/pdf') {
                 await processFile(file);
@@ -142,7 +142,7 @@
             await addDoc(userCollectionsRef, {
                 type: 'Resume',
                 extractedText: text,
-                fileName: currentFileName, // Store the filename
+                fileName: currentFileName,
                 timestamp: serverTimestamp()
             });
             
@@ -186,22 +186,25 @@
 </script>
 
 <div class="card p-4 w-full max-w-sm">
-    <FileDropzone 
-    name="files" 
-    on:change={handleFiles} 
-    on:selected={handleFiles} 
-    on:submit={handleFiles} 
-    accept=".pdf,application/pdf"
-    border="border-2 border-dashed border-primary-500"
-    padding="p-4 py-8"
-    rounded="rounded-container-token"
-    regionInterface="hover:bg-surface-500/20 transition-colors duration-150"
-/>
+    <h2 class="text-[20px] font-bold">Your resume</h2>
+    {#if !resumeUploaded}
+        <FileDropzone 
+            name="files" 
+            on:change={handleFiles} 
+            on:selected={handleFiles} 
+            on:submit={handleFiles} 
+            accept=".pdf,application/pdf"
+            border="border-2 border-dashed border-primary-500"
+            padding="p-4 py-8"
+            rounded="rounded-container-token"
+            regionInterface="hover:bg-surface-500/20 transition-colors duration-150"
+        />
+    {/if}
     
     {#if uploadFeedback}
-        
+        <div class="alert {uploadFeedbackColor} mt-4">
             <p>{uploadFeedback}</p>
-        
+        </div>
     {/if}
     
     {#if resumeUploaded}
