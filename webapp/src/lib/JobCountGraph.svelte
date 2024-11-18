@@ -59,7 +59,7 @@
 
 <div class="card p-4">
   <div class="flex justify-between items-center mb-6">
-      <h2 class="text-[20px]">Jobs Collected</h2>
+      <h2 class="text-[20px] font-bold">Jobs Collected</h2>
       <div class="flex items-center gap-2">
           <select
               class="select bg-surface-200 dark:bg-surface-700 p-2 rounded-container-token w-24"
@@ -86,7 +86,11 @@
               {totalJobs}
           </ProgressRadial>
       </div>
-      <p class="text-sm font-semibold">High Scoring Jobs: {highScoringJobs}</p>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full" style="background-color: #FF9C00;"></div>
+        <p class="text-sm">{highScoringJobs} Jobs with a Score of 75+</p>
+    </div>
+      
   </div>
 </div>
 
