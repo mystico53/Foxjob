@@ -93,10 +93,6 @@
           <option value={option.value}>{option.label}</option>
         {/each}
       </select>
-      <iconify-icon
-        icon="gravity-ui:chevron-down"
-        class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
-      ></iconify-icon>
     </div>
     <div class="relative w-64">
       <iconify-icon
