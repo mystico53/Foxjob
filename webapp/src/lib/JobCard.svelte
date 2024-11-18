@@ -28,7 +28,9 @@
 		: 'No date';
 		
 
-
+		$: if (score !== null) {
+        console.log(`ProgressRadial loaded with score: ${score}`);
+    }		
 
 	function getStatusDisplay(status) {
 		if (!status) return '';
@@ -63,19 +65,24 @@
 >
 	<div class="card-content grid grid-cols-[auto_1fr_auto] items-start gap-4">
 		<!-- Column for ProgressRadial -->
-		<div class="progress-column flex justify-center">
+		<div class="progress-column flex justify-center items-center w-8">
 			{#if score !== null}
-				<ProgressRadial
-					class="progress-radial w-8"
-					value={Math.round(score)}
-					stroke={60}
-					meter="!stroke-primary-500"
-					track="!stroke-tertiary-500/30"
-					font={180}
-					strokeLinecap="round"
+				<div
+					in:fade={{ duration: 400, delay: 100 }}
+					class="relative w-8 h-8 flex items-center justify-center"
 				>
-					{Math.round(score)}
-				</ProgressRadial>
+				<ProgressRadial
+				class="!w-32"
+				stroke={60}
+				font={150}
+				meter="!stroke-primary-500"
+				track="!stroke-tertiary-500/30"
+				strokeLinecap="round"
+				value={Math.round(score)}
+			>
+				{Math.round(score)}
+			</ProgressRadial>
+				</div>
 			{/if}
 		</div>
 
