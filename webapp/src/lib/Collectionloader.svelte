@@ -11,7 +11,7 @@
     let uploadFeedbackColor = 'variant-filled-surface';
     let resumeUploaded = false;
     let extractedText = '';
-    let currentFileName = ''; // Added to store the current file name
+    let currentFileName = '';
 
     onMount(async () => {
         const script = document.createElement('script');
