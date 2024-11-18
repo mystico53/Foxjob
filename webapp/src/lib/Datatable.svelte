@@ -11,7 +11,7 @@
 
   // Sort options
   const sortOptions = [
-    { label: 'Newest First', value: 'date-newest' },
+    { label: 'Most recent', value: 'date-newest' },
     { label: 'Highest Score', value: 'score-highest' },
     { label: 'Status A-Z', value: 'status-asc' },
     { label: 'Company A-Z', value: 'company-asc' }
@@ -60,23 +60,35 @@
   }
 
   function handleSort(event) {
-    const value = event.target.value;
-    switch (value) {
-      case 'date-newest':
-        $sortConfig = { column: 'generalData.timestamp', direction: 'desc' };
-        break;
-      case 'score-highest':
-        $sortConfig = { column: 'AccumulatedScores.accumulatedScore', direction: 'desc' };
-        break;
-      case 'status-asc':
-        $sortConfig = { column: 'generalData.status', direction: 'asc' };
-        break;
-      case 'company-asc':
-        $sortConfig = { column: 'companyInfo.name', direction: 'asc' };
-        break;
-    }
-    sortValue = value;
+  const value = event.target.value;
+  switch (value) {
+    case 'date-newest':
+      $sortConfig = { column: 'generalData.timestamp', direction: 'desc' };
+      break;
+    case 'date-oldest':
+      $sortConfig = { column: 'generalData.timestamp', direction: 'asc' };
+      break;
+    case 'score-highest':
+      $sortConfig = { column: 'AccumulatedScores.accumulatedScore', direction: 'desc' };
+      break;
+    case 'score-lowest':
+      $sortConfig = { column: 'AccumulatedScores.accumulatedScore', direction: 'asc' };
+      break;
+    case 'status-asc':
+      $sortConfig = { column: 'generalData.status', direction: 'asc' };
+      break;
+    case 'status-desc':
+      $sortConfig = { column: 'generalData.status', direction: 'desc' };
+      break;
+    case 'company-asc':
+      $sortConfig = { column: 'companyInfo.name', direction: 'asc' };
+      break;
+    case 'company-desc':
+      $sortConfig = { column: 'companyInfo.name', direction: 'desc' };
+      break;
   }
+  sortValue = value;
+}
 </script>
 
 <div class="w-full container mx-auto px-4 max-w-7xl">
@@ -116,16 +128,17 @@
     <p class="text-center text-error">{$error}</p>
   {:else if !user}
     <p class="text-center">Please sign in to view your job list.</p>
-  {:else}
-    <div class="table-container card">
+  {:else}  
+
+  <div class="table-container card">
       <table class="table table-compact w-full">
         <thead>
           <tr class="bg-tertiary-500">
-            <th class="w-[25%]">Company</th>
+            <th class="w-[15%]">Company</th>
             <th class="w-[25%]">Title</th>
-            <th class="w-[20%]">Industry</th>
+            <th class="w-[25%]">Industry</th>
             <th class="w-[10%]">Score</th>
-            <th class="w-[10%]">Date</th>
+            <th class="w-[15%]">Date</th>
             <th class="w-[10%]">Status</th>
           </tr>
         </thead>
