@@ -56,18 +56,24 @@
 	}
 
 	function handleNext(jobId) {
-		if (selectedJobIndex < $sortedJobs.length - 1) {
-			selectedJobIndex++;
-			selectedJob = $sortedJobs[selectedJobIndex];
-		}
-	}
+    if (!$sortedJobs || selectedJobIndex >= $sortedJobs.length - 1) return;
+    
+    const nextIndex = selectedJobIndex + 1;
+    if (nextIndex < $sortedJobs.length) {
+        selectedJobIndex = nextIndex;
+        selectedJob = $sortedJobs[nextIndex];
+    }
+}
 
-	function handlePrevious() {
-		if (selectedJobIndex > 0) {
-			selectedJobIndex--;
-			selectedJob = $sortedJobs[selectedJobIndex];
-		}
-	}
+function handlePrevious() {
+    if (!$sortedJobs || selectedJobIndex <= 0) return;
+    
+    const prevIndex = selectedJobIndex - 1;
+    if (prevIndex >= 0) {
+        selectedJobIndex = prevIndex;
+        selectedJob = $sortedJobs[prevIndex];
+    }
+}
 
 	async function toggleBookmark(jobId) {
 		try {
