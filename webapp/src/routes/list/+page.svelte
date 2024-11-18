@@ -8,7 +8,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- Left Column -->
         <div class="card variant-glass-secondary p-4">
-            <h2 class="h3 mb-4">Your activity</h2>
+            
             <JobCountGraph />
         </div>
 
