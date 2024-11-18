@@ -172,7 +172,7 @@
                     on:click={previousPage}
                     disabled={currentPage === 1}
                   >
-                    Previous
+                  <iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
                   </button>
                   <span class="flex items-center px-2 text-sm">
                     Page {currentPage} of {totalPages}
@@ -182,7 +182,7 @@
                     on:click={nextPage}
                     disabled={currentPage === totalPages}
                   >
-                    Next
+                  <iconify-icon icon="solar:map-arrow-right-bold"></iconify-icon>
                   </button>
                 </div>
               </div>
