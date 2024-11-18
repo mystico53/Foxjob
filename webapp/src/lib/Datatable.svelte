@@ -58,7 +58,23 @@
     }
   </script>
 
-<div class="container mx-auto px-4 max-w-7xl">
+<div class="w-full container mx-auto px-4 max-w-7xl">
+
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="text-xl font-bold">Job List</h2>
+    <div class="relative w-64"> <!-- Fixed width using standard Tailwind class -->
+      <iconify-icon
+        icon="gravity-ui:magnifier"
+        class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
+      ></iconify-icon>
+      <input
+        type="search"
+        placeholder="Search jobs"
+        class="pl-10 w-full rounded-md border border-gray-300 py-2"
+      />
+    </div>
+  </div>
+
   
   <div class="space-y-4">
     {#if $loading}
@@ -72,22 +88,7 @@
         <!-- Search and Rows Per Page -->
     <div class="flex w-64">
 
-        <div class="input-group input-group-divider grid-cols-[auto_1fr_auto]">
-            <div class="input-group-shim p-0"></div>
-            <div class="relative">
-                <iconify-icon 
-                  icon="gravity-ui:magnifier" 
-                  class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                ></iconify-icon>
-                <input 
-                  type="search" 
-                  placeholder="Search jobs" 
-                  bind:value={$searchText} 
-                  class="pl-6" 
-                />
-              </div>
-            
-        </div>
+        
 
     </div>
   
