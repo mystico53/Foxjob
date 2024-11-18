@@ -59,6 +59,11 @@
     return 'N/A';
   }
 
+  function truncateText(text, maxLength = 30) {
+  if (!text || text === 'N/A') return text;
+  return text.length > maxLength ? `${text.substring(0, maxLength)}...` : text;
+}
+
   function handleSort(event) {
   const value = event.target.value;
   switch (value) {
@@ -134,20 +139,20 @@
       <table class="table table-compact w-full">
         <thead>
           <tr class="bg-tertiary-500">
-            <th class="w-[15%]">Company</th>
+            <th class="w-[25%]">Company</th>
             <th class="w-[25%]">Title</th>
             <th class="w-[25%]">Industry</th>
-            <th class="w-[10%]">Score</th>
+            <th class="w-[5%]">Score</th>
             <th class="w-[15%]">Date</th>
-            <th class="w-[10%]">Status</th>
+            <th class="w-[5%]">Status</th>
           </tr>
         </thead>
         <tbody>
           {#each paginatedJobs as job}
             <tr>
-              <td>{job.companyInfo?.name || 'N/A'}</td>
-              <td>{job.jobInfo?.jobTitle || 'N/A'}</td>
-              <td>{job.companyInfo?.industry || 'N/A'}</td>
+              <td title={job.companyInfo?.name || 'N/A'}>{truncateText(job.companyInfo?.name || 'N/A')}</td>
+              <td title={job.jobInfo?.jobTitle || 'N/A'}>{truncateText(job.jobInfo?.jobTitle || 'N/A')}</td>
+              <td title={job.companyInfo?.industry || 'N/A'}>{truncateText(job.companyInfo?.industry || 'N/A')}</td>
               <td>{job.AccumulatedScores?.accumulatedScore ? Math.round(job.AccumulatedScores.accumulatedScore) : 'N/A'}</td>
               <td>{formatDate(job.generalData?.timestamp)}</td>
               <td>{job.generalData?.status || ''}</td>
