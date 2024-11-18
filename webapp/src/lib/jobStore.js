@@ -12,6 +12,10 @@ const sortConfig = writable({
 });
 const searchText = writable('');
 
+const getNestedValue = (obj, path) => {
+    return path.split('.').reduce((acc, part) => acc && acc[part], obj);
+};
+
 // Derived store for sorted and filtered jobs
 const sortedJobs = derived(
     [jobs, sortConfig, searchText],
@@ -31,16 +35,31 @@ const sortedJobs = derived(
 
         // Then sort the filtered results
         return [...filteredJobs].sort((a, b) => {
-            if ($sortConfig.column === 'AccumulatedScores.accumulatedScore') {
-                const scoreA = a.AccumulatedScores?.accumulatedScore || 0;
-                const scoreB = b.AccumulatedScores?.accumulatedScore || 0;
-                return scoreB - scoreA; // Higher scores first
+            const aValue = getNestedValue(a, $sortConfig.column);
+            const bValue = getNestedValue(b, $sortConfig.column);
+
+            // Handle special cases first
+            if ($sortConfig.column === 'generalData.timestamp') {
+                const aDate = aValue?.toDate?.() || new Date(0);
+                const bDate = bValue?.toDate?.() || new Date(0);
+                return $sortConfig.direction === 'desc' ? bDate - aDate : aDate - bDate;
             }
-        
-            // Default sort by date (timestamp)
-            const aDate = a.generalData?.timestamp?.toDate?.() || new Date(0);
-            const bDate = b.generalData?.timestamp?.toDate?.() || new Date(0);
-            return bDate - aDate; // Newer dates first
+
+            if ($sortConfig.column === 'AccumulatedScores.accumulatedScore') {
+                const scoreA = aValue || 0;
+                const scoreB = bValue || 0;
+                return $sortConfig.direction === 'desc' ? scoreB - scoreA : scoreA - scoreB;
+            }
+
+            // Handle string comparisons (for status and company name)
+            const valA = (aValue || '').toLowerCase();
+            const valB = (bValue || '').toLowerCase();
+            
+            if ($sortConfig.direction === 'asc') {
+                return valA.localeCompare(valB);
+            } else {
+                return valB.localeCompare(valA);
+            }
         });
     }
 );
