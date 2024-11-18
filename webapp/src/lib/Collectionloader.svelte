@@ -50,7 +50,7 @@
                 const timestamp = data.timestamp.toDate();
                 currentFileName = data.fileName || 'Unknown';
                 uploadFeedback = `Resume "${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
-                uploadFeedbackColor = 'variant-filled-success';
+                
                 resumeUploaded = true;
             } else {
                 uploadFeedback = "Please upload your resume to match it with job descriptions";

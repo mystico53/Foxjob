@@ -117,7 +117,7 @@
         on:change={handleSortChange}
         class="w-44 rounded-lg border border-gray-200 bg-white p-2"
     >
-        <option value="AccumulatedScores.accumulatedScore">View by Score</option>
-        <option value="generalData.timestamp">View by Date</option>
+        <option value="AccumulatedScores.accumulatedScore">Highest Score</option>
+        <option value="generalData.timestamp">Most recent</option>
     </select>
 </div>
