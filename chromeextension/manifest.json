@@ -1,14 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Foxjob",
-  "version": "0.14",
+  "version": "0.15",
   "description": "FoxJob uses AI to analyze job postings, matching your skills to the best opportunities. Focus on quality applications that matter.",
   "permissions": [
     "activeTab",
-    "scripting",
     "storage",
-    "identity",
-    "offscreen"
+    "offscreen",
+    "scripting"
   ],
   "host_permissions": [
     "https://jobille-45494.web.app/*"
