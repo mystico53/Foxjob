@@ -84,75 +84,64 @@
     {:else if !user}
       <p class="text-center">Please sign in to view your job list.</p>
     {:else}
-
-        <!-- Search and Rows Per Page -->
-    <div class="flex w-64">
-
-        
-
-    </div>
   
       <!-- Table Container -->
-      <div class="table-container">
-        <table class="table table-hover table-compact">
+      <div class="table-container card">
+        <table class="table table-compact">
           <thead>
-            <tr>
-              
-              <th class="w-[10%]" on:click={() => handleSort('generalData.status')} role="button">
-                Status {$sortConfig.column === 'generalData.status' ? $sortConfig.direction === 'asc' ? '▲' : '▼' : ''}
-              </th>
-              <th class="w-[20%]" on:click={() => handleSort('companyInfo.name')} role="button">
+            <tr class="bg-tertiary-500">
+              <th class="w-[25%]" on:click={() => handleSort('companyInfo.name')} role="button">
                 Company {$sortConfig.column === 'companyInfo.name' ? $sortConfig.direction === 'asc' ? '▲' : '▼' : ''}
               </th>
-              <th class="w-[20%]" on:click={() => handleSort('jobInfo.jobTitle')} role="button">
+              <th class="w-[25%]" on:click={() => handleSort('jobInfo.jobTitle')} role="button">
                 Title {$sortConfig.column === 'jobInfo.jobTitle' ? $sortConfig.direction === 'asc' ? '▲' : '▼' : ''}
               </th>
-              <th class="w-[15%]" on:click={() => handleSort('companyInfo.industry')} role="button">
+              <th class="w-[20%]" on:click={() => handleSort('companyInfo.industry')} role="button">
                 Industry {$sortConfig.column === 'companyInfo.industry' ? $sortConfig.direction === 'asc' ? '▲' : '▼' : ''}
               </th>
               <th class="w-[10%]" on:click={() => handleSort('AccumulatedScores.accumulatedScore')} role="button">
                 Score {$sortConfig.column === 'AccumulatedScores.accumulatedScore' ? $sortConfig.direction === 'asc' ? '▲' : '▼' : ''}
               </th>
-              <th class="w-[20%]" on:click={() => handleSort('generalData.timestamp')} role="button">
+              <th class="w-[10%]" on:click={() => handleSort('generalData.timestamp')} role="button">
                 Date {$sortConfig.column === 'generalData.timestamp' ? $sortConfig.direction === 'asc' ? '▲' : '▼' : ''}
+              </th>
+              <th class="w-[10%]" on:click={() => handleSort('generalData.status')} role="button">
+                Status {$sortConfig.column === 'generalData.status' ? $sortConfig.direction === 'asc' ? '▲' : '▼' : ''}
               </th>
             </tr>
           </thead>
           <tbody>
             {#each paginatedJobs as job, i}
               <tr>
-                
-                <td>{job.generalData?.status || ''}</td>
                 <td>{job.companyInfo?.name || 'N/A'}</td>
                 <td>{job.jobInfo?.jobTitle || 'N/A'}</td>
                 <td>{job.companyInfo?.industry || 'N/A'}</td>
                 <td>{job.AccumulatedScores?.accumulatedScore ? Math.round(job.AccumulatedScores.accumulatedScore) : 'N/A'}</td>
                 <td>{formatDate(job.generalData?.timestamp)}</td>
+                <td>{job.generalData?.status || ''}</td>
               </tr>
             {/each}
           </tbody>
           <tfoot>
             <tr>
-              <th colspan="7">
-                <div class="flex justify-between items-center">
-                  <span>
+              <td colspan="6" class="!p-2"> <!-- Force override any existing padding -->
+                <div class="flex justify-between items-center h-8"> <!-- Fixed height -->
+                  <span class="text-sm">
                     Showing {Math.min((currentPage - 1) * rowsPerPage + 1, $sortedJobs.length)} - {Math.min(currentPage * rowsPerPage, $sortedJobs.length)} of {$sortedJobs.length} entries
                   </span>
-                  <div class="flex gap-2">
-                    
-                    <button class="btn btn-sm variant-filled" on:click={previousPage} disabled={currentPage === 1}>
+                  <div class="flex gap-1">
+                    <button class="btn btn-sm !py-0 h-6 min-h-0 variant-soft"> <!-- Override button height -->
                       Previous
                     </button>
-                    <span class="flex items-center px-4">
+                    <span class="flex items-center px-2 text-sm">
                       Page {currentPage} of {totalPages}
                     </span>
-                    <button class="btn btn-sm variant-filled" on:click={nextPage} disabled={currentPage === totalPages}>
+                    <button class="btn btn-sm !py-0 h-6 min-h-0 variant-soft">
                       Next
                     </button>
-                    
                   </div>
                 </div>
-              </th>
+              </td>
             </tr>
           </tfoot>
         </table>
