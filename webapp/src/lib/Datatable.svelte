@@ -163,7 +163,7 @@
           <tr>
             <td colspan="6" class="!p-2">
               <div class="flex justify-between items-center h-8">
-                <span class="text-sm">
+                <span class="text-sm lowercase">
                   Showing {Math.min((currentPage - 1) * rowsPerPage + 1, $sortedJobs.length)} - {Math.min(currentPage * rowsPerPage, $sortedJobs.length)} of {$sortedJobs.length} entries
                 </span>
                 <div class="flex gap-1">
@@ -174,7 +174,7 @@
                   >
                   <iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
                   </button>
-                  <span class="flex items-center px-2 text-sm">
+                  <span class="flex items-center px-2 text-sm lowercase">
                     Page {currentPage} of {totalPages}
                   </span>
                   <button 
