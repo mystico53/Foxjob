@@ -14,7 +14,6 @@
 
         <!-- Right Column -->
         <div class="card variant-glass-secondary p-4">
-            <h2 class="h3 mb-4">Upload your resume</h2>
             <CollectionLoader />
         </div>
     </div>
