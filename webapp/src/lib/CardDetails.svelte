@@ -267,9 +267,8 @@
                             {@const [key, value] = Object.entries(job.verdict.keyStrengths)[index]}
                             <div class="text-sm">
                                 <div class="flex justify-between items-start">
-                                    <div class="flex flex-col gap-2">
-                                        <span class="font-bold text-base">{key}</span>
-                                        <span class="break-words text-gray-700">{value || 'N/A'}</span>
+                                    <div>
+                                        <strong class="font-bold">{key}:</strong> <span class="break-words text-gray-700">{value || 'N/A'}</span>
                                     </div>
                                     {#if job?.id}
                                         <FeedbackButtons 
@@ -289,8 +288,10 @@
                         {#if Object.entries(job.verdict.keyGaps || {})[index]}
                             {@const [key, value] = Object.entries(job.verdict.keyGaps)[index]}
                             <div class="text-sm">
-                                <div class="flex justify-between items-center mb-2">
-                                    <span class="font-bold text-base">{key}</span>
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <strong class="text-base">{key}:</strong> <span class="break-words text-gray-700">{value || 'N/A'}</span>
+                                    </div>
                                     {#if job?.id}
                                         <FeedbackButtons 
                                             jobId={job.id}
@@ -299,9 +300,6 @@
                                             currentData={value}
                                         />
                                     {/if}
-                                </div>
-                                <div>
-                                    <span class="break-words text-gray-700">{value || 'N/A'}</span>
                                 </div>
                             </div>
                         {/if}
