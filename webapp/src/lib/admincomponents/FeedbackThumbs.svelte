@@ -1,4 +1,4 @@
-<!-- FeedbackButtons.svelte -->
+<!-- FeedbackThumbs.svelte -->
 <script>
     import { getFirestore, setDoc, doc, getDoc } from 'firebase/firestore';
     import { auth } from '$lib/firebase';

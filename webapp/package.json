@@ -14,7 +14,7 @@
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.28.1",
-		"@skeletonlabs/skeleton": "^2.10.2",
+		"@skeletonlabs/skeleton": "^2.10.3",
 		"@skeletonlabs/tw-plugin": "^0.4.0",
 		"@sveltejs/adapter-auto": "^3.2.5",
 		"@sveltejs/adapter-static": "^3.0.5",
@@ -38,7 +38,7 @@
 		"@floating-ui/dom": "^1.6.12",
 		"@google-cloud/pubsub": "^4.7.2",
 		"dotenv": "^16.4.5",
-		"firebase": "^10.13.2",
+		"firebase": "^10.14.1",
 		"firebase-functions": "^6.0.1",
 		"iconify-icon": "^2.1.0",
 		"marked": "^14.1.2"

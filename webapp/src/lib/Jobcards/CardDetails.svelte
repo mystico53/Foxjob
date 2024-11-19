@@ -6,7 +6,7 @@
 	import { Accordion, AccordionItem } from '@skeletonlabs/skeleton';
 	import { popup } from '@skeletonlabs/skeleton';
 	import { onMount, onDestroy } from 'svelte';
-	import FeedbackButtons from '$lib/FeedbackButtons.svelte';
+	import FeedbackButtons from '$lib/admincomponents/FeedbackThumbs.svelte';
     import ScoreAnalysis from '$lib/Jobcards/ScoreAnalysis.svelte';
     import { slide } from 'svelte/transition';
 
