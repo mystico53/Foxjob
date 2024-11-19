@@ -1,7 +1,7 @@
 <script>
-    import Datatable from '$lib/Datatable.svelte';
-    import CollectionLoader from '$lib/CollectionLoader.svelte';
-    import JobCountGraph from '$lib/JobCountGraph.svelte';
+    import Datatable from '$lib/Dashboard/Datatable.svelte';
+    import CollectionLoader from '$lib/Dashboard/CollectionLoader.svelte';
+    import JobCountGraph from '$lib/Dashboard/JobCountGraph.svelte';
 </script>
 
 <!-- Parent container -->
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Datatable below the columns -->
-    <div class="card mt-4 p-4">
+    <div class="card mt-4 pt-6">
         <Datatable />
     </div>
 </div>

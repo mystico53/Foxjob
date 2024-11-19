@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { auth } from '$lib/firebase';
-  import { jobStore, sortedJobs, loading, error, sortConfig, searchText } from './jobStore';
+  import { jobStore, sortedJobs, loading, error, sortConfig, searchText } from '$lib/jobStore';
 
   let user = null;
   let unsubscribeAuth = null;
