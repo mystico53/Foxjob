@@ -4,6 +4,7 @@
 	import { AppBar, Avatar } from '@skeletonlabs/skeleton';
 	import { goto } from '$app/navigation';
 	import foxIcon from '../assets/Fox_Icon_128x128-nobg.png';
+	import FeedbackButton from '$lib/admincomponents/FeedbackButton.svelte';
 
 	$: currentPath = $page.url.pathname;
 
@@ -62,26 +63,26 @@
 	</svelte:fragment>
 
 	<svelte:fragment slot="trail">
-    <div class="flex items-center gap-4">
-        {#if $authStore}
-            <!-- Add admin icon link -->
-            <a 
-                href="/admin" 
-                class="btn btn-sm variant-ghost"
-                title="Admin Panel"
-            >
-			<iconify-icon icon="gis:coord-system-3d-alt"></iconify-icon>
-            </a>
-            <button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
-            <Avatar
-                width="w-12"
-                initials={$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
-                background="bg-tertiary-500"
-            />
-        {:else}
-            <a href="/auth/signin" class="btn btn-sm variant-filled-primary">Login</a>
-        {/if}
-    </div>
+		<div class="flex items-center gap-4">
+			{#if $authStore}
+				<FeedbackButton />  <!-- Add the feedback button here -->
+				<a 
+					href="/admin" 
+					class="btn btn-sm variant-ghost"
+					title="Admin Panel"
+				>
+					<iconify-icon icon="gis:coord-system-3d-alt"></iconify-icon>
+				</a>
+				<button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
+				<Avatar
+					width="w-12"
+					initials={$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
+					background="bg-tertiary-500"
+				/>
+			{:else}
+				<a href="/auth/signin" class="btn btn-sm variant-filled-primary">Login</a>
+			{/if}
+		</div>
 </svelte:fragment>
 </AppBar>
 

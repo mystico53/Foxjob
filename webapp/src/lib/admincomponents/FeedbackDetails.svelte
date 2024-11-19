@@ -1,7 +1,7 @@
 <script>
 
     import { getFirestore, doc, getDoc } from 'firebase/firestore';
-    import CardDetails from '$lib/CardDetails.svelte';
+    import CardDetails from '$lib/Jobcards/CardDetails.svelte';
     export let feedback;
 
     const db = getFirestore();
