@@ -1,4 +1,4 @@
-<!-- src/lib/Modal.svelte -->
+<!-- $lib\admincomponents\FeedbackModal.svelte -->
 <script>
     import { fade } from 'svelte/transition';
     import { createEventDispatcher } from 'svelte';
@@ -18,9 +18,8 @@
 />
 
 {#if show}
-    <dialog 
+    <div 
         class="fixed inset-0 flex items-center justify-center z-50"
-        open
         aria-labelledby={title ? 'modal-title' : undefined}
     >
         <!-- Backdrop -->
@@ -32,7 +31,7 @@
         
         <!-- Modal content -->
         <article 
-            class="bg-white rounded-lg p-6 max-w-md w-full mx-4 relative z-10"
+            class="bg-white rounded-lg p-12 relative z-10 max-w-xl mx-auto"
             transition:fade
         >
             {#if title}
@@ -40,5 +39,5 @@
             {/if}
             <slot />
         </article>
-    </dialog>
+    </div>
 {/if}
