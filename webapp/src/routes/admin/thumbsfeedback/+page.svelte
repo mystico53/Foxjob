@@ -170,33 +170,3 @@
         {/if}
     </main>
 </div>
-
-<!-- Mobile navigation button -->
-<button
-    class="bg-primary-500 fixed bottom-4 right-4 z-20 rounded-full p-3 text-white shadow-lg md:hidden"
-    on:click={handleMobileNav}
->
-    {#if selectedFeedback}
-        <!-- Left Arrow Icon -->
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-        >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-        </svg>
-    {:else}
-        <!-- Right Arrow Icon -->
-        <svg
-            xmlns="http://www.w3.org/2000/svg"
-            class="h-6 w-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-        >
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-        </svg>
-    {/if}
-</button>

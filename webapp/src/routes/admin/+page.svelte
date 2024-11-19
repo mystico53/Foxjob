@@ -4,6 +4,7 @@
     import { goto } from '$app/navigation';
     import FeedbackTable from '$lib/admincomponents/FeedbackTable.svelte';
     import UserTable from '$lib/admincomponents/UserTable.svelte';
+    import OpenFeedbackTable from '$lib/admincomponents/OpenFeedbackTable.svelte';
     
     const ADMIN_PASSWORD = 'foxie';
     let isAuthenticated = false;
@@ -76,18 +77,26 @@
         
         <div class="grid gap-4">
             <div class="card p-4">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="h2">User Feedback</h2>
-                    <button 
+                <div class="grid grid-cols-2 gap-4">
+                  <div>
+                    <div class="flex justify-between items-center mb-4">
+                      <h2 class="h2">Thumbs Feedback</h2>
+                      <button 
                         class="btn variant-filled-primary"
                         on:click={goToFeedbackDetails}
-                    >
+                      >
                         <iconify-icon icon="solar:card-layout-bold" class="mr-2" />
                         View Detailed Feedback
-                    </button>
+                      </button>
+                    </div>
+                    <FeedbackTable />
+                  </div>
+                  <div>
+                    <h2 class="h2">Open Feedback</h2>
+                    <OpenFeedbackTable />
+                  </div>
                 </div>
-                <FeedbackTable />
-            </div>
+               </div>
             
             <div class="card p-4">
                 <h2 class="h2">User Management</h2>
