@@ -7,9 +7,7 @@
     import { onMount } from 'svelte';
     import 'iconify-icon';
     import { computePosition, autoUpdate, offset, shift, flip, arrow } from '@floating-ui/dom';
-    import { storePopup, initializeStores } from '@skeletonlabs/skeleton';
-    import { Modal } from '@skeletonlabs/skeleton';
-    import FeedbackModal from '$lib/admincomponents/FeedbackModal.svelte';
+    import { storePopup, initializeStores, Modal } from '@skeletonlabs/skeleton';
     
     // Initialize stores first
     initializeStores();
@@ -28,7 +26,10 @@
     });
 </script>
 
-<Modal />
+<!-- Add a portal element for the modal -->
+<div class="modal-container">
+    <Modal />
+</div>
 
 <div class="flex flex-col min-h-screen">
     {#if isAuthenticated && $page.url.pathname !== '/'}
@@ -39,3 +40,25 @@
         <slot />
     </main>
 </div>
+
+<style>
+    :global(.chip) {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    :global(.modal-container) {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 999;
+        pointer-events: none;
+    }
+    
+    :global(.modal-container :global(.modal)) {
+        pointer-events: auto;
+    }
+</style>
