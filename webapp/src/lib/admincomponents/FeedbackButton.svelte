@@ -1,5 +1,5 @@
 <script>
-  import Modal from '$lib/admincomponents/FeedbackModal.svelte';
+  import FeedbackModal from '$lib/admincomponents/FeedbackModal.svelte';
   import { getFirestore, setDoc, doc } from 'firebase/firestore';
   import { auth } from '$lib/firebase';
   
@@ -42,17 +42,17 @@
 Give Feedback</div>
 </button>
 
-<Modal 
+<FeedbackModal 
   bind:show={showModal}
-  title="Share Your Feedback"
+  title="We read every message"
   on:close={() => showModal = false}
 >
   <form on:submit|preventDefault={handleSubmit} class="space-y-4">
       <div>
           <textarea
               bind:value={feedbackText}
-              rows="4"
-              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows="6"
+              class="max-w-xl mx-auto px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="Enter your feedback..."
               disabled={isSubmitting}
           ></textarea>
@@ -76,4 +76,4 @@ Give Feedback</div>
           </button>
       </div>
   </form>
-</Modal>
+</FeedbackModal>
