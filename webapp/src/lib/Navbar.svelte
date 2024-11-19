@@ -47,7 +47,7 @@
 								{href}
 								class="text-base font-bold {currentPath === href
 									? 'text-[#B45309]'
-									: 'text-gray-600 hover:text-gray-900'}"
+									: 'text-black-600 hover:text-gray-900'}"
 							>
 								{label}
 							</a>
