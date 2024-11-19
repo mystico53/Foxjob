@@ -233,23 +233,23 @@
 <div class="card p-4 w-full">
     <!-- Headers with icons -->
     <div class="grid grid-cols-2 gap-6 mb-8">
-        <div class="flex flex-col items-center">
+        <div class="flex items-center gap-2">
+            <h4 class="h4 font-bold">Your Strengths</h4>
             <iconify-icon 
                 icon="solar:shield-plus-bold" 
-                class="text-4xl mb-2 text-primary-500"
-                width="48" 
-                height="48"
+                class="text-2xl text-primary-500"
+                width="32" 
+                height="32"
             ></iconify-icon>
-            <h4 class="font-semibold block">Your Strengths</h4>
         </div>
-        <div class="flex flex-col items-center">
+        <div class="flex items-center gap-2">
+            <h4 class="h4 font-bold">Your Gaps</h4>
             <iconify-icon 
                 icon="solar:minus-square-bold" 
-                class="text-4xl mb-2 text-primary-500"
-                width="48" 
-                height="48"
+                class="text-2xl text-primary-500"
+                width="32" 
+                height="32"
             ></iconify-icon>
-            <h4 class="font-semibold block">Your Gaps</h4>
         </div>
     </div>
 
@@ -266,8 +266,11 @@
                         {#if Object.entries(job.verdict.keyStrengths || {})[index]}
                             {@const [key, value] = Object.entries(job.verdict.keyStrengths)[index]}
                             <div class="text-sm">
-                                <div class="flex gap-2 items-center mb-2">
-                                    <span class="font-bold text-base">{key}</span>
+                                <div class="flex justify-between items-start">
+                                    <div class="flex flex-col gap-2">
+                                        <span class="font-bold text-base">{key}</span>
+                                        <span class="break-words text-gray-700">{value || 'N/A'}</span>
+                                    </div>
                                     {#if job?.id}
                                         <FeedbackButtons 
                                             jobId={job.id}
@@ -276,9 +279,6 @@
                                             currentData={value}
                                         />
                                     {/if}
-                                </div>
-                                <div>
-                                    <span class="break-words text-gray-700">{value || 'N/A'}</span>
                                 </div>
                             </div>
                         {/if}
@@ -289,7 +289,7 @@
                         {#if Object.entries(job.verdict.keyGaps || {})[index]}
                             {@const [key, value] = Object.entries(job.verdict.keyGaps)[index]}
                             <div class="text-sm">
-                                <div class="flex gap-2 items-center mb-2">
+                                <div class="flex justify-between items-center mb-2">
                                     <span class="font-bold text-base">{key}</span>
                                     {#if job?.id}
                                         <FeedbackButtons 
