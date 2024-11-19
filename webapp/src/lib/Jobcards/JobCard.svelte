@@ -88,8 +88,8 @@
 
 		<!-- Column for Main Content -->
 		<div class="content-column space-y-2">
-			<h3 class="company-name h3 font-bold">{companyName}</h3>
-			<div class="job-title text-surface-600-300-token text-sm">{jobTitle}</div>
+			<h3 class="h6 font-bold">{companyName}</h3>
+			<div class="text-base">{jobTitle}</div>
 			<div class="flex flex-col gap-3 text-xs">
 				<div class="flex items-center justify-between">
 					<div class="inline-flex items-center gap-1">
@@ -123,7 +123,7 @@
 		</div>
 
 		<!-- Status Column -->
-		<div class="status-column flex items-center text-sm">
+		<div class="status-column flex items-center">
 			<button
 				class="hover:bg-surface-100 flex items-center justify-center rounded-full p-1"
 				on:click={handleBookmarkClick}

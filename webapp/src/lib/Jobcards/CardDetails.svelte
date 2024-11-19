@@ -124,24 +124,24 @@
 
                 <!-- Meta Information -->
                 <div class="flex flex-row flex-wrap max-w-2xl">
-                    <span class="chip variant-ghost-surface" title={job.companyInfo?.industry || 'N/A'}>
-                    <iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
-                    <span>{truncateText(job.companyInfo?.industry)}</span>
+                    <span class="chip variant-ghost-surface text-base" title={job.companyInfo?.industry || 'N/A'}>
+                        <iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
+                        <span>{truncateText(job.companyInfo?.industry)}</span>
                     </span>
                 
-                    <span class="chip variant-ghost-surface" title={job.jobInfo?.remoteType || 'N/A'}>
-                    <iconify-icon icon="solar:pin-bold"></iconify-icon>
-                    <span>{truncateText(job.jobInfo?.remoteType)}</span>
+                    <span class="chip variant-ghost-surface text-base" title={job.jobInfo?.remoteType || 'N/A'}>
+                        <iconify-icon icon="solar:pin-bold"></iconify-icon>
+                        <span>{truncateText(job.jobInfo?.remoteType)}</span>
                     </span>
                 
-                    <span class="chip variant-ghost-surface" title={job.compensation || 'N/A'}>
-                    <iconify-icon icon="solar:money-bag-bold"></iconify-icon>
-                    <span>{truncateText(job.compensation)}</span>
+                    <span class="chip variant-ghost-surface text-base" title={job.compensation || 'N/A'}>
+                        <iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+                        <span>{truncateText(job.compensation)}</span>
                     </span>
                 
-                    <span class="chip variant-ghost-surface" title={formatDate(job.generalData?.timestamp)}>
-                    <iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
-                    <span>{truncateText(formatDate(job.generalData?.timestamp))}</span>
+                    <span class="chip variant-ghost-surface text-base" title={formatDate(job.generalData?.timestamp)}>
+                        <iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
+                        <span>{truncateText(formatDate(job.generalData?.timestamp))}</span>
                     </span>
                 </div>
             </div>
@@ -216,11 +216,11 @@
         </div>
 
         <div class="pt-8 w-full">
-            <p class="text-sm mb-4">
+            <p class="text-base mb-4">
                 <span class="font-bold">Company Focus: </span>
                 {job?.companyInfo?.companyFocus || 'No company focus information available'}
             </p>
-            <p class="text-sm mb-4">
+            <p class="text-base mb-4">
                 <span class="font-bold">Job Description: </span>
                 {job?.jobInfo?.jobSummary || 'No job summary available'}
             </p>
@@ -265,7 +265,7 @@
                     <div class="pb-6">
                         {#if Object.entries(job.verdict.keyStrengths || {})[index]}
                             {@const [key, value] = Object.entries(job.verdict.keyStrengths)[index]}
-                            <div class="text-sm">
+                            <div class="text-base">
                                 <div class="flex justify-between items-start">
                                     <div>
                                         <strong class="font-bold">{key}:</strong> <span class="break-words text-gray-700">{value || 'N/A'}</span>
@@ -287,7 +287,7 @@
                     <div class="pb-6">
                         {#if Object.entries(job.verdict.keyGaps || {})[index]}
                             {@const [key, value] = Object.entries(job.verdict.keyGaps)[index]}
-                            <div class="text-sm">
+                            <div class="text-base">
                                 <div class="flex justify-between items-start">
                                     <div>
                                         <strong class="text-base">{key}:</strong> <span class="break-words text-gray-700">{value || 'N/A'}</span>

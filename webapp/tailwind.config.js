@@ -22,7 +22,11 @@ export default {
         )
     ],
     theme: {
-        extend: {},
+        extend: {
+            fontSize: {
+                base: '16px',  // This changes the base font size
+              }
+        },
     },
     plugins: [
         forms,
