@@ -105,9 +105,12 @@
     }
 </script>
 
-<div class="inline-flex items-center">
+<div class="inline-flex items-center gap-1">
+    {#if isLoading}
+        <span class="text-xs text-gray-400">...</span>
+    {/if}
     <button
-        class="p-0.2 transition-colors {userVote === 'upvote' ? 'text-green-600' : 'text-gray-400 hover:text-green-600'}"
+        class="btn-icon variant-ghost-tertiary transition-colors {userVote === 'upvote' ? 'text-gray-800' : 'text-gray-400 hover:text-grey-800'}"
         on:click={() => handleFeedback('upvote')}
         disabled={isLoading}
         title="This is accurate"
@@ -115,7 +118,7 @@
         <iconify-icon icon="heroicons-solid:thumb-up" width="14" height="14"></iconify-icon>
     </button>
     <button
-        class="p-0.2 transition-colors {userVote === 'downvote' ? 'text-red-600' : 'text-gray-400 hover:text-red-600'}"
+        class="btn-icon variant-ghost-tertiary transition-colors {userVote === 'downvote' ? 'text-red-600' : 'text-gray-400 hover:text-red-600'}"
         on:click={() => handleFeedback('downvote')}
         disabled={isLoading}
         title="This needs improvement"
@@ -123,7 +126,5 @@
         <iconify-icon icon="heroicons-solid:thumb-down" width="14" height="14"></iconify-icon>
     </button>
     
-    {#if isLoading}
-        <span class="text-xs text-gray-400">...</span>
-    {/if}
+    
 </div>
