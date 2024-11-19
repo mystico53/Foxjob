@@ -164,9 +164,9 @@
             <td colspan="6" class="!p-2">
               <div class="relative flex justify-center items-center h-8">
                 <div class="absolute left-0">
-                  <span class="lowercase">
-                    Showing {Math.min((currentPage - 1) * rowsPerPage + 1, $sortedJobs.length)} - {Math.min(currentPage * rowsPerPage, $sortedJobs.length)} of {$sortedJobs.length} entries
-                  </span>
+                  <span class="text-gray-400">
+                    Showing {Math.min((currentPage - 1) * rowsPerPage + 1, $sortedJobs.length)} - {Math.min(currentPage * rowsPerPage, $sortedJobs.length)} <span class="lowercase">of</span> {$sortedJobs.length} entries
+                </span>
                 </div>
                 <div class="flex items-center gap-1">
                   <button 
