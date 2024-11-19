@@ -34,10 +34,12 @@
 </script>
 
 <button 
-  class="btn variant-ghost-surface" 
+  class="btn variant-ringed" 
   on:click={() => showModal = true}
 >
-  Feedback
+<div class="gap-4">
+<iconify-icon icon="codicon:feedback"></iconify-icon>  
+Give Feedback</div>
 </button>
 
 <Modal 
