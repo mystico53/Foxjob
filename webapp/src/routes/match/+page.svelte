@@ -1,6 +1,6 @@
 <script>
   import { onMount } from 'svelte';
-  import Datatable from '$lib/Datatable.svelte';
+  import Datatable from '$lib/Dashboard/Datatable.svelte';
   import { FileDropzone } from '@skeletonlabs/skeleton';
   import { auth, db } from '$lib/firebase';
   import { collection, addDoc, serverTimestamp, query, where, getDocs, deleteDoc, orderBy, limit } from 'firebase/firestore';

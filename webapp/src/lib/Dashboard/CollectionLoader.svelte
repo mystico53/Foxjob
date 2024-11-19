@@ -49,12 +49,11 @@
                 const data = doc.data();
                 const timestamp = data.timestamp.toDate();
                 currentFileName = data.fileName || 'Unknown';
-                uploadFeedback = `Resume "${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
-                
+                uploadFeedback = `"${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
+                uploadFeedbackColor = 'variant-filled-surface';
                 resumeUploaded = true;
             } else {
                 uploadFeedback = "Please upload your resume to match it with job descriptions";
-                uploadFeedbackColor = 'variant-filled-warning';
                 resumeUploaded = false;
             }
         } catch (error) {
@@ -148,7 +147,7 @@
             
             const timestamp = new Date();
             uploadFeedback = `Resume "${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
-            uploadFeedbackColor = 'variant-filled-success';
+            uploadFeedbackColor = 'variant-filled-surface';
             resumeUploaded = true;
         } catch (error) {
             console.error('Error storing extracted text:', error);
@@ -168,7 +167,7 @@
                 const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
                 await Promise.all(deletePromises);
                 
-                
+                uploadFeedback = "Please upload your resume to match it with job descriptions";
                 
                 resumeUploaded = false;
                 extractedText = '';
@@ -189,12 +188,12 @@
     <div class="flex items-center justify-between py-2">
         <h2 class="text-xl font-bold m-0">Your resume</h2>
         {#if resumeUploaded}
-            <button 
-                on:click={deleteResume} 
-                
-            >
-                <iconify-icon icon="solar:trash-bin-minimalistic-bold"></iconify-icon>
-            </button>
+            <div>
+                <iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>     
+                <button on:click={deleteResume}>
+                    <iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-2xl"></iconify-icon>
+                </button>
+            </div>
         {/if}
     </div>
     <div class="flex-1 flex flex-col items-center justify-center">
@@ -205,7 +204,7 @@
                 on:selected={handleFiles} 
                 on:submit={handleFiles} 
                 accept=".pdf,application/pdf"
-                border="border-2 border-dashed border-primary-500"
+                border="border-2 border-solid border-tertiary-500"
                 padding="p-4 py-8"
                 rounded="rounded-container-token"
                 regionInterface="hover:bg-surface-500/20 transition-colors duration-150"
@@ -214,12 +213,15 @@
         {/if}
         
         {#if uploadFeedback}
-            <div class="alert {uploadFeedbackColor} mt-4 w-full">
+            <div class="alert {uploadFeedbackColor} mt-4 w-full flex flex-col items-center gap-2 text-center">
+                {#if resumeUploaded}
+                    <iconify-icon icon="healthicons:i-documents-accepted-outline" class="text-6xl"></iconify-icon>
+                {:else}
+                <iconify-icon icon="mynaui:sad-square" class="text-6xl"></iconify-icon>
+                {/if}
                 <p>{uploadFeedback}</p>
             </div>
         {/if}
-        
-        
     </div>
 </div>
 

@@ -33,7 +33,7 @@
 	<svelte:fragment slot="lead">
 		<div class="flex items-center gap-2">
 			<img src={foxIcon} alt="Fox Icon" class="h-12 w-12" />
-			<strong class="foxjob-title text-xl uppercase">Foxjob</strong>
+			<strong class="foxjob-title text-xl uppercase">Foxjob - internal test</strong>
 		</div>
 	</svelte:fragment>
 
