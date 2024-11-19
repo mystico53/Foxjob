@@ -44,7 +44,7 @@ Give Feedback</div>
 
 <FeedbackModal 
   bind:show={showModal}
-  title="We read every message"
+  title="Improve Foxjob"
   on:close={() => showModal = false}
 >
   <form on:submit|preventDefault={handleSubmit} class="space-y-4">
