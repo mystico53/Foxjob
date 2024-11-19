@@ -7,6 +7,7 @@
 
 <!-- Domain Expertise Section -->
 <div class="card p-4">
+    <p class="text-xs font-color-grey">Job-ID: {job.id || 'N/A'}</p>
     <h3 class="h5 mb-4">Domain Expertise Assessment</h3>
     {#if job.SkillAssessment.DomainExpertise}
         <table class="table-hover table">
