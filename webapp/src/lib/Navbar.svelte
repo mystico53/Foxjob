@@ -16,7 +16,7 @@
 	async function handleLogout() {
 		try {
 			await authStore.signOut();
-			goto('/');
+			goto('/landing');
 		} catch (err) {
 			console.error('Error signing out:', err);
 		}
