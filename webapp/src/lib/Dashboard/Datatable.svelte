@@ -162,17 +162,19 @@
         <tfoot>
           <tr>
             <td colspan="6" class="!p-2">
-              <div class="flex justify-between items-center h-8">
-                <span class="text-sm lowercase">
-                  Showing {Math.min((currentPage - 1) * rowsPerPage + 1, $sortedJobs.length)} - {Math.min(currentPage * rowsPerPage, $sortedJobs.length)} of {$sortedJobs.length} entries
-                </span>
-                <div class="flex gap-1">
+              <div class="relative flex justify-center items-center h-8">
+                <div class="absolute left-0">
+                  <span class="text-sm lowercase">
+                    Showing {Math.min((currentPage - 1) * rowsPerPage + 1, $sortedJobs.length)} - {Math.min(currentPage * rowsPerPage, $sortedJobs.length)} of {$sortedJobs.length} entries
+                  </span>
+                </div>
+                <div class="flex items-center gap-1">
                   <button 
                     class="btn btn-sm !py-0 h-6 min-h-0 variant-soft"
                     on:click={previousPage}
                     disabled={currentPage === 1}
                   >
-                  <iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
+                    <iconify-icon icon="solar:map-arrow-left-bold" width="20" height="20"></iconify-icon>
                   </button>
                   <span class="flex items-center px-2 text-sm lowercase">
                     Page {currentPage} of {totalPages}
@@ -182,7 +184,7 @@
                     on:click={nextPage}
                     disabled={currentPage === totalPages}
                   >
-                  <iconify-icon icon="solar:map-arrow-right-bold"></iconify-icon>
+                    <iconify-icon icon="solar:map-arrow-right-bold" width="20" height="20"></iconify-icon>
                   </button>
                 </div>
               </div>
