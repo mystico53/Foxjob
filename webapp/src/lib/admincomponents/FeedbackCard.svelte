@@ -46,14 +46,14 @@
                 <span class="badge {feedback.type === 'upvote' ? 'variant-filled-success' : 'variant-filled-error'}">
                     {feedback.type}
                 </span>
-                <span class="text-sm opacity-70">{formattedDate}</span>
+                <span class="opacity-70">{formattedDate}</span>
             </div>
             
             <div class="space-y-1">
-                <div class="text-sm truncate">
+                <div class="truncate">
                     <span class="font-bold">Job:</span> {feedback.jobId}
                 </div>
-                <div class="text-sm truncate">
+                <div class="truncate">
                     <span class="font-bold">Item:</span> {feedback.itemId}
                 </div>
             </div>

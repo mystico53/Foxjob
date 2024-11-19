@@ -116,7 +116,7 @@
             {#each users as user}
                 <div class="mb-6 border-b pb-4">
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="font-mono text-sm">{user.id}</span>
+                        <span class="font-mono">{user.id}</span>
                         {#if user.isCurrentUser}
                             <span class="badge">You</span>
                         {/if}
@@ -128,7 +128,7 @@
                     <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
                         {#each user.dailyJobs as { date, count }}
                             <div class="flex justify-between items-center p-2 bg-surface-500/10 rounded">
-                                <span class="text-sm">{date}</span>
+                                <span>{date}</span>
                                 <span class="badge bg-success">{count}</span>
                             </div>
                         {/each}

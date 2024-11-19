@@ -2,8 +2,8 @@
 	import { onMount, onDestroy } from 'svelte';
 	import { auth } from '$lib/firebase';
 	import { jobStore, sortedJobs, loading, error } from '$lib/jobStore';
-	import JobCard from '$lib/JobCard.svelte';
-	import CardDetails from '$lib/CardDetails.svelte';
+	import JobCard from '$lib/Jobcards/JobCard.svelte';
+	import CardDetails from '$lib/Jobcards/CardDetails.svelte';
 	import SortControls from '$lib/SortControls.svelte';
 	import { flip } from 'svelte/animate';
 	import SearchBar from '$lib/SearchBar.svelte';

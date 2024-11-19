@@ -68,9 +68,9 @@
   </script>
   
   <style>
-	/* Import the font */
+	/* Import the font 
 	@import url('https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600;700&display=swap');
-  
+  */
 	/* Global styles */
 	:global(body) {
 	  margin: 0;
