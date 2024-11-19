@@ -7,6 +7,7 @@
     let feedbackItems = [];
     let loading = true;
     let error = null;
+    let expandedId = null;
     
     let currentPage = 0;
     let pageSize = 10;
@@ -18,12 +19,30 @@
     let searchTerm = '';
     let lastDoc = null;
 
+    function truncateText(text, length) {
+        if (!text) return '';
+        return text.length > length ? text.slice(0, length) + '...' : text;
+    }
+
+    function formatDate(timestamp) {
+        if (!timestamp) return 'N/A';
+        const date = timestamp.toDate();
+        return date.toLocaleDateString('en-US', { 
+            month: 'short',
+            day: '2-digit',
+            year: 'numeric'
+        });
+    }
+
+    function toggleExpand(id) {
+        expandedId = expandedId === id ? null : id;
+    }
+
     async function loadFeedbackData() {
         try {
             loading = true;
             error = null;
             
-            // Changed collection path structure
             const feedbackRef = collection(db, 'feedback/openfeedback/submissions');
             
             let q = query(
@@ -38,13 +57,11 @@
             
             const snapshot = await getDocs(q);
             
-            // Updated mapping to match the document structure
             feedbackItems = snapshot.docs.map(doc => ({
                 id: doc.id,
                 ...doc.data(),
                 text: doc.data().text || 'No feedback provided',
-                status: doc.data().status || 'new',
-                timestamp: doc.data().timestamp?.toDate()?.toLocaleString() || 'N/A',
+                timestamp: doc.data().timestamp,
                 userId: doc.data().userId || 'Unknown'
             }));
             
@@ -79,12 +96,6 @@
         loadFeedbackData();
     }
 
-    function handleSearch() {
-        currentPage = 0;
-        lastDoc = null;
-        loadFeedbackData();
-    }
-
     onMount(() => {
         loadFeedbackData();
     });
@@ -100,7 +111,7 @@
             type="search"
             placeholder="Search feedback..."
             class="input"
-            on:input={handleSearch}
+            on:input={handlePageChange(0)}
         />
     </div>
 
@@ -116,35 +127,43 @@
         </div>
     {:else}
         <div class="card p-4">
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th class="cursor-pointer" on:click={() => handleSort('timestamp')}>
-                            Timestamp
-                            {#if sortField === 'timestamp'}
-                                <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
-                            {/if}
-                        </th>
-                        <th>Status</th>
-                        <th>Feedback Text</th>
-                        <th>User ID</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {#each feedbackItems as item}
+            <div class="table-container">
+                <table class="table table-hover">
+                    <thead>
                         <tr>
-                            <td>{item.timestamp}</td>
-                            <td>
-                                <span class="badge {item.status === 'new' ? 'bg-blue-500' : 'bg-green-500'}">
-                                    {item.status}
-                                </span>
-                            </td>
-                            <td>{item.text}</td>
-                            <td>{item.userId}</td>
+                            <th class="cursor-pointer sticky top-0 bg-surface-100-800-token" on:click={() => handleSort('timestamp')}>
+                                Date
+                                {#if sortField === 'timestamp'}
+                                    <span>{sortDirection === 'asc' ? '↑' : '↓'}</span>
+                                {/if}
+                            </th>
+                            <th class="sticky top-0 bg-surface-100-800-token">User</th>
+                            <th class="sticky top-0 bg-surface-100-800-token">Feedback</th>
                         </tr>
-                    {/each}
-                </tbody>
-            </table>
+                    </thead>
+                    <tbody>
+                        {#each feedbackItems as item}
+                            <tr 
+                                class="cursor-pointer hover:bg-surface-hover-token"
+                                on:click={() => toggleExpand(item.id)}
+                            >
+                                <td>{formatDate(item.timestamp)}</td>
+                                <td>
+                                    <div class="skeleton-chip">{item.userId}</div>
+                                </td>
+                                <td>{truncateText(item.text, 30)}</td>
+                            </tr>
+                            {#if expandedId === item.id}
+                                <tr class="expanded-row">
+                                    <td colspan="3" class="p-4 bg-surface-200-700-token">
+                                        {item.text}
+                                    </td>
+                                </tr>
+                            {/if}
+                        {/each}
+                    </tbody>
+                </table>
+            </div>
 
             <div class="flex justify-center gap-2 mt-4">
                 <button 
@@ -181,6 +200,10 @@
         @apply animate-pulse text-center py-4;
     }
     
+    .table-container {
+        @apply h-96 overflow-y-auto relative;
+    }
+    
     .table {
         @apply w-full;
     }
@@ -189,12 +212,12 @@
     .table td {
         @apply p-2 text-left border-b;
     }
-    
-    .table th {
-        @apply bg-surface-100-800-token;
+
+    .skeleton-chip {
+        @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800;
     }
 
-    .badge {
-        @apply px-2 py-1 rounded text-sm text-white;
+    .expanded-row td {
+        @apply border-t-0;
     }
 </style>
