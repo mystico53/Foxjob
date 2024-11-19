@@ -63,46 +63,46 @@
     }
 
     async function handleFeedback(type) {
-        if (isLoading || !mounted) return;
-        
-        try {
-            isLoading = true;
-            const userId = auth.currentUser?.uid;
-            if (!userId) return;
+    if (isLoading || !mounted) return;
+    
+    try {
+        isLoading = true;
+        const userId = auth.currentUser?.uid;
+        if (!userId) return;
 
-            const sanitizedItemId = sanitizeForId(itemId);
-            const feedbackId = `${jobId}_${sanitizedItemId}_${userId}`;
-            const feedbackRef = doc(db, FEEDBACK_COLLECTION, feedbackId);
+        const sanitizedItemId = sanitizeForId(itemId);
+        const feedbackId = `${jobId}_${sanitizedItemId}_${userId}`;
+        const feedbackRef = doc(db, 'feedback', 'thumbs', 'submissions', feedbackId);
 
-            if (userVote === type) {
-                // Remove vote
-                await setDoc(feedbackRef, {
-                    active: false,
-                    updatedAt: new Date()
-                }, { merge: true });
-                userVote = null;
-            } else {
-                // Add or update vote
-                await setDoc(feedbackRef, {
-                    jobId,
-                    itemId,
-                    userId,
-                    type,
-                    path,
-                    active: true,
-                    timestamp: new Date(),
-                    updatedAt: new Date(),
-                    value: currentData,
-                    sanitizedItemId
-                }, { merge: true });
-                userVote = type;
-            }
-        } catch (error) {
-            console.error('Error saving feedback:', error);
-        } finally {
-            isLoading = false;
+        if (userVote === type) {
+            // Remove vote
+            await setDoc(feedbackRef, {
+                active: false,
+                updatedAt: new Date()
+            }, { merge: true });
+            userVote = null;
+        } else {
+            // Add or update vote
+            await setDoc(feedbackRef, {
+                jobId,
+                itemId,
+                userId,
+                type,
+                path,
+                active: true,
+                timestamp: new Date(),
+                updatedAt: new Date(),
+                value: currentData,
+                sanitizedItemId
+            }, { merge: true });
+            userVote = type;
         }
+    } catch (error) {
+        console.error('Error saving feedback:', error);
+    } finally {
+        isLoading = false;
     }
+}
 </script>
 
 <div class="inline-flex items-center gap-1">

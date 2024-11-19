@@ -1,38 +1,36 @@
 <script>
   import Modal from '$lib/admincomponents/FeedbackModal.svelte';
-  import { getFirestore, collection, addDoc } from 'firebase/firestore';
+  import { getFirestore, setDoc, doc } from 'firebase/firestore';
   import { auth } from '$lib/firebase';
   
   let showModal = false;
   let feedbackText = '';
-  let isLoading = false;
+  let isSubmitting = false;
   
   const db = getFirestore();
   
   async function handleSubmit() {
-      if (!feedbackText.trim()) return;
-      
-      isLoading = true;
-      
-      try {
-          const feedbackRef = collection(db, 'feedback');
-          await addDoc(feedbackRef, {
-              userId: auth.currentUser?.uid || 'anonymous',
-              feedback: feedbackText,
-              timestamp: new Date(),
-              status: 'new'
-          });
-          
-          showModal = false;
-          feedbackText = '';
-          alert('Feedback submitted successfully!');
-      } catch (error) {
-          console.error('Error submitting feedback:', error);
-          alert('Error submitting feedback. Please try again.');
-      } finally {
-          isLoading = false;
-      }
-  }
+    if (!feedbackText.trim() || isSubmitting) return;
+    
+    try {
+        isSubmitting = true;
+        const feedbackId = `feedback_${Date.now()}`;
+        
+        await setDoc(doc(db, 'feedback', 'openfeedback', 'submissions', feedbackId), {
+            userId: auth.currentUser?.uid || 'anonymous',
+            text: feedbackText,
+            timestamp: new Date(),
+            status: 'new'
+        });
+
+        showModal = false;
+        feedbackText = '';
+    } catch (error) {
+        console.error('Error saving feedback:', error);
+    } finally {
+        isSubmitting = false;
+    }
+}
 </script>
 
 <button 
@@ -47,29 +45,33 @@
   title="Share Your Feedback"
   on:close={() => showModal = false}
 >
-  <div class="space-y-4">
-      <textarea
-          class="textarea w-full"
-          bind:value={feedbackText}
-          rows="4"
-          placeholder="Enter your feedback here..."
-      />
+  <form on:submit|preventDefault={handleSubmit} class="space-y-4">
+      <div>
+          <textarea
+              bind:value={feedbackText}
+              rows="4"
+              class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your feedback..."
+              disabled={isSubmitting}
+          ></textarea>
+      </div>
       
-      <div class="flex justify-end gap-2">
-          <button 
-              class="btn variant-ghost-surface" 
+      <div class="flex justify-end gap-3">
+          <button
+              type="button"
+              class="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
               on:click={() => showModal = false}
-              disabled={isLoading}
+              disabled={isSubmitting}
           >
               Cancel
           </button>
           <button
-              class="btn variant-filled-primary"
-              on:click={handleSubmit}
-              disabled={isLoading || !feedbackText.trim()}
+              type="submit"
+              class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              disabled={!feedbackText.trim() || isSubmitting}
           >
-              {isLoading ? 'Submitting...' : 'Submit'}
+              {isSubmitting ? 'Submitting...' : 'Submit'}
           </button>
       </div>
-  </div>
+  </form>
 </Modal>

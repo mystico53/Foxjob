@@ -22,45 +22,47 @@
     let lastDoc = null;
 
     async function loadFeedbackData() {
-        try {
-            loading = true;
-            error = null;
-            
-            const feedbackRef = collection(db, 'feedback');
-            let q = query(
-                feedbackRef,
-                where('active', '==', true),
-                orderBy(sortField, sortDirection),
-                limit(pageSize)
-            );
-            
-            if (lastDoc && currentPage > 0) {
-                q = query(q, startAfter(lastDoc));
-            }
-            
-            const snapshot = await getDocs(q);
-            
-            feedbackItems = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data(),
-                timestamp: doc.data().timestamp?.toDate()?.toLocaleString() || 'N/A'
-            }));
-            
-            // Update lastDoc for pagination
-            lastDoc = snapshot.docs[snapshot.docs.length - 1];
-            
-            // Get total count
-            const totalQuery = query(feedbackRef, where('active', '==', true));
-            const totalSnapshot = await getDocs(totalQuery);
-            totalItems = totalSnapshot.size;
-            
-        } catch (err) {
-            console.error('Error loading feedback:', err);
-            error = 'Failed to load feedback data';
-        } finally {
-            loading = false;
+    try {
+        loading = true;
+        error = null;
+        
+        const feedbackRef = collection(db, 'feedback/thumbs/submissions');
+        console.log("Using feedbackRef:", feedbackRef); // Add this
+        
+        let q = query(
+            feedbackRef,
+            where('active', '==', true),
+            orderBy(sortField, sortDirection),
+            limit(pageSize)
+        );
+        
+        if (lastDoc && currentPage > 0) {
+            q = query(q, startAfter(lastDoc));
         }
+        
+        console.log("About to execute query:", q); // Add this
+        const snapshot = await getDocs(q);
+        console.log("Query results:", snapshot.docs); // Add this
+        
+        feedbackItems = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            timestamp: doc.data().timestamp?.toDate()?.toLocaleString() || 'N/A'
+        }));
+        
+        lastDoc = snapshot.docs[snapshot.docs.length - 1];
+        
+        const totalQuery = query(feedbackRef, where('active', '==', true));
+        const totalSnapshot = await getDocs(totalQuery);
+        totalItems = totalSnapshot.size;
+        
+    } catch (err) {
+        console.error('Error loading feedback - FULL ERROR:', err); // Modified this
+        error = `Failed to load feedback data: ${err.message}`; // Modified this
+    } finally {
+        loading = false;
     }
+}
 
     function handlePageChange(newPage) {
         currentPage = newPage;
