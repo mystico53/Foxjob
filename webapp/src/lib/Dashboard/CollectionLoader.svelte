@@ -53,7 +53,7 @@
                 uploadFeedbackColor = 'variant-filled-surface';
                 resumeUploaded = true;
             } else {
-                uploadFeedback = "Please upload your resume to match it with job descriptions";
+                uploadFeedback = "Add your resume to match it with job descriptions";
                 resumeUploaded = false;
             }
         } catch (error) {
@@ -167,7 +167,7 @@
                 const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
                 await Promise.all(deletePromises);
                 
-                uploadFeedback = "Please upload your resume to match it with job descriptions";
+                uploadFeedback = "Add your resume to match it with job descriptions";
                 
                 resumeUploaded = false;
                 extractedText = '';
@@ -215,9 +215,9 @@
         {#if uploadFeedback}
             <div class="alert {uploadFeedbackColor} mt-4 w-full flex flex-col items-center gap-2 text-center">
                 {#if resumeUploaded}
-                    <iconify-icon icon="healthicons:i-documents-accepted-outline" class="text-6xl"></iconify-icon>
+                <iconify-icon icon="healthicons:i-documents-accepted-outline" class="text-6xl text-gray-500"></iconify-icon>
                 {:else}
-                <iconify-icon icon="mynaui:sad-square" class="text-6xl"></iconify-icon>
+                <iconify-icon icon="ep:document" class="text-6xl text-gray-500"></iconify-icon>
                 {/if}
                 <p>{uploadFeedback}</p>
             </div>

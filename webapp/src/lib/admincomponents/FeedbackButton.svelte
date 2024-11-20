@@ -34,7 +34,7 @@
 </script>
 
 <button 
-  class="btn variant-ringed" 
+  class="btn btn-sm variant-ghost" 
   on:click={() => showModal = true}
 >
 <div class="gap-4">
