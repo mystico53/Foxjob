@@ -11,7 +11,7 @@
 		<!-- Left Column: Content -->
 		<div class="space-y-6">
 			<h1 class="h1 font-bold" style="line-height: 1.3;">Better job search results with <strong class="foxjob-title uppercase text-5xl">Foxjob</strong></h1>
-		  <h2 class="h4 font-normal pb-20">Personalized applications are more succesful. Foxjob finds jobs that are worth spending time on.</h2>
+		  <h2 class="h4 font-normal pb-20">Reading job description sucks. Foxjob does that for you, and tells you which jobs are the right fit for you.</h2>
 		  <button
 			type="button"
 			class="btn px-4 font-bold text-white shadow-lg shadow-[#DC3701]/20 hover:brightness-110 hover:-translate-y-0.5 transition-all"
