@@ -1,6 +1,6 @@
 <div class="card w-full bg-white py-16 px-4">
     <div class="container mx-auto text-center max-w-3xl">
-        <h2 class="text-4xl font-bold text-slate-900 mb-4">Ready to only look at relevant jobs?</h2>
+        <h2 class="text-4xl font-bold text-slate-900 mb-4">Ready to see relevant jobs?</h2>
         
         <p class="text-lg text-slate-600 mb-8">
             We believe your time is valuable, use Foxjob to focus on jobs that matter.

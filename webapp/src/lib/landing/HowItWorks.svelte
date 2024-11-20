@@ -9,19 +9,19 @@
       },
       {
         number: 2,
-        title: 'Scan it!',
+        title: 'Scan away!',
         description: 'Analyse any job description with a buttonpress, no more reading.'
       },
       {
         number: 3,
-        title: 'Your personal assesment',
-        description: 'Out of five scanned jobs, apply to only one, ignore the rest.'
+        title: 'Your score',
+        description: 'Only three out of 25 jobs are a match, focus on those.'
       }
     ];
   </script>
   
   <div class="container bg-tertiary-300 mx-auto px-4 py-16">
-    <h2 class="h2 text-center mb-12">I have a job description, now what?</h2>
+    <h2 class="h2 text-center mb-12">I have some job descriptions, now what?</h2>
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-8 px-8 mb-12">
         {#each steps as step}
