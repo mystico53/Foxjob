@@ -14,6 +14,8 @@
 		limit
 	} from 'firebase/firestore';
 	import ExtensionChecker from '$lib/Dashboard/ExtensionChecker.svelte';
+	import { setResumeStatus } from '../../stores/userStateStore';
+	import OnboardingProgress from '$lib/onboarding/OnboardingProgress.svelte';
 
 	let pdfjsLib;
 	let isLibraryLoaded = false;
@@ -65,9 +67,13 @@
 				uploadFeedback = `"${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
 				uploadFeedbackColor = 'variant-filled-surface';
 				resumeUploaded = true;
+				// Add this line:
+				setResumeStatus(true, currentFileName, timestamp);
 			} else {
 				uploadFeedback = 'Add your resume to match it with job descriptions';
 				resumeUploaded = false;
+				// Add this line:
+				setResumeStatus(false);
 			}
 		} catch (error) {
 			console.error('Error checking existing resume:', error);
@@ -158,6 +164,7 @@
 			});
 
 			const timestamp = new Date();
+			setResumeStatus(true, currentFileName, timestamp);
 			uploadFeedback = `Resume "${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
 			uploadFeedbackColor = 'variant-filled-surface';
 			resumeUploaded = true;
@@ -174,6 +181,7 @@
 			const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
 			const q = query(userCollectionsRef, where('type', '==', 'Resume'));
 			const querySnapshot = await getDocs(q);
+			setResumeStatus(false);
 
 			if (!querySnapshot.empty) {
 				const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
@@ -241,6 +249,7 @@
 		{/if}
 	</div>
 	<ExtensionChecker />
+	<OnboardingProgress />
 </div>
 
 <style>
