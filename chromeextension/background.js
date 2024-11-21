@@ -3,10 +3,14 @@
 console.log('Background script loaded with new debug - version 1');
 
 import { anthropicInstructions } from './instructions.js';
-import { FIREBASE_CONFIG, getTargetUrl } from './config.js';
+import { FIREBASE_CONFIG, getTargetUrl, updateExtensionIcon } from './config.js';
 import Counter from './counter.js';
 
 console.log('Background script loaded');
+
+updateExtensionIcon().catch(error => {
+  console.error('Failed to update extension icon:', error);
+});
 
 Counter.resetAtMidnight();
 
