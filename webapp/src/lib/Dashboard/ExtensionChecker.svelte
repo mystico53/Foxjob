@@ -1,7 +1,7 @@
 <!-- ExtensionChecker.svelte -->
 <script>
 	import { onMount } from 'svelte';
-	import { userStateStore, setExtensionStatus } from '../../stores/userStateStore';
+	import { userStateStore, setExtensionStatus } from '$lib/stores/userStateStore.js';
 
 	const productionId = 'lbncdalbaajjafnpgplghkdaiflfihjp';
 	const developmentId = 'jednpafjmjheknpcfgijkhklhmnifdln';

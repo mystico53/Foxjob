@@ -1,7 +1,7 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
 	import { auth } from '$lib/firebase';
-	import { jobStore, sortedJobs, loading, error } from '$lib/jobStore';
+	import { jobStore, sortedJobs, loading, error } from '$lib/stores/jobStore';
 	import JobCard from '$lib/Jobcards/JobCard.svelte';
 	import CardDetails from '$lib/Jobcards/CardDetails.svelte';
 	import SortControls from '$lib/SortControls.svelte';
@@ -56,24 +56,24 @@
 	}
 
 	function handleNext(jobId) {
-    if (!$sortedJobs || selectedJobIndex >= $sortedJobs.length - 1) return;
-    
-    const nextIndex = selectedJobIndex + 1;
-    if (nextIndex < $sortedJobs.length) {
-        selectedJobIndex = nextIndex;
-        selectedJob = $sortedJobs[nextIndex];
-    }
-}
+		if (!$sortedJobs || selectedJobIndex >= $sortedJobs.length - 1) return;
 
-function handlePrevious() {
-    if (!$sortedJobs || selectedJobIndex <= 0) return;
-    
-    const prevIndex = selectedJobIndex - 1;
-    if (prevIndex >= 0) {
-        selectedJobIndex = prevIndex;
-        selectedJob = $sortedJobs[prevIndex];
-    }
-}
+		const nextIndex = selectedJobIndex + 1;
+		if (nextIndex < $sortedJobs.length) {
+			selectedJobIndex = nextIndex;
+			selectedJob = $sortedJobs[nextIndex];
+		}
+	}
+
+	function handlePrevious() {
+		if (!$sortedJobs || selectedJobIndex <= 0) return;
+
+		const prevIndex = selectedJobIndex - 1;
+		if (prevIndex >= 0) {
+			selectedJobIndex = prevIndex;
+			selectedJob = $sortedJobs[prevIndex];
+		}
+	}
 
 	async function toggleBookmark(jobId) {
 		try {
@@ -156,7 +156,6 @@ function handlePrevious() {
 				isFirstJob={selectedJobIndex === 0}
 				isLastJob={selectedJobIndex === $sortedJobs.length - 1}
 				{toggleBookmark}
-				
 				{openJobLink}
 			/>
 		{:else}
@@ -164,9 +163,9 @@ function handlePrevious() {
 				<div class="text-surface-400 text-center">
 					<div class="giphy-container mb-2">
 						<!-- svelte-ignore a11y-missing-attribute -->
-						<iframe 
-							src="https://giphy.com/embed/xsE65jaPsUKUo" 
-							frameBorder="0" 
+						<iframe
+							src="https://giphy.com/embed/xsE65jaPsUKUo"
+							frameBorder="0"
 							class="giphy-embed"
 							allowFullScreen
 						></iframe>

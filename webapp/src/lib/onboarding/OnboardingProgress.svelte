@@ -1,6 +1,6 @@
 <!-- OnboardingProgress.svelte -->
 <script>
-	import { userStateStore } from '../../stores/userStateStore';
+	import { userStateStore } from '$lib/stores/userStateStore.js';
 	import { ProgressBar } from '@skeletonlabs/skeleton';
 
 	$: progressValue =

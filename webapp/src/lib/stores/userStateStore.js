@@ -1,4 +1,4 @@
-// src/stores/userStateStore.js
+// $lib/stores/userStateStore.js
 import { writable } from 'svelte/store';
 
 const initialState = {

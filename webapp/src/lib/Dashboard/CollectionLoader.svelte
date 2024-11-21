@@ -14,7 +14,7 @@
 		limit
 	} from 'firebase/firestore';
 	import ExtensionChecker from '$lib/Dashboard/ExtensionChecker.svelte';
-	import { setResumeStatus } from '../../stores/userStateStore';
+	import { setResumeStatus } from '$lib/stores/userStateStore.js';
 
 	let pdfjsLib;
 	let isLibraryLoaded = false;

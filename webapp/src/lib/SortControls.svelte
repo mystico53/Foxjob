@@ -1,33 +1,33 @@
 <!-- SortControls.svelte -->
 <script>
-    import { onMount, onDestroy } from 'svelte';
-    import { sortConfig, sortedJobs, jobStore } from '$lib/jobStore';
-    import { writeBatch, collection, getDocs } from 'firebase/firestore';
-    import { db, auth } from '$lib/firebase';
+	import { onMount, onDestroy } from 'svelte';
+	import { sortConfig, sortedJobs, jobStore } from '$lib/stores/jobStore';
+	import { writeBatch, collection, getDocs } from 'firebase/firestore';
+	import { db, auth } from '$lib/firebase';
 
-    let deleting = false;
-    let currentUser = null;
-    let unsubscribe;
+	let deleting = false;
+	let currentUser = null;
+	let unsubscribe;
 
-    onMount(() => {
-        unsubscribe = auth.onAuthStateChanged((user) => {
-            currentUser = user;
-            console.log('Auth state changed:', currentUser?.uid);
-        });
-    });
+	onMount(() => {
+		unsubscribe = auth.onAuthStateChanged((user) => {
+			currentUser = user;
+			console.log('Auth state changed:', currentUser?.uid);
+		});
+	});
 
-    onDestroy(() => {
-        if (unsubscribe) unsubscribe();
-    });
+	onDestroy(() => {
+		if (unsubscribe) unsubscribe();
+	});
 
-    function handleSortChange(event) {
-        const newValue = event.target.value;
-        $sortConfig = {
-            column: newValue,
-            direction: 'desc'
-        };
-        console.log('Sort config updated:', $sortConfig); // Debug log
-    }
+	function handleSortChange(event) {
+		const newValue = event.target.value;
+		$sortConfig = {
+			column: newValue,
+			direction: 'desc'
+		};
+		console.log('Sort config updated:', $sortConfig); // Debug log
+	}
 
 	async function deleteAllJobs() {
 		if (!currentUser) {
@@ -35,14 +35,16 @@
 			return;
 		}
 
-		const confirmation = confirm('Are you sure you want to delete all your jobs? This action cannot be undone.');
+		const confirmation = confirm(
+			'Are you sure you want to delete all your jobs? This action cannot be undone.'
+		);
 		if (!confirmation) return;
 
 		deleting = true;
 
 		try {
 			console.log('Attempting to delete jobs...');
-			
+
 			const jobsRef = collection(db, 'users', currentUser.uid, 'jobs');
 			const processedRef = collection(db, 'users', currentUser.uid, 'processed');
 
@@ -82,7 +84,7 @@
 
 			await Promise.all(promises);
 			console.log('Deletion completed');
-			
+
 			// Refresh the job store
 			if (currentUser) {
 				jobStore.init(currentUser.uid);
@@ -94,30 +96,29 @@
 			deleting = false;
 		}
 	}
-
 </script>
 
 <div class="flex items-center justify-between p-4">
-    <div class="flex items-center gap-2">
-        <div class="text-2xl font-bold">
-            {$sortedJobs?.length || 0} jobs
-        </div>
-        <button 
-            class="p-2 text-surface-400 hover:text-red-500 transition-colors disabled:opacity-50 rounded-full hover:bg-surface-200"
-            on:click={deleteAllJobs}
-            disabled={deleting}
-            title="Delete all jobs"
-        >
-            <iconify-icon icon="solar:trash-bin-trash-bold" width="20" height="20"></iconify-icon>
-        </button>
-    </div>
+	<div class="flex items-center gap-2">
+		<div class="text-2xl font-bold">
+			{$sortedJobs?.length || 0} jobs
+		</div>
+		<button
+			class="text-surface-400 hover:bg-surface-200 rounded-full p-2 transition-colors hover:text-red-500 disabled:opacity-50"
+			on:click={deleteAllJobs}
+			disabled={deleting}
+			title="Delete all jobs"
+		>
+			<iconify-icon icon="solar:trash-bin-trash-bold" width="20" height="20"></iconify-icon>
+		</button>
+	</div>
 
-    <select
-        value={$sortConfig.column}
-        on:change={handleSortChange}
-        class="w-44 rounded-lg border border-gray-200 bg-white p-2"
-    >
-        <option value="AccumulatedScores.accumulatedScore">Highest Score</option>
-        <option value="generalData.timestamp">Most recent</option>
-    </select>
+	<select
+		value={$sortConfig.column}
+		on:change={handleSortChange}
+		class="w-44 rounded-lg border border-gray-200 bg-white p-2"
+	>
+		<option value="AccumulatedScores.accumulatedScore">Highest Score</option>
+		<option value="generalData.timestamp">Most recent</option>
+	</select>
 </div>
