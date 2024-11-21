@@ -13,7 +13,13 @@
     "https://jobille-45494.web.app/*"
   ],
   "action": {
-    "default_popup": "popup.html"
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "background": {
     "service_worker": "background.js",
@@ -38,5 +44,13 @@
     ]
   },
   "homepage_url": "https://jobille-45494.web.app/privacy",
-  "key": "BgIAAACkAABSU0ExAAgAAAEAAQCdY65GnLce5q4xHTnyKatwJIk8+gbPc5bGnbOpFfI1Z9bnZ3ZPEP8arVY4Agodkh0/VgIWDUqbRNaegQweqwnry4I5QcZh5o+9MGyqDAl1cZw92q1SVAn7eyem0YtZkZ0284bQS2KIfO5BNJw6Qap+wSRJ5dMBeCviPDyIlgGUWxNuGFdeFqE2M5yPyv3Prkt22fvmuv7gL+NFDMARo9VTlEwAoEDPdBpq1DUtn2pgTyesY5Rpq/D/n3FWoh3x+RLK0pONTKtWtF/Tc/s0ccPs7LA8SwDeE4y2q71q33sgW2zcx3sR55OO2k5BeEiXFpTDcLHezkieJI5NUzosGu+u"
+  "key": "BgIAAACkAABSU0ExAAgAAAEAAQCdY65GnLce5q4xHTnyKatwJIk8+gbPc5bGnbOpFfI1Z9bnZ3ZPEP8arVY4Agodkh0/VgIWDUqbRNaegQweqwnry4I5QcZh5o+9MGyqDAl1cZw92q1SVAn7eyem0YtZkZ0284bQS2KIfO5BNJw6Qap+wSRJ5dMBeCviPDyIlgGUWxNuGFdeFqE2M5yPyv3Prkt22fvmuv7gL+NFDMARo9VTlEwAoEDPdBpq1DUtn2pgTyesY5Rpq/D/n3FWoh3x+RLK0pONTKtWtF/Tc/s0ccPs7LA8SwDeE4y2q71q33sgW2zcx3sR55OO2k5BeEiXFpTDcLHezkieJI5NUzosGu+u",
+
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
 }
