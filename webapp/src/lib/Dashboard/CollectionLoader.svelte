@@ -198,7 +198,6 @@
 
 <div class="flex h-full w-full flex-col">
 	<div class="flex items-center justify-between py-2">
-		<ExtensionChecker />
 		<h2 class="m-0 text-xl font-bold">Your resume</h2>
 		{#if resumeUploaded}
 			<div>
@@ -241,6 +240,7 @@
 			</div>
 		{/if}
 	</div>
+	<ExtensionChecker />
 </div>
 
 <style>
