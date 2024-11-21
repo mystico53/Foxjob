@@ -1,10 +1,8 @@
 <!-- ExtensionChecker.svelte -->
 <script>
 	import { onMount } from 'svelte';
+	import { userStateStore, setExtensionStatus } from '../../stores/userStateStore';
 
-	let isProductionInstalled = false;
-	let isDevInstalled = false;
-	let checkComplete = false;
 	const productionId = 'lbncdalbaajjafnpgplghkdaiflfihjp';
 	const developmentId = 'jednpafjmjheknpcfgijkhklhmnifdln';
 
@@ -14,16 +12,15 @@
 
 	async function checkBothExtensions() {
 		try {
+			// Set check as incomplete while checking
+			setExtensionStatus(false, false, false);
+
 			const prodInstalled = await checkExtension(productionId);
 			const devInstalled = await checkExtension(developmentId);
 
-			isProductionInstalled = prodInstalled;
-			isDevInstalled = devInstalled;
-			checkComplete = true;
+			setExtensionStatus(prodInstalled, devInstalled);
 		} catch (e) {
-			isProductionInstalled = false;
-			isDevInstalled = false;
-			checkComplete = true;
+			setExtensionStatus(false, false);
 		}
 	}
 
@@ -54,15 +51,18 @@
 </script>
 
 <div class="p-4">
-	{#if checkComplete}
+	{#if $userStateStore.extension.checkComplete}
 		<p
-			class="text-lg {isProductionInstalled || isDevInstalled ? 'text-green-600' : 'text-red-600'}"
+			class="text-lg {$userStateStore.extension.isProductionInstalled ||
+			$userStateStore.extension.isDevInstalled
+				? 'text-green-600'
+				: 'text-red-600'}"
 		>
-			{#if isProductionInstalled && isDevInstalled}
+			{#if $userStateStore.extension.isProductionInstalled && $userStateStore.extension.isDevInstalled}
 				Extension installed (dev and prod)
-			{:else if isProductionInstalled}
+			{:else if $userStateStore.extension.isProductionInstalled}
 				Extension installed
-			{:else if isDevInstalled}
+			{:else if $userStateStore.extension.isDevInstalled}
 				Extension installed (dev)
 			{:else}
 				Extension is not installed

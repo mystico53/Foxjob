@@ -1,4 +1,4 @@
-// lib/stores/userStateStore.js
+// src/stores/userStateStore.js
 import { writable } from 'svelte/store';
 
 const initialState = {
@@ -6,11 +6,12 @@ const initialState = {
         isUploaded: false,
         fileName: '',
         uploadTime: null
+    },
+    extension: {
+        isProductionInstalled: false,
+        isDevInstalled: false,
+        checkComplete: false
     }
-    // We can add more state here later:
-    // extension: { isInstalled: false },
-    // onboarding: { isComplete: false },
-    // etc.
 };
 
 export const userStateStore = writable(initialState);
@@ -23,6 +24,17 @@ export function setResumeStatus(isUploaded, fileName = '', timestamp = null) {
             isUploaded,
             fileName,
             uploadTime: timestamp
+        }
+    }));
+}
+
+export function setExtensionStatus(isProductionInstalled, isDevInstalled, checkComplete = true) {
+    userStateStore.update(state => ({
+        ...state,
+        extension: {
+            isProductionInstalled,
+            isDevInstalled,
+            checkComplete
         }
     }));
 }
