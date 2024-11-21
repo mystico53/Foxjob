@@ -65,12 +65,9 @@
 	<svelte:fragment slot="trail">
 		<div class="flex items-center gap-4">
 			{#if $authStore}
-				<FeedbackButton />  <!-- Add the feedback button here -->
-				<a 
-					href="/admin" 
-					class="btn btn-sm variant-ghost"
-					title="Admin Panel"
-				>
+				<FeedbackButton />
+				<!-- Add the feedback button here -->
+				<a href="/admin" class="btn btn-sm variant-ghost" title="Admin Panel">
 					<iconify-icon icon="gis:coord-system-3d-alt"></iconify-icon>
 				</a>
 				<button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
@@ -83,7 +80,7 @@
 				<a href="/auth/signin" class="btn btn-sm variant-filled-primary">Login</a>
 			{/if}
 		</div>
-</svelte:fragment>
+	</svelte:fragment>
 </AppBar>
 
 <style>
