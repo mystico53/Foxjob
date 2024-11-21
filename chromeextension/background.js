@@ -312,4 +312,13 @@ chrome.commands.onCommand.addListener((command) => {
   }
 });
 
+chrome.runtime.onMessageExternal.addListener(
+  function(request, sender, sendResponse) {
+      if (request.message === "version") {
+          sendResponse({ version: chrome.runtime.getManifest().version });
+      }
+      return true;  // Important: keeps the message channel open for async response
+  }
+);
+
 console.log('Background script setup complete');
