@@ -5,7 +5,8 @@
 	let isInstalled = false;
 	let checkComplete = false;
 	let debugLog = [];
-	const extensionId = 'lbncdalbaajjafnpgplghkdaiflfihjp';
+	const productionId = 'lbncdalbaajjafnpgplghkdaiflfihjp';
+	const developmentId = 'jednpafjmjheknpcfgijkhklhmnifdln';
 
 	function addDebugLog(message) {
 		debugLog = [...debugLog, { time: new Date().toLocaleTimeString(), message }];
@@ -14,73 +15,96 @@
 
 	onMount(() => {
 		addDebugLog('Component mounted');
-		checkExtension();
+		checkBothExtensions();
 	});
 
-	function checkExtension() {
-		addDebugLog('Starting extension check');
-
-		// Check if chrome exists
-		if (typeof chrome === 'undefined') {
-			addDebugLog('❌ Chrome object is undefined');
-			isInstalled = false;
-			checkComplete = true;
-			return;
-		}
-		addDebugLog('✅ Chrome object exists');
-
-		// Check if runtime exists
-		if (!chrome.runtime) {
-			addDebugLog('❌ chrome.runtime is undefined');
-			isInstalled = false;
-			checkComplete = true;
-			return;
-		}
-		addDebugLog('✅ chrome.runtime exists');
-
-		// Check if sendMessage exists
-		if (!chrome.runtime.sendMessage) {
-			addDebugLog('❌ chrome.runtime.sendMessage is undefined');
-			isInstalled = false;
-			checkComplete = true;
-			return;
-		}
-		addDebugLog('✅ chrome.runtime.sendMessage exists');
+	async function checkBothExtensions() {
+		addDebugLog('Starting extension check for both versions');
 
 		try {
-			addDebugLog(`Attempting to send message to extension: ${extensionId}`);
-
-			chrome.runtime.sendMessage(extensionId, { message: 'version' }, function (reply) {
-				if (chrome.runtime.lastError) {
-					addDebugLog(`❌ Runtime error: ${chrome.runtime.lastError.message}`);
-					isInstalled = false;
-					checkComplete = true;
-					return;
-				}
-
-				if (reply) {
-					addDebugLog(`✅ Received reply from extension: ${JSON.stringify(reply)}`);
-					isInstalled = true;
-				} else {
-					addDebugLog('❌ No reply received from extension');
-					isInstalled = false;
-				}
+			const prodInstalled = await checkExtension(productionId);
+			if (prodInstalled) {
+				addDebugLog('✅ Production extension found!');
+				isInstalled = true;
 				checkComplete = true;
-			});
+				return;
+			}
 
-			// Timeout in case there's no response
-			setTimeout(() => {
-				if (!checkComplete) {
-					addDebugLog('❌ Timeout - no response received after 1000ms');
-					isInstalled = false;
-					checkComplete = true;
-				}
-			}, 1000);
+			const devInstalled = await checkExtension(developmentId);
+			if (devInstalled) {
+				addDebugLog('✅ Development extension found!');
+				isInstalled = true;
+				checkComplete = true;
+				return;
+			}
+
+			addDebugLog('❌ Neither production nor development extension found');
+			isInstalled = false;
+			checkComplete = true;
 		} catch (e) {
-			addDebugLog(`❌ Error caught: ${e.message}`);
+			addDebugLog(`❌ Error in checkBothExtensions: ${e.message}`);
 			isInstalled = false;
 			checkComplete = true;
 		}
+	}
+
+	function checkExtension(extensionId) {
+		return new Promise((resolve) => {
+			addDebugLog(`Checking extension ID: ${extensionId}`);
+
+			// Check if chrome exists
+			if (typeof chrome === 'undefined') {
+				addDebugLog('❌ Chrome object is undefined');
+				resolve(false);
+				return;
+			}
+			addDebugLog('✅ Chrome object exists');
+
+			// Check if runtime exists
+			if (!chrome.runtime) {
+				addDebugLog('❌ chrome.runtime is undefined');
+				resolve(false);
+				return;
+			}
+			addDebugLog('✅ chrome.runtime exists');
+
+			// Check if sendMessage exists
+			if (!chrome.runtime.sendMessage) {
+				addDebugLog('❌ chrome.runtime.sendMessage is undefined');
+				resolve(false);
+				return;
+			}
+			addDebugLog('✅ chrome.runtime.sendMessage exists');
+
+			try {
+				addDebugLog(`Attempting to send message to extension: ${extensionId}`);
+
+				chrome.runtime.sendMessage(extensionId, { message: 'version' }, function (reply) {
+					if (chrome.runtime.lastError) {
+						addDebugLog(`❌ Runtime error for ${extensionId}: ${chrome.runtime.lastError.message}`);
+						resolve(false);
+						return;
+					}
+
+					if (reply) {
+						addDebugLog(`✅ Received reply from ${extensionId}: ${JSON.stringify(reply)}`);
+						resolve(true);
+					} else {
+						addDebugLog(`❌ No reply received from ${extensionId}`);
+						resolve(false);
+					}
+				});
+
+				// Timeout in case there's no response
+				setTimeout(() => {
+					resolve(false);
+					addDebugLog(`❌ Timeout - no response received from ${extensionId} after 1000ms`);
+				}, 1000);
+			} catch (e) {
+				addDebugLog(`❌ Error caught for ${extensionId}: ${e.message}`);
+				resolve(false);
+			}
+		});
 	}
 </script>
 
@@ -112,7 +136,7 @@
 		on:click={() => {
 			debugLog = [];
 			checkComplete = false;
-			checkExtension();
+			checkBothExtensions();
 		}}
 	>
 		Check Again

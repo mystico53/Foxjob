@@ -5,37 +5,41 @@ export const FIREBASE_CONFIG = {
   useEmulator: false
 };
 
-// Helper function to check if emulator is running
-export async function isEmulatorRunning() {
-  try {
-    const response = await fetch(FIREBASE_CONFIG.emulatorUrl, {
-      method: 'OPTIONS'
-    });
-    return response.status === 204 || response.ok;
-  } catch {
-    return false;
-  }
+// Function to check if we're in development version
+export async function isDevelopmentVersion() {
+  const manifest = chrome.runtime.getManifest();
+  const version = parseFloat(manifest.version);
+  console.log('Current version:', version);
+  return version >= 2.0;  // Development versions are 2.0 and above
 }
 
 // Function to update extension icon
 export async function updateExtensionIcon() {
-  const isEmulator = await isEmulatorRunning();
-  
-  // Use different icons based on emulator status
-  const iconPath = isEmulator ? {
-    "16": "icons/E_icon16.png",
-    "32": "icons/E_icon32.png",
-    "48": "icons/E_icon48.png",
-    "128": "icons/E_icon128.png"
-  } : {
-    "16": "icons/icon16.png",
-    "32": "icons/icon32.png",
-    "48": "icons/icon48.png",
-    "128": "icons/icon128.png"
-  };
+  console.log('Starting icon update process...');
+  try {
+    const isDev = await isDevelopmentVersion();
+    console.log('Is development version?', isDev);
+    
+    // Use different icons based on version
+    const iconPath = isDev ? {
+      "16": "icons/E_icon16.png",
+      "32": "icons/E_icon32.png",
+      "48": "icons/E_icon48.png",
+      "128": "icons/E_icon128.png"
+    } : {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    };
 
-  // Update the extension icon
-  chrome.action.setIcon({ path: iconPath });
+    console.log('Setting icon path to:', iconPath);
+    await chrome.action.setIcon({ path: iconPath });
+    console.log('Icon update completed successfully');
+  } catch (error) {
+    console.error('Error updating icon:', error);
+    throw error;
+  }
 }
 
 // Function to get the appropriate URL based on environment
