@@ -15,7 +15,6 @@
 	} from 'firebase/firestore';
 	import ExtensionChecker from '$lib/Dashboard/ExtensionChecker.svelte';
 	import { setResumeStatus } from '../../stores/userStateStore';
-	import OnboardingProgress from '$lib/onboarding/OnboardingProgress.svelte';
 
 	let pdfjsLib;
 	let isLibraryLoaded = false;
@@ -249,7 +248,6 @@
 		{/if}
 	</div>
 	<ExtensionChecker />
-	<OnboardingProgress />
 </div>
 
 <style>
