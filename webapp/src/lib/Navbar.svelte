@@ -1,6 +1,6 @@
 <script>
 	import { page } from '$app/stores';
-	import { authStore } from '../stores/authStore';
+	import { authStore } from '$lib/stores/authStore';
 	import { AppBar, Avatar } from '@skeletonlabs/skeleton';
 	import { goto } from '$app/navigation';
 	import foxIcon from '../assets/Fox_Icon_128x128-nobg.png';

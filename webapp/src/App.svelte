@@ -1,7 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { auth } from '$lib/firebase';
-	import { user } from './stores/authStore';
+	import { user } from '$/lib/stores/authStore';
 	import { onAuthStateChanged } from 'firebase/auth';
 	import { Router, Route, navigate } from 'svelte-routing';
 	import Login from './Login.svelte';

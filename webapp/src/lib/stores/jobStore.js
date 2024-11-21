@@ -1,5 +1,5 @@
 import { writable, derived } from 'svelte/store';
-import { db } from './firebase';
+import { db } from '$lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
 
 // Create the main stores
