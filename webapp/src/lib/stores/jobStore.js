@@ -95,7 +95,6 @@ function createJobStore() {
                     async (jobsSnapshot) => {
                         const jobPromises = jobsSnapshot.docs.map(async (jobDoc) => {
                             const jobDataRaw = jobDoc.data();
-                            console.log("Raw job data:", jobDataRaw);
                             
                             // Return early for any processing-related status
                             if (jobDataRaw.generalData?.processingStatus) {
