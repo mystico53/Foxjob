@@ -20,25 +20,22 @@ const getNestedValue = (obj, path) => {
 const sortedJobs = derived(
     [jobs, sortConfig, searchText],
     ([$jobs, $sortConfig, $searchText]) => {
-        // First filter by search text
         let filteredJobs = $jobs;
         if ($searchText) {
             const searchLower = $searchText.toLowerCase();
             filteredJobs = $jobs.filter(job => {
                 return (
-                    job.companyInfo?.name?.toLowerCase().includes(searchLower) ||
-                    job.jobInfo?.jobTitle?.toLowerCase().includes(searchLower) ||
-                    job.jobInfo?.description?.toLowerCase().includes(searchLower)
+                    job?.companyInfo?.name?.toLowerCase()?.includes(searchLower) ||
+                    job?.jobInfo?.jobTitle?.toLowerCase()?.includes(searchLower) ||
+                    job?.jobInfo?.description?.toLowerCase()?.includes(searchLower)
                 );
             });
         }
 
-        // Then sort the filtered results
         return [...filteredJobs].sort((a, b) => {
             const aValue = getNestedValue(a, $sortConfig.column);
             const bValue = getNestedValue(b, $sortConfig.column);
 
-            // Handle special cases first
             if ($sortConfig.column === 'generalData.timestamp') {
                 const aDate = aValue?.toDate?.() || new Date(0);
                 const bDate = bValue?.toDate?.() || new Date(0);
@@ -51,20 +48,16 @@ const sortedJobs = derived(
                 return $sortConfig.direction === 'desc' ? scoreB - scoreA : scoreA - scoreB;
             }
 
-            // Handle string comparisons (for status and company name)
             const valA = (aValue || '').toLowerCase();
             const valB = (bValue || '').toLowerCase();
             
-            if ($sortConfig.direction === 'asc') {
-                return valA.localeCompare(valB);
-            } else {
-                return valB.localeCompare(valA);
-            }
+            return $sortConfig.direction === 'asc' ? 
+                valA.localeCompare(valB) : 
+                valB.localeCompare(valA);
         });
     }
 );
 
-// Store actions
 function createJobStore() {
     let unsubscribeJobs = null;
 
@@ -84,57 +77,45 @@ function createJobStore() {
                     jobsQuery,
                     async (jobsSnapshot) => {
                         const jobPromises = jobsSnapshot.docs.map(async (jobDoc) => {
-                            const jobDataRaw = jobDoc.data();
-                            const summarizedData = jobDataRaw.summarized;
-                            const scoreData = jobDataRaw.Score;
+                            const jobDataRaw = jobDoc.data() || {};
 
-                            if (!summarizedData || !scoreData) return null;
-
-                            const matchResult = {
-                                keySkills: [],
-                                totalScore: scoreData.totalScore || 0,
-                                summary: scoreData.summary || ''
-                            };
-
-                            Object.keys(scoreData).forEach((key) => {
-                                if (key.startsWith('Requirement')) {
-                                    const req = scoreData[key];
-                                    matchResult.keySkills.push({
-                                        skill: req.requirement,
-                                        score: req.score,
-                                        assessment: req.assessment
-                                    });
-                                }
-                            });
-
+                            // Create the job object with all fields optional
                             return {
                                 id: jobDoc.id,
-                                ...summarizedData,
+                                ...jobDataRaw.summarized,
                                 generalData: {
                                     ...jobDataRaw.generalData,
-                                    status: jobDataRaw.generalData?.status || '',
-                                    processingStatus: jobDataRaw.generalData?.processingStatus || 'pending'
+                                    status: jobDataRaw.generalData?.status,
+                                    processingStatus: jobDataRaw.generalData?.processingStatus,
+                                    hidden: jobDataRaw.generalData?.hidden,
+                                    timestamp: jobDataRaw.generalData?.timestamp
                                 },
-                                Score: scoreData,
-                                matchResult: matchResult,
+                                Score: jobDataRaw.Score || {},
+                                matchResult: {
+                                    keySkills: jobDataRaw.Score ? 
+                                        Object.keys(jobDataRaw.Score)
+                                            .filter(key => key.startsWith('Requirement'))
+                                            .map(key => ({
+                                                skill: jobDataRaw.Score[key]?.requirement,
+                                                score: jobDataRaw.Score[key]?.score,
+                                                assessment: jobDataRaw.Score[key]?.assessment
+                                            })) : [],
+                                    totalScore: jobDataRaw.Score?.totalScore,
+                                    summary: jobDataRaw.Score?.summary
+                                },
                                 SkillAssessment: {
                                     DomainExpertise: jobDataRaw.SkillAssessment?.DomainExpertise || {},
                                     Hardskills: jobDataRaw.SkillAssessment?.Hardskills || {},
                                     Softskills: jobDataRaw.SkillAssessment?.Softskills || {}
                                 },
-                                verdict: jobDataRaw.verdict || null,
-                                AccumulatedScores: jobDataRaw.AccumulatedScores || {
-                                    accumulatedScore: 0,
-                                    domainScore: 0,
-                                    hardSkillScore: 0,
-                                    requirementScore: 0,
-                                    verdictScore: 0
-                                }
-                            }; 
+                                verdict: jobDataRaw.verdict,
+                                AccumulatedScores: jobDataRaw.AccumulatedScores || {}
+                            };
                         });
 
                         const jobResults = await Promise.all(jobPromises);
-                        set(jobResults.filter(job => job !== null));
+                        // Remove the filter that was excluding null jobs
+                        set(jobResults);
                         loading.set(false);
                     },
                     (err) => {

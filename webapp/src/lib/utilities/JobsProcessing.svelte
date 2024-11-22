@@ -6,6 +6,11 @@
     let user = null;
     let unsubscribeAuth = null;
 
+    // Compute filtered jobs
+    $: filteredJobs = $jobStore.filter(job => 
+        ['processing', 'cancelled'].includes(job.generalData?.processingStatus)
+    );
+
     onMount(() => {
         unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
             user = currentUser;
@@ -38,7 +43,7 @@
                 </tr>
             </thead>
             <tbody>
-                {#each $jobStore as job}
+                {#each filteredJobs as job}
                     <tr>
                         <td>{job.id}</td>
                         <td>{user.uid}</td>
