@@ -56,7 +56,6 @@ const { matchHardSkills } = require('./pubsub/matchHardSkills.js');
 const { matchDomainExpertise } = require('./pubsub/matchDomainExpertise.js');
 const { finalVerdict } = require('./pubsub/finalVerdict.js');
 const { embeddingMatch } = require('./pubsub/embeddingMatch.js'); 
-const { retryJobProcessing } = require('./retryJobProcessing.js');
 
 // Export all Cloud Functions
 
@@ -75,4 +74,3 @@ exports.matchHardSkills = matchHardSkills;
 exports.matchDomainExpertise = matchDomainExpertise;
 exports.finalVerdict = finalVerdict;
 exports.embeddingMatch = embeddingMatch;
-exports.retryJobProcessing = retryJobProcessing;
