@@ -13,16 +13,37 @@
     );
 
     async function handleRetry(jobId) {
-        if (!user) return;
-        try {
-            const jobRef = doc(db, 'users', user.uid, 'jobs', jobId);
-            await updateDoc(jobRef, {
-                'generalData.processingStatus': 'retrying'
-            });
-        } catch (err) {
-            console.error('Failed to retry job:', err);
-        }
+    if (!user) return;
+    try {
+        // First update Firestore status
+        const jobRef = doc(db, 'users', user.uid, 'jobs', jobId);
+        await updateDoc(jobRef, {
+            'generalData.processingStatus': 'retrying'
+        });
+
+        // Call the cloud function with the data
+        const response = await fetch('https://retryprocessing-kvshkfhmua-uc.a.run.app', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                jobId: jobId,
+                userId: user.uid
+            })
+        });
+
+        const result = await response.json();
+        console.log('Cloud function response:', result);
+
+    } catch (err) {
+        console.error('Error in handleRetry:', err);
+        const jobRef = doc(db, 'users', user.uid, 'jobs', jobId);
+        await updateDoc(jobRef, {
+            'generalData.processingStatus': 'cancelled'
+        });
     }
+}
 
     onMount(() => {
         unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
