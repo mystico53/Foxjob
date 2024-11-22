@@ -1,4 +1,3 @@
-// src/lib/stores/jobStore.js
 import { writable, derived } from 'svelte/store';
 import { db } from '$lib/firebase';
 import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
@@ -16,15 +15,6 @@ const searchText = writable('');
 const getNestedValue = (obj, path) => {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 };
-
-// Add new derived store for processing jobs
-const processingJobs = derived(
-    jobs,
-    $jobs => $jobs.filter(job => {
-        const status = job.generalData?.processingStatus;
-        return status === 'processing' || status === 'cancelled' || status === 'error';
-    })
-);
 
 // Derived store for sorted and filtered jobs
 const sortedJobs = derived(
@@ -95,21 +85,7 @@ function createJobStore() {
                     async (jobsSnapshot) => {
                         const jobPromises = jobsSnapshot.docs.map(async (jobDoc) => {
                             const jobDataRaw = jobDoc.data();
-                            
-                            // Return early for any processing-related status
-                            if (jobDataRaw.generalData?.processingStatus) {
-                                return {
-                                    id: jobDoc.id,
-                                    generalData: {
-                                        ...jobDataRaw.generalData,
-                                        status: jobDataRaw.generalData?.status || '',
-                                        url: jobDataRaw.generalData?.url || '',
-                                        timestamp: jobDataRaw.generalData?.timestamp,
-                                        processingStatus: jobDataRaw.generalData?.processingStatus
-                                    }
-                                };
-                            }
-                            
+                            console.log("Raw job data:", jobDataRaw);
                             const summarizedData = jobDataRaw.summarized;
                             const scoreData = jobDataRaw.Score;
 
@@ -202,39 +178,9 @@ function createJobStore() {
             set([]);
             loading.set(true);
             error.set(null);
-        },
-
-        updateProcessingStatus: async (userId, jobId, newStatus) => {
-            try {
-                const jobRef = doc(db, 'users', userId, 'jobs', jobId);
-                await updateDoc(jobRef, { 
-                    'generalData.processingStatus': newStatus 
-                });
-            } catch (err) {
-                error.set('Failed to update processing status');
-                throw err;
-            }
-        },
-
-        cancelProcessing: async (userId, jobId) => {
-            try {
-                await updateProcessingStatus(userId, jobId, 'cancelled');
-            } catch (err) {
-                error.set('Failed to cancel processing');
-                throw err;
-            }
-        },
-
-        retryProcessing: async (userId, jobId) => {
-            try {
-                await updateProcessingStatus(userId, jobId, 'processing');
-            } catch (err) {
-                error.set('Failed to retry processing');
-                throw err;
-            }
         }
     };
 }
 
 export const jobStore = createJobStore();
-export { sortedJobs, processingJobs, loading, error, sortConfig, searchText };
+export { sortedJobs, loading, error, sortConfig, searchText };
