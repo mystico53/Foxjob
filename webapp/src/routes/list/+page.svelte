@@ -3,14 +3,12 @@
 	import CollectionLoader from '$lib/Dashboard/CollectionLoader.svelte';
 	import JobCountGraph from '$lib/Dashboard/JobCountGraph.svelte';
 	import OnboardingProgress from '$lib/onboarding/OnboardingProgress.svelte';
-	import JobsProcessing from '$lib/utilities/JobsProcessing.svelte';
 </script>
 
 <!-- Parent container -->
 <div class="container mx-auto w-full p-4 lg:w-3/4 xl:w-1/2">
 	<!-- Made container smaller -->
 	<OnboardingProgress />
-	<JobsProcessing />
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 		<!-- Left Column -->
 		<div class="card p-4">
