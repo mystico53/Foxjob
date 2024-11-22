@@ -2,14 +2,27 @@
     import { onMount, onDestroy } from 'svelte';
     import { auth } from '$lib/firebase';
     import { jobStore, loading, error } from '$lib/stores/jobStore';
+    import { db } from '$lib/firebase';
+    import { doc, updateDoc } from 'firebase/firestore';
 
     let user = null;
     let unsubscribeAuth = null;
 
-    // Compute filtered jobs
     $: filteredJobs = $jobStore.filter(job => 
-        ['processing', 'cancelled'].includes(job.generalData?.processingStatus)
+        ['processing', 'cancelled', 'retrying'].includes(job.generalData?.processingStatus)
     );
+
+    async function handleRetry(jobId) {
+        if (!user) return;
+        try {
+            const jobRef = doc(db, 'users', user.uid, 'jobs', jobId);
+            await updateDoc(jobRef, {
+                'generalData.processingStatus': 'retrying'
+            });
+        } catch (err) {
+            console.error('Failed to retry job:', err);
+        }
+    }
 
     onMount(() => {
         unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
@@ -40,6 +53,7 @@
                     <th>Job ID</th>
                     <th>User ID</th>
                     <th>Processing Status</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -48,6 +62,11 @@
                         <td>{job.id}</td>
                         <td>{user.uid}</td>
                         <td>{job.generalData?.processingStatus || 'pending'}</td>
+                        <td>
+                            <button on:click={() => handleRetry(job.id)}>
+                                Retry
+                            </button>
+                        </td>
                     </tr>
                 {/each}
             </tbody>
