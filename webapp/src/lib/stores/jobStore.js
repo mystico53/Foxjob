@@ -112,7 +112,8 @@ function createJobStore() {
                                 ...summarizedData,
                                 generalData: {
                                     ...jobDataRaw.generalData,
-                                    status: jobDataRaw.generalData?.status || ''
+                                    status: jobDataRaw.generalData?.status || '',
+                                    processingStatus: jobDataRaw.generalData?.processingStatus || 'pending'
                                 },
                                 Score: scoreData,
                                 matchResult: matchResult,
