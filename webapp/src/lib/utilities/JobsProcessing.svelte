@@ -4,11 +4,7 @@
 	import { ProgressRadial } from '@skeletonlabs/skeleton';
 	import { getAuth } from 'firebase/auth';
 	import { db } from '$lib/firebase';
-	import { doc, updateDoc, getDoc } from 'firebase/firestore';
-	import { getFunctions, httpsCallable } from 'firebase/functions';
-
-	const functions = getFunctions();
-	const retryJobProcessing = httpsCallable(functions, 'retryJobProcessing');
+	import { doc, updateDoc } from 'firebase/firestore';
 
 	async function updateProcessingStatus(jobId, newStatus) {
 		try {
@@ -32,30 +28,8 @@
 		await updateProcessingStatus(jobId, 'cancelled');
 	}
 
-	async function retryProcessing(job) {
-		try {
-			const auth = getAuth();
-			const userId = auth.currentUser?.uid;
-
-			if (!userId) {
-				throw new Error('No user logged in');
-			}
-
-			console.log('Retrying job processing with:', {
-				jobId: job.id
-			});
-
-			// Call the Cloud Function with just the IDs
-			const result = await retryJobProcessing({
-				jobId: job.id,
-				googleId: userId
-			});
-
-			console.log('Retry initiated:', result);
-		} catch (err) {
-			console.error('Failed to retry processing:', err);
-			await updateProcessingStatus(job.id, 'error');
-		}
+	async function retryProcessing(jobId) {
+		await updateProcessingStatus(jobId, 'processing');
 	}
 
 	function getStatusColor(status) {
@@ -97,7 +71,10 @@
 					<tbody>
 						{#each $processingJobs as job (job.id)}
 							<tr>
+								<!-- ID -->
 								<td class="font-mono text-sm">{job.id}</td>
+
+								<!-- Status with spinner -->
 								<td>
 									<div class="flex items-center gap-2">
 										<span class="badge {getStatusColor(job.generalData?.processingStatus)}">
@@ -108,11 +85,15 @@
 										{/if}
 									</div>
 								</td>
+
+								<!-- Timestamp -->
 								<td class="text-sm">
 									{#if job.generalData.timestamp}
 										{new Date(job.generalData.timestamp?.toDate()).toLocaleString()}
 									{/if}
 								</td>
+
+								<!-- Actions -->
 								<td class="text-right">
 									<div class="flex justify-end gap-2">
 										{#if job.generalData?.processingStatus === 'processing'}
@@ -125,7 +106,7 @@
 										{:else}
 											<button
 												class="btn variant-filled-success btn-sm"
-												on:click={() => retryProcessing(job)}
+												on:click={() => retryProcessing(job.id)}
 											>
 												Retry
 											</button>
@@ -146,20 +127,24 @@
 {/if}
 
 <style>
+	/* Add some padding to table cells */
 	td {
 		padding: 0.75rem 1rem;
 	}
 
+	/* Keep table headers aligned with content */
 	th {
 		padding: 0.75rem 1rem;
 		text-align: left;
 		font-weight: bold;
 	}
 
+	/* Ensure the table takes full width */
 	table {
 		width: 100%;
 	}
 
+	/* Add hover effect to rows */
 	tr:hover {
 		background-color: rgb(var(--color-surface-500) / 0.1);
 	}
