@@ -3,13 +3,15 @@
     import { auth } from '$lib/firebase';
     import { jobStore, loading, error } from '$lib/stores/jobStore';
     import { db } from '$lib/firebase';
-    import { doc, updateDoc } from 'firebase/firestore';
+    import { doc, getDoc, updateDoc } from 'firebase/firestore';
+    import { ProgressRadial } from '@skeletonlabs/skeleton';
 
     let user = null;
     let unsubscribeAuth = null;
     let currentPage = 1;
     let rowsPerPage = 10;
     let searchText = '';
+    let processingJobs = new Set();
 
     $: filteredJobs = $jobStore.filter(job => 
         ['processing', 'cancelled', 'retrying'].includes(job.generalData?.processingStatus) &&
@@ -31,7 +33,10 @@
     }
 
     async function handleRetry(jobId) {
-        if (!user) return;
+    if (!user || processingJobs.has(jobId)) return;
+    
+    processingJobs = processingJobs.add(jobId); // Using reassignment for reactivity
+    
         try {
             const jobRef = doc(db, 'users', user.uid, 'jobs', jobId);
             await updateDoc(jobRef, {
@@ -49,22 +54,29 @@
                 })
             });
 
-            const result = await response.json();
-            console.log('Retry initiated - Response:', {
-                success: result.success,
-                messageId: result.messageId,
-                docId: result.docId,
-                timestamp: result.timestamp
-            });
-
+            // Poll until status is completed
+            while (true) {
+                const docSnap = await getDoc(jobRef);
+                const status = docSnap.data()?.generalData?.processingStatus;
+                
+                if (status === 'completed') break;
+                if (status === 'cancelled' || status === 'error') {
+                    throw new Error(`Job failed with status: ${status}`);
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every second
+            }
+            
         } catch (err) {
             console.error('Error in handleRetry:', err);
             const jobRef = doc(db, 'users', user.uid, 'jobs', jobId);
             await updateDoc(jobRef, {
                 'generalData.processingStatus': 'cancelled'
             });
+        } finally {
+            processingJobs = new Set([...processingJobs].filter(id => id !== jobId)); // Reactive removal
         }
-    }
+    }   
 
     onMount(() => {
         unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
@@ -83,21 +95,10 @@
 
 <div class="container mx-auto w-full max-w-7xl px-4">
     <div class="mb-4 flex items-center justify-between">
-        <h2 class="text-xl font-bold">Processing Status</h2>
-        <div class="flex items-center gap-4">
-            <div class="relative w-64">
-                <iconify-icon
-                    icon="gravity-ui:magnifier"
-                    class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"
-                ></iconify-icon>
-                <input
-                    type="search"
-                    bind:value={searchText}
-                    placeholder="Search jobs"
-                    class="w-full rounded-md border border-gray-300 py-2 pl-10"
-                />
-            </div>
+        <div class="flex items-center gap-2">
+            <h2 class="text-xl font-bold">Debug Processing Pipeline</h2>
         </div>
+
     </div>
 
     <div class="space-y-4">
@@ -128,8 +129,13 @@
                                     <button 
                                         class="btn btn-sm variant-ghost-tertiary"
                                         on:click={() => handleRetry(job.id)}
+                                        disabled={processingJobs.has(job.id)}
                                     >
-                                        Repair
+                                        {#if processingJobs.has(job.id)}
+                                            <ProgressRadial value={undefined} width="w-2"/>
+                                        {:else}
+                                            Repair
+                                        {/if}
                                     </button>
                                 </td>
                             </tr>
