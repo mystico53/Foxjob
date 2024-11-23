@@ -91,6 +91,19 @@
         if (unsubscribeAuth) unsubscribeAuth();
         jobStore.cleanup();
     });
+
+    function formatDate(timestamp) {
+        if (timestamp && timestamp.toDate) {
+            const date = timestamp.toDate();
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = String(date.getFullYear()).slice(-2);
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}.${month}.${year}, ${hours}:${minutes}`;
+        }
+        return 'N/A';
+    }
 </script>
 
 <div class="container mx-auto w-full max-w-7xl px-4">
@@ -113,17 +126,17 @@
                 <table class="table-compact table w-full">
                     <thead>
                         <tr class="bg-tertiary-500">
-                            <th class="w-[30%]">Job ID</th>
-                            <th class="w-[30%]">User ID</th>
-                            <th class="w-[20%]">Processing Status</th>
-                            <th class="w-[20%]">Actions</th>
+                            <th class="w-[40%]">Job ID</th>
+                            <th class="w-[30%]">Date</th>
+                            <th class="w-[15%]">Processing Status</th>
+                            <th class="w-[15%]">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {#each paginatedJobs as job}
                             <tr>
                                 <td>{job.id}</td>
-                                <td>{user.uid}</td>
+                                <td>{formatDate(job.generalData?.timestamp)}</td>
                                 <td>{job.generalData?.processingStatus || 'pending'}</td>
                                 <td>
                                     <button 
