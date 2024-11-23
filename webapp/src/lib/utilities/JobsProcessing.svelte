@@ -34,7 +34,12 @@
         });
 
         const result = await response.json();
-        console.log('Cloud function response:', result);
+        console.log('Retry initiated - Response:', {
+            success: result.success,
+            messageId: result.messageId,
+            docId: result.docId,
+            timestamp: result.timestamp
+        });
 
     } catch (err) {
         console.error('Error in handleRetry:', err);
