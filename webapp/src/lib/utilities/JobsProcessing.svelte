@@ -107,93 +107,95 @@
 </script>
 
 <div class="container mx-auto w-full max-w-7xl px-4">
-    <div class="mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-2">
-            <h2 class="text-xl font-bold">Debug Processing Pipeline</h2>
+    {#if filteredJobs.length > 0}
+        <div class="mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <h2 class="text-xl font-bold">Debug Processing Pipeline</h2>
+            </div>
+
         </div>
 
-    </div>
-
-    <div class="space-y-4">
-        {#if $loading}
-            <p class="text-center">Loading...</p>
-        {:else if $error}
-            <p class="text-error text-center">{$error}</p>
-        {:else if !user}
-            <p class="text-center">Please sign in to view processing status.</p>
-        {:else}
-            <div class="table-container card">
-                <table class="table-compact table w-full">
-                    <thead>
-                        <tr class="bg-tertiary-500">
-                            <th class="w-[40%]">Job ID</th>
-                            <th class="w-[30%]">Date</th>
-                            <th class="w-[15%]">Processing Status</th>
-                            <th class="w-[15%]">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {#each paginatedJobs as job}
+        <div class="space-y-4">
+            {#if $loading}
+                <p class="text-center">Loading...</p>
+            {:else if $error}
+                <p class="text-error text-center">{$error}</p>
+            {:else if !user}
+                <p class="text-center">Please sign in to view processing status.</p>
+            {:else}
+                <div class="table-container card">
+                    <table class="table-compact table w-full">
+                        <thead>
+                            <tr class="bg-tertiary-500">
+                                <th class="w-[40%]">Job ID</th>
+                                <th class="w-[30%]">Date</th>
+                                <th class="w-[15%]">Processing Status</th>
+                                <th class="w-[15%]">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {#each paginatedJobs as job}
+                                <tr>
+                                    <td>{job.id}</td>
+                                    <td>{formatDate(job.generalData?.timestamp)}</td>
+                                    <td>{job.generalData?.processingStatus || 'pending'}</td>
+                                    <td>
+                                        <button 
+                                            class="btn btn-sm variant-ghost-tertiary"
+                                            on:click={() => handleRetry(job.id)}
+                                            disabled={processingJobs.has(job.id)}
+                                        >
+                                            {#if processingJobs.has(job.id)}
+                                                <ProgressRadial value={undefined} width="w-2"/>
+                                            {:else}
+                                                Repair
+                                            {/if}
+                                        </button>
+                                    </td>
+                                </tr>
+                            {/each}
+                        </tbody>
+                        <tfoot>
                             <tr>
-                                <td>{job.id}</td>
-                                <td>{formatDate(job.generalData?.timestamp)}</td>
-                                <td>{job.generalData?.processingStatus || 'pending'}</td>
-                                <td>
-                                    <button 
-                                        class="btn btn-sm variant-ghost-tertiary"
-                                        on:click={() => handleRetry(job.id)}
-                                        disabled={processingJobs.has(job.id)}
-                                    >
-                                        {#if processingJobs.has(job.id)}
-                                            <ProgressRadial value={undefined} width="w-2"/>
-                                        {:else}
-                                            Repair
-                                        {/if}
-                                    </button>
+                                <td colspan="4" class="!p-2">
+                                    <div class="relative flex h-8 items-center justify-center">
+                                        <div class="absolute left-0">
+                                            <span class="text-gray-400">
+                                                Showing {Math.min((currentPage - 1) * rowsPerPage + 1, filteredJobs.length)} - {Math.min(
+                                                    currentPage * rowsPerPage,
+                                                    filteredJobs.length
+                                                )} <span class="lowercase">of</span>
+                                                {filteredJobs.length} entries
+                                            </span>
+                                        </div>
+                                        <div class="flex items-center gap-1">
+                                            <button
+                                                class="btn btn-sm variant-soft h-6 min-h-0 !py-0"
+                                                on:click={previousPage}
+                                                disabled={currentPage === 1}
+                                            >
+                                                <iconify-icon icon="solar:map-arrow-left-bold" width="20" height="20"
+                                                ></iconify-icon>
+                                            </button>
+                                            <span class="flex items-center px-2 lowercase">
+                                                Page {currentPage} of {totalPages}
+                                            </span>
+                                            <button
+                                                class="btn btn-sm variant-soft h-6 min-h-0 !py-0"
+                                                on:click={nextPage}
+                                                disabled={currentPage === totalPages}
+                                            >
+                                                <iconify-icon icon="solar:map-arrow-right-bold" width="20" height="20"
+                                                ></iconify-icon>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </td>
                             </tr>
-                        {/each}
-                    </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="4" class="!p-2">
-                                <div class="relative flex h-8 items-center justify-center">
-                                    <div class="absolute left-0">
-                                        <span class="text-gray-400">
-                                            Showing {Math.min((currentPage - 1) * rowsPerPage + 1, filteredJobs.length)} - {Math.min(
-                                                currentPage * rowsPerPage,
-                                                filteredJobs.length
-                                            )} <span class="lowercase">of</span>
-                                            {filteredJobs.length} entries
-                                        </span>
-                                    </div>
-                                    <div class="flex items-center gap-1">
-                                        <button
-                                            class="btn btn-sm variant-soft h-6 min-h-0 !py-0"
-                                            on:click={previousPage}
-                                            disabled={currentPage === 1}
-                                        >
-                                            <iconify-icon icon="solar:map-arrow-left-bold" width="20" height="20"
-                                            ></iconify-icon>
-                                        </button>
-                                        <span class="flex items-center px-2 lowercase">
-                                            Page {currentPage} of {totalPages}
-                                        </span>
-                                        <button
-                                            class="btn btn-sm variant-soft h-6 min-h-0 !py-0"
-                                            on:click={nextPage}
-                                            disabled={currentPage === totalPages}
-                                        >
-                                            <iconify-icon icon="solar:map-arrow-right-bold" width="20" height="20"
-                                            ></iconify-icon>
-                                        </button>
-                                    </div>
-                                </div>
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
-            </div>
-        {/if}
-    </div>
+                        </tfoot>
+                    </table>
+                </div>
+            {/if}
+        </div>
+    {/if}
 </div>
