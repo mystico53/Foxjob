@@ -10,7 +10,7 @@
 <div class="container mx-auto w-full p-4 lg:w-3/4 xl:w-1/2">
 	<!-- Made container smaller -->
 	<OnboardingProgress />
-	<JobsProcessing />
+	
 	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 		<!-- Left Column -->
 		<div class="card p-4">
@@ -27,5 +27,6 @@
 	<!-- Datatable below the columns -->
 	<div class="card mt-4 pt-6">
 		<Datatable />
+		<JobsProcessing />
 	</div>
 </div>
