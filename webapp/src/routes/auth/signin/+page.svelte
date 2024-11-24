@@ -1,44 +1,127 @@
 <script>
-    import { onMount } from 'svelte';
-    import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
-    import { app, auth as importedAuth } from '$lib/firebase.js';
-  
-    let auth;
-    let provider;
-  
-    onMount(() => {
-      // Initialize Firebase Auth
-      
-      auth = importedAuth || getAuth(app);
-      provider = new GoogleAuthProvider();
-  
-      // Reference to the parent frame's origin
-      const parentOrigin = 'chrome-extension://jednpafjmjheknpcfgijkhklhmnifdln'; // TODO: Replace with your actual extension ID
-  
-      // Function to send response back to the parent frame
-      function sendResponse(result) {
-        window.parent.postMessage(JSON.stringify(result), parentOrigin);
-      }
-  
-      // Listen for messages from the parent frame to initiate authentication
-      window.addEventListener('message', function(event) {
-        const { data } = event;
-  
-        if (data.initAuth) {
-          signInWithPopup(auth, provider)
-            .then((userCredential) => {
-              // Successful authentication
-              sendResponse({ user: userCredential.user });
-            })
-            .catch((error) => {
-              // Handle Errors here.
-              sendResponse({ error: { code: error.code, message: error.message } });
-            });
-        }
-      });
-    });
-  </script>
-  
-  <main>
-    <h1>Authenticating...</h1>
-  </main>
+	import { onMount } from 'svelte';
+	import { getAuth, signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
+	import { app, auth as importedAuth } from '$lib/firebase.js';
+
+	let auth;
+	let provider;
+	let debugLog = [];
+	let showDebugPanel = true;
+
+	function addToLog(message, type = 'info') {
+		const timestamp = new Date().toLocaleTimeString();
+		debugLog = [...debugLog, { message, timestamp, type }];
+		console.log(`[Auth Debug ${timestamp}]:`, message);
+	}
+
+	onMount(() => {
+		addToLog('🟢 Auth Page Loaded', 'success');
+
+		auth = importedAuth || getAuth(app);
+		provider = new GoogleAuthProvider();
+
+		// Listen for ANY message from chrome extensions
+		window.addEventListener('message', function (event) {
+			// Log the origin for debugging
+			addToLog(`Received message from origin: ${event.origin}`, 'info');
+
+			// Check if it's coming from a Chrome extension
+			if (!event.origin.startsWith('chrome-extension://')) {
+				addToLog(`Ignored message from non-extension origin: ${event.origin}`, 'warning');
+				return;
+			}
+
+			try {
+				const { data } = event;
+				addToLog(`Received data: ${JSON.stringify(data)}`, 'info');
+
+				if (data && data.initAuth) {
+					addToLog('🔑 Initiating auth!', 'success');
+
+					signInWithPopup(auth, provider)
+						.then((userCredential) => {
+							addToLog('✅ Auth successful!', 'success');
+
+							// Send response back to the extension
+							try {
+								window.parent.postMessage(
+									JSON.stringify({ user: userCredential.user }),
+									event.origin // Send back to the same origin that sent us the message
+								);
+								addToLog('↩️ Response sent back to: ' + event.origin, 'success');
+							} catch (error) {
+								addToLog(`Error sending response: ${error.message}`, 'error');
+							}
+						})
+						.catch((error) => {
+							addToLog(`❌ Auth error: ${error.message}`, 'error');
+							try {
+								window.parent.postMessage(
+									JSON.stringify({ error: { code: error.code, message: error.message } }),
+									event.origin
+								);
+							} catch (sendError) {
+								addToLog(`Error sending error response: ${sendError.message}`, 'error');
+							}
+						});
+				}
+			} catch (error) {
+				addToLog(`❌ Error processing message: ${error.message}`, 'error');
+			}
+		});
+
+		addToLog('👂 Event listener setup complete', 'success');
+	});
+</script>
+
+<main class="container mx-auto p-4">
+	<h1 class="h1 mb-4">Authentication Page</h1>
+
+	<!-- Debug Panel -->
+	{#if showDebugPanel}
+		<div class="card variant-glass-surface mb-4 p-4">
+			<div class="mb-2 flex items-center justify-between">
+				<h2 class="h2">Debug Log</h2>
+				<button class="btn variant-ghost-surface" on:click={() => (debugLog = [])}>
+					Clear Log
+				</button>
+			</div>
+
+			<div class="h-96 space-y-2 overflow-auto">
+				{#each debugLog as log}
+					<div
+						class="rounded-container-token p-4 text-sm {log.type === 'error'
+							? 'bg-red-500'
+							: log.type === 'success'
+								? 'bg-green-500'
+								: log.type === 'data'
+									? 'bg-blue-500'
+									: 'bg-purple-500'} text-white"
+					>
+						<span class="opacity-75">{log.timestamp}</span>
+						<span class="ml-2">{log.message}</span>
+					</div>
+				{/each}
+			</div>
+		</div>
+	{/if}
+
+	<!-- Manual Test Section -->
+	<div class="card variant-glass-surface p-4">
+		<h3 class="h3 mb-4">Manual Testing</h3>
+		<div class="space-y-4">
+			<button
+				class="btn variant-filled-primary"
+				on:click={() => {
+					addToLog('🧪 Manual test: Simulating extension message', 'info');
+					window.postMessage({ initAuth: true }, '*');
+				}}
+			>
+				Test Auth Flow
+			</button>
+			<p class="text-sm opacity-75">
+				You can also run <code>window.testAuth()</code> in the console
+			</p>
+		</div>
+	</div>
+</main>

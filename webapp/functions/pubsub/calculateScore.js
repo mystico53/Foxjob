@@ -97,12 +97,6 @@ exports.calculateScore = onMessagePublished(
       await jobDocRef.update(scoreObject);
       logger.info(`Score saved to job document for job ID: ${docId}, user ID: ${googleId}`);
 
-      await jobDocRef.update({
-        'generalData.processingStatus': 'processed'
-      });
-
-      logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${googleId}`);
-
     } catch (error) {
       logger.error('Error in calculateScore function:', error);
     }

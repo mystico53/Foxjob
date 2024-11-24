@@ -9,6 +9,8 @@
 	import FeedbackButtons from '$lib/admincomponents/FeedbackThumbs.svelte';
 	import ScoreAnalysis from '$lib/Jobcards/ScoreAnalysis.svelte';
 	import { slide } from 'svelte/transition';
+	import { db } from '$lib/firebase';
+	import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 	export let job = {};
 	export let handleNext;
@@ -18,6 +20,7 @@
 	export let toggleBookmark;
 	export let openJobLink;
 	let showAnalysis = false;
+	let processingJobs = new Set();
 
 	const popupHover = {
 		event: 'hover',
@@ -103,6 +106,50 @@
 	function truncateText(text, maxLength = 50) {
 		if (!text) return 'N/A';
 		return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
+	}
+
+	async function handleRetry(jobId) {
+		if (!auth.currentUser || processingJobs.has(jobId)) return;
+
+		processingJobs = processingJobs.add(jobId);
+
+		try {
+			const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
+			await updateDoc(jobRef, {
+				'generalData.processingStatus': 'retrying'
+			});
+
+			const response = await fetch('https://retryprocessing-kvshkfhmua-uc.a.run.app', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					jobId: jobId,
+					userId: auth.currentUser.uid
+				})
+			});
+
+			while (true) {
+				const docSnap = await getDoc(jobRef);
+				const status = docSnap.data()?.generalData?.processingStatus;
+
+				if (status === 'completed') break;
+				if (status === 'cancelled' || status === 'error') {
+					throw new Error(`Job failed with status: ${status}`);
+				}
+
+				await new Promise((resolve) => setTimeout(resolve, 1000));
+			}
+		} catch (err) {
+			console.error('Error in handleRetry:', err);
+			const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
+			await updateDoc(jobRef, {
+				'generalData.processingStatus': 'cancelled'
+			});
+		} finally {
+			processingJobs = new Set([...processingJobs].filter((id) => id !== jobId));
+		}
 	}
 </script>
 
@@ -249,22 +296,22 @@
 		<!-- Headers with icons -->
 		<div class="mb-8 grid grid-cols-2 gap-6">
 			<div class="flex items-center gap-2">
-				<h4 class="h4 font-bold">Your Strengths</h4>
 				<iconify-icon
 					icon="solar:shield-plus-bold"
 					class="text-primary-500 text-2xl"
 					width="32"
 					height="32"
 				></iconify-icon>
+				<h4 class="h4 font-bold">Your Strengths</h4>
 			</div>
 			<div class="flex items-center gap-2">
-				<h4 class="h4 font-bold">Your Gaps</h4>
 				<iconify-icon
 					icon="solar:minus-square-bold"
 					class="text-primary-500 text-2xl"
 					width="32"
 					height="32"
 				></iconify-icon>
+				<h4 class="h4 font-bold">Your Gaps</h4>
 			</div>
 		</div>
 
@@ -364,6 +411,19 @@
 		</button>
 
 		<div class="flex gap-4">
+			<button
+				class="btn variant-ghost-tertiary flex items-center gap-2 rounded"
+				on:click={() => handleRetry(job.id)}
+				disabled={processingJobs.has(job.id)}
+			>
+				{#if processingJobs.has(job.id)}
+					<iconify-icon icon="svg-spinners:clock"></iconify-icon>
+					<p>Repairing ~30sec</p>
+				{:else}
+					<iconify-icon icon="heroicons:wrench-20-solid"></iconify-icon>
+				{/if}
+			</button>
+
 			<button
 				class="btn variant-ghost-tertiary flex items-center gap-2 rounded"
 				on:click={handleBookmark}

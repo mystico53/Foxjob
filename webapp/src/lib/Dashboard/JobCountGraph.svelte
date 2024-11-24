@@ -47,7 +47,7 @@
 	// Stats derived from filtered jobs
 	$: totalJobs = $filteredJobs.length;
 	$: highScoringJobs = $filteredJobs.filter(
-		(job) => job.AccumulatedScores?.accumulatedScore > 60
+		(job) => job.AccumulatedScores?.accumulatedScore > 65
 	).length;
 	$: progressPercentage = totalJobs > 0 ? Math.round((highScoringJobs / totalJobs) * 100) : 0;
 
@@ -94,7 +94,7 @@
 		</div>
 		<div class="mt-4 flex items-center gap-2">
 			<div class="h-3 w-3 rounded-full" style="background-color: #FF9C00;"></div>
-			<p class="text-sm">{highScoringJobs} Jobs with a Score of 75 or above</p>
+			<p class="text-sm">{highScoringJobs} Jobs with a Score of 65 or above</p>
 		</div>
 	</div>
 </div>

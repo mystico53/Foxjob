@@ -278,6 +278,13 @@ exports.finalVerdict = onMessagePublished(
           }
         });
 
+
+        await jobDocRef.update({
+          'generalData.processingStatus': 'processed'
+        });
+  
+        logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${googleId}`);
+        
       return parsedVerdict;
 
     } catch (error) {
