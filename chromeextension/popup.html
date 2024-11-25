@@ -245,6 +245,24 @@
             text-align: center;
         }
 
+        .giphy-container-sign-in {
+            display: block;
+            width: 96px;
+            /* 3x the original 32px */
+            height: 96px;
+            /* 3x the original 32px */
+            overflow: hidden;
+            border-radius: 12px;
+            margin: 0 auto 24px auto;
+        }
+
+        .giphy-container-sign-in iframe {
+            width: 100%;
+            height: 100%;
+            transform: scale(1.8);
+            transform-origin: center center;
+        }
+
         .sign-in-view.active {
             display: block;
         }
@@ -313,6 +331,10 @@
         <!-- New Sign In View -->
         <div id="signInView" class="sign-in-view">
             <div class="sign-in-content">
+                <div class="giphy-container-sign-in">
+                    <iframe src="https://giphy.com/embed/xsE65jaPsUKUo" frameBorder="0" class="giphy-embed"
+                        allowFullScreen></iframe>
+                </div>
                 <h2 class="welcome-message">Welcome to Foxjob</h2>
                 <p class="sign-in-description">
                     Your personal job hunting assistant. Sign in to start collecting and organizing job postings
