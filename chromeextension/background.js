@@ -133,11 +133,15 @@ async function firebaseSignOut() {
 async function sendToPubSub(text, url, googleId) {
   console.log('sendToPubSub called with:', { textLength: text.length, url, googleId });
 
-  // Remove the emulator check
-  // FIREBASE_CONFIG.useEmulator = await isEmulatorRunning();
-  const targetUrl = getTargetUrl();
-  
-  console.log(`Using ${FIREBASE_CONFIG.useEmulator ? 'emulator' : 'production'} endpoint:`, targetUrl);
+  let targetUrl;
+  try {
+    targetUrl = await getTargetUrl();
+    console.log(`Using ${FIREBASE_CONFIG.useEmulator ? 'emulator' : 'production'} endpoint:`, targetUrl);
+  } catch (error) {
+    console.error('Failed to determine target URL:', error);
+    chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: Failed to determine target URL', isLoading: false });
+    return { success: false, error: 'Failed to determine target URL' };
+  }
 
   const apiBody = {
     message: {
@@ -151,7 +155,8 @@ async function sendToPubSub(text, url, googleId) {
   console.log('Prepared API body:', { textLength: apiBody.message.text.length, url: apiBody.message.url, googleId: apiBody.message.googleId });
 
   try {
-    console.log('Sending request to Pub/Sub function');
+    console.log('Sending request to Pub/Sub function:', { url: targetUrl, body: apiBody });
+
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
@@ -159,34 +164,34 @@ async function sendToPubSub(text, url, googleId) {
       },
       body: JSON.stringify(apiBody)
     });
-  
-    console.log('Received response from Pub/Sub function');
-    
+
+    console.log('Received response from Pub/Sub function:', { status: response.status, statusText: response.statusText });
+
     const responseText = await response.text();
     console.log('Raw Response:', responseText);
-    
+
     let responseData;
     try {
       responseData = JSON.parse(responseText);
       console.log('Parsed JSON Response:', responseData);
     } catch (jsonError) {
+      console.error('Failed to parse JSON response:', jsonError);
       throw new Error(`Invalid JSON response: ${jsonError.message}`);
     }
-  
+
     if (!response.ok) {
       throw new Error(`Server responded with status ${response.status}: ${responseData.error || responseData.message}`);
     }
-  
-    // Send a simple status update to the popup
-    //chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Processing completed.', isLoading: false });
-  
-    return { success: true };
+
+    console.log('Request succeeded:', responseData);
+    return { success: true, data: responseData };
   } catch (error) {
     console.error('Error calling Pub/Sub function:', error);
     chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false });
     return { success: false, error: error.message };
   }
 }
+
 
 function incrementCounter(){
   console.log('Calling Counter.increment()');
