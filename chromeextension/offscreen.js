@@ -1,6 +1,7 @@
 
     // This URL must point to the public site
-    const _URL = 'https://jobille-45494.web.app/auth/signin';
+    //const _URL = 'https://jobille-45494.web.app/auth/signin';
+    const _URL = 'https://foxjob-prod.web.app/auth/signin';
     const iframe = document.createElement('iframe');
     iframe.src = _URL;
     document.documentElement.appendChild(iframe);
