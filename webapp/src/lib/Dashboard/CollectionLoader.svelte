@@ -247,7 +247,6 @@
 			</div>
 		{/if}
 	</div>
-	<ExtensionChecker />
 </div>
 
 <style>

@@ -69,7 +69,8 @@
 
         .counter-column {
             width: 30%;
-            display: flex;
+            display: none;
+            /* Hidden by default */
             flex-direction: column;
             justify-content: center;
             align-items: center;
@@ -77,8 +78,14 @@
             border-right: 1px solid #333;
         }
 
+        /* Show counter column when logged in */
+        .counter-column.logged-in {
+            display: flex;
+        }
+
         .content-column {
-            width: 70%;
+            width: 100%;
+            /* Takes full width when counter is hidden */
             padding-left: 20px;
             display: flex;
             flex-direction: column;
@@ -86,6 +93,12 @@
             align-items: flex-start;
             text-align: left;
             position: relative;
+            transition: width 0.3s ease;
+        }
+
+        /* Adjust content column width when counter is visible */
+        .content-column.with-counter {
+            width: 70%;
         }
 
         .counter-number {
@@ -235,11 +248,11 @@
             </div>
             <h1 class="foxjob-title">FOXJOB</h1>
         </div>
-        <div class="counter-column">
+        <div class="counter-column" id="counterColumn">
             <div class="counter-number" id="counterNumber">0</div>
             <div class="counter-text">Jobs collected today</div>
         </div>
-        <div class="content-column">
+        <div class="content-column" id="contentColumn">
             <div class="header">
                 <div class="status-container">
                     <div id="status">Please sign in to process text</div>
@@ -256,7 +269,7 @@
                 onclick="window.open('https://jobille-45494.web.app/', '_blank')">Visit your library</button>
         </div>
     </div>
-    <!-- Load your custom scripts -->
+
     <script type="module" src="popup.js"></script>
 </body>
 
