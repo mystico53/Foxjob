@@ -6,6 +6,22 @@ export const FIREBASE_CONFIG = {
   useEmulator: false
 };
 
+export const AUTH_CONFIG = {
+  emulatorUrl: 'http://localhost:3000/auth/signin',
+  stagingUrl: 'https://jobille-45494.web.app/auth/signin',
+  productionUrl: 'https://foxjob-prod.web.app/auth/signin',
+  useEmulator: false  // Reuse existing useEmulator flag from FIREBASE_CONFIG
+};
+
+export async function getAuthUrl() {
+  if (FIREBASE_CONFIG.useEmulator) {  // Reuse existing useEmulator flag
+    return AUTH_CONFIG.emulatorUrl;
+  }
+  
+  const isProd = await isProductionVersion();
+  return isProd ? AUTH_CONFIG.productionUrl : AUTH_CONFIG.stagingUrl;
+}
+
 // Function to check if we're in development version
 export async function isDevelopmentVersion() {
   const manifest = chrome.runtime.getManifest();
