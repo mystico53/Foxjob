@@ -236,6 +236,67 @@
         .library-button:hover {
             background-color: #FFF5E6;
         }
+
+        /* Add new styles for sign-in view */
+        .sign-in-view {
+            display: none;
+            width: 100%;
+            padding: 40px 20px 20px;
+            text-align: center;
+        }
+
+        .sign-in-view.active {
+            display: block;
+        }
+
+        .main-app-view {
+            display: none;
+            width: 100%;
+        }
+
+        .main-app-view.active {
+            display: flex;
+        }
+
+        .sign-in-content {
+            max-width: 400px;
+            margin: 0 auto;
+            padding-top: 20px;
+        }
+
+        .welcome-message {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            background: linear-gradient(to right, #FD5440 0%, #FF9C00 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sign-in-description {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .sign-in-button {
+            display: inline-block;
+            padding: 12px 32px;
+            background: linear-gradient(to right, #FD5440 0%, #FF9C00 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .sign-in-button:hover {
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 
@@ -248,25 +309,42 @@
             </div>
             <h1 class="foxjob-title">FOXJOB</h1>
         </div>
-        <div class="counter-column" id="counterColumn">
-            <div class="counter-number" id="counterNumber">0</div>
-            <div class="counter-text">Jobs collected today</div>
+
+        <!-- New Sign In View -->
+        <div id="signInView" class="sign-in-view">
+            <div class="sign-in-content">
+                <h2 class="welcome-message">Welcome to Foxjob</h2>
+                <p class="sign-in-description">
+                    Your personal job hunting assistant. Sign in to start collecting and organizing job postings
+                    automatically.
+                    We'll help you keep track of interesting opportunities across the web.
+                </p>
+                <button id="signInButton" class="sign-in-button">Sign in with Google</button>
+            </div>
         </div>
-        <div class="content-column" id="contentColumn">
-            <div class="header">
-                <div class="status-container">
-                    <div id="status">Please sign in to process text</div>
-                    <div class="progress-container">
-                        <div id="progressBar" class="progress-bar"></div>
+
+        <!-- Main App View (Your Original Content) -->
+        <div id="mainAppView" class="main-app-view">
+            <div class="counter-column" id="counterColumn">
+                <div class="counter-number" id="counterNumber">0</div>
+                <div class="counter-text">Jobs collected today</div>
+            </div>
+            <div class="content-column" id="contentColumn">
+                <div class="header">
+                    <div class="status-container">
+                        <div id="status">Please sign in to process text</div>
+                        <div class="progress-container">
+                            <div id="progressBar" class="progress-bar"></div>
+                        </div>
                     </div>
                 </div>
+                <div id="collectedStatus"></div>
             </div>
-            <div id="collectedStatus"></div>
-        </div>
-        <div class="button-container">
-            <button id="signInOutButton" title="">Sign In</button>
-            <button id="libraryButton" class="library-button hidden"
-                onclick="window.open('https://jobille-45494.web.app/', '_blank')">Visit your library</button>
+            <div class="button-container">
+                <button id="signInOutButton" title="">Sign Out</button>
+                <button id="libraryButton" class="library-button hidden"
+                    onclick="window.open('https://jobille-45494.web.app/', '_blank')">Visit your library</button>
+            </div>
         </div>
     </div>
 

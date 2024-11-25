@@ -7,6 +7,10 @@ let popupContainer;
 let collectedStatusDiv;
 let libraryButton;
 let giphyContainer;
+let signInView;
+let mainAppView;
+
+document.addEventListener('DOMContentLoaded', initializePopup);
 
 document.addEventListener('DOMContentLoaded', initializePopup);
 
@@ -27,68 +31,59 @@ function updateCounter() {
 }
 
 function initializePopup() {
+  // Get all DOM elements
   statusDiv = document.getElementById('status');
   popupContainer = document.getElementById('popup-container');
   collectedStatusDiv = document.getElementById('collectedStatus');
   libraryButton = document.getElementById('libraryButton');
   giphyContainer = document.querySelector('.giphy-container');
+  signInView = document.getElementById('signInView');
+  mainAppView = document.getElementById('mainAppView');
 
-  // Initialize library button click handler
+  // Initialize library button
   if (libraryButton) {
-    libraryButton.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'https://jobille-45494.web.app/' });
-    });
+      libraryButton.addEventListener('click', () => {
+          chrome.tabs.create({ url: 'https://jobille-45494.web.app/' });
+      });
   }
 
+  // Initialize sign in/out buttons
+  const signInButton = document.getElementById('signInButton');
   const signInOutButton = document.getElementById('signInOutButton');
+  
+  if (signInButton) {
+      signInButton.addEventListener('click', handleSignIn);
+  }
   if (signInOutButton) {
-    signInOutButton.addEventListener('click', handleSignInOut);
-  } else {
-    console.error('Sign In/Out button not found');
+      signInOutButton.addEventListener('click', handleSignOut);
   }
 
-  // Check initial auth state from storage
+  // Check initial auth state - only need to do this once
   chrome.storage.local.get(['userId', 'userName'], function(result) {
-    if (result.userId) {
-      console.log('User is signed in');
-      updateSignInButtonState(true, result.userName);
-      updateStatus('Signed in. Processing text...');
-      toggleLibraryButton(true);
-      hideGiphy();
-
-      // Automatically trigger the main action
-      injectContentScriptAndProcess();
-    } else {
-      console.log('User is signed out');
-      updateSignInButtonState(false);
-      updateStatus('Please sign in to process text');
-      toggleLibraryButton(false);
-      hideGiphy();
-    }
+      if (result.userId) {
+          console.log('User is signed in');
+          showSignedInState(result.userName);
+          injectContentScriptAndProcess();
+      } else {
+          console.log('User is signed out');
+          showSignedOutState();
+      }
   });
 
+  // Set up message listeners
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-    console.log('Message received:', request);
-    if (request.action === 'updateCounter') {
-      console.log('Updating counter with new count:', request.count);
-      updateCounter();
-    }
-    
-    if (request.action === 'updateStatus') {
-      updateStatus(request.message, request.isLoading);
-    } else if (request.action === 'authStateChanged') {
-      if (request.user) {
-        updateSignInButtonState(true, request.user.displayName);
-        updateStatus('Signed in. Press Icon to start matching jobs.');
-        toggleLibraryButton(true);
-        hideGiphy();
-      } else {
-        updateSignInButtonState(false);
-        updateStatus('Please sign in to process text');
-        toggleLibraryButton(false);
-        hideGiphy();
+      console.log('Message received:', request);
+      if (request.action === 'updateCounter') {
+          updateCounter();
+      } else if (request.action === 'updateStatus') {
+          updateStatus(request.message, request.isLoading);
+      } else if (request.action === 'authStateChanged') {
+          if (request.user) {
+              showSignedInState(request.user.displayName);
+          } else {
+              showSignedOutState();
+          }
       }
-    }
   });
 
   updateCounter();
@@ -119,45 +114,70 @@ function toggleLibraryButton(show) {
   }
 }
 
-function handleSignInOut() {
-  const button = document.getElementById('signInOutButton');
-  if (button.textContent.startsWith('Sign In')) {
-    // Initiate sign-in via background.js
-    chrome.runtime.sendMessage({ type: 'start-auth' }, (response) => {
-      if (response.success) {
-        console.log('Authentication initiated');
-        updateStatus('Authentication in progress...');
-      } else {
-        console.error('Authentication initiation failed:', response.error);
-        updateStatus('Error: ' + response.error);
-      }
-    });
-  } else {
-    // Initiate sign-out via background.js
-    chrome.runtime.sendMessage({ type: 'sign-out' }, (response) => {
-      if (response.success) {
-        console.log('User signed out');
-        updateSignInButtonState(false);
-        updateStatus('Signed out successfully.');
-      } else {
-        console.error('Sign-out failed:', response.error);
-        updateStatus('Error: ' + response.error);
-      }
-    });
-  }
-}
-
-function updateLoginState(isSignedIn) {
+function showSignedInState(userName) {
+  signInView.classList.remove('active');
+  mainAppView.classList.add('active');
+  
   const counterColumn = document.getElementById('counterColumn');
   const contentColumn = document.getElementById('contentColumn');
   
-  if (isSignedIn) {
-    counterColumn.classList.add('logged-in');
-    contentColumn.classList.add('with-counter');
-  } else {
-    counterColumn.classList.remove('logged-in');
-    contentColumn.classList.remove('with-counter');
+  counterColumn.classList.add('logged-in');
+  contentColumn.classList.add('with-counter');
+  
+  const signInOutButton = document.getElementById('signInOutButton');
+  if (signInOutButton) {
+      signInOutButton.textContent = `Sign Out (${userName})`;
+      signInOutButton.title = `Signed in as ${userName}`;
   }
+  
+  updateStatus('Ready to process text');
+  toggleLibraryButton(true);
+  hideGiphy();
+}
+
+function showSignedOutState() {
+  signInView.classList.add('active');
+  mainAppView.classList.remove('active');
+  
+  const counterColumn = document.getElementById('counterColumn');
+  const contentColumn = document.getElementById('contentColumn');
+  
+  counterColumn.classList.remove('logged-in');
+  contentColumn.classList.remove('with-counter');
+  
+  const signInOutButton = document.getElementById('signInOutButton');
+  if (signInOutButton) {
+      signInOutButton.textContent = 'Sign In';
+      signInOutButton.title = '';
+  }
+  
+  updateStatus('Please sign in to process text');
+  toggleLibraryButton(false);
+  hideGiphy();
+}
+
+function handleSignIn() {
+  chrome.runtime.sendMessage({ type: 'start-auth' }, (response) => {
+      if (response.success) {
+          console.log('Authentication initiated');
+          updateStatus('Authentication in progress...');
+      } else {
+          console.error('Authentication initiation failed:', response.error);
+          updateStatus('Error: ' + response.error);
+      }
+  });
+}
+
+function handleSignOut() {
+  chrome.runtime.sendMessage({ type: 'sign-out' }, (response) => {
+      if (response.success) {
+          console.log('User signed out');
+          showSignedOutState();
+      } else {
+          console.error('Sign-out failed:', response.error);
+          updateStatus('Error: ' + response.error);
+      }
+  });
 }
 
 function injectContentScriptAndProcess() {
@@ -285,22 +305,5 @@ function updateStatus(message, isLoading = false) {
     }
   } else {
     console.error('Status div not found');
-  }
-}
-
-function updateSignInButtonState(isSignedIn, displayName = '') {
-  const button = document.getElementById('signInOutButton');
-  if (button) {
-    if (isSignedIn) {
-      button.textContent = `Sign Out (${displayName})`;
-      button.title = `Signed in as ${displayName}`;
-      updateLoginState(true);  // Add this line
-    } else {
-      button.textContent = 'Sign In';
-      button.title = '';
-      updateLoginState(false);  // Add this line
-    }
-  } else {
-    console.error('Sign In/Out button not found');
   }
 }
