@@ -1,5 +1,19 @@
 {
   "projects": {
-    "default": "jobille-45494"
+    "default": "jobille-45494",
+    "staging": "jobille-45494",
+    "prod": "foxjob-prod"
+  },
+  "targets": {
+    "jobille-45494": {
+      "hosting": {
+        "staging": ["jobille-45494"]
+      }
+    },
+    "foxjob-prod": {
+      "hosting": {
+        "prod": ["foxjob-prod"]
+      }
+    }
   }
 }

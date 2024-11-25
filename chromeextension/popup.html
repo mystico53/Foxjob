@@ -320,14 +320,6 @@
 
 <body>
     <div id="popup-container">
-        <div class="title-container">
-            <div class="giphy-container">
-                <iframe src="https://giphy.com/embed/xsE65jaPsUKUo" frameBorder="0" class="giphy-embed"
-                    allowFullScreen></iframe>
-            </div>
-            <h1 class="foxjob-title">FOXJOB</h1>
-        </div>
-
         <!-- New Sign In View -->
         <div id="signInView" class="sign-in-view">
             <div class="sign-in-content">
@@ -343,6 +335,15 @@
                 </p>
                 <button id="signInButton" class="sign-in-button">Sign in with Google</button>
             </div>
+        </div>
+
+        <div class="title-container">
+            <h1 class="foxjob-title">FOXJOB</h1>
+            <div class="giphy-container">
+                <iframe src="https://giphy.com/embed/xsE65jaPsUKUo" frameBorder="0" class="giphy-embed"
+                    allowFullScreen></iframe>
+            </div>
+            <button id="signInOutButton" title="">Sign Out</button>
         </div>
 
         <!-- Main App View (Your Original Content) -->
@@ -363,7 +364,6 @@
                 <div id="collectedStatus"></div>
             </div>
             <div class="button-container">
-                <button id="signInOutButton" title="">Sign Out</button>
                 <button id="libraryButton" class="library-button hidden"
                     onclick="window.open('https://jobille-45494.web.app/', '_blank')">Visit your library</button>
             </div>

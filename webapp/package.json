@@ -1,16 +1,26 @@
 {
 	"name": "webapp",
-	"version": "0.0.1",
+	"version": "0.2",
 	"private": true,
 	"scripts": {
 		"dev": "vite dev",
+		"dev:prod": "vite dev --mode production",
 		"build": "vite build",
+		"build:prod": "vite build --mode production",
+		"build:staging": "vite build --mode staging",
 		"preview": "vite preview",
+		"preview:prod": "vite build --mode production && vite preview",
 		"test": "npm run test:integration && npm run test:unit",
 		"test:integration": "playwright test",
 		"test:unit": "vitest",
 		"lint": "prettier --check .",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"deploy": "firebase use staging && npm run build && firebase deploy",
+		"deploy:staging": "firebase use staging && npm run build && firebase deploy --only hosting:staging",
+		"deploy:prod": "firebase use prod && npm run build:prod && firebase deploy --only hosting:prod",
+		"deploy:functions": "firebase deploy --only functions",
+		"deploy:functions:prod": "firebase use prod && firebase deploy --only functions",
+		"deploy:rules:prod": "firebase use prod && copy firestore.rules.prod firestore.rules && firebase deploy --only firestore:rules"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.28.1",

@@ -1,7 +1,8 @@
 // config.js
 export const FIREBASE_CONFIG = {
   emulatorUrl: 'http://127.0.0.1:5001/jobille-45494/us-central1/publishJobText',
-  productionUrl: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
+  stagingUrl: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
+  productionUrl: 'https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText',
   useEmulator: false
 };
 
@@ -13,12 +14,22 @@ export async function isDevelopmentVersion() {
   return version >= 2.0;  // Development versions are 2.0 and above
 }
 
+// Function to check if we're in production version
+export async function isProductionVersion() {
+  const manifest = chrome.runtime.getManifest();
+  const version = parseFloat(manifest.version);
+  console.log('Current version:', version);
+  return version >= 3.0;  // Production versions are 3.0 and above
+}
+
 // Function to update extension icon
 export async function updateExtensionIcon() {
   console.log('Starting icon update process...');
   try {
     const isDev = await isDevelopmentVersion();
+    const isProd = await isProductionVersion();
     console.log('Is development version?', isDev);
+    console.log('Is production version?', isProd);
     
     // Use different icons based on version
     const iconPath = isDev ? {
@@ -43,6 +54,11 @@ export async function updateExtensionIcon() {
 }
 
 // Function to get the appropriate URL based on environment
-export function getTargetUrl() {
-  return FIREBASE_CONFIG.useEmulator ? FIREBASE_CONFIG.emulatorUrl : FIREBASE_CONFIG.productionUrl;
+export async function getTargetUrl() {
+  if (FIREBASE_CONFIG.useEmulator) {
+    return FIREBASE_CONFIG.emulatorUrl;
+  }
+  
+  const isProd = await isProductionVersion();
+  return isProd ? FIREBASE_CONFIG.productionUrl : FIREBASE_CONFIG.stagingUrl;
 }
