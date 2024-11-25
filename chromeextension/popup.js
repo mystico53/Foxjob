@@ -79,7 +79,7 @@ function initializePopup() {
     } else if (request.action === 'authStateChanged') {
       if (request.user) {
         updateSignInButtonState(true, request.user.displayName);
-        updateStatus('Signed in. Ready to process text.');
+        updateStatus('Signed in. Press Icon to start matching jobs.');
         toggleLibraryButton(true);
         hideGiphy();
       } else {
@@ -144,6 +144,19 @@ function handleSignInOut() {
         updateStatus('Error: ' + response.error);
       }
     });
+  }
+}
+
+function updateLoginState(isSignedIn) {
+  const counterColumn = document.getElementById('counterColumn');
+  const contentColumn = document.getElementById('contentColumn');
+  
+  if (isSignedIn) {
+    counterColumn.classList.add('logged-in');
+    contentColumn.classList.add('with-counter');
+  } else {
+    counterColumn.classList.remove('logged-in');
+    contentColumn.classList.remove('with-counter');
   }
 }
 
@@ -281,9 +294,11 @@ function updateSignInButtonState(isSignedIn, displayName = '') {
     if (isSignedIn) {
       button.textContent = `Sign Out (${displayName})`;
       button.title = `Signed in as ${displayName}`;
+      updateLoginState(true);  // Add this line
     } else {
       button.textContent = 'Sign In';
       button.title = '';
+      updateLoginState(false);  // Add this line
     }
   } else {
     console.error('Sign In/Out button not found');

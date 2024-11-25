@@ -65,7 +65,11 @@
 	<svelte:fragment slot="trail">
 		<div class="flex items-center gap-4">
 			{#if $authStore}
-				<FeedbackButton />
+			<a href="https://chromewebstore.google.com/detail/foxjob/lbncdalbaajjafnpgplghkdaiflfihjp" class="btn btn-sm variant-ghost flex items-center gap-2" title="Admin Panel" target="_blank" rel="noopener noreferrer">
+				<iconify-icon icon="solar:download-minimalistic-outline"></iconify-icon>
+				Extension
+			  </a>
+			<FeedbackButton />
 				<!-- Add the feedback button here -->
 				<a href="/admin" class="btn btn-sm variant-ghost" title="Admin Panel">
 					<iconify-icon icon="gis:coord-system-3d-alt"></iconify-icon>

@@ -105,30 +105,6 @@
 				Extension is not installed
 			{/if}
 		</p>
-
-		<!-- Add debug information -->
-		{#if !$userStateStore.extension.isProductionInstalled}
-			<div class="mt-4 text-sm text-gray-600">
-				<p>Debug information:</p>
-				<ul class="list-disc ml-4">
-					<li>Chrome available: {debugInfo.chromeAvailable ? 'Yes' : 'No'}</li>
-					<li>Runtime available: {debugInfo.runtimeAvailable ? 'Yes' : 'No'}</li>
-					<li>SendMessage available: {debugInfo.sendMessageAvailable ? 'Yes' : 'No'}</li>
-					{#if debugInfo.lastError}
-						<li>Last error: {debugInfo.lastError}</li>
-					{/if}
-					{#if debugInfo.timeoutOccurred}
-						<li>Check timed out</li>
-					{/if}
-				</ul>
-				<button
-					class="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-					on:click={retryCheck}
-				>
-					Retry Check
-				</button>
-			</div>
-		{/if}
 	{:else}
 		<p class="text-lg text-gray-600">Checking extension status...</p>
 	{/if}
