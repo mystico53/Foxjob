@@ -9,7 +9,7 @@
 	$: currentPath = $page.url.pathname;
 
 	const navItems = [
-		{ href: '/list', label: 'Dashboard' },
+		{ href: '/list', label: 'Home' },
 		{ href: '/workflow', label: 'Jobs' }
 	];
 

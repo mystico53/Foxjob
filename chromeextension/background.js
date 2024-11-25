@@ -5,6 +5,7 @@ console.log('Background script loaded with new debug - version 1');
 import { anthropicInstructions } from './instructions.js';
 import { FIREBASE_CONFIG, getTargetUrl, updateExtensionIcon } from './config.js';
 import Counter from './counter.js';
+import RateLimit from './rateLimit.js';
 
 console.log('Background script loaded');
 
@@ -197,6 +198,48 @@ function incrementCounter(){
       });
 }
 
+async function handlePublishText(request, sender, sendResponse) {
+  console.log('Handling publishText action from tab:', sender.tab.id);
+  
+  // Check rate limit first
+  const canProceed = await RateLimit.checkAndTrack();
+  if (!canProceed) {
+    console.error('Rate limit reached: Maximum 3 actions per minute allowed');
+    sendResponse({ success: false, error: 'Rate limit reached: Please wait before trying again' });
+    return;
+  }
+
+  chrome.storage.local.get(['userId'], function(result) {
+    const googleId = result.userId || 'anonymous';
+    if (!googleId) {
+      console.error('No Google ID found');
+      chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: User not signed in', isLoading: false});
+      sendResponse({ success: false, error: 'User not signed in' });
+      return;
+    }
+
+    incrementCounter();
+
+    // Send text to Pub/Sub with Google ID and URL
+    sendToPubSub(request.text, request.url, googleId)
+      .then(data => {
+        if (data.success) {
+          console.log('Successfully sent to Pub/Sub, sending status update');
+          sendResponse({ success: true });
+        } else {
+          console.error('Pub/Sub function returned an error:', data.error);
+          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + data.error, isLoading: false});
+          sendResponse({ success: false, error: data.error });
+        }
+      })
+      .catch(error => {
+        console.error('Error in sendToPubSub:', error);
+        chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false});
+        sendResponse({ success: false, error: error.message });
+      });
+  });
+}
+
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   console.log('Background script received message:', request);
 
@@ -253,40 +296,12 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   // Existing action-based message handling
   switch (request.action) {
     case "publishText":
-      console.log('Handling publishText action from tab:', sender.tab.id);
-      //chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Sending text to Pub/Sub...', isLoading: true });
-
-      chrome.storage.local.get(['userId'], function(result) {
-        const googleId = result.userId || 'anonymous';
-        if (!googleId) {
-          console.error('No Google ID found');
-          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: User not signed in', isLoading: false});
-          sendResponse({ success: false, error: 'User not signed in' });
-          return;
-        }
-
-        incrementCounter();
-
-        // Send text to Pub/Sub with Google ID and URL
-        sendToPubSub(request.text, request.url, googleId)
-          .then(data => {
-            if (data.success) {
-              console.log('Successfully sent to Pub/Sub, sending status update');
-              // No need to send a detailed response
-              sendResponse({ success: true });
-            } else {
-              console.error('Pub/Sub function returned an error:', data.error);
-              chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + data.error, isLoading: false});
-              sendResponse({ success: false, error: data.error });
-            }
-          })
-          .catch(error => {
-            console.error('Error in sendToPubSub:', error);
-            chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false});
-            sendResponse({ success: false, error: error.message });
-          });
-      });
-      return true; // Indicates that sendResponse will be called asynchronously
+  console.log('Handling publishText action from tab:', sender.tab.id);
+  
+    if (request.action === "publishText") {
+      handlePublishText(request, sender, sendResponse);
+      return true; // Keep the message channel open for async response
+    }
 
     case "statusUpdate":
       // **Forward status updates to the popup script**
