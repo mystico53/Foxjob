@@ -2,10 +2,8 @@
 
 const Counter = {
     increment: function() {
-        console.log('Counter.increment called');
         return new Promise((resolve) => {
           chrome.storage.sync.get(['count', 'lastDate'], function(data) {
-            console.log('Current data:', data);
             const today = new Date().toDateString();
             if (data.lastDate !== today) {
               console.log('New day, resetting counter');
@@ -15,7 +13,6 @@ const Counter = {
               });
             } else {
               const newCount = (data.count || 0) + 1;
-              console.log('Incrementing counter to', newCount);
               chrome.storage.sync.set({count: newCount, lastDate: today}, () => {
                 console.log('Counter updated to', newCount);
                 resolve(newCount);
@@ -26,10 +23,8 @@ const Counter = {
       },
     
       get: function() {
-        console.log('Counter.get called');
         return new Promise((resolve) => {
           chrome.storage.sync.get(['count'], function(data) {
-            console.log('Current count:', data.count || 0);
             resolve(data.count || 0);
           });
         });

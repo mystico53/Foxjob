@@ -20,7 +20,7 @@ function updateCounter() {
     console.log('Retrieved count:', count);
     const counterElement = document.getElementById('counterNumber');
     if (counterElement) {
-      console.log('Updating counter element');
+      
       counterElement.textContent = `${count}`;
     } else {
       console.error('Counter element not found');

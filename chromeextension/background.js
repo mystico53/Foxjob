@@ -1,13 +1,14 @@
 // background.js
-
-console.log('Background script loaded with new debug - version 1');
-
 import { anthropicInstructions } from './instructions.js';
-import { FIREBASE_CONFIG, getTargetUrl, updateExtensionIcon } from './config.js';
+import { 
+  getServiceUrl, 
+  updateExtensionIcon, 
+  USE_EMULATOR,
+  getEnvironmentName,
+  getCurrentEnvironment 
+} from './config.js';
 import Counter from './counter.js';
 import RateLimit from './rateLimit.js';
-
-console.log('Background script loaded');
 
 updateExtensionIcon().catch(error => {
   console.error('Failed to update extension icon:', error);
@@ -131,15 +132,18 @@ async function firebaseSignOut() {
 }
 
 async function sendToPubSub(text, url, googleId) {
-  console.log('sendToPubSub called with:', { textLength: text.length, url, googleId });
-
   let targetUrl;
   try {
-    targetUrl = await getTargetUrl();
-    console.log(`Using ${FIREBASE_CONFIG.useEmulator ? 'emulator' : 'production'} endpoint:`, targetUrl);
+    targetUrl = getServiceUrl('publishJob');
+    const environment = USE_EMULATOR ? 'emulator' : getEnvironmentName();
+    console.log(`Using ${environment} endpoint:`, targetUrl);
   } catch (error) {
     console.error('Failed to determine target URL:', error);
-    chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: Failed to determine target URL', isLoading: false });
+    chrome.runtime.sendMessage({ 
+      action: 'updateStatus', 
+      message: 'Error: Failed to determine target URL', 
+      isLoading: false 
+    });
     return { success: false, error: 'Failed to determine target URL' };
   }
 
@@ -152,7 +156,11 @@ async function sendToPubSub(text, url, googleId) {
     }
   };
 
-  console.log('Prepared API body:', { textLength: apiBody.message.text.length, url: apiBody.message.url, googleId: apiBody.message.googleId });
+  console.log('Prepared API body:', { 
+    textLength: apiBody.message.text.length, 
+    url: apiBody.message.url, 
+    googleId: apiBody.message.googleId 
+  });
 
   try {
     console.log('Sending request to Pub/Sub function:', { url: targetUrl, body: apiBody });
@@ -165,7 +173,10 @@ async function sendToPubSub(text, url, googleId) {
       body: JSON.stringify(apiBody)
     });
 
-    console.log('Received response from Pub/Sub function:', { status: response.status, statusText: response.statusText });
+    console.log('Received response from Pub/Sub function:', { 
+      status: response.status, 
+      statusText: response.statusText 
+    });
 
     const responseText = await response.text();
     console.log('Raw Response:', responseText);
@@ -187,16 +198,19 @@ async function sendToPubSub(text, url, googleId) {
     return { success: true, data: responseData };
   } catch (error) {
     console.error('Error calling Pub/Sub function:', error);
-    chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false });
+    chrome.runtime.sendMessage({ 
+      action: 'updateStatus', 
+      message: 'Error: ' + error.message, 
+      isLoading: false 
+    });
     return { success: false, error: error.message };
   }
 }
 
 
 function incrementCounter(){
-  console.log('Calling Counter.increment()');
+  
       Counter.increment().then(newCount => {
-        console.log('Counter incremented, new count:', newCount);
         chrome.runtime.sendMessage({ action: 'updateCounter', count: newCount });
       }).catch(error => {
         console.error('Error incrementing counter:', error);
@@ -204,8 +218,6 @@ function incrementCounter(){
 }
 
 async function handlePublishText(request, sender, sendResponse) {
-  console.log('Handling publishText action from tab:', sender.tab.id);
-  
   // Check rate limit first
   const canProceed = await RateLimit.checkAndTrack();
   if (!canProceed) {
@@ -300,9 +312,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
   // Existing action-based message handling
   switch (request.action) {
-    case "publishText":
-  console.log('Handling publishText action from tab:', sender.tab.id);
-  
+    case "publishText":  
     if (request.action === "publishText") {
       handlePublishText(request, sender, sendResponse);
       return true; // Keep the message channel open for async response
@@ -340,5 +350,3 @@ chrome.runtime.onMessageExternal.addListener(
       return true;  // Important: keeps the message channel open for async response
   }
 );
-
-console.log('Background script setup complete');
