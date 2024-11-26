@@ -156,9 +156,18 @@
 
 			<!-- Extension ID input -->
 			<div class="form-control">
-				<label class="label">
-					<span class="label-text">Test Extension ID</span>
-				</label>
+				<div class="form-control">
+					<label class="label" for="extensionId">
+						<span class="label-text">Test Extension ID</span>
+					</label>
+					<input
+						type="text"
+						id="extensionId"
+						bind:value={testExtensionId}
+						class="input"
+						placeholder="Extension ID for testing"
+					/>
+				</div>
 				<input
 					type="text"
 					bind:value={testExtensionId}
