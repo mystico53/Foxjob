@@ -1,64 +1,99 @@
 // config.js
-export const FIREBASE_CONFIG = {
-  emulatorUrl: 'http://127.0.0.1:5001/jobille-45494/us-central1/publishJobText',
-  stagingUrl: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
-  productionUrl: 'https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText',
-  useEmulator: false
+
+// Environment enum
+export const Environment = {
+  DEVELOPMENT: 0,
+  STAGING: 1,
+  PRODUCTION: 2
 };
 
-// Function to check if we're in development version
-export async function isDevelopmentVersion() {
-  const manifest = chrome.runtime.getManifest();
-  const version = parseFloat(manifest.version);
-  console.log('Current version:', version);
-  return version >= 2.0;  // Development versions are 2.0 and above
+// Current environment setting
+export const CURRENT_ENV = Environment.PRODUCTION;
+
+// Emulator configuration
+export const USE_EMULATOR = false;
+
+// URL configurations per environment
+export const URL_CONFIG = {
+  [Environment.DEVELOPMENT]: {
+    publishJob: 'http://127.0.0.1:5001/jobille-45494/us-central1/publishJobText',
+    //searchJob: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchJob',
+    // Add more URLs for development as needed
+  },
+  [Environment.STAGING]: {
+    publishJob: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
+    //searchJob: 'https://us-central1-jobille-45494.cloudfunctions.net/searchJob',
+    // Add more URLs for staging as needed
+  },
+  [Environment.PRODUCTION]: {
+    publishJob: 'https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText',
+    //searchJob: 'https://us-central1-foxjob-prod.cloudfunctions.net/searchJob',
+    // Add more URLs for production as needed
+  }
+};
+
+// Environment-specific icons
+const ICONS = {
+  development: {
+    "16": "icons/E_icon16.png",
+    "32": "icons/E_icon32.png",
+    "48": "icons/E_icon48.png",
+    "128": "icons/E_icon128.png"
+  },
+  production: {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+};
+
+// Function to get URL for a specific service
+export function getServiceUrl(serviceName) {
+  if (USE_EMULATOR) {
+    return URL_CONFIG[Environment.DEVELOPMENT][serviceName];
+  }
+  return URL_CONFIG[CURRENT_ENV][serviceName];
 }
 
-// Function to check if we're in production version
-export async function isProductionVersion() {
-  const manifest = chrome.runtime.getManifest();
-  const version = parseFloat(manifest.version);
-  console.log('Current version:', version);
-  return version >= 3.0;  // Production versions are 3.0 and above
+// Environment helper functions
+export function getCurrentEnvironment() {
+  return CURRENT_ENV;
+}
+
+export function isDevelopment() {
+  return CURRENT_ENV === Environment.DEVELOPMENT;
+}
+
+export function isStaging() {
+  return CURRENT_ENV === Environment.STAGING;
+}
+
+export function isProduction() {
+  return CURRENT_ENV === Environment.PRODUCTION;
 }
 
 // Function to update extension icon
 export async function updateExtensionIcon() {
-  console.log('Starting icon update process...');
   try {
-    const isDev = await isDevelopmentVersion();
-    const isProd = await isProductionVersion();
-    console.log('Is development version?', isDev);
-    console.log('Is production version?', isProd);
-    
-    // Use different icons based on version
-    const iconPath = isDev ? {
-      "16": "icons/E_icon16.png",
-      "32": "icons/E_icon32.png",
-      "48": "icons/E_icon48.png",
-      "128": "icons/E_icon128.png"
-    } : {
-      "16": "icons/icon16.png",
-      "32": "icons/icon32.png",
-      "48": "icons/icon48.png",
-      "128": "icons/icon128.png"
-    };
-
-    console.log('Setting icon path to:', iconPath);
+    const iconPath = isDevelopment() ? ICONS.development : ICONS.production;
     await chrome.action.setIcon({ path: iconPath });
-    console.log('Icon update completed successfully');
   } catch (error) {
     console.error('Error updating icon:', error);
     throw error;
   }
 }
 
-// Function to get the appropriate URL based on environment
-export async function getTargetUrl() {
-  if (FIREBASE_CONFIG.useEmulator) {
-    return FIREBASE_CONFIG.emulatorUrl;
+// Helper function to get environment name (useful for logging)
+export function getEnvironmentName() {
+  switch (CURRENT_ENV) {
+    case Environment.DEVELOPMENT:
+      return 'Development';
+    case Environment.STAGING:
+      return 'Staging';
+    case Environment.PRODUCTION:
+      return 'Production';
+    default:
+      return 'Unknown';
   }
-  
-  const isProd = await isProductionVersion();
-  return isProd ? FIREBASE_CONFIG.productionUrl : FIREBASE_CONFIG.stagingUrl;
 }
