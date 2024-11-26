@@ -15,9 +15,7 @@ document.addEventListener('DOMContentLoaded', initializePopup);
 document.addEventListener('DOMContentLoaded', initializePopup);
 
 function updateCounter() {
-  console.log('updateCounter called');
   Counter.get().then(count => {
-    console.log('Retrieved count:', count);
     const counterElement = document.getElementById('counterNumber');
     if (counterElement) {
       
@@ -80,7 +78,6 @@ function initializePopup() {
 
   // Set up message listeners
   chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-      console.log('Message received:', request);
       if (request.action === 'updateCounter') {
           updateCounter();
       } else if (request.action === 'updateStatus') {
