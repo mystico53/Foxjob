@@ -126,8 +126,8 @@ function showSignedInState(userName) {
   
   const signInOutButton = document.getElementById('signInOutButton');
   if (signInOutButton) {
-      signInOutButton.textContent = `Sign Out (${userName})`;
-      signInOutButton.title = `Signed in as ${userName}`;
+      signInOutButton.textContent = `Sign Out`;
+      signInOutButton.title = `Signed in`;
   }
   
   updateStatus('Ready to process text');
