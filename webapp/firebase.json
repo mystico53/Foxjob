@@ -13,9 +13,7 @@
         "destination": "/index.html"
       }
     ],
-    "predeploy": [
-      "npm run build"
-    ]
+    "predeploy": []
   }, {
     "target": "prod",
     "public": "build",

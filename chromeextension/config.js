@@ -17,17 +17,17 @@ export const USE_EMULATOR = false;
 export const URL_CONFIG = {
   [Environment.DEVELOPMENT]: {
     publishJob: 'http://127.0.0.1:5001/jobille-45494/us-central1/publishJobText',
-    //searchJob: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchJob',
+    authSignin: 'https://jobille-45494.web.app/auth/signin'  // Development auth URL
     // Add more URLs for development as needed
   },
   [Environment.STAGING]: {
     publishJob: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
-    //searchJob: 'https://us-central1-jobille-45494.cloudfunctions.net/searchJob',
+    authSignin: 'https://jobille-45494.web.app/auth/signin'  // Staging auth URL
     // Add more URLs for staging as needed
   },
   [Environment.PRODUCTION]: {
     publishJob: 'https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText',
-    //searchJob: 'https://us-central1-foxjob-prod.cloudfunctions.net/searchJob',
+    authSignin: 'https://foxjob-prod.web.app/auth/signin'  // Production auth URL
     // Add more URLs for production as needed
   }
 };

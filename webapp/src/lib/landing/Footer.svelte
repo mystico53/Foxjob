@@ -8,4 +8,7 @@
 			We value your privacy - read our Privacy Policy
 		</a>
 	</p>
+	<p class="text-sm text-gray-500">
+		Version: 0.2
+	</p>
 </footer>
