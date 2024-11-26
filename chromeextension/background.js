@@ -73,37 +73,19 @@ async function closeOffscreenDocument() {
 function getAuth() {
   return new Promise(async (resolve, reject) => {
     try {
-      console.log('getAuth: Starting authentication process');
-      console.log('getAuth: Sending message to offscreen document');
-      
       const auth = await chrome.runtime.sendMessage({
         type: 'firebase-auth',
         target: 'offscreen'
       });
-      
-      console.log('getAuth: Raw response from offscreen:', auth);
-
-      // Log the entire auth object structure
-      if (auth) {
-        console.log('getAuth: Full auth object:', JSON.stringify(auth, null, 2));
-        if (auth.user) {
-          console.log('getAuth: User object exists:', JSON.stringify(auth.user, null, 2));
-        } else {
-          console.log('getAuth: No user object in auth response');
-        }
-      } else {
-        console.log('getAuth: Received null or undefined auth response');
-      }
 
       if (auth?.name !== 'FirebaseError') {
-        console.log('getAuth: Authentication successful, resolving promise');
         resolve(auth);
       } else {
-        console.warn('getAuth: Received FirebaseError, rejecting promise', auth);
+        console.error('Firebase authentication error:', auth);
         reject(auth);
       }
     } catch (error) {
-      console.error('getAuth: Caught error during authentication:', error);
+      console.error('Authentication error:', error);
       reject(error);
     }
   });
@@ -112,29 +94,21 @@ function getAuth() {
 // In background.js, modify firebaseAuth:
 async function firebaseAuth() {
   const authUrl = getServiceUrl('authSignin');
-  console.log("Auth URL (raw):", authUrl);
-  console.log("Current extension ID:", chrome.runtime.id);
-  console.log("Full extension URL:", chrome.runtime.getURL(''));
   
   try {
-    console.log("Setting up offscreen document...");
     await setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH, authUrl);
-    console.log("Offscreen document created with URL:", `${OFFSCREEN_DOCUMENT_PATH}?authUrl=${encodeURIComponent(authUrl)}`);
-    
     const auth = await getAuth();
-    console.log("Raw auth response:", JSON.stringify(auth, null, 2)); // Log the entire response
     
     if (auth && auth.error) {
-      console.error("Authentication error details:", JSON.stringify(auth.error, null, 2));
+      console.error("Authentication error:", auth.error.message);
       throw new Error(auth.error.message || 'Authentication failed');
     }
     
     if (!auth || !auth.user) {
-      console.error("Invalid auth response:", auth);
+      console.error("Invalid auth response - no user data received");
       throw new Error('Authentication failed - no user data received');
     }
     
-    console.log("Setting storage and sending message...");
     chrome.storage.local.set({
       userId: auth.user.uid,
       userName: auth.user.displayName,
@@ -149,9 +123,7 @@ async function firebaseAuth() {
 
     return auth;
   } catch (err) {
-    console.error('Authentication error:', err);
-    console.error('Full error details:', err); // Log the full error object
-    // Send auth failed message to update UI
+    console.error('Authentication error:', err.message);
     chrome.runtime.sendMessage({
       action: 'authStateChanged',
       user: null,
@@ -177,7 +149,7 @@ async function sendToPubSub(text, url, googleId) {
   try {
     targetUrl = getServiceUrl('publishJob');
     const environment = USE_EMULATOR ? 'emulator' : getEnvironmentName();
-    console.log(`Using ${environment} endpoint:`, targetUrl);
+    console.log(`Using ${environment} endpoint`);
   } catch (error) {
     console.error('Failed to determine target URL:', error);
     chrome.runtime.sendMessage({ 

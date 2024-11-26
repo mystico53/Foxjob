@@ -8,7 +8,7 @@ export const Environment = {
 };
 
 // Current environment setting
-export const CURRENT_ENV = Environment.PRODUCTION;
+export const CURRENT_ENV = Environment.STAGING;
 
 // Emulator configuration
 export const USE_EMULATOR = false;
