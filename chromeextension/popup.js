@@ -51,7 +51,7 @@ function initializePopup() {
   const scanButton = document.getElementById('scanButton');
   if (scanButton) {
     scanButton.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'tbd' });
+      injectContentScriptAndProcess();
     });
   }
 
@@ -71,7 +71,6 @@ function initializePopup() {
       if (result.userId) {
           console.log('User is signed in');
           showSignedInState(result.userName);
-          injectContentScriptAndProcess();
       } else {
           console.log('User is signed out');
           showSignedOutState();
@@ -221,43 +220,60 @@ function injectContentScriptAndProcess() {
 }
 
 function selectAllTextAndProcess(tabId) {
-  updateStatus('Processing text...', true);
+  // Start with clean state
   hideGiphy();
+  
+  // First reset the progress bar with no transition
+  const progressBar = document.getElementById('progressBar');
+  if (progressBar) {
+    progressBar.style.transition = 'none';
+    progressBar.style.width = '0%';
+    progressBar.offsetHeight; // Force reflow
+    
+    // Start new animation in the next frame
+    requestAnimationFrame(() => {
+      progressBar.style.transition = 'width 1500ms linear';
+      progressBar.style.width = '100%';
+    });
+  }
+  
+  statusDiv.textContent = 'Processing text...';
 
   try {
     chrome.tabs.sendMessage(tabId, { action: "selectAllText" }, async function(response) {
       if (chrome.runtime.lastError) {
         console.error("Runtime error:", chrome.runtime.lastError);
-        updateStatus('Error: ' + chrome.runtime.lastError.message);
+        statusDiv.textContent = 'Error: ' + chrome.runtime.lastError.message;
         hideGiphy();
+        resetProgress();
         return;
       }
 
       if (response && response.success) {
-        const progressBar = document.getElementById('progressBar');
         if (progressBar) {
-          // Immediately set to 100% without animation
+          // Complete the progress immediately
           progressBar.style.transition = 'none';
           progressBar.style.width = '100%';
         }
-        if (statusDiv) {
-          statusDiv.textContent = 'Ready For Next Scan';
-          showGiphy();
-        }
+        statusDiv.textContent = 'Ready For Next Scan';
+        showGiphy();
       } else if (response && response.error) {
-        updateStatus('Error: ' + response.error);
+        statusDiv.textContent = 'Error: ' + response.error;
         console.error('Processing error:', response.error);
         hideGiphy();
+        resetProgress();
       } else {
-        updateStatus('Unexpected response from processing.');
+        statusDiv.textContent = 'Unexpected response from processing.';
         console.error('Unexpected response:', response);
         hideGiphy();
+        resetProgress();
       }
     });
   } catch (error) {
     console.error("Error sending message:", error);
-    updateStatus('Error: Unable to communicate with the page');
+    statusDiv.textContent = 'Error: Unable to communicate with the page';
     hideGiphy();
+    resetProgress();
   }
 }
 
@@ -288,17 +304,27 @@ function resetProgress() {
 function updateStatus(message, isLoading = false) {
   if (statusDiv) {
     statusDiv.textContent = message;
-    if (isLoading && message !== 'Completed') {
-      startProgress();
-      hideGiphy(); // Hide Giphy when loading starts
-    } else if (message === 'Completed') {
-      resetProgress();
-      showGiphy(); // Show Giphy when completed
-    } else {
-      resetProgress();
-      hideGiphy(); // Hide Giphy for other status messages
+    if (isLoading) {
+      hideGiphy();
     }
   } else {
     console.error('Status div not found');
   }
 }
+
+chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
+  if (request.action === 'updateCounter') {
+      updateCounter();
+  } else if (request.action === 'updateStatus') {
+      updateStatus(request.message, request.isLoading);
+  } else if (request.action === 'authStateChanged') {
+      if (request.user) {
+          showSignedInState(request.user.displayName);
+      } else {
+          showSignedOutState();
+      }
+  } else if (request.action === 'triggerScan') {
+      // Trigger the scan action
+      injectContentScriptAndProcess();
+  }
+});

@@ -332,7 +332,14 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === "toggle-feature") {
+    // First open the popup
     chrome.action.openPopup();
+    
+    // Wait a brief moment for the popup to initialize
+    setTimeout(() => {
+      // Send a message to trigger the main action
+      chrome.runtime.sendMessage({ action: "triggerScan" });
+    }, 300); // Adjust timeout as needed
   }
 });
 
