@@ -7,12 +7,46 @@
 	let provider;
 	let debugLog = [];
 	let showDebugPanel = true;
+	let testExtensionId = 'jednpafjmjheknpcfgijkhklhmnifdln'; // Default test ID
+	let isAuthInProgress = false;
 
 	function addToLog(message, type = 'info') {
 		const timestamp = new Date().toLocaleTimeString();
 		debugLog = [...debugLog, { message, timestamp, type }];
 		console.log(`[Auth Debug ${timestamp}]:`, message);
 	}
+
+	function simulateExtensionMessage() {
+  if (isAuthInProgress) {
+    addToLog('Auth already in progress, skipping...', 'warning');
+    return;
+  }
+
+  isAuthInProgress = true;
+  addToLog('🧪 Starting test auth flow', 'info');
+  addToLog(`Current origin: ${window.location.origin}`, 'info'); // Add this for debugging
+
+  try {
+    signInWithPopup(auth, provider)
+      .then((userCredential) => {
+        addToLog('✅ Auth successful!', 'success');
+        addToLog(`User data: ${JSON.stringify(userCredential.user)}`, 'data');
+      })
+      .catch((error) => {
+        addToLog(`❌ Auth error: ${error.message}`, 'error');
+        // Add more detailed error logging
+        if (error.code === 'auth/unauthorized-domain') {
+          addToLog(`Domain ${window.location.origin} is not authorized. Please add it to Firebase Console.`, 'error');
+        }
+      })
+      .finally(() => {
+        isAuthInProgress = false;
+      });
+  } catch (error) {
+    addToLog(`❌ Error initiating auth: ${error.message}`, 'error');
+    isAuthInProgress = false;
+  }
+}
 
 	onMount(() => {
 		addToLog('🟢 Auth Page Loaded', 'success');
@@ -21,53 +55,45 @@
 		provider = new GoogleAuthProvider();
 
 		// Listen for ANY message from chrome extensions
-		window.addEventListener('message', function (event) {
-			// Log the origin for debugging
-			addToLog(`Received message from origin: ${event.origin}`, 'info');
+		window.addEventListener('message', async function (event) {
+		addToLog(`Received message from origin: ${event.origin}`, 'info');
 
-			// Check if it's coming from a Chrome extension
-			if (!event.origin.startsWith('chrome-extension://')) {
-				addToLog(`Ignored message from non-extension origin: ${event.origin}`, 'warning');
-				return;
-			}
-
+		// For actual extension messages
+		if (event.origin.startsWith('chrome-extension://')) {
 			try {
-				const { data } = event;
-				addToLog(`Received data: ${JSON.stringify(data)}`, 'info');
+			const { data } = event;
+			addToLog(`Received data: ${JSON.stringify(data)}`, 'info');
 
-				if (data && data.initAuth) {
-					addToLog('🔑 Initiating auth!', 'success');
+			if (data?.initAuth && !isAuthInProgress) {
+				isAuthInProgress = true;
+				addToLog('🔑 Initiating auth from extension', 'success');
 
-					signInWithPopup(auth, provider)
-						.then((userCredential) => {
-							addToLog('✅ Auth successful!', 'success');
-
-							// Send response back to the extension
-							try {
-								window.parent.postMessage(
-									JSON.stringify({ user: userCredential.user }),
-									event.origin // Send back to the same origin that sent us the message
-								);
-								addToLog('↩️ Response sent back to: ' + event.origin, 'success');
-							} catch (error) {
-								addToLog(`Error sending response: ${error.message}`, 'error');
-							}
-						})
-						.catch((error) => {
-							addToLog(`❌ Auth error: ${error.message}`, 'error');
-							try {
-								window.parent.postMessage(
-									JSON.stringify({ error: { code: error.code, message: error.message } }),
-									event.origin
-								);
-							} catch (sendError) {
-								addToLog(`Error sending error response: ${sendError.message}`, 'error');
-							}
-						});
+				try {
+				const userCredential = await signInWithPopup(auth, provider);
+				addToLog('✅ Auth successful!', 'success');
+				window.parent.postMessage(
+					JSON.stringify({ user: userCredential.user }),
+					event.origin
+				);
+				} catch (error) {
+				addToLog(`❌ Auth error: ${error.message}`, 'error');
+				window.parent.postMessage(
+					JSON.stringify({ error: { code: error.code, message: error.message } }),
+					event.origin
+				);
+				} finally {
+				isAuthInProgress = false;
 				}
-			} catch (error) {
-				addToLog(`❌ Error processing message: ${error.message}`, 'error');
 			}
+			} catch (error) {
+			addToLog(`❌ Error processing message: ${error.message}`, 'error');
+			isAuthInProgress = false;
+			}
+		} else if (event.origin === window.location.origin) {
+			addToLog('Internal message - ignoring', 'info');
+		} else {
+			addToLog(`External message from ${event.origin} - ignoring`, 'info');
+		}
 		});
 
 		addToLog('👂 Event listener setup complete', 'success');
@@ -119,6 +145,28 @@
 			>
 				Test Auth Flow
 			</button>
+
+			<!-- New button for simulating exact extension message -->
+			<button
+				class="btn variant-filled-secondary"
+				on:click={simulateExtensionMessage}
+			>
+				Simulate Extension Message
+			</button>
+
+			<!-- Extension ID input -->
+			<div class="form-control">
+				<label class="label">
+					<span class="label-text">Test Extension ID</span>
+				</label>
+				<input
+					type="text"
+					bind:value={testExtensionId}
+					class="input"
+					placeholder="Extension ID for testing"
+				/>
+			</div>
+
 			<p class="text-sm opacity-75">
 				You can also run <code>window.testAuth()</code> in the console
 			</p>

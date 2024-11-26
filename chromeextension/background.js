@@ -26,100 +26,141 @@ async function hasDocument() {
   );
 }
 
-async function setupOffscreenDocument(path) {
-
-  if (!(await hasDocument())) {
-    console.log('No offscreen document found. Proceeding to create one.');
-    if (creatingOffscreenDocument) {
-
-      await creatingOffscreenDocument;
-    } else {
-
-      try {
-        creatingOffscreenDocument = chrome.offscreen.createDocument({
-          url: path,
-          reasons: [chrome.offscreen.Reason.DOM_SCRAPING],
-          justification: 'authentication'
-        });
-        await creatingOffscreenDocument;
-
-      } catch (error) {
-        console.error('Error creating offscreen document:', error);
-        throw error;
-      } finally {
-        creatingOffscreenDocument = null;
-      }
+async function closeExistingDocument() {
+  try {
+    const existingContexts = await chrome.runtime.getContexts({
+      contextTypes: ['OFFSCREEN_DOCUMENT']
+    });
+    
+    if (existingContexts.length > 0) {
+      await chrome.offscreen.closeDocument();
     }
-  } else {
-    console.log('Offscreen document already exists.');
+  } catch (error) {
+    console.error('Error closing existing document:', error);
   }
 }
 
+async function setupOffscreenDocument(path, authUrl) {
+  // First, ensure any existing document is closed
+  await closeExistingDocument();
+  
+  try {
+    creatingOffscreenDocument = chrome.offscreen.createDocument({
+      url: `${path}?authUrl=${encodeURIComponent(authUrl)}`,
+      reasons: [chrome.offscreen.Reason.DOM_SCRAPING],
+      justification: 'authentication'
+    });
+    await creatingOffscreenDocument;
+  } catch (error) {
+    console.error('Error creating offscreen document:', error);
+    throw error;
+  } finally {
+    creatingOffscreenDocument = null;
+  }
+}
+
+// Modify closeOffscreenDocument to be more robust
 async function closeOffscreenDocument() {
-  if (!(await hasDocument())) {
-    return;
+  try {
+    await closeExistingDocument();
+  } catch (error) {
+    console.error('Error in closeOffscreenDocument:', error);
   }
-  await chrome.offscreen.closeDocument();
 }
 
+
+// In background.js
 function getAuth() {
-
   return new Promise(async (resolve, reject) => {
-
     try {
-
+      console.log('getAuth: Starting authentication process');
+      console.log('getAuth: Sending message to offscreen document');
+      
       const auth = await chrome.runtime.sendMessage({
         type: 'firebase-auth',
         target: 'offscreen'
       });
+      
+      console.log('getAuth: Raw response from offscreen:', auth);
+
+      // Log the entire auth object structure
+      if (auth) {
+        console.log('getAuth: Full auth object:', JSON.stringify(auth, null, 2));
+        if (auth.user) {
+          console.log('getAuth: User object exists:', JSON.stringify(auth.user, null, 2));
+        } else {
+          console.log('getAuth: No user object in auth response');
+        }
+      } else {
+        console.log('getAuth: Received null or undefined auth response');
+      }
 
       if (auth?.name !== 'FirebaseError') {
         console.log('getAuth: Authentication successful, resolving promise');
         resolve(auth);
       } else {
-        console.warn('getAuth: Received FirebaseError, rejecting promise');
+        console.warn('getAuth: Received FirebaseError, rejecting promise', auth);
         reject(auth);
       }
     } catch (error) {
-      console.error('getAuth: Error occurred during authentication', error);
+      console.error('getAuth: Caught error during authentication:', error);
       reject(error);
     }
-  }).then(result => {
-
-    return result;
-  }).catch(error => {
-    console.error('getAuth: Promise rejected', error);
-    throw error;
   });
 }
+
+// In background.js, modify firebaseAuth:
 async function firebaseAuth() {
-  await setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH);
-
-  const auth = await getAuth()
-    .then((auth) => {
-      console.log('User Authenticated', auth);
-      chrome.storage.local.set({
-        userId: auth.user.uid,
-        userName: auth.user.displayName,
-        userEmail: auth.user.email
-      }, function() {
-
-        chrome.runtime.sendMessage({
-          action: 'authStateChanged',
-          user: auth.user,
-          userName: auth.user.displayName
-        });
+  const authUrl = getServiceUrl('authSignin');
+  console.log("Auth URL (raw):", authUrl);
+  console.log("Current extension ID:", chrome.runtime.id);
+  console.log("Full extension URL:", chrome.runtime.getURL(''));
+  
+  try {
+    console.log("Setting up offscreen document...");
+    await setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH, authUrl);
+    console.log("Offscreen document created with URL:", `${OFFSCREEN_DOCUMENT_PATH}?authUrl=${encodeURIComponent(authUrl)}`);
+    
+    const auth = await getAuth();
+    console.log("Raw auth response:", JSON.stringify(auth, null, 2)); // Log the entire response
+    
+    if (auth && auth.error) {
+      console.error("Authentication error details:", JSON.stringify(auth.error, null, 2));
+      throw new Error(auth.error.message || 'Authentication failed');
+    }
+    
+    if (!auth || !auth.user) {
+      console.error("Invalid auth response:", auth);
+      throw new Error('Authentication failed - no user data received');
+    }
+    
+    console.log("Setting storage and sending message...");
+    chrome.storage.local.set({
+      userId: auth.user.uid,
+      userName: auth.user.displayName,
+      userEmail: auth.user.email
+    }, function() {
+      chrome.runtime.sendMessage({
+        action: 'authStateChanged',
+        user: auth.user,
+        userName: auth.user.displayName
       });
+    });
 
-      return auth;
-    })
-    .catch(err => {
-      console.error(err);
-      return err;
-    })
-    .finally(closeOffscreenDocument);
-
-  return auth;
+    return auth;
+  } catch (err) {
+    console.error('Authentication error:', err);
+    console.error('Full error details:', err); // Log the full error object
+    // Send auth failed message to update UI
+    chrome.runtime.sendMessage({
+      action: 'authStateChanged',
+      user: null,
+      error: err.message
+    });
+    throw err;
+  } finally {
+    await closeOffscreenDocument();
+  }
 }
 
 async function firebaseSignOut() {
@@ -331,3 +372,9 @@ chrome.runtime.onMessageExternal.addListener(
       return true;  // Important: keeps the message channel open for async response
   }
 );
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'debug-log') {
+    console.log('Offscreen Debug:', message.message, message.data);
+  }
+});
