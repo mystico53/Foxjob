@@ -27,14 +27,14 @@ async function hasDocument() {
 }
 
 async function setupOffscreenDocument(path) {
-  console.log('setupOffscreenDocument called with path:', path);
+
   if (!(await hasDocument())) {
     console.log('No offscreen document found. Proceeding to create one.');
     if (creatingOffscreenDocument) {
-      console.log('Offscreen document is already being created. Awaiting...');
+
       await creatingOffscreenDocument;
     } else {
-      console.log('Creating offscreen document now.');
+
       try {
         creatingOffscreenDocument = chrome.offscreen.createDocument({
           url: path,
@@ -42,7 +42,7 @@ async function setupOffscreenDocument(path) {
           justification: 'authentication'
         });
         await creatingOffscreenDocument;
-        console.log('Offscreen document created successfully.');
+
       } catch (error) {
         console.error('Error creating offscreen document:', error);
         throw error;
@@ -63,16 +63,16 @@ async function closeOffscreenDocument() {
 }
 
 function getAuth() {
-  console.log('getAuth: Function called');
+
   return new Promise(async (resolve, reject) => {
-    console.log('getAuth: Promise executor started');
+
     try {
-      console.log('getAuth: Sending firebase-auth message');
+
       const auth = await chrome.runtime.sendMessage({
         type: 'firebase-auth',
         target: 'offscreen'
       });
-      console.log('getAuth: Received response:', auth);
+
       if (auth?.name !== 'FirebaseError') {
         console.log('getAuth: Authentication successful, resolving promise');
         resolve(auth);
@@ -85,7 +85,7 @@ function getAuth() {
       reject(error);
     }
   }).then(result => {
-    console.log('getAuth: Promise resolved successfully');
+
     return result;
   }).catch(error => {
     console.error('getAuth: Promise rejected', error);
@@ -103,7 +103,7 @@ async function firebaseAuth() {
         userName: auth.user.displayName,
         userEmail: auth.user.email
       }, function() {
-        console.log('User data stored in chrome.storage.local');
+
         chrome.runtime.sendMessage({
           action: 'authStateChanged',
           user: auth.user,
@@ -124,7 +124,7 @@ async function firebaseAuth() {
 
 async function firebaseSignOut() {
   chrome.storage.local.remove(['userId', 'userName'], () => {
-    console.log('User information removed from storage');
+
     chrome.runtime.sendMessage({ action: 'authStateChanged', user: null, userName: null });
   });
 
@@ -156,15 +156,7 @@ async function sendToPubSub(text, url, googleId) {
     }
   };
 
-  console.log('Prepared API body:', { 
-    textLength: apiBody.message.text.length, 
-    url: apiBody.message.url, 
-    googleId: apiBody.message.googleId 
-  });
-
   try {
-    console.log('Sending request to Pub/Sub function:', { url: targetUrl, body: apiBody });
-
     const response = await fetch(targetUrl, {
       method: 'POST',
       headers: {
@@ -173,18 +165,12 @@ async function sendToPubSub(text, url, googleId) {
       body: JSON.stringify(apiBody)
     });
 
-    console.log('Received response from Pub/Sub function:', { 
-      status: response.status, 
-      statusText: response.statusText 
-    });
-
     const responseText = await response.text();
-    console.log('Raw Response:', responseText);
 
     let responseData;
     try {
       responseData = JSON.parse(responseText);
-      console.log('Parsed JSON Response:', responseData);
+
     } catch (jsonError) {
       console.error('Failed to parse JSON response:', jsonError);
       throw new Error(`Invalid JSON response: ${jsonError.message}`);
@@ -241,7 +227,7 @@ async function handlePublishText(request, sender, sendResponse) {
     sendToPubSub(request.text, request.url, googleId)
       .then(data => {
         if (data.success) {
-          console.log('Successfully sent to Pub/Sub, sending status update');
+
           sendResponse({ success: true });
         } else {
           console.error('Pub/Sub function returned an error:', data.error);
@@ -258,8 +244,6 @@ async function handlePublishText(request, sender, sendResponse) {
 }
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
-  console.log('Background script received message:', request);
-
   if (request.target === 'offscreen') {
     // Do not handle messages intended for the offscreen document
     return;
@@ -324,8 +308,6 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       break;
 
     case "contentScriptReady":
-      console.log("Content script is ready");
-      // You can add initialization logic here if needed
       break;
 
     default:
@@ -337,7 +319,6 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
 
 chrome.commands.onCommand.addListener((command) => {
   if (command === "toggle-feature") {
-    console.log("Keyboard shortcut Alt+S was pressed");
     chrome.action.openPopup();
   }
 });
