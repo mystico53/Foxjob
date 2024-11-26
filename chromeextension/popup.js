@@ -42,9 +42,17 @@ function initializePopup() {
 
   // Initialize library button
   if (libraryButton) {
-      libraryButton.addEventListener('click', () => {
-          chrome.tabs.create({ url: 'https://jobille-45494.web.app/' });
-      });
+    libraryButton.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://jobille-45494.web.app/' });
+    });
+  }
+
+  // Initialize scan button
+  const scanButton = document.getElementById('scanButton');
+  if (scanButton) {
+    scanButton.addEventListener('click', () => {
+      chrome.tabs.create({ url: 'https://jobille-45494.web.app/' });
+    });
   }
 
   // Initialize sign in/out buttons
