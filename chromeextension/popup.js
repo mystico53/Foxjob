@@ -110,18 +110,6 @@ function hideGiphy() {
   }
 }
 
-function toggleLibraryButton(show) {
-  if (libraryButton) {
-    if (show) {
-      libraryButton.classList.remove('hidden');
-    } else {
-      libraryButton.classList.add('hidden');
-    }
-  } else {
-    console.error('Library button not found');
-  }
-}
-
 function showSignedInState(userName) {
   signInView.classList.remove('active');
   mainAppView.classList.add('active');
@@ -139,7 +127,7 @@ function showSignedInState(userName) {
   }
   
   updateStatus('Ready to process text');
-  toggleLibraryButton(true);
+  
   hideGiphy();
 }
 
@@ -160,7 +148,7 @@ function showSignedOutState() {
   }
   
   updateStatus('Please sign in to process text');
-  toggleLibraryButton(false);
+  
   hideGiphy();
 }
 
