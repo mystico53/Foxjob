@@ -1,6 +1,7 @@
 // popup.js
 
 import Counter from './counter.js';
+import { getServiceUrl } from './config.js';
 
 let statusDiv;
 let popupContainer;
@@ -41,7 +42,8 @@ function initializePopup() {
   // Initialize library button
   if (libraryButton) {
     libraryButton.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'https://jobille-45494.web.app/' });
+      const libraryUrl = getServiceUrl('library');
+      chrome.tabs.create({ url: libraryUrl });
     });
   }
 
@@ -49,7 +51,7 @@ function initializePopup() {
   const scanButton = document.getElementById('scanButton');
   if (scanButton) {
     scanButton.addEventListener('click', () => {
-      chrome.tabs.create({ url: 'https://jobille-45494.web.app/' });
+      chrome.tabs.create({ url: 'tbd' });
     });
   }
 
