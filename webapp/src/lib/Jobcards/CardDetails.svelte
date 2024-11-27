@@ -214,7 +214,7 @@
 											stroke={60}
 											font={150}
 											meter="!stroke-primary-500"
-											track="!stroke-tertiary-500/30"
+											track="!stroke-tertiary-700/30"
 											strokeLinecap="round"
 											value={Math.round(score || 0)}
 										>

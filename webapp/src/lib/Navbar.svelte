@@ -5,6 +5,12 @@
 	import { goto } from '$app/navigation';
 	import foxIcon from '../assets/Fox_Icon_128x128-nobg.png';
 	import FeedbackButton from '$lib/admincomponents/FeedbackButton.svelte';
+	import { tooltipStore } from '$lib/stores/tooltipStore';
+    import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
+    
+    function handleTooltipClose() {
+        tooltipStore.hideNavbarTooltip();
+    }
 
 	$: currentPath = $page.url.pathname;
 
@@ -65,10 +71,27 @@
 	<svelte:fragment slot="trail">
 		<div class="flex items-center gap-4">
 			{#if $authStore}
-			<a href="https://chromewebstore.google.com/detail/foxjob/lbncdalbaajjafnpgplghkdaiflfihjp" class="btn btn-sm variant-ghost flex items-center gap-2" title="Admin Panel" target="_blank" rel="noopener noreferrer">
-				<iconify-icon icon="solar:download-minimalistic-outline"></iconify-icon>
-				Extension
-			  </a>
+			<div class="relative"> <!-- Add this wrapper -->
+                <a 
+                    href="https://chromewebstore.google.com/detail/foxjob/lbncdalbaajjafnpgplghkdaiflghihjp" 
+                    class="btn btn-sm variant-ghost flex items-center gap-2" 
+                    title="Admin Panel" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                >
+                    <iconify-icon icon="solar:download-minimalistic-outline"></iconify-icon>
+                    Extension
+                </a>
+                {#if $tooltipStore.showNavbarTooltip}
+                    <OnboardingTooltip
+                        title="Ready to Start!"
+                        description="Your resume is uploaded. Click here to start matching with jobs!"
+                        position="bottom"
+                        showCloseButton={true}
+                        onClose={handleTooltipClose}
+                    />
+                {/if}
+            </div>
 			<FeedbackButton />
 				<!-- Add the feedback button here -->
 				<a href="/admin" class="btn btn-sm variant-ghost" title="Admin Panel">
