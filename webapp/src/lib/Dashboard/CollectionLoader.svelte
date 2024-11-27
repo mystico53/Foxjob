@@ -15,6 +15,9 @@
 	} from 'firebase/firestore';
 	import ExtensionChecker from '$lib/Dashboard/ExtensionChecker.svelte';
 	import { setResumeStatus } from '$lib/stores/userStateStore.js';
+	import { userStateStore } from '$lib/stores/userStateStore';
+    import { tooltipStore } from '$lib/stores/tooltipStore';
+    import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
 
 	let pdfjsLib;
 	let isLibraryLoaded = false;
@@ -167,6 +170,7 @@
 			uploadFeedback = `Resume "${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
 			uploadFeedbackColor = 'variant-filled-surface';
 			resumeUploaded = true;
+			tooltipStore.showNavbarTooltip();
 		} catch (error) {
 			console.error('Error storing extracted text:', error);
 			uploadFeedback = 'Error uploading resume. Please try again.';
@@ -216,19 +220,26 @@
 		{/if}
 	</div>
 	<div class="flex flex-1 flex-col items-center justify-center">
-		{#if !resumeUploaded}
-			<FileDropzone
-				name="files"
-				on:change={handleFiles}
-				on:selected={handleFiles}
-				on:submit={handleFiles}
-				accept=".pdf,application/pdf"
-				border="border-2 border-solid border-tertiary-500"
-				padding="p-4 py-8"
-				rounded="rounded-container-token"
-				regionInterface="hover:bg-surface-500/20 transition-colors duration-150"
-				class="w-full"
-			/>
+		{#if !$userStateStore.resume.isUploaded}
+			<div class="relative w-full">
+				<FileDropzone
+					name="files"
+					on:change={handleFiles}
+					on:selected={handleFiles}
+					on:submit={handleFiles}
+					accept=".pdf,application/pdf"
+					border="border-2 border-solid border-tertiary-500"
+					padding="p-4 py-8"
+					rounded="rounded-container-token"
+					regionInterface="hover:bg-surface-500/20 transition-colors duration-150"
+					class="w-full"
+				/>
+				<OnboardingTooltip
+					title="Upload Your Resume"
+					description="Start by uploading your resume to get personalized job matches!"
+					position="bottom"
+				/>
+			</div>
 		{/if}
 
 		{#if uploadFeedback}

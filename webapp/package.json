@@ -17,7 +17,7 @@
 		"format": "prettier --write .",
 		"deploy": "firebase use staging && npm run build && firebase deploy",
 		"deploy:staging": "firebase use staging && npm run build:staging && firebase deploy --only hosting:staging",
-  		"deploy:prod": "firebase use prod && npm run build:prod && firebase deploy --only hosting:prod",
+		"deploy:prod": "firebase use prod && npm run build:prod && firebase deploy --only hosting:prod",
 		"deploy:functions": "firebase deploy --only functions",
 		"deploy:functions:prod": "firebase use prod && firebase deploy --only functions",
 		"deploy:rules:prod": "firebase use prod && copy firestore.rules.prod firestore.rules && firebase deploy --only firestore:rules"
