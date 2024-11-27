@@ -417,10 +417,10 @@
 				disabled={processingJobs.has(job.id)}
 			>
 				{#if processingJobs.has(job.id)}
-					<iconify-icon icon="svg-spinners:clock"></iconify-icon>
-					<p>Repairing ~30sec</p>
+					<iconify-icon icon="svg-spinners:blocks-shuffle-3"></iconify-icon>
+					<p>Rematching ~30sec</p>
 				{:else}
-					<iconify-icon icon="heroicons:wrench-20-solid"></iconify-icon>
+					<iconify-icon icon="solar:refresh-bold"></iconify-icon>
 				{/if}
 			</button>
 

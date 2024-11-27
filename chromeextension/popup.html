@@ -260,8 +260,8 @@
         .sign-in-view {
             display: none;
             width: 100%;
-            padding: 40px 20px 20px;
             text-align: center;
+            padding-bottom: 20px;
         }
 
         .giphy-container-sign-in {
@@ -296,9 +296,42 @@
         }
 
         .sign-in-content {
-            max-width: 400px;
-            margin: 0 auto;
-            padding-top: 20px;
+            max-width: none;
+            /* Remove max-width restriction */
+            margin: 0;
+            /* Remove auto margins */
+            text-align: left;
+            /* Align text to the left */
+        }
+
+        .sign-in-container {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            gap: 40px;
+        }
+
+        .sign-in-left {
+            flex: 0 0 40%;
+            /* This makes it exactly 20% width */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+
+        .sign-in-right {
+            flex: 0 0 60%;
+            /* This makes it exactly 80% width */
+        }
+
+        .giphy-container-sign-in {
+            width: 75px;
+            /* Adjust size as needed */
+            height: 75px;
+            /* Adjust size as needed */
+            margin: 0;
+            /* Remove auto margins */
         }
 
         .welcome-message {
@@ -341,18 +374,22 @@
     <div id="popup-container">
         <!-- New Sign In View -->
         <div id="signInView" class="sign-in-view">
-            <div class="sign-in-content">
-                <div class="giphy-container-sign-in">
-                    <iframe src="https://giphy.com/embed/xsE65jaPsUKUo" frameBorder="0" class="giphy-embed"
-                        allowFullScreen></iframe>
+            <div class="sign-in-container">
+                <div class="sign-in-left">
+                    <div class="giphy-container-sign-in">
+                        <iframe src="https://giphy.com/embed/xsE65jaPsUKUo" frameBorder="0" class="giphy-embed"
+                            allowFullScreen></iframe>
+                    </div>
                 </div>
-                <h2 class="welcome-message">Welcome to Foxjob</h2>
-                <p class="sign-in-description">
-                    Your personal job hunting assistant. Sign in to start collecting and organizing job postings
-                    automatically.
-                    We'll help you keep track of interesting opportunities across the web.
-                </p>
-                <button id="signInButton" class="sign-in-button">Sign in with Google</button>
+                <div class="sign-in-right">
+                    <div class="sign-in-content">
+                        <h2 class="welcome-message">Welcome to Foxjob</h2>
+                        <p class="sign-in-description">
+                            Find better jobs. Sign in to start.
+                        </p>
+                        <button id="signInButton" class="sign-in-button">Sign in with Google</button>
+                    </div>
+                </div>
             </div>
         </div>
 
