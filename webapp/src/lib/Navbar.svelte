@@ -84,8 +84,8 @@
                 </a>
                 {#if $tooltipStore.showNavbarTooltip}
                     <OnboardingTooltip
-                        title="Ready to Start!"
-                        description="Your resume is uploaded. Click here to start matching with jobs!"
+                        title="Final Step"
+                        description="Add the extension to your browser"
                         position="bottom"
                         showCloseButton={true}
                         onClose={handleTooltipClose}
@@ -93,14 +93,11 @@
                 {/if}
             </div>
 			<FeedbackButton />
-				<!-- Add the feedback button here -->
-				<a href="/admin" class="btn btn-sm variant-ghost" title="Admin Panel">
-					<iconify-icon icon="gis:coord-system-3d-alt"></iconify-icon>
-				</a>
 				<button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
 				<Avatar
 					width="w-12"
-					initials={$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
+					initials={$authStore.displayName?.charAt(0).toUpperCase() ?? 
+							$authStore.email?.charAt(0).toUpperCase() ?? 'U'}
 					background="bg-tertiary-500"
 				/>
 			{:else}

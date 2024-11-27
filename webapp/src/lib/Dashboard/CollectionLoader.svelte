@@ -235,9 +235,11 @@
 					class="w-full"
 				/>
 				<OnboardingTooltip
-					title="Upload Your Resume"
-					description="Start by uploading your resume to get personalized job matches!"
-					position="bottom"
+					title="Get matched in two steps"
+					description="Step one: Upload your resume!"
+					position="top"
+					width="400px"
+					offset="1rem"
 				/>
 			</div>
 		{/if}
