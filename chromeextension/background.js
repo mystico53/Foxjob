@@ -217,11 +217,21 @@ function incrementCounter(){
 }
 
 async function handlePublishText(request, sender, sendResponse) {
-  // Check rate limit first
-  const canProceed = await RateLimit.checkAndTrack();
-  if (!canProceed) {
-    console.error('Rate limit reached: Maximum 3 actions per minute allowed');
-    sendResponse({ success: false, error: 'Rate limit reached: Please wait before trying again' });
+  // Check rate limit first with the new response format
+  const rateLimit = await RateLimit.checkAndTrack();
+  if (!rateLimit.allowed) {
+    console.warn(`Only three jobs/minute during testing. Come back in ${rateLimit.waitTime} sec!`);
+    sendResponse({ 
+      success: false, 
+      error: `Only three jobs/minute during testing. Come back in ${rateLimit.waitTime} sec!`
+    });
+    
+    // Update UI with rate limit message
+    chrome.runtime.sendMessage({ 
+      action: 'updateStatus', 
+      message: `Only three jobs/minute during testing. Come back in ${rateLimit.waitTime} sec!`, 
+      isLoading: false
+    });
     return;
   }
 
@@ -229,7 +239,11 @@ async function handlePublishText(request, sender, sendResponse) {
     const googleId = result.userId || 'anonymous';
     if (!googleId) {
       console.error('No Google ID found');
-      chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: User not signed in', isLoading: false});
+      chrome.runtime.sendMessage({ 
+        action: 'updateStatus', 
+        message: 'Error: User not signed in', 
+        isLoading: false
+      });
       sendResponse({ success: false, error: 'User not signed in' });
       return;
     }
@@ -240,17 +254,24 @@ async function handlePublishText(request, sender, sendResponse) {
     sendToPubSub(request.text, request.url, googleId)
       .then(data => {
         if (data.success) {
-
           sendResponse({ success: true });
         } else {
           console.error('Pub/Sub function returned an error:', data.error);
-          chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + data.error, isLoading: false});
+          chrome.runtime.sendMessage({ 
+            action: 'updateStatus', 
+            message: 'Error: ' + data.error, 
+            isLoading: false
+          });
           sendResponse({ success: false, error: data.error });
         }
       })
       .catch(error => {
         console.error('Error in sendToPubSub:', error);
-        chrome.runtime.sendMessage({ action: 'updateStatus', message: 'Error: ' + error.message, isLoading: false});
+        chrome.runtime.sendMessage({ 
+          action: 'updateStatus', 
+          message: 'Error: ' + error.message, 
+          isLoading: false
+        });
         sendResponse({ success: false, error: error.message });
       });
   });
