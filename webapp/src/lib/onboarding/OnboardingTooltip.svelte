@@ -2,7 +2,7 @@
 <script>
     export let title = '';
     export let description = '';
-    export let position = 'bottom';
+    export let position = 'left';
     export let showCloseButton = false;
     export let onClose = () => {};
     export let width = '300px';
@@ -10,7 +10,7 @@
 </script>
 
 <div
-    class="card variant-filled-primary tooltip-container {position}"
+    class="card bg-tertiary-700 tooltip-container {position}"
     role="tooltip"
     aria-label={title}
     style="--tooltip-width: {width}; --tooltip-offset: {offset};"
@@ -24,7 +24,15 @@
         {/if}
         <p>{description}</p>
         {#if showCloseButton}
-            <button class="btn variant-filled-surface" on:click={onClose}>Got it!</button>
+            <a 
+                href="https://chromewebstore.google.com/detail/foxjob/lbncdalbaajjafnpgplghkdaiflfihjp"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="btn variant-filled-surface"
+                on:click={onClose}
+            >
+                Let's go!
+            </a>
         {/if}
     </div>
 </div>
@@ -33,7 +41,7 @@
     .tooltip-container {
         position: absolute;
         z-index: 999;
-        width: var(--tooltip-width, 300px);
+        width: var(--tooltip-width, 200px);
         box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
     }
 
@@ -61,27 +69,27 @@
         top: -16px;
         left: 50%;
         transform: translateX(-50%);
-        border-bottom-color: var(--color-primary-500);
+        border-bottom-color: rgb(var(--color-tertiary-700));
     }
 
     .arrow.top {
         bottom: -16px;
         left: 50%;
         transform: translateX(-50%);
-        border-top-color: var(--color-primary-500);
+        border-top-color: rgb(var(--color-tertiary-700));
     }
 
     .arrow.left {
         right: -16px;
         top: 50%;
         transform: translateY(-50%);
-        border-left-color: var(--color-primary-500);
+        border-left-color: rgb(var(--color-tertiary-700));
     }
 
     .arrow.right {
         left: -16px;
         top: 50%;
         transform: translateY(-50%);
-        border-right-color: var(--color-primary-500);
+        border-right-color: rgb(var(--color-tertiary-700));
     }
 </style>
