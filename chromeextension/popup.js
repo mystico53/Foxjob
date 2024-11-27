@@ -276,7 +276,7 @@ function selectAllTextAndProcess(tabId) {
     resetProgress();
   }
 }
-
+/*
 function startProgress() {
   const progressBar = document.getElementById('progressBar');
   if (progressBar) {
@@ -288,7 +288,14 @@ function startProgress() {
   } else {
     console.error('Progress bar not found');
   }
-}
+}*/
+
+document.addEventListener('DOMContentLoaded', function() {
+  // Get version from manifest
+  const version = chrome.runtime.getManifest().version;
+  // Update version display
+  document.querySelector('.version-number').textContent = `v${version}`;
+});
 
 function resetProgress() {
   const progressBar = document.getElementById('progressBar');
