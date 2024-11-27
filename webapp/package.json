@@ -47,10 +47,11 @@
 	"dependencies": {
 		"@floating-ui/dom": "^1.6.12",
 		"@google-cloud/pubsub": "^4.7.2",
+		"dompurify": "^3.2.1",
 		"dotenv": "^16.4.5",
 		"firebase": "^10.14.1",
 		"firebase-functions": "^6.0.1",
 		"iconify-icon": "^2.1.0",
-		"marked": "^14.1.2"
+		"marked": "^14.1.4"
 	}
 }

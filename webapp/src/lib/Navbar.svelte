@@ -73,7 +73,7 @@
 			{#if $authStore}
 			<div class="relative"> <!-- Add this wrapper -->
                 <a 
-                    href="https://chromewebstore.google.com/detail/foxjob/lbncdalbaajjafnpgplghkdaiflghihjp" 
+                    href="https://chromewebstore.google.com/detail/foxjob/lbncdalbaajjafnpgplghkdaiflfihjp" 
                     class="btn btn-sm variant-ghost flex items-center gap-2" 
                     title="Admin Panel" 
                     target="_blank" 
@@ -87,6 +87,7 @@
                         title="Final Step"
                         description="Add the extension to your browser"
                         position="bottom"
+						width="21rem"
                         showCloseButton={true}
                         onClose={handleTooltipClose}
                     />

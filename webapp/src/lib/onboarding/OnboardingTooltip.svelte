@@ -24,16 +24,24 @@
         {/if}
         <p>{description}</p>
         {#if showCloseButton}
+        <div class="flex gap-2">
+            <button 
+                class="btn variant-filled-surface"
+                on:click={onClose}
+                data-popup-close
+            >
+                The extension is ready
+            </button>
             <a 
                 href="https://chromewebstore.google.com/detail/foxjob/lbncdalbaajjafnpgplghkdaiflfihjp"
                 target="_blank"
                 rel="noopener noreferrer"
-                class="btn variant-filled-surface"
-                on:click={onClose}
+                class="btn variant-filled-primary"
             >
                 Let's go!
             </a>
-        {/if}
+        </div>
+    {/if}
     </div>
 </div>
 
