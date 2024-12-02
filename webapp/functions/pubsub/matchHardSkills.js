@@ -233,18 +233,73 @@ const skillsProcessor = {
   },
 
   validateScores(parsedContent) {
-    if (typeof parsedContent === 'string') {
-      parsedContent = JSON.parse(parsedContent);
+    if (!parsedContent || typeof parsedContent !== 'object') {
+      throw new Error('Invalid content format provided for score validation');
     }
     
-    parsedContent.hardSkillMatches.forEach((match) => {
+    if (!Array.isArray(parsedContent.hardSkillMatches)) {
+      throw new Error('Missing hardSkillMatches array');
+    }
+    
+    parsedContent.hardSkillMatches.forEach((match, index) => {
+      if (typeof match.score !== 'number') {
+        throw new Error(`Invalid score type at index ${index}: ${typeof match.score}`);
+      }
+      
       if (match.score < 0 || match.score > 100) {
-        throw new Error(`Score out of range: ${match.score}`);
+        throw new Error(`Score out of range at index ${index}: ${match.score}`);
       }
     });
     
+    if (typeof parsedContent.totalScore !== 'number') {
+      throw new Error(`Invalid total score type: ${typeof parsedContent.totalScore}`);
+    }
+    
     if (parsedContent.totalScore < 0 || parsedContent.totalScore > 100) {
       throw new Error(`Total score out of range: ${parsedContent.totalScore}`);
+    }
+  },
+
+  formatSkillAssessment(matchResult, originalHardSkills) {
+    try {
+      // Ensure we're working with an object
+      const parsedResult = typeof matchResult === 'string' ? 
+        JSON.parse(matchResult) : matchResult;
+
+      // Validate the basic structure
+      if (!parsedResult || !Array.isArray(parsedResult.hardSkillMatches)) {
+        throw new Error('Invalid match result structure');
+      }
+
+      const skillAssessment = {};
+
+      // Map the results to the expected format
+      parsedResult.hardSkillMatches.forEach((match, index) => {
+        const skillNumber = `HS${index + 1}`;
+        
+        // Ensure the original skill exists
+        if (!originalHardSkills[skillNumber]) {
+          throw new Error(`Missing original skill for ${skillNumber}`);
+        }
+
+        skillAssessment[skillNumber] = {
+          name: originalHardSkills[skillNumber].name,
+          description: originalHardSkills[skillNumber].description,
+          assessment: match.assessment || '',
+          score: Number(match.score) || 0
+        };
+      });
+
+      // Add the summary scores
+      skillAssessment.hardSkillScore = {
+        totalScore: Number(parsedResult.totalScore) || 0,
+        summary: parsedResult.summary || ''
+      };
+
+      return skillAssessment;
+    } catch (error) {
+      logger.error('Error formatting skill assessment:', error);
+      throw new Error(`Failed to format skill assessment: ${error.message}`);
     }
   }
 };
@@ -271,18 +326,36 @@ const skillsMatchingService = {
         throw new Error(result.message || 'Error calling OpenAI API');
       }
 
-      // The response might already be an object or a JSON string
+      // First, ensure we have the expected structure
+      if (!result || !result.extractedText) {
+        throw new Error('Invalid response structure from OpenAI API');
+      }
+
+      // Add debug logging to see the raw response
+      logger.debug('Raw OpenAI response:', result.extractedText);
+
+      // Handle both string and object responses
       let parsedContent;
-      if (typeof result.extractedText === 'string') {
-        try {
-          parsedContent = JSON.parse(result.extractedText);
-        } catch (parseError) {
-          logger.error('Failed to parse response as JSON:', result.extractedText);
-          throw new Error('Invalid JSON response: ' + parseError.message);
+      try {
+        // If it's a string, attempt to parse it
+        if (typeof result.extractedText === 'string') {
+          // Trim any whitespace and remove any BOM characters
+          const cleanText = result.extractedText.trim().replace(/^\uFEFF/, '');
+          
+          // Check if the string starts and ends with curly braces
+          if (!cleanText.startsWith('{') || !cleanText.endsWith('}')) {
+            throw new Error('Response is not in valid JSON format');
+          }
+          
+          parsedContent = JSON.parse(cleanText);
+        } else {
+          // If it's already an object, use it directly
+          parsedContent = result.extractedText;
         }
-      } else {
-        // If it's already an object, use it directly
-        parsedContent = result.extractedText;
+      } catch (parseError) {
+        logger.error('Failed to parse OpenAI response:', result.extractedText);
+        logger.error('Parse error:', parseError);
+        throw new Error(`Invalid JSON response: ${parseError.message}`);
       }
 
       // Validate the parsed content structure
@@ -291,18 +364,15 @@ const skillsMatchingService = {
         throw new Error('Invalid response structure: missing hardSkillMatches array');
       }
 
+      // Validate scores
       skillsProcessor.validateScores(parsedContent);
       
-      logger.info('Parsed content:', parsedContent);
+      logger.info('Successfully parsed and validated content:', parsedContent);
       return parsedContent;
 
     } catch (error) {
       logger.error('Error in matchSkills:', error);
-      throw new functions.https.HttpsError(
-        'internal',
-        'Error matching skills',
-        { message: error.message }
-      );
+      throw new Error(`Skills matching failed: ${error.message}`);
     }
   }
 };
