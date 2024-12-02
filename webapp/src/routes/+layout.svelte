@@ -19,7 +19,15 @@
     let isLoading = true;
     
     // Define public routes that don't require authentication
-    const publicRoutes = ['/landing', '/login', '/'];
+    const publicRoutes = [
+        '/landing', 
+        '/login', 
+        '/',
+        '/terms',     // Added terms route
+        '/privacy',   // Added privacy route
+        '/terms/',    // Also add trailing slash versions
+        '/privacy/'   // Also add trailing slash versions
+    ];
     
     onMount(() => {
         const unsubscribe = auth.onAuthStateChanged((user) => {

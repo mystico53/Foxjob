@@ -45,28 +45,28 @@
 	</svelte:fragment>
 
 	<svelte:fragment slot="default">
-		{#if $authStore}
-			<div class="hidden md:block">
-				<ul class="flex justify-center space-x-8">
-					{#each navItems as { href, label }}
-						<li class="relative px-4">
-							<a
-								{href}
-								class="text-base font-bold {currentPath === href
-									? 'text-[#B45309]'
-									: 'text-black-600 hover:text-gray-900'}"
-							>
-								{label}
-							</a>
-							{#if currentPath === href}
-								<div class="bg-primary-500 absolute bottom-[-20px] left-[0%] h-1 w-[100%]"></div>
-							{/if}
-						</li>
-					{/each}
-				</ul>
-			</div>
-		{/if}
-	</svelte:fragment>
+        {#if $authStore}
+            <div class="hidden md:block">
+                <ul class="flex justify-center space-x-8 list-none"> <!-- Added list-none class -->
+                    {#each navItems as { href, label }}
+                        <li class="relative px-4">
+                            <a
+                                {href}
+                                class="text-base font-bold {currentPath === href
+                                    ? 'text-[#B45309]'
+                                    : 'text-black-600 hover:text-gray-900'}"
+                            >
+                                {label}
+                            </a>
+                            {#if currentPath === href}
+                                <div class="bg-primary-500 absolute bottom-[-20px] left-[0%] h-1 w-[100%]"></div>
+                            {/if}
+                        </li>
+                    {/each}
+                </ul>
+            </div>
+        {/if}
+    </svelte:fragment>
 
 	<svelte:fragment slot="trail">
 		<div class="flex items-center gap-4">
@@ -109,16 +109,27 @@
 </AppBar>
 
 <style>
-	@import url('https://fonts.googleapis.com/css2?family=Protest+Riot&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Protest+Riot&display=swap');
 
-	.foxjob-title {
-		font-family: 'Protest Riot', sans-serif;
-		background: linear-gradient(to right, #fd5440 0%, #ff9c00 100%);
-		-webkit-background-clip: text;
-		background-clip: text;
-		-webkit-text-fill-color: transparent;
-		font-size: 32px;
-		line-height: 1;
-		letter-spacing: 0.02em;
-	}
+    .foxjob-title {
+        font-family: 'Protest Riot', sans-serif;
+        background: linear-gradient(to right, #fd5440 0%, #ff9c00 100%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-size: 32px;
+        line-height: 1;
+        letter-spacing: 0.02em;
+    }
+
+    /* Add these styles to ensure no bullets appear */
+    :global(nav ul) {
+        list-style-type: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    :global(nav li) {
+        list-style-type: none !important;
+    }
 </style>

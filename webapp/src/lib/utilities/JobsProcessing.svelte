@@ -5,6 +5,7 @@
     import { db } from '$lib/firebase';
     import { doc, getDoc, updateDoc } from 'firebase/firestore';
     import { ProgressRadial } from '@skeletonlabs/skeleton';
+    import { getCloudFunctionUrl } from '$lib/config/environment.config';
 
     let user = null;
     let unsubscribeAuth = null;
@@ -43,15 +44,15 @@
                 'generalData.processingStatus': 'retrying'
             });
 
-            const response = await fetch('https://retryprocessing-kvshkfhmua-uc.a.run.app', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    jobId: jobId,
-                    userId: user.uid
-                })
+            const response = await fetch(getCloudFunctionUrl('retryProcessing'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                jobId: jobId,
+                userId: user.uid
+            })
             });
 
             // Poll until status is completed
