@@ -9,6 +9,9 @@
       "hosting": {
         "staging": [
           "jobille-45494"
+        ],
+        "prod": [
+          "foxjob-prod"
         ]
       }
     },
