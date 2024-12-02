@@ -207,18 +207,20 @@ exports.finalVerdict = onMessagePublished(
       })();
       const { googleId, docId } = messageData;
 
+      // Get reference to the job document
+      const jobDocRef = db
+        .collection(CONFIG.collections.users)
+        .doc(googleId)
+        .collection(CONFIG.collections.jobs)
+        .doc(docId);
+
       // Process the document
       const documentData = await services.documentReader.getJobDocument(googleId, docId);
       const parsedVerdict = await services.api.getFinalVerdict(documentData);
       await services.firestore.updateVerdict(googleId, docId, parsedVerdict);
 
-      // After everything is processed and written, get the final state and log it
-      const finalJobDoc = await db
-        .collection(CONFIG.collections.users)
-        .doc(googleId)
-        .collection(CONFIG.collections.jobs)
-        .doc(docId)
-        .get();
+      // After everything is processed and written, get the final state
+      const finalJobDoc = await jobDocRef.get();
 
       if (!finalJobDoc.exists) {
         logger.info('❌ Job document not found');
@@ -262,28 +264,19 @@ exports.finalVerdict = onMessagePublished(
 
       const { scores, accumulatedScore } = calculateAccumulatedScore(finalJobDoc.data());
 
-      // Save all scores to Firestore
-      await db
-        .collection(CONFIG.collections.users)
-        .doc(googleId)
-        .collection(CONFIG.collections.jobs)
-        .doc(docId)
-        .update({
-          'AccumulatedScores': {
-            requirementScore: scores.requirementScore,
-            domainScore: scores.domainScore,
-            hardSkillScore: scores.hardSkillScore,
-            verdictScore: scores.verdictScore,
-            accumulatedScore: accumulatedScore
-          }
-        });
+      // Save all scores and update processing status
+      await jobDocRef.update({
+        'AccumulatedScores': {
+          requirementScore: scores.requirementScore,
+          domainScore: scores.domainScore,
+          hardSkillScore: scores.hardSkillScore,
+          verdictScore: scores.verdictScore,
+          accumulatedScore: accumulatedScore
+        },
+        'generalData.processingStatus': 'processed'
+      });
 
-
-        await jobDocRef.update({
-          'generalData.processingStatus': 'processed'
-        });
-  
-        logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${googleId}`);
+      logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${googleId}`);
         
       return parsedVerdict;
 
