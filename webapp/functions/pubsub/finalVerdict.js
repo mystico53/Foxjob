@@ -282,6 +282,6 @@ exports.finalVerdict = onMessagePublished(
 
     } catch (error) {
       logger.error('Error:', error);
-      throw new functions.https.HttpsError('internal', error.message);
+      throw new Error(`Internal error: ${error.message}`);
     }
   });
