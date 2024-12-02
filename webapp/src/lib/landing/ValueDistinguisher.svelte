@@ -1,21 +1,21 @@
 <script>
 	const features = [
 		{
-			icon: 'ph:scan-smiley-bold',
-			title: 'Bye bye endless reading',
+			icon: 'material-symbols-light:mark-unread-chat-alt-outline',
+			title: 'Less reading',
 			description:
-				'FoxJob uses LLM Agents to read job descriptions for you, we will tell you which ones matter.'
+				'Let Foxjob read job descriptions for you, we will tell you which ones matter.'
 		},
 		{
-			icon: 'icon-park-outline:scoreboard',
-			title: 'No more guessing',
+			icon: 'game-icons:direction-signs',
+			title: 'More certainty',
 			description:
 				"Our Algorithms compare your skills with the job requirements - and tell you if you're qualified."
 		},
 		{
 			icon: 'bxs:star-half',
-			title: 'Quality, not quantity',
-			description: "Don't apply to 100 jobs, you now have time to focus on the best matches."
+			title: 'Quality beats quantity',
+			description: "Don't apply to 100 jobs, you now have time to focus on your personal matches."
 		}
 	];
 </script>
@@ -25,7 +25,7 @@
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
 		{#each features as feature}
-			<div class="card card-hover flex flex-col items-center rounded-lg bg-white p-12 shadow-lg">
+			<div class="card card-hover text-center flex flex-col items-center rounded-lg bg-white p-12 shadow-lg">
 				<iconify-icon icon={feature.icon} class="text-6xl"></iconify-icon>
 				<h3 class="font-base mb-4 min-h-[3rem] py-8 font-bold">{feature.title}</h3>
 				<p class="text-base">{feature.description}</p>

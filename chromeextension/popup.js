@@ -179,20 +179,34 @@ function injectContentScriptAndProcess() {
     let lastFocusedWindow = windows.find(w => w.focused);
 
     if (!lastFocusedWindow) {
-      // If no window is focused, default to the first one
       lastFocusedWindow = windows[0];
+    }
+
+    if (!lastFocusedWindow) {
+      console.error('No window found');
+      updateStatus('Error: No window found');
+      return;
     }
 
     chrome.tabs.query({ active: true, windowId: lastFocusedWindow.id }, function(tabs) {
       const activeTab = tabs[0];
 
-      if (!activeTab || !activeTab.id || activeTab.url.startsWith('chrome://') || activeTab.url.startsWith('chrome-extension://')) {
-        console.error('No valid active tab found');
-        updateStatus('Error: No valid active tab found');
+      if (!activeTab.url) {
+        console.error('No URL found for tab');
+        updateStatus('Error: No URL found for tab');
+        return;
+      }
+      
+      console.log('Attempting to access:', activeTab.url);
+      
+      if (activeTab.url.startsWith('chrome://') || 
+          activeTab.url.startsWith('chrome-extension://')) {
+        console.error('Cannot access restricted page:', activeTab.url);
+        updateStatus(`Cannot access: ${activeTab.url}`);
         return;
       }
 
-      // Proceed with your logic to inject content scripts and process
+      // Proceed with content script injection
       chrome.tabs.sendMessage(activeTab.id, { action: "ping" }, function(response) {
         if (chrome.runtime.lastError || !response) {
           // Content script is not injected, inject it now
@@ -205,7 +219,6 @@ function injectContentScriptAndProcess() {
               if (chrome.runtime.lastError) {
                 updateStatus('Error injecting script: ' + chrome.runtime.lastError.message);
               } else {
-                // Add a small delay before processing
                 setTimeout(() => selectAllTextAndProcess(activeTab.id), 100);
               }
             }
