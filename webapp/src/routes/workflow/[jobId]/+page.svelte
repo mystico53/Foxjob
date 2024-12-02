@@ -1,7 +1,7 @@
 <script>
     import { page } from '$app/stores';
     import { goto } from '$app/navigation';
-    import { sortedJobs, loading } from '$lib/stores/jobStore';
+    import { sortedJobs } from '$lib/stores/jobStore';
     import CardDetails from '$lib/Jobcards/CardDetails.svelte';
 
     let selectedJob = null;
@@ -15,12 +15,18 @@
 
     function handleNext() {
         if (!$sortedJobs || selectedJobIndex >= $sortedJobs.length - 1) return;
-        goto(`/workflow/${$sortedJobs[selectedJobIndex + 1].id}`);
+        const nextIndex = selectedJobIndex + 1;
+        goto(`/workflow/${$sortedJobs[nextIndex].id}`);
     }
 
     function handlePrevious() {
         if (!$sortedJobs || selectedJobIndex <= 0) return;
-        goto(`/workflow/${$sortedJobs[selectedJobIndex - 1].id}`);
+        const prevIndex = selectedJobIndex - 1;
+        goto(`/workflow/${$sortedJobs[prevIndex].id}`);
+    }
+
+    function openJobLink(url) {
+        window.open(url, '_blank');
     }
 </script>
 
@@ -31,15 +37,13 @@
         previousJob={handlePrevious}
         isFirstJob={selectedJobIndex === 0}
         isLastJob={selectedJobIndex === $sortedJobs.length - 1}
+        toggleBookmark
+        {openJobLink}
     />
-{:else if $loading}
-    <div class="flex h-full items-center justify-center">
-        <span class="loading loading-spinner loading-lg text-primary-500"></span>
-    </div>
 {:else}
     <div class="flex h-full items-center justify-center">
         <div class="text-surface-400 text-center">
-            Job not found
+            Loading job details...
         </div>
     </div>
 {/if}
