@@ -7,11 +7,22 @@
 	import SortControls from '$lib/SortControls.svelte';
 	import { flip } from 'svelte/animate';
 	import SearchBar from '$lib/SearchBar.svelte';
+	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 
 	let currentUser = null;
 	let selectedJob = null;
 	let selectedJobIndex = -1;
 	let sidebar;
+
+	$: jobId = $page.params.jobId;
+	$: if (jobId && $sortedJobs) {
+		const job = $sortedJobs.find(j => j.id === jobId);
+		if (job) {
+			selectedJob = job;
+			selectedJobIndex = $sortedJobs.findIndex(j => j.id === jobId);
+		}
+	}
 
 	// Add reactive statement to handle initial job selection
 	$: if (!selectedJob && $sortedJobs && $sortedJobs.length > 0) {
@@ -47,33 +58,38 @@
 	});
 
 	function handleJobClick(job) {
-		selectedJob = job;
-		selectedJobIndex = $sortedJobs.findIndex((j) => j.id === job.id);
+    selectedJob = job;
+    selectedJobIndex = $sortedJobs.findIndex((j) => j.id === job.id);
 
-		if (window.innerWidth <= 768) {
-			sidebar.style.transform = 'translateX(-100%)';
-		}
-	}
+    if (window.innerWidth <= 768) {
+        sidebar.style.transform = 'translateX(-100%)';
+    }
+    
+    // Update URL to include jobId
+    goto(`/workflow/${job.id}`, { replaceState: true });
+}
 
-	function handleNext(jobId) {
-		if (!$sortedJobs || selectedJobIndex >= $sortedJobs.length - 1) return;
+function handleNext(jobId) {
+    if (!$sortedJobs || selectedJobIndex >= $sortedJobs.length - 1) return;
 
-		const nextIndex = selectedJobIndex + 1;
-		if (nextIndex < $sortedJobs.length) {
-			selectedJobIndex = nextIndex;
-			selectedJob = $sortedJobs[nextIndex];
-		}
-	}
+    const nextIndex = selectedJobIndex + 1;
+    if (nextIndex < $sortedJobs.length) {
+        selectedJobIndex = nextIndex;
+        selectedJob = $sortedJobs[nextIndex];
+        goto(`/workflow/${$sortedJobs[nextIndex].id}`, { replaceState: true });
+    }
+}
 
-	function handlePrevious() {
-		if (!$sortedJobs || selectedJobIndex <= 0) return;
+function handlePrevious() {
+    if (!$sortedJobs || selectedJobIndex <= 0) return;
 
-		const prevIndex = selectedJobIndex - 1;
-		if (prevIndex >= 0) {
-			selectedJobIndex = prevIndex;
-			selectedJob = $sortedJobs[prevIndex];
-		}
-	}
+    const prevIndex = selectedJobIndex - 1;
+    if (prevIndex >= 0) {
+        selectedJobIndex = prevIndex;
+        selectedJob = $sortedJobs[prevIndex];
+        goto(`/workflow/${$sortedJobs[prevIndex].id}`, { replaceState: true });
+    }
+}
 
 	async function toggleBookmark(jobId) {
 		try {
