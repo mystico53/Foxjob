@@ -9,6 +9,7 @@
 		sortConfig,
 		searchText
 	} from '$lib/stores/jobStore';
+	import { goto } from '$app/navigation';
 
 	let user = null;
 	let unsubscribeAuth = null;
@@ -98,6 +99,11 @@
 		}
 		sortValue = value;
 	}
+
+	function handleRowClick(job) {
+    // Just navigate to the workflow page with the job ID
+    goto(`/workflow/${job.id}`);
+}
 </script>
 
 <div class="container mx-auto w-full max-w-7xl px-4">
@@ -152,7 +158,10 @@
 					</thead>
 					<tbody>
 						{#each paginatedJobs as job}
-							<tr>
+							<tr
+									on:click={() => handleRowClick(job)}
+									class="cursor-pointer hover:bg-tertiary-100 transition-colors duration-200"
+								>
 								<td title={job.companyInfo?.name || 'N/A'}
 									>{truncateText(job.companyInfo?.name || 'N/A')}</td
 								>
