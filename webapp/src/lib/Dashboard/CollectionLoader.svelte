@@ -16,8 +16,8 @@
 	import ExtensionChecker from '$lib/Dashboard/ExtensionChecker.svelte';
 	import { setResumeStatus } from '$lib/stores/userStateStore.js';
 	import { userStateStore } from '$lib/stores/userStateStore';
-    import { tooltipStore } from '$lib/stores/tooltipStore';
-    import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
+	import { tooltipStore } from '$lib/stores/tooltipStore';
+	import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
 
 	let pdfjsLib;
 	let isLibraryLoaded = false;
@@ -235,8 +235,8 @@
 					class="w-full"
 				/>
 				<OnboardingTooltip
-					title="Get matched in two steps"
-					description="Step one: Upload your resume!"
+					title="Step 1"
+					description="Upload your resume"
 					position="top"
 					width="400px"
 					offset="1rem"
