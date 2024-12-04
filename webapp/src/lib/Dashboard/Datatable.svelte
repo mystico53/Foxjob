@@ -10,6 +10,7 @@
 		searchText
 	} from '$lib/stores/jobStore';
 	import { goto } from '$app/navigation';
+	import ProcessingJobsCount from '$lib/utilities/ProcessingJobsCount.svelte';
 
 	let user = null;
 	let unsubscribeAuth = null;
@@ -101,14 +102,18 @@
 	}
 
 	function handleRowClick(job) {
-    // Just navigate to the workflow page with the job ID
-    goto(`/workflow/${job.id}`);
-}
+		// Just navigate to the workflow page with the job ID
+		goto(`/workflow/${job.id}`);
+	}
 </script>
 
 <div class="container mx-auto w-full max-w-7xl px-4">
 	<div class="mb-4 flex items-center justify-between">
-		<h2 class="text-xl font-bold">Job List</h2>
+		<div class="flex items-center gap-3">
+			<!-- Added a container div with flex -->
+			<h2 class="text-xl font-bold">Job List</h2>
+			<ProcessingJobsCount />
+		</div>
 		<div class="flex items-center gap-4">
 			<div class="relative w-48">
 				<select
@@ -159,9 +164,9 @@
 					<tbody>
 						{#each paginatedJobs as job}
 							<tr
-									on:click={() => handleRowClick(job)}
-									class="cursor-pointer hover:bg-tertiary-100 transition-colors duration-200"
-								>
+								on:click={() => handleRowClick(job)}
+								class="hover:bg-tertiary-100 cursor-pointer transition-colors duration-200"
+							>
 								<td title={job.companyInfo?.name || 'N/A'}
 									>{truncateText(job.companyInfo?.name || 'N/A')}</td
 								>

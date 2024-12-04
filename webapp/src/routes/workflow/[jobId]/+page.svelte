@@ -34,7 +34,6 @@
 	}
 </script>
 
-# webapp/src/routes/workflow/[jobId]/+page.svelte
 {#if selectedJob}
 	<CardDetails
 		job={selectedJob}
