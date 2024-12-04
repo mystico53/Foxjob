@@ -8,7 +8,7 @@ export const Environment = {
 };
 
 // Current environment setting
-export const CURRENT_ENV = Environment.DEVELOPMENT;
+export const CURRENT_ENV = Environment.STAGING;
 
 // Emulator configuration
 export const USE_EMULATOR = false;
@@ -18,17 +18,17 @@ export const URL_CONFIG = {
   [Environment.DEVELOPMENT]: {
     publishJob: 'http://127.0.0.1:5001/jobille-45494/us-central1/publishJobText',
     authSignin: 'https://jobille-45494.web.app/auth/signin',
-    library: 'https://jobille-45494.web.app/workflow'  // Added library URL
+    library: 'https://jobille-45494.web.app/workflow'  
   },
   [Environment.STAGING]: {
     publishJob: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
     authSignin: 'https://jobille-45494.web.app/auth/signin',
-    library: 'https://jobille-45494.web.app/workflow'  // Added library URL
+    library: 'https://jobille-45494.web.app/workflow'  
   },
   [Environment.PRODUCTION]: {
     publishJob: 'https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText',
     authSignin: 'https://foxjob-prod.web.app/auth/signin',
-    library: 'https://foxjob-prod.web.app/workflow'  // Added library URL
+    library: 'https://foxjob-prod.web.app/workflow'  
   }
 };
 
