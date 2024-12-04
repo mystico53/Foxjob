@@ -193,7 +193,7 @@
 						class="chip variant-ghost-surface text-base"
 						title={formatDate(job.generalData?.timestamp)}
 					>
-						<iconify-icon icon="solar:calendar-mark-linear"></iconify-icon>
+						<iconify-icon icon="solar:calendar-minimalistic-bold"></iconify-icon>
 						<span>{truncateText(formatDate(job.generalData?.timestamp))}</span>
 					</span>
 				</div>
@@ -311,7 +311,7 @@
 					width="32"
 					height="32"
 				></iconify-icon>
-				<h4 class="h4 font-bold">Your Gaps</h4>
+				<h4 class="h4 font-bold">Your Weaknesses</h4>
 			</div>
 		</div>
 

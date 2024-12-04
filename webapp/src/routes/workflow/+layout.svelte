@@ -7,6 +7,7 @@
 	import SearchBar from '$lib/SearchBar.svelte';
 	import { goto } from '$app/navigation';
 	import { onMount, setContext } from 'svelte';
+	import ProcessingJobsCount from '$lib/utilities/ProcessingJobsCount.svelte';
 
 	let sidebar;
 
@@ -41,7 +42,6 @@
 	setContext('toggleBookmark', toggleBookmark);
 </script>
 
-# webapp/src/routes/workflow/+layout.svelte
 <div class="fixed left-0 flex h-[calc(100vh-72px)] w-full flex-col md:flex-row">
 	<aside
 		class="bg-surface-100 custom-scrollbar h-full w-full transform overflow-y-auto border-r transition-transform md:w-80 md:translate-x-0"
@@ -49,7 +49,9 @@
 		bind:this={sidebar}
 	>
 		<SortControls />
+		<ProcessingJobsCount />
 		<SearchBar />
+
 		<div class="p-4">
 			{#if $loading}
 				<div class="flex justify-center p-4">
