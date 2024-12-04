@@ -59,7 +59,7 @@
 								showCloseButton={true}
 								onClose={() => tooltipStore.hideThirdTooltip()}
 								primaryButtonText="See example job"
-								primaryButtonLink="/jobs"
+								primaryButtonLink="/list/example"
 								secondaryButtonText="Close"
 							/>
 						{/if}
