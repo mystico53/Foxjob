@@ -96,9 +96,7 @@ async function firebaseAuth() {
   const authUrl = getServiceUrl('authSignin');
   
   try {
-    console.log('Creating offscreen document...');
     await setupOffscreenDocument(OFFSCREEN_DOCUMENT_PATH, authUrl);
-    console.log('Offscreen document created.');
     const auth = await getAuth();
     
     if (auth && auth.error) {
@@ -133,9 +131,8 @@ async function firebaseAuth() {
     });
     throw err;
   } finally {
-    //await closeOffscreenDocument();
+    await closeOffscreenDocument();
   }
-  await closeOffscreenDocument();
 }
 
 async function firebaseSignOut() {
@@ -282,17 +279,8 @@ async function handlePublishText(request, sender, sendResponse) {
 
 chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
   if (request.target === 'offscreen') {
-    if (request.type === 'firebase-auth') {
-      // Handle authentication requests
-      firebaseAuth().then(auth => {
-        // Authentication successful
-        sendResponse({ success: true, uid: auth.uid, displayName: auth.displayName });
-      }).catch(error => {
-        // Authentication failed
-        sendResponse({ success: false, error: error.message });
-      });
-      return true; // Indicates that sendResponse will be called asynchronously
-    }
+    // Do not handle messages intended for the offscreen document
+    return;
   }
 
   // Handle authentication messages based on 'type' and 'target'
@@ -303,7 +291,7 @@ chrome.runtime.onMessage.addListener(function(request, sender, sendResponse) {
       sendResponse({ success: true, uid: auth.uid, displayName: auth.displayName });
     }).catch(error => {
       // Authentication failed
-      sendResponse({ success: false, error: error.message });
+      sendResponse({ success: false, error: error });
     });
     return true; // Indicates that sendResponse will be called asynchronously
   }

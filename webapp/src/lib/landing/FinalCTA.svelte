@@ -20,9 +20,9 @@
 
 <div class="card w-full bg-white px-4 py-16">
 	<div class="container mx-auto max-w-3xl text-center">
-		<h2 class="mb-4 text-4xl font-bold text-slate-900">Start finding jobs based on your skills.</h2>
+		<h2 class="mb-4 text-4xl font-bold text-slate-900">Start finding jobs based on your skills</h2>
 
-		<p class="mb-8 text-lg text-slate-600">Use Foxjob to focus on jobs that matter.</p>
+		<p class="mb-8 text-lg text-slate-600">Use Foxjob to focus on jobs that matter</p>
 
 		<button
 			type="button"

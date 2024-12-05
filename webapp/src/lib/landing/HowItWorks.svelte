@@ -1,5 +1,6 @@
 <!-- HowItWorks.svelte -->
 <script>
+	import { onDestroy } from 'svelte';
 	import demoVideo from '../../assets/demovid.webm';
 
 	const steps = [
@@ -10,7 +11,7 @@
 		},
 		{
 			number: 2,
-			title: 'Install Chrome Extension',
+			title: 'Install Extension',
 			description: ''
 		},
 		{
@@ -22,31 +23,71 @@
 
 	let video;
 	let isPlaying = false;
+	let isMuted = true;
+	let progress = 0;
+	let duration = 0;
+	let animationFrameId;
 
-	function togglePlay() {
+	function togglePlay(event) {
+		event.preventDefault();
 		if (video) {
 			if (isPlaying) {
 				video.pause();
 			} else {
-				video.play();
+				video.play().catch((error) => {
+					console.error('Play failed:', error);
+				});
 			}
 			isPlaying = !isPlaying;
 		}
 	}
 
-	function handleVideoLoad() {
+	function toggleMute(event) {
+		event.preventDefault();
 		if (video) {
-			video.play().catch((err) => {
-				console.log('Auto-play prevented:', err);
+			video.muted = !video.muted;
+			isMuted = video.muted;
+		}
+	}
+
+	function stopVideo(event) {
+		event.preventDefault();
+		if (video) {
+			video.pause();
+			video.currentTime = 0;
+			isPlaying = false;
+		}
+	}
+
+	function handleVideoStateChange() {
+		isPlaying = !video.paused;
+	}
+
+	function updateProgress() {
+		if (video) {
+			animationFrameId = requestAnimationFrame(() => {
+				progress = (video.currentTime / video.duration) * 100;
 			});
 		}
 	}
+
+	function handleTimelineClick(event) {
+		const rect = event.currentTarget.getBoundingClientRect();
+		const clickPosition = (event.clientX - rect.left) / rect.width;
+		if (video) {
+			video.currentTime = clickPosition * video.duration;
+		}
+	}
+
+	onDestroy(() => {
+		if (animationFrameId) {
+			cancelAnimationFrame(animationFrameId);
+		}
+	});
 </script>
 
 <div class="bg-tertiary-300 container mx-auto px-4 py-16">
-	<h2 class="h2 mb-12 py-8 text-center font-bold">
-		How to get a personalized assessment for any job description
-	</h2>
+	<h2 class="h2 mb-12 py-8 text-center font-bold">How it works</h2>
 
 	<div class="mb-12 grid grid-cols-1 gap-8 px-8 md:grid-cols-3">
 		{#each steps as step}
@@ -68,27 +109,75 @@
 		<div class="relative w-full overflow-hidden rounded-lg shadow-lg">
 			<video
 				bind:this={video}
-				class="w-full"
+				bind:duration
+				class="w-full cursor-pointer"
 				on:click={togglePlay}
-				on:loadeddata={handleVideoLoad}
+				on:play={handleVideoStateChange}
+				on:pause={handleVideoStateChange}
+				on:ended={handleVideoStateChange}
+				on:timeupdate={updateProgress}
 				loop
-				muted
 				playsinline
 				src={demoVideo}
 			>
 				Your browser does not support the video tag.
 			</video>
 
-			<!-- Play/Pause Overlay -->
-			<button
-				class="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity duration-300 hover:opacity-100"
-				on:click={togglePlay}
+			<!-- Progress Bar -->
+			<div
+				class="group absolute bottom-0 left-0 right-0 h-1 cursor-pointer bg-gray-600/50"
+				on:click={handleTimelineClick}
 			>
-				<iconify-icon
-					icon={isPlaying ? 'mdi:pause-circle' : 'mdi:play-circle'}
-					class="text-6xl text-white"
-				></iconify-icon>
-			</button>
+				<div
+					class="h-full bg-white/90 transition-[width] duration-300 ease-linear"
+					style="width: {progress}%"
+				></div>
+				<div
+					class="absolute bottom-0 left-0 right-0 h-1 scale-y-0 transform bg-white/10 transition-transform duration-200 group-hover:scale-y-100"
+				></div>
+			</div>
+
+			<!-- Controls Overlay -->
+			<div class="absolute bottom-4 right-4 flex items-center rounded-full bg-black/40">
+				<!-- Volume Control -->
+				<button
+					type="button"
+					class="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-black/20"
+					on:click={toggleMute}
+				>
+					<iconify-icon icon={video?.muted ? 'mdi:volume-off' : 'mdi:volume-high'} class="text-lg"
+					></iconify-icon>
+				</button>
+
+				<!-- Stop Button -->
+				<button
+					type="button"
+					class="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-black/20"
+					on:click={stopVideo}
+				>
+					<iconify-icon icon="mdi:stop" class="text-lg"></iconify-icon>
+				</button>
+
+				<!-- Play/Pause Button -->
+				<button
+					type="button"
+					class="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-black/20"
+					on:click={togglePlay}
+				>
+					<iconify-icon icon={isPlaying ? 'mdi:pause' : 'mdi:play'} class="text-lg"></iconify-icon>
+				</button>
+			</div>
+
+			<!-- Center Play Button (shown when paused) -->
+			{#if !isPlaying}
+				<button
+					type="button"
+					class="absolute inset-0 flex items-center justify-center bg-black/20 transition-colors hover:bg-black/30"
+					on:click={togglePlay}
+				>
+					<iconify-icon icon="mdi:play-circle" class="text-6xl text-white"></iconify-icon>
+				</button>
+			{/if}
 		</div>
 	</div>
 </div>
