@@ -1,27 +1,22 @@
 <script>
 	const features = [
 		{
-			icon: 'material-symbols-light:mark-unread-chat-alt-outline',
-			title: 'Receive a personalized compatibility score for every job',
-			description: ''
+			icon: 'ph:hand-heart-light',
+			title: 'Receive a personalized compatibility score for every job'
 		},
 		{
-			icon: 'game-icons:direction-signs',
-			title: 'Your strengths and weaknesses assessed before you apply',
-			description: ''
+			icon: 'ion:flash-outline',
+			title: 'Your strengths and weaknesses explained before you apply'
 		},
 		{
-			icon: 'bxs:star-half',
-			title: 'Skip mismatches and free up time to focus your job search',
-			description: ''
+			icon: 'qlementine-icons:jump-over-16',
+			title: 'Skip mismatches'
 		}
 	];
 </script>
 
 <div class="pb-22 container mx-auto px-4 py-16">
-	<h2 class="h2 mb-12 py-8 text-center font-bold">
-		Foxjob matches your resume with job descriptions
-	</h2>
+	<h2 class="h2 mb-12 py-8 text-center font-bold">The GenAI filter for your jobsearch</h2>
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
 		{#each features as feature}
@@ -29,8 +24,7 @@
 				class="card card-hover flex flex-col items-center rounded-lg bg-white p-12 text-center shadow-lg"
 			>
 				<iconify-icon icon={feature.icon} class="text-6xl"></iconify-icon>
-				<h3 class="font-base mb-4 min-h-[3rem] py-8 font-bold">{feature.title}</h3>
-				<p class="text-base">{feature.description}</p>
+				<h3 class="font-base min-h-[3rem] py-4 font-bold">{feature.title}</h3>
 			</div>
 		{/each}
 	</div>

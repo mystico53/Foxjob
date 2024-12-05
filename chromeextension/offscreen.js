@@ -1,5 +1,4 @@
 // Error logging function for critical issues
-console.log('Offscreen document loaded.');  
 function logError(message, error = null) {
   console.error(message, error);
   chrome.runtime.sendMessage({
@@ -28,26 +27,19 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
-  let responseSent = false;
-
-  function handleIframeMessage({ data }) {
+  function handleIframeMessage({data}) {
     try {
       if (data.startsWith('!_{')) {
         return;
       }
       const parsedData = JSON.parse(data);
-      globalThis.removeEventListener('message', handleIframeMessage);
+      self.removeEventListener('message', handleIframeMessage);
       sendResponse(parsedData);
-      responseSent = true;
     } catch (e) {
       logError('Failed to parse message:', {
         error: e.message,
         dataType: typeof data
       });
-      if (!responseSent) {
-        sendResponse({ error: e.message });
-        responseSent = true;
-      }
     }
   }
 
@@ -60,20 +52,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       iframe.contentWindow.postMessage(initMessage, new URL(_URL).origin);
     } catch (e) {
       logError('Failed to send init message:', e);
-      if (!responseSent) {
-        sendResponse({ error: e.message });
-        responseSent = true;
-      }
     }
   }, 500);
-
-  // Set a timeout to ensure sendResponse is called
-  setTimeout(() => {
-    if (!responseSent) {
-      sendResponse({ error: 'Timeout waiting for iframe response' });
-      responseSent = true;
-    }
-  }, 7000); // Adjust timeout as needed
 
   return true;
 });

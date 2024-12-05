@@ -18,17 +18,17 @@ export const URL_CONFIG = {
   [Environment.DEVELOPMENT]: {
     publishJob: 'http://127.0.0.1:5001/jobille-45494/us-central1/publishJobText',
     authSignin: 'https://jobille-45494.web.app/auth/signin',
-    library: 'https://jobille-45494.web.app/workflow'  
+    library: 'https://jobille-45494.web.app/workflow'  // Added library URL
   },
   [Environment.STAGING]: {
     publishJob: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
     authSignin: 'https://jobille-45494.web.app/auth/signin',
-    library: 'https://jobille-45494.web.app/workflow'  
+    library: 'https://jobille-45494.web.app/workflow'  // Added library URL
   },
   [Environment.PRODUCTION]: {
     publishJob: 'https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText',
     authSignin: 'https://foxjob-prod.web.app/auth/signin',
-    library: 'https://foxjob-prod.web.app/workflow'  
+    library: 'https://foxjob-prod.web.app/workflow'  // Added library URL
   }
 };
 

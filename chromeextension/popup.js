@@ -175,41 +175,40 @@ function handleSignOut() {
 }
 
 function injectContentScriptAndProcess() {
-  chrome.windows.getAll({ windowTypes: ['normal'] }, function(windows) {
-    let lastFocusedWindow = windows.find(w => w.focused);
-
-    if (!lastFocusedWindow) {
-      lastFocusedWindow = windows[0];
-    }
-
-    if (!lastFocusedWindow) {
-      console.error('No window found');
-      updateStatus('Error: No window found');
+  // Using chrome.tabs.query with activeTab permission
+  chrome.tabs.query({ active: true, currentWindow: true }, function(tabs) {
+    const activeTab = tabs[0];
+    
+    if (!activeTab || !activeTab.id) {
+      console.error('No active tab found');
+      updateStatus('Error: No active tab found');
       return;
     }
 
-    chrome.tabs.query({ active: true, windowId: lastFocusedWindow.id }, function(tabs) {
-      const activeTab = tabs[0];
-
-      if (!activeTab.url) {
-        console.error('No URL found for tab');
-        updateStatus('Error: No URL found for tab');
-        return;
+    // With activeTab, we should focus on the scripting permission instead of URL checking
+    chrome.scripting.executeScript({
+      target: { tabId: activeTab.id },
+      func: () => {
+        // This runs in the context of the page
+        return { url: window.location.href };
       }
-      
-      console.log('Attempting to access:', activeTab.url);
-      
-      if (activeTab.url.startsWith('chrome://') || 
-          activeTab.url.startsWith('chrome-extension://')) {
-        console.error('Cannot access restricted page:', activeTab.url);
-        updateStatus(`Cannot access: ${activeTab.url}`);
+    }, (results) => {
+      if (chrome.runtime.lastError) {
+        console.error('Error:', chrome.runtime.lastError);
+        updateStatus('Cannot access this page');
         return;
       }
 
-      // Proceed with content script injection
+      const result = results?.[0]?.result;
+      if (!result?.url) {
+        updateStatus('Cannot access page URL');
+        return;
+      }
+
+      // Now proceed with your content script injection
       chrome.tabs.sendMessage(activeTab.id, { action: "ping" }, function(response) {
         if (chrome.runtime.lastError || !response) {
-          // Content script is not injected, inject it now
+          // Inject content script
           chrome.scripting.executeScript(
             {
               target: { tabId: activeTab.id },
@@ -224,7 +223,6 @@ function injectContentScriptAndProcess() {
             }
           );
         } else {
-          // Content script is already injected
           selectAllTextAndProcess(activeTab.id);
         }
       });

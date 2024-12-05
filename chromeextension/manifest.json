@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Foxjob",
-  "version": "0.18",
-  "description": "FoxJob uses AI to analyze job postings, matching your skills to the best opportunities. Focus on quality applications that matter.",
+  "version": "0.20",
+  "description": "Foxjob matches your resume with job descriptions. Scan any job to receive a personalized compatibility score for every job.",
   "permissions": [
     "activeTab",
     "storage",
