@@ -28,7 +28,7 @@ export const URL_CONFIG = {
   [Environment.PRODUCTION]: {
     publishJob: 'https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText',
     authSignin: 'https://foxjob-prod.web.app/auth/signin',
-    library: 'https://foxjob-prod.web.app/workflow'  // Added library URL
+    library: 'https://foxjob.io/workflow'  // Added library URL
   }
 };
 
