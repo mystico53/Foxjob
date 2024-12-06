@@ -67,15 +67,4 @@
 		margin: 0;
 		padding: 0;
 	}
-
-	.foxjob-title {
-		font-family: 'Protest Riot', sans-serif;
-		background: linear-gradient(to right, #fd5440 0%, #ff9c00 100%);
-		-webkit-background-clip: text;
-		background-clip: text;
-		-webkit-text-fill-color: transparent;
-		font-size: 40px;
-		line-height: 1;
-		letter-spacing: 0.02em;
-	}
 </style>
