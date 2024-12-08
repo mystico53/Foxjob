@@ -16,7 +16,8 @@
 
 	const navItems = [
 		{ href: '/list', label: 'Home' },
-		{ href: '/workflow', label: 'Jobs' }
+		{ href: '/workflow', label: 'Jobs' },
+		{ href: '/assessments', label: 'Assesments' },
 	];
 
 	async function handleLogout() {
