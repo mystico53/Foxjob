@@ -8,7 +8,7 @@ export const Environment = {
 };
 
 // Current environment setting
-export const CURRENT_ENV = Environment.STAGING;
+export const CURRENT_ENV = Environment.DEVELOPMENT;
 
 // Emulator configuration
 export const USE_EMULATOR = false;
@@ -17,7 +17,7 @@ export const USE_EMULATOR = false;
 export const URL_CONFIG = {
   [Environment.DEVELOPMENT]: {
     publishJob: 'http://127.0.0.1:5001/jobille-45494/us-central1/publishJobText',
-    authSignin: 'https://jobille-45494.web.app/auth/signin',
+    authSignin: 'http://localhost:5000/auth/signin',
     library: 'https://jobille-45494.web.app/workflow'
   },
   [Environment.STAGING]: {
