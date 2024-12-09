@@ -27,6 +27,17 @@ service cloud.firestore {
       }
     }
 
+    // Rules for test collection (for emulator testing)
+    match /test/{docId} {
+      // Allow authenticated users to read/write test documents
+      allow read, write: if isAuthenticated();
+    }
+
+    // Development mode rules for testing (only active in emulator)
+    match /dev-test/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Default deny all other access
     match /{document=**} {
       allow read, write: if false;
