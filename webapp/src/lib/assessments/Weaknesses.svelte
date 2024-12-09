@@ -1,4 +1,3 @@
-<!-- JobList.svelte -->
 <script>
     import { jobStore } from '$lib/stores/jobStore';
     import { onMount, onDestroy } from 'svelte';
@@ -8,7 +7,8 @@
     let user = null;
     let unsubscribeAuth = null;
     let sortedJobs = [];
-    let processingJobs = new Set();
+    let isProcessing = false;
+    let lastResponse = null;
 
     $: if ($jobStore) {
         sortedJobs = [...$jobStore].sort((a, b) => {
@@ -18,11 +18,18 @@
         });
     }
 
-    async function sendGapsToCloud(jobId, gaps) {
-        if (!user || processingJobs.has(jobId)) return;
+    async function sendAllGapsToCloud() {
+        if (!user || isProcessing) return;
         
-        processingJobs.add(jobId);
+        isProcessing = true;
+        lastResponse = null;
         
+        // Get all gaps from top jobs as simple strings
+        const allGaps = sortedJobs
+            .filter(job => job.verdict?.keyGaps && Object.keys(job.verdict.keyGaps).length > 0)
+            .slice(0, 10) // Take up to 10 jobs
+            .flatMap(job => Object.values(job.verdict.keyGaps)); // Convert gaps object to array of strings
+
         try {
             const response = await fetch('http://127.0.0.1:5001/jobille-45494/us-central1/processGaps', {
                 method: 'POST',
@@ -30,9 +37,8 @@
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    jobId,
                     userId: user.uid,
-                    gaps
+                    gaps: allGaps
                 })
             });
 
@@ -40,17 +46,15 @@
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
-            const data = await response.json();
-            console.log('Response from cloud function:', data);
-            
-            // Optional: Show a toast or notification that the gaps were sent successfully
+            const result = await response.json();
+            console.log('Response from cloud function:', result);
+            lastResponse = result;
             
         } catch (error) {
             console.error('Error sending gaps to cloud function:', error);
             // Optional: Show error notification to user
         } finally {
-            processingJobs.delete(jobId);
-            processingJobs = processingJobs; // Trigger reactivity
+            isProcessing = false;
         }
     }
 
@@ -70,26 +74,38 @@
 </script>
 
 <div class="container mx-auto p-4">
+    <div class="card p-4 mb-4 variant-surface">
+        <button 
+            class="btn variant-filled-primary w-full"
+            on:click={sendAllGapsToCloud}
+            disabled={isProcessing}
+        >
+            {#if isProcessing}
+                <ProgressRadial stroke={100} meter="stroke-primary-500" track="stroke-primary-500/30" width="w-6"/>
+            {:else}
+                Analyze All Gaps
+            {/if}
+        </button>
+
+        {#if lastResponse}
+            <div class="mt-4 p-4 variant-ghost-surface">
+                <h4 class="h4 mb-2">Analysis Results:</h4>
+                <pre class="whitespace-pre-wrap text-sm">
+                    {JSON.stringify(lastResponse, null, 2)}
+                </pre>
+            </div>
+        {/if}
+    </div>
+
     {#if sortedJobs.length > 0}
         {#each sortedJobs as job}
             {#if job.verdict?.keyGaps && Object.keys(job.verdict.keyGaps).length > 0}
                 <div class="card p-4 mb-4 variant-surface">
-                    <header class="card-header flex justify-between items-center">
+                    <header class="card-header">
                         <h3 class="h3">
                             Score: {Math.round(job.AccumulatedScores?.accumulatedScore || 0)}
                             <span class="opacity-50 text-sm ml-2">ID: {job.id}</span>
                         </h3>
-                        <button 
-                            class="btn variant-filled-primary"
-                            on:click={() => sendGapsToCloud(job.id, job.verdict.keyGaps)}
-                            disabled={processingJobs.has(job.id)}
-                        >
-                            {#if processingJobs.has(job.id)}
-                                <ProgressRadial stroke={100} meter="stroke-primary-500" track="stroke-primary-500/30" width="w-6"/>
-                            {:else}
-                                Send Gaps
-                            {/if}
-                        </button>
                     </header>
                     <section class="p-4">
                         <ul class="list">
