@@ -8,7 +8,7 @@ export const Environment = {
 };
 
 // Current environment setting
-export const CURRENT_ENV = Environment.STAGING;
+export const CURRENT_ENV = Environment.DEVELOPMENT;
 
 // Emulator configuration
 export const USE_EMULATOR = false;
@@ -17,13 +17,13 @@ export const USE_EMULATOR = false;
 export const URL_CONFIG = {
   [Environment.DEVELOPMENT]: {
     publishJob: 'http://127.0.0.1:5001/jobille-45494/us-central1/publishJobText',
-    authSignin: 'https://jobille-45494.web.app/auth/signin',
-    library: 'https://jobille-45494.web.app/workflow'  // Added library URL
+    authSignin: 'http://localhost:5000/auth/signin',
+    library: 'https://jobille-45494.web.app/workflow'
   },
   [Environment.STAGING]: {
     publishJob: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
     authSignin: 'https://jobille-45494.web.app/auth/signin',
-    library: 'https://jobille-45494.web.app/workflow'  // Added library URL
+    library: 'https://jobille-45494.web.app/workflow'
   },
   [Environment.PRODUCTION]: {
     publishJob: 'https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText',
@@ -76,10 +76,13 @@ export function isProduction() {
 // Function to update extension icon
 export async function updateExtensionIcon() {
   try {
-    const iconPath = isDevelopment() ? ICONS.development : ICONS.production;
+    // Use development icons for both development and staging environments
+    const iconPath = isProduction() ? ICONS.production : ICONS.development;
     await chrome.action.setIcon({ path: iconPath });
   } catch (error) {
     console.error('Error updating icon:', error);
+    console.error('Current environment:', getEnvironmentName());
+    console.error('Attempted icon path:', iconPath);
     throw error;
   }
 }
@@ -97,3 +100,6 @@ export function getEnvironmentName() {
       return 'Unknown';
   }
 }
+
+// Export the icons configuration for potential external use
+export const IconsConfig = ICONS;
