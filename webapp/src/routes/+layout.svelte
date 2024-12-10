@@ -23,10 +23,11 @@
         '/landing', 
         '/login', 
         '/',
-        '/terms',     // Added terms route
-        '/privacy',   // Added privacy route
-        '/terms/',    // Also add trailing slash versions
-        '/privacy/'   // Also add trailing slash versions
+        '/terms',
+        '/privacy',
+        '/terms/',
+        '/privacy/',
+        '/test'  // Add this line
     ];
     
     onMount(() => {

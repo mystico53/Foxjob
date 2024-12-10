@@ -107,6 +107,7 @@
 	<!-- Demo Video Area -->
 	<div class="mx-auto max-w-4xl" role="region" aria-label="Video player">
 		<div class="relative w-full overflow-hidden rounded-lg shadow-lg">
+			<!-- svelte-ignore a11y-media-has-caption -->
 			<video
 				bind:this={video}
 				bind:duration
@@ -126,6 +127,8 @@
 			</video>
 
 			<!-- Progress Bar -->
+			<!-- svelte-ignore a11y-click-events-have-key-events -->
+			<!-- svelte-ignore a11y-no-static-element-interactions -->
 			<div
 				class="group absolute bottom-0 left-0 right-0 h-1 cursor-pointer bg-gray-600/50"
 				on:click={handleTimelineClick}
