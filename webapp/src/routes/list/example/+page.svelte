@@ -1,5 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
+	import step3Gif from '../../../assets/step3.gif';  // Import the GIF
 
 	function goBack() {
 		// Use browser's history to go back
@@ -11,11 +12,21 @@
 	<button class="btn variant-filled-surface mb-6" on:click={goBack}> ← Back </button>
 
 	<div class="card p-6">
-		<h1 class="h1 mb-4 pb-4">Scan your first job description now</h1>
+		
+
+		<!-- Added Step 3 GIF Section -->
+		<!-- Added Step 3 GIF Section with the imported image -->
+		<div class="mt-8 mb-8 flex items-center gap-8">
+			<div class="flex items-center space-x-4 bg-blue-50 p-4 rounded-lg">
+			  
+			  <p class="text-lg font-bold">Click the fox extension button and scan this job description</p>
+			</div>
+			<img src={step3Gif} alt="Step 3: Scan Job Description" class="max-w-[50%] rounded-lg shadow-lg" />
+		  </div>
 
 		<div class="prose">
 			<div class="mb-6">
-				<h2 class="mb-2 text-2xl font-bold">President of the United States of America</h2>
+				<h1 class="mb-2 text-4xl font-bold">President of the United States of America</h1>
 				<p class="font-bold text-gray-600">
 					Employer: The People of the United States of America
 					<br />
@@ -100,6 +111,8 @@
 				and win the general election through the Electoral College system. The position is subject
 				to the democratic process and constitutional requirements.
 			</p>
+
+			
 		</div>
 	</div>
 </div>
