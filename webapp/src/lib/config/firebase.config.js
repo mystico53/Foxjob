@@ -2,7 +2,7 @@
 const configs = {
   development: {
     apiKey: "dummy-api-key",
-    authDomain: "jobille-45494.web.app",
+    authDomain: "localhost",
     projectId: "jobille-45494",
     storageBucket: "jobille-45494.appspot.com",
     messagingSenderId: "dummy-sender-id",
