@@ -11,7 +11,7 @@ const pubSubClient = new PubSub();
 const CONFIG = {
   topics: {
     jobDescriptionExtracted: 'job-description-extracted-v2',
-    qualitiesGathered: '10-qualities-gathered'
+    qualitiesGathered: 'ten-qualities-gathered'
   },
   collections: {
     users: 'users',
@@ -21,15 +21,24 @@ const CONFIG = {
     naText: 'na'
   },
   instructions: {
-    qualitiesExtraction: `Using the 'Count and Context' method, identify and list the 10 most crucial qualities for this position by analyzing:
+    qualitiesExtraction: `Using the 'Count, Context, and Criticality' method, analyze the job description to identify exactly 10 crucial qualities. For each quality, combine all information into a single, comprehensive description using this exact format:
 
-Frequency: How often each qualities/skill appears throughout the description
-Placement: Special attention to qualities mentioned in the opening paragraphs or job summary
-Context: How the skill is discussed (e.g., 'essential,' 'required,' 'must-have' vs 'preferred' or 'nice-to-have')
+Quality X: [Primary Skill/Requirement] | Criticality: [X/10] | Level: [Entry/Intermediate/Expert] | Evidence: [Key quotes from text] | Context: [Role significance] | Success Metrics: [How this is measured]
 
-Focus on industry-specific technical skills, experience, and qualifications rather than generic soft skills. Present each finding in this format:
-Format each quality as "Quality X: Specific quality", where X is a number from 1 to 10. Ensure there are exactly 10 qualities. Provide only the list of 10 qualities, one per line, without any additional text or explanations.
-List exactly 10 qualities, ordered by their apparent importance based on frequency and prominence in the text.`
+Rules:
+1. Provide EXACTLY 10 qualities
+2. Each quality must be in a single line/field
+3. Include all components (Criticality, Level, Evidence, Context, Metrics) for each quality
+4. Number qualities from 1-10 based on importance
+5. Use the pipe symbol (|) to separate different components
+6. Ensure each quality description is complete in a single field
+
+Evaluation weights:
+- Criticality (40%): Must-have vs nice-to-have language
+- Frequency (30%): Number of mentions and references
+- Context (30%): Placement and emphasis in description
+
+Present the analysis as 10 consecutive quality fields, each containing the complete information about one quality. No additional text or explanations should be included.`
   }
 };
 
@@ -68,7 +77,10 @@ const firestoreService = {
       fields: ['qualities']
     });
 
-    await docRef.update({ qualities });
+    await docRef.update({
+      qualities: qualities  // Now qualities will be saved as Q1, Q2, etc. with nested fields
+    });
+    
     logger.info('Updated:', { path: docRef.path });
   }
 };
@@ -120,27 +132,30 @@ const pubSubService = {
 const { callAnthropicAPI } = require('../services/anthropicService');
 
 // ===== Qualities Parser =====
+
 const qualitiesParser = {
   parseQualities(text) {
     const lines = text.split('\n').filter(line => line.trim());
     const qualities = {};
 
     lines.forEach((line, index) => {
-      if (!line.includes(':')) {
-        logger.warn(`Malformed quality line: ${line}`);
-        return;
-      }
+      const qualityNumber = `Q${index + 1}`;
       
-      const [key, ...valueParts] = line.split(':');
-      const value = valueParts.join(':').trim();
+      // Split by pipe to get different components
+      const components = line.split('|').map(s => s.trim());
       
-      if (!value) {
-        logger.warn(`Empty value for quality: ${key}`);
-        return;
-      }
+      // Parse the main quality line (before first pipe)
+      const [qualityPrefix, primarySkill] = components[0].split(':').map(s => s.trim());
       
-      const fieldName = `quality${index + 1}`;
-      qualities[fieldName] = value;
+      // Create structured quality object
+      qualities[qualityNumber] = {
+        primarySkill: primarySkill,
+        criticality: components[1]?.split(':')[1]?.trim() || '',
+        level: components[2]?.split(':')[1]?.trim() || '',
+        evidence: components[3]?.split(':')[1]?.trim() || '',
+        context: components[4]?.split(':')[1]?.trim() || '',
+        successMetrics: components[5]?.split(':')[1]?.trim() || ''
+      };
     });
 
     if (Object.keys(qualities).length === 0) {
@@ -209,6 +224,8 @@ exports.extractJobQualities = onMessagePublished(
       }
 
       const qualitiesText = apiResponse.extractedText;
+
+      logger.info('Raw qualities text:', { qualitiesText });
       
       // Parse and validate qualities
       const qualities = qualitiesParser.parseQualities(qualitiesText);
