@@ -10,310 +10,217 @@ const db = admin.firestore();
 // ===== Config =====
 const CONFIG = {
     topics: {
-      jobDescriptionExtracted: 'job-description-extracted',
-      matchingCompleted: 'matching-completed'
+      jobDescriptionExtracted: 'qualities-resumetext-added',
+      matchingCompleted: 'embeddings-matched'
     },
     matching: {
       similarityThreshold: 0.75,
       embeddingModel: 'text-embedding-ada-002'
     }
-  };
+};
 
 // ===== Schema Definition =====
 const matchResultSchema = z.object({
-    score: z.number(),
     timestamp: z.date(),
     matchDetails: z.object({
       similarityScore: z.number(),
       keySkillMatches: z.array(z.string()),
       recommendations: z.string()
     })
-  });
+});
+
 // ===== Firestore Service =====
 const firestoreService = {
-    async getResumeText(googleId) {
+    async getJobDocument(googleId, docId) {
         try {
-          // Retrieve the user's resume
-          const userCollectionsRef = db.collection('users').doc(googleId).collection('UserCollections');
-          const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
-          const resumeSnapshot = await resumeQuery.get();
-    
-          let resumeText;
-          if (resumeSnapshot.empty) {
-            logger.warn(`No resume found for user ID: ${googleId}. Using placeholder resume.`);
-            resumeText = placeholderResumeText;
-          } else {
-            const resumeDoc = resumeSnapshot.docs[0];
-            resumeText = resumeDoc.data().extractedText;
-          }
-    
-          return resumeText;
+            const jobDoc = await db.collection('users')
+                .doc(googleId)
+                .collection('jobs')
+                .doc(docId)
+                .get();
+
+            if (!jobDoc.exists) {
+                throw new Error(`Job document not found: ${docId}`);
+            }
+
+            return jobDoc.data();
         } catch (error) {
-          logger.error('Error getting resume:', error);
-          throw error;
+            logger.error('Error getting job document:', error);
+            throw error;
         }
-      },
+    },
 
-  async getJobText(googleId, docId) {
-    try {
-      const jobDoc = await db.collection('users')
-        .doc(googleId)
-        .collection('jobs')
-        .doc(docId)
-        .get();
-
-      if (!jobDoc.exists) {
-        throw new Error(`Job document not found: ${docId}`);
-      }
-
-      const jobData = jobDoc.data();
-      
-      if (!jobData.texts?.extractedText) {
-        throw new Error('Job exists but no extracted text found');
-      }
-
-      return jobData.texts.extractedText;
-    } catch (error) {
-      logger.error('Error getting job text:', error);
-      throw error;
+    async updateQualityEmbeddingScore(googleId, docId, qualityId, embeddingScore) {
+        try {
+            const updateData = {};
+            updateData[`qualities.${qualityId}.embeddingScore`] = embeddingScore;
+            
+            await db.collection('users')
+                .doc(googleId)
+                .collection('jobs')
+                .doc(docId)
+                .update(updateData);
+            
+            logger.info('Updated embedding score for quality:', { qualityId, embeddingScore });
+        } catch (error) {
+            logger.error('Error updating quality embedding score:', error);
+            throw error;
+        }
     }
-  },
-
-  async saveMatchResult(googleId, docId, matchResult) {
-    try {
-      await db.collection('users')
-        .doc(googleId)
-        .collection('jobs')
-        .doc(docId)
-        .set({
-          embedding: {
-            score: matchResult.score,
-            details: matchResult.matchDetails
-          }
-        }, { merge: true });
-      
-      logger.info('Embedding result saved:', { 
-        googleId,
-        docId,
-        score: matchResult.score,
-        path: `users/${googleId}/jobs/${docId}/embedding`
-      });
-    } catch (error) {
-      logger.error('Error saving embedding result:', error);
-      throw error;
-    }
-  }
 };
 
 // ===== Embedding Service =====
 const embeddingService = {
-  openai: null,
+    openai: null,
 
-  initialize() {
-    const apiKey = process.env.OPENAI_API_KEY || functions.config().openai.api_key;
-    if (!apiKey) {
-      throw new Error('OpenAI API key not configured');
+    initialize() {
+        const apiKey = process.env.OPENAI_API_KEY || functions.config().openai.api_key;
+        if (!apiKey) {
+            throw new Error('OpenAI API key not configured');
+        }
+        this.openai = new OpenAI({ apiKey });
+    },
+
+    async getEmbedding(text) {
+        if (!this.openai) this.initialize();
+
+        const response = await this.openai.embeddings.create({
+            model: CONFIG.matching.embeddingModel,
+            input: this.preprocessText(text),
+        });
+
+        return response.data[0].embedding;
+    },
+
+    preprocessText(text) {
+        return text
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .trim();
+    },
+
+    calculateSimilarity(vecA, vecB) {
+        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
+        const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
+        const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
+        return dotProduct / (magnitudeA * magnitudeB);
     }
-    this.openai = new OpenAI({ apiKey });
-  },
-
-  async getEmbedding(text) {
-    if (!this.openai) this.initialize();
-
-    const response = await this.openai.embeddings.create({
-      model: CONFIG.matching.embeddingModel,
-      input: this.preprocessText(text),
-    });
-
-    return response.data[0].embedding;
-  },
-
-  preprocessText(text) {
-    return text
-      .toLowerCase()
-      .replace(/\s+/g, ' ')
-      .trim();
-  },
-
-  calculateSimilarity(vecA, vecB) {
-    const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-    const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-    const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-    return dotProduct / (magnitudeA * magnitudeB);
-  }
 };
 
 // ===== Matching Service =====
 const matchingService = {
-    async processMatch(jobText, resumeText) {
-      try {
-        // Get embeddings
-        const [jobEmbedding, resumeEmbedding] = await Promise.all([
-          embeddingService.getEmbedding(jobText),
-          embeddingService.getEmbedding(resumeText)
-        ]);
-  
-        // Calculate similarity
-        const rawSimilarity = embeddingService.calculateSimilarity(
-          jobEmbedding, 
-          resumeEmbedding
-        );
-  
-        // Debug raw similarity
-        logger.info('Raw similarity score:', {
-          rawSimilarity,
-          firstFewDimensions: {
-            job: jobEmbedding.slice(0, 5),
-            resume: resumeEmbedding.slice(0, 5)
+  async processMatch(googleId, docId, jobData) {
+    try {
+        const qualities = jobData.qualities;
+        
+        for (const [qualityId, quality] of Object.entries(qualities)) {
+            // Skip if no resumeText
+            if (!quality.resumeText) {
+                logger.warn(`No resumeText found for quality ${qualityId}`);
+                continue;
+            }
+
+            // Combine quality fields into a single text
+            const qualityText = [
+                quality.context,
+                quality.evidence,
+                quality.primarySkill,
+                quality.successMetrics
+            ].filter(Boolean).join(' ');
+
+            // Add text comparison logging
+            logger.info('Comparing texts:', {
+                qualityId,
+                jobQuality: qualityText.substring(0, 200) + '...',
+                resumeText: quality.resumeText.substring(0, 200) + '...'
+            });
+
+            // Get embeddings
+            const [qualityEmbedding, resumeEmbedding] = await Promise.all([
+                embeddingService.getEmbedding(qualityText),
+                embeddingService.getEmbedding(quality.resumeText)
+            ]);
+
+            // Calculate similarity
+            const rawSimilarity = embeddingService.calculateSimilarity(
+                qualityEmbedding, 
+                resumeEmbedding
+            );
+
+            // Calculate adjusted score
+            const adjustedScore = this.calculateAdjustedScore(rawSimilarity);
+
+            // Store the embedding score for this quality
+            await firestoreService.updateQualityEmbeddingScore(
+                googleId,
+                docId,
+                qualityId,
+                adjustedScore
+            );
+
+            logger.info('Quality embedding processed:', {
+                qualityId,
+                rawSimilarity,
+                adjustedScore,
+                normalized: (rawSimilarity - 0.65) / 0.3, // Add scoring steps
+                sigmoid: 1 / (1 + Math.exp(-10 * ((rawSimilarity - 0.65) / 0.3 - 0.5)))
+            });
+        }
+
+              return true;
+          } catch (error) {
+              logger.error('Error processing match:', error);
+              throw error;
           }
-        });
-  
-        // Adjust the scoring to be more strict
-        // Current formula just multiplies by 100
-        // Let's make it more strict with a custom scaling function
-        const adjustedScore = this.calculateAdjustedScore(rawSimilarity);
-  
-        logger.info('Score comparison:', {
-          rawSimilarity,
-          oldScore: Math.round(rawSimilarity * 100),
-          newAdjustedScore: adjustedScore
-        });
-  
-        return matchResultSchema.parse({
-          score: adjustedScore,
-          timestamp: new Date(),
-          matchDetails: {
-            similarityScore: rawSimilarity,
-            keySkillMatches: [], 
-            recommendations: this.generateRecommendations(adjustedScore)
-          }
-        });
-      } catch (error) {
-        logger.error('Error processing match:', error);
-        throw error;
-      }
-    },
-  
+      },
+
     calculateAdjustedScore(rawSimilarity) {
-      // Cosine similarity typically gives high raw scores (0.7-0.9) even for moderate matches
-      // because embeddings capture general semantic similarity
+      // Expand the expected similarity range (0.65-0.95) to better differentiate scores
+      const normalized = Math.max(0, (rawSimilarity - 0.65) / 0.3);
       
-      // Let's make it more strict:
-      // 1. Normalize the typical range (0.7-0.9) to (0-1)
-      const normalized = Math.max(0, (rawSimilarity - 0.7) / 0.2);
+      // Use sigmoid function to create a more nuanced S-curve
+      // This will create more differentiation in the middle ranges
+      const sigmoid = 1 / (1 + Math.exp(-10 * (normalized - 0.5)));
       
-      // 2. Apply a power function to make it harder to get high scores
-      const powered = Math.pow(normalized, 1.5);
+      // Apply logarithmic scaling to further separate scores
+      const scaled = Math.log10(1 + 9 * sigmoid) / Math.log10(10);
       
-      // 3. Scale to 0-100
-      const finalScore = Math.round(powered * 100);
-      
-      // 4. Cap at 50 for now
-      return Math.min(finalScore, 50);
-    },
-  
-    generateRecommendations(score) {
-      // Updated thresholds for new scoring
-      if (score > 45) return "Good match, but review requirements carefully before applying.";
-      if (score > 35) return "Moderate match. Consider highlighting relevant experience more clearly.";
-      return "Low match. This role might require different experience or skills than shown in your resume.";
-    }
-  };
+      // Scale to 0-100 and round to nearest integer
+      return Math.round(scaled * 100);
+  }
+};
 
 // ===== Main Function =====
 exports.embeddingMatch = onMessagePublished(
-  { topic: CONFIG.topics.jobDescriptionExtracted },
-  async (event) => {
-    try {
-      const messageData = (() => {
+    { topic: CONFIG.topics.jobDescriptionExtracted },
+    async (event) => {
         try {
-          if (!event?.data?.message?.data) {
-            throw new Error('Invalid message format received');
-          }
-          const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
-          return JSON.parse(decodedData);
+            const messageData = (() => {
+                try {
+                    if (!event?.data?.message?.data) {
+                        throw new Error('Invalid message format received');
+                    }
+                    const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+                    return JSON.parse(decodedData);
+                } catch (error) {
+                    logger.error('Error parsing message data:', error);
+                    throw error;
+                }
+            })();
+            
+            const { googleId, docId } = messageData;
+            logger.info('Starting match processing', { googleId, docId });
+
+            // Get job document
+            const jobData = await firestoreService.getJobDocument(googleId, docId);
+
+            // Process matches for each quality
+            await matchingService.processMatch(googleId, docId, jobData);
+
+            logger.info('Match processing completed', { googleId, docId });
+
         } catch (error) {
-          logger.error('Error parsing message data:', error);
-          throw error;
+            logger.error('Error in match processing:', error);
+            throw error;
         }
-      })();
-      const { googleId, docId } = messageData;
-      
-      logger.info('Starting match processing', { googleId, docId });
-
-      // Get texts
-      const [jobText, resumeText] = await Promise.all([
-        firestoreService.getJobText(googleId, docId),
-        firestoreService.getResumeText(googleId)
-      ]);
-
-      // Process match
-      const matchResult = await matchingService.processMatch(jobText, resumeText);
-
-      // Save results
-      await firestoreService.saveMatchResult(googleId, docId, matchResult);
-
-      logger.info('Match processing completed', {
-        googleId,
-        docId,
-        score: matchResult.score
-      });
-
-    } catch (error) {
-      logger.error('Error in match processing:', error, {
-        messageData: message.data,
-      });
-      throw error; // Allow Cloud Functions to handle retry
-    }
-  });
-
-  const placeholderResumeText = `
----
-Los Angeles | www.konkaiser.com | Greencard-Holder | konkaiser@gmail.com | LinkedIn | (925) 860 3801  
-Summary 
-Senior Product Manager with ten years of experience conceiving, building, and scaling three award-winning 
-educational software products from 0 to 100,000+ paying students. I hired and managed three cross-functional 
-teams with up to 15 reports on a day-to-day basis. 
-Experience 
-Freewire Technologies, USA, CA, Oakland (IoT SaaS-Platform for EV Charging) Jan 2023 – Jan 2024 
-Senior Product Manager 
-• Increased the Net Promoter Score of our SaaS platform by 15 percentage points (as measured in customer 
-surveys), cutting its clickstream complexity by 60%, by facilitating a design thinking process with Customer 
-Success and Sales Teams, directing enginnering teams in Mexico and India to ensure quality in the UI overhaul.  
-• Accelerated feature release intervals from bi-annual to monthly by implementing agile JIRA workflows for 40 
-engineers and five PMs, and developed and facilitated five multiplayer Figjam workshops with them and the VP 
-of Software to ensure acceptance and adoption. 
-• Instigated and architected a "single source of truth" database system to store and operate all device related 
-data. Reduced the number of activation and maintenance errors by 15% by unifying nine disparate databases 
-and spreadsheets across manufacturing, customer success and field service teams. 
-planpolitik, Germany, Berlin (the largest civic training company in Europe) Jan 2012 – Dec 2022 
-Head of Department, Online Education Services 
-• Enabled my company to scale its business model by digitizing their in-person workshops, creating a new market 
-for civic education online. I developed a vision and a go-to-market strategy and built a department that doubled 
-my company's overall revenue within six years. 
-• Created Senaryon, Europe's first SaaS platform for civic simulation games, by hiring and directing the company's 
-first Software Engineer and Product Designer to develop and test an MVP within three months, selling the engine 
-to 50+ governmental bodies, 2,500+ schools, and 250+ universities, reaching 50,000 students. 
-• Initiated, built, and launched two novel educational software products (EU-Lab, Junait) by hiring and directing 
-three cross-functional teams (Software Engineering, UX/UI, Instructional Design, Customer Support) through all 
-steps of the development cycle, growing them from 0 to 25,000+ users. 
-Senior Product Manager 
-• Increased students' learning outcomes by 35% through collaborating closely with UX Researchers at the 
-University of Göttingen (Germany) and UX Designers at the University of Arts Berlin (Germany). 
-• Reached 40,000 additional users by pivoting from universities to high schools, introducing a mobile-friendly 
-design system, real-time grading system and shorter game formats. 
-Teacher, Presenter, Thought Leader 
-• Created 10+ training formats and facilitated them with more than 30,000 students in-person, visiting 300+ 
-schools and 50+ universities in eight countries. 
-• Spoke at 30 national and international conferences and published four (1, 2, 3, 4) peer-reviewed articles on 
-challenges and success factors for online collaboration. 
-Education 
-• MA (2011, GPA: 3.7) and BA (2008, GPA: 4.0) Politcal Science at the Free University of Berlin, Germany. 
-• Harvard Computer Science 50 (Certificate), proficient in SQL Data Analysis, Backend Modeling and APIs as well as 
-Frontend Frameworks and Wireframing. 
-Extracurriculars 
-• Won two international and four national awards for creating innovative education technology (such as the 
-Games4Change Award, New York, $10,000 for first place amongst 190 submissions, and the United Nations 
-PeaceApp-Award, Cyprus, $5,000 for first place amongst 100 submissions). 
----
-`;
+    });
