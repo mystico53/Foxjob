@@ -59,7 +59,8 @@ const { embeddingMatch } = require('./pubsub/embeddingMatch.js');
 const { retryProcessing } = require('./helpers/retryProcessing.js');
 const { processGaps } = require('./assessments/processGaps.js');
 const { extractJobQualities } = require('./pubsub/v2extract10Qualities.js');
-const { matchQualities } = require('./pubsub/v2match10Qualities.js');     
+//const { matchQualities } = require('./pubsub/v2match10Qualities.js');
+const { compareQualities } = require('./pubsub/v2compare10Qualities.js');    
 
 // Export all Cloud Functions
 
@@ -81,4 +82,5 @@ exports.embeddingMatch = embeddingMatch;
 exports.retryProcessing = retryProcessing;
 exports.processGaps = processGaps;
 exports.extractJobQualities = extractJobQualities;
-exports.matchQualities = matchQualities;
+//exports.matchQualities = matchQualities;
+exports.compareQualities = compareQualities;
