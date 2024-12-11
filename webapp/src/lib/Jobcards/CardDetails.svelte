@@ -11,6 +11,7 @@
 	import { slide } from 'svelte/transition';
 	import { db } from '$lib/firebase';
 	import { doc, getDoc, updateDoc } from 'firebase/firestore';
+	import { getCloudFunctionUrl } from '$lib/config/environment.config';
 
 	export let job = {};
 	export let handleNext;
@@ -109,48 +110,49 @@
 	}
 
 	async function handleRetry(jobId) {
-		if (!auth.currentUser || processingJobs.has(jobId)) return;
+    if (!auth.currentUser || processingJobs.has(jobId)) return;
 
-		processingJobs = processingJobs.add(jobId);
+    processingJobs = processingJobs.add(jobId);
 
-		try {
-			const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
-			await updateDoc(jobRef, {
-				'generalData.processingStatus': 'retrying'
-			});
+    try {
+        const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
+        await updateDoc(jobRef, {
+            'generalData.processingStatus': 'retrying'
+        });
 
-			const response = await fetch('https://retryprocessing-kvshkfhmua-uc.a.run.app', {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: JSON.stringify({
-					jobId: jobId,
-					userId: auth.currentUser.uid
-				})
-			});
+        const retryUrl = getCloudFunctionUrl('retryProcessing');
+        const response = await fetch(retryUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                jobId: jobId,
+                userId: auth.currentUser.uid
+            })
+        });
 
-			while (true) {
-				const docSnap = await getDoc(jobRef);
-				const status = docSnap.data()?.generalData?.processingStatus;
+        while (true) {
+            const docSnap = await getDoc(jobRef);
+            const status = docSnap.data()?.generalData?.processingStatus;
 
-				if (status === 'completed') break;
-				if (status === 'cancelled' || status === 'error') {
-					throw new Error(`Job failed with status: ${status}`);
-				}
+            if (status === 'completed') break;
+            if (status === 'cancelled' || status === 'error') {
+                throw new Error(`Job failed with status: ${status}`);
+            }
 
-				await new Promise((resolve) => setTimeout(resolve, 1000));
-			}
-		} catch (err) {
-			console.error('Error in handleRetry:', err);
-			const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
-			await updateDoc(jobRef, {
-				'generalData.processingStatus': 'cancelled'
-			});
-		} finally {
-			processingJobs = new Set([...processingJobs].filter((id) => id !== jobId));
-		}
-	}
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+    } catch (err) {
+        console.error('Error in handleRetry:', err);
+        const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
+        await updateDoc(jobRef, {
+            'generalData.processingStatus': 'cancelled'
+        });
+    } finally {
+        processingJobs = new Set([...processingJobs].filter((id) => id !== jobId));
+    }
+}
 </script>
 
 <!-- Main card content -->
