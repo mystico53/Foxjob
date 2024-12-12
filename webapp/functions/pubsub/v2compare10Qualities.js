@@ -64,6 +64,10 @@ const CONFIG = {
   }
 };
 
+const normalizeSpaces = (text) => {
+  return text.replace(/\s+/g, ' ').trim();
+};
+
 // Firestore Service
 const firestoreService = {
   async getResumeText(googleId) {
@@ -101,8 +105,7 @@ const firestoreService = {
       });
       throw new Error('Resume document found but extractedText is missing');
     }
-
-    return resumeData.extractedText;
+    return normalizeSpaces(resumeData.extractedText); 
   },
 
   getJobDocRef(googleId, docId) {
@@ -154,7 +157,7 @@ const firestoreService = {
       logger.info(`Processing quality ${qualityId}:`, matchData);
       
       // Handle the case where matchData is either a string or an object
-      const resumeText = typeof matchData === 'string' ? matchData : (matchData?.resumeText || '');
+      const resumeText = typeof matchData === 'string' ? matchData : (matchData?.resumeText || 'Not enough overlap with candidate\'s experience');
       
       const updateData = {};
       updateData[`qualities.${qualityId}.resumeText`] = resumeText;
