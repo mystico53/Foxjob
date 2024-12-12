@@ -21,7 +21,7 @@
         error = null;
         
         try {
-            const response = await fetch('http://127.0.0.1:5001/jobille-45494/us-central1/structureResume', {
+            const response = await fetch(getCloudFunctionUrl('structureResume'), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -36,12 +36,11 @@
             }
 
             const data = await response.json();
-            // Ensure summary has all required properties with defaults
             summary = {
-                summary: data.summary?.summary || '',
-                experience: data.summary?.experience || [],
-                education: data.summary?.education || [],
-                remainingText: data.summary?.remainingText || ''
+                summary: data.structuredResume.summary || '',
+                experience: data.structuredResume.companies || [],
+                education: data.structuredResume.education || '',
+                remainingText: data.structuredResume.other || ''
             };
         } catch (e) {
             error = e.message;
@@ -70,9 +69,8 @@
             disabled={loading || !user}
         >
             {#if loading}
-                <div class="inline-block h-4 w-4 animate-spin rounded-full border-2 border-solid border-current border-r-transparent align-[-0.125em]" role="status">
-                    <span class="!absolute !-m-px !h-px !w-px !overflow-hidden !whitespace-nowrap !border-0 !p-0 ![clip:rect(0,0,0,0)]">Loading...</span>
-                </div>
+                <ProgressRadial indeterminate class="inline-block h-4 w-4" />
+                <span class="sr-only">Loading...</span>
             {:else}
                 Analyze Resume
             {/if}
@@ -93,20 +91,20 @@
                     </div>
                 {/if}
 
-                {#if summary.experience?.length > 0}
+                {#if summary.experience.length > 0}
                     <div class="card p-4 variant-ghost-surface">
                         <h3 class="h3 mb-2">Work Experience</h3>
                         {#each summary.experience as company}
                             <div class="mb-4 p-4 variant-ghost-surface">
-                                <h4 class="h4 mb-2">{company.companyName}</h4>
-                                {#each company.positions || [] as position}
+                                <h4 class="h4 mb-2">{company.name}</h4>
+                                {#each company.positions as position}
                                     <div class="ml-4 mb-3">
                                         <div class="flex justify-between items-center">
                                             <h5 class="h5">{position.title}</h5>
-                                            <span class="text-sm">{position.dateRange}</span>
+                                            <span class="text-sm">{position.dateRange || ''}</span>
                                         </div>
                                         <ul class="list mt-2">
-                                            {#each position.bullets || [] as bullet}
+                                            {#each position.bullets as bullet}
                                                 <li class="py-1">{bullet}</li>
                                             {/each}
                                         </ul>
@@ -117,25 +115,10 @@
                     </div>
                 {/if}
 
-                {#if summary.education?.length > 0}
+                {#if summary.education}
                     <div class="card p-4 variant-ghost-surface">
                         <h3 class="h3 mb-2">Education</h3>
-                        {#each summary.education as edu}
-                            <div class="mb-4">
-                                <div class="flex justify-between items-center">
-                                    <h4 class="h4">{edu.school}</h4>
-                                    <span class="text-sm">{edu.dateRange}</span>
-                                </div>
-                                <p class="mt-1">{edu.degree}</p>
-                                {#if edu.details?.length > 0}
-                                    <ul class="list mt-2">
-                                        {#each edu.details as detail}
-                                            <li class="py-1">{detail}</li>
-                                        {/each}
-                                    </ul>
-                                {/if}
-                            </div>
-                        {/each}
+                        <p>{summary.education}</p>
                     </div>
                 {/if}
 

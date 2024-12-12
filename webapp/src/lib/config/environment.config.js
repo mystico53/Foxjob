@@ -24,6 +24,13 @@ export const cloudFunctions = {
             production: 'https://retryprocessing-fy7t4rjjwa-uc.a.run.app'
         }
     },
+    structureResume: {
+        path: '/structureResume',
+        urls: {
+            staging: 'https://structureresume-staging-url.cloudfunctions.net',
+            production: 'https://structureresume-production-url.cloudfunctions.net'
+        }
+    },
     // Example of how to add more functions:
     // extractQualities: {
     //     path: '/extractJobQualities',
