@@ -153,7 +153,7 @@ const matchingService = {
     async processBatch(qualityBatch) {
         // Prepare texts for embedding
         const qualityTexts = qualityBatch.map(quality => 
-            [quality.context, quality.evidence, quality.primarySkill, quality.successMetrics]
+            [quality.evidence, quality.primarySkill]
                 .filter(Boolean)
                 .join(' ')
         );
