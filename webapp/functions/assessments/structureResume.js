@@ -137,59 +137,64 @@ const resumeProcessor = {
 };
 
 exports.structureResume = onRequest((req, res) => {
-  return cors(req, res, async () => {
-    try {
-      // Log the incoming request
-      logger.info('Structure resume function called', req.body);
-
-      const { userId } = req.body;
-
-      // Validate required fields
-      if (!userId) {
-        logger.error('Missing required parameters');
-        return res.status(400).json({ 
-          error: 'Missing required parameters',
-          received: { userId }
+    return cors(req, res, async () => {
+      try {
+        // Log the incoming request
+        logger.info('Structure resume function called', req.body);
+  
+        const { userId } = req.body;
+  
+        // Validate required fields
+        if (!userId) {
+          logger.error('Missing required parameters');
+          return res.status(400).json({ 
+            error: 'Missing required parameters',
+            received: { userId }
+          });
+        }
+  
+        // Reference to UserCollections
+        const userCollectionsRef = db.collection('users').doc(userId).collection('UserCollections');
+  
+        // Get resume document
+        const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
+        const resumeSnapshot = await resumeQuery.get();
+  
+        if (resumeSnapshot.empty) {
+          throw new Error(`No resume found for user ID: ${userId}`);
+        }
+  
+        const resumeDoc = resumeSnapshot.docs[0];
+        const resumeData = resumeDoc.data();
+        const resumeText = resumeData.extractedText;
+  
+        // Process the resume
+        const structuredResume = await resumeProcessor.structureResume(resumeText);
+  
+        // Update the same resume document with structuredData
+        await resumeDoc.ref.update({
+          structuredData: structuredResume,
+          status: 'processed',
+          createdAt: Firestore.FieldValue.serverTimestamp()
         });
-      }
-
-      // Get resume text from Firestore
-      const resumeText = await firestoreService.getResumeText(userId);
-      
-      // Process the resume
-      const structuredResume = await resumeProcessor.structureResume(resumeText);
-
-      // Save the structured resume
-      const userCollectionsRef = db
-        .collection('users')
-        .doc(userId)
-        .collection('UserCollections');
-
-      const newDoc = await userCollectionsRef.add({
-        type: 'StructuredResume',
-        createdAt: Firestore.FieldValue.serverTimestamp(),
-        structuredData: structuredResume,
-        status: 'processed'
-      });
-
-      console.log('Structured Resume:', JSON.stringify(structuredResume, null, 2));
-
-
+  
+        console.log('Structured Resume:', JSON.stringify(structuredResume, null, 2));
+  
         // Return success response
         res.status(200).json({
-        message: 'Resume structured and saved successfully',
-        structuredResume,
-        savedDocumentId: newDoc.id,
-        timestamp: new Date().toISOString()
+          message: 'Resume structured and updated successfully',
+          structuredResume,
+          documentId: resumeDoc.id,
+          timestamp: new Date().toISOString()
         });
-
-    } catch (error) {
-      logger.error('Error processing resume:', error);
-      res.status(500).json({ 
-        error: 'Internal server error',
-        message: error.message,
-        received: req.body
-      });
-    }
+  
+      } catch (error) {
+        logger.error('Error processing resume:', error);
+        res.status(500).json({ 
+          error: 'Internal server error',
+          message: error.message,
+          received: req.body
+        });
+      }
+    });
   });
-});
