@@ -11,7 +11,7 @@ const pubSubClient = new PubSub();
 // Config
 const CONFIG = {
   topics: {
-    qualitiesGathered: 'ten-qualities-gathered',
+    qualitiesGathered: 'ten-qualities-gathered-DISABLED',
     qualitiesMatched: 'qualities-resumetext-added'
   },
   collections: {
