@@ -1,169 +1,187 @@
-const { OpenAI } = require('openai');
-const { logger } = require('firebase-functions');
-const functions = require('firebase-functions');
-const { z } = require('zod');
-const { zodResponseFormat } = require('openai/helpers/zod');
+const { onRequest } = require('firebase-functions/v2/https');
 const cors = require('cors')({ origin: true });
+const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const { Firestore } = require("firebase-admin/firestore");
+const { callAnthropicAPI } = require('../services/anthropicService');
 
 // Initialize Firestore
 const db = admin.firestore();
 
-// Configuration
 const CONFIG = {
-  model: 'gpt-4o-mini'
-};
-
-// Schema Definition
-const getResumeSchema = () => {
-  return z.object({
-    summary: z.string().optional(),  // Optional summary section
-    experience: z.array(
-      z.object({
-        companyName: z.string(),
-        positions: z.array(
-          z.object({
-            title: z.string(),
-            dateRange: z.string(),
-            bullets: z.array(z.string())  // Original bullet points verbatim
-          })
-        )
-      })
-    ),
-    remainingText: z.string()  // Captures all other text verbatim that doesn't fit in the above schema
-  });
-};
-
-async function summarizeResume(resumeText) {
-  const instruction = `Structure this resume by copying the exact text into these components:
-
-1. If there's a summary section, copy it verbatim into 'summary'
-2. For work experience, copy exactly:
-   - Company name as written
-   - For each position:
-     * Title exactly as written
-     * Date range exactly as written
-     * All bullet points exactly as written
-3. Copy ALL remaining text (contact info, education, skills, awards, etc.) verbatim into 'remainingText'
-
-Rules:
-- Copy text exactly as written with no changes
-- Don't modify any words, numbers, or punctuation
-- Don't skip any content
-- Put everything that isn't work experience or summary into remainingText
-- Ensure every single word from the original appears somewhere in the output
-
-Resume text to analyze:
-${resumeText}`;
-
-  try {
-    // Get API key
-    const apiKey = process.env.OPENAI_API_KEY || functions.config().openai.api_key;
+  instructions: {
+    resumeParsing: `
+    You are an expert resume analyst. Parse this resume text into a structured format.
     
-    if (!apiKey) {
-      logger.error('OpenAI API key not found');
-      return { error: true, message: 'API key not configured' };
+    Your response MUST be a valid JSON object following this structure:
+    {
+      "summary": "executive summary if available, otherwise empty string",
+      "companies": [
+        {
+          "name": "company name",
+          "positions": [
+            {
+              "title": "position title",
+              "bullets": [
+                "achievement or responsibility 1",
+                "achievement or responsibility 2"
+              ]
+            }
+          ]
+        }
+      ],
+      "education": "all education details if available, otherwise empty string",
+      "other": "any other relevant sections not captured above"
     }
 
-    logger.info('Calling OpenAI API for resume analysis');
-    const openai = new OpenAI({ apiKey });
+    CRITICAL RULES:
+    1. Only create sections that are clearly present in the resume
+    2. Maintain original bullet points and achievements exactly as written
+    3. Group positions under their respective companies
+    4. Include dates with company names when available
+    5. Ensure all strings are properly escaped
+    6. Do not fabricate or assume information
+    7. If a section is not present, use an empty string or empty array as appropriate
+    `
+  }
+};
 
-    const completion = await openai.beta.chat.completions.parse({
-      model: CONFIG.model,
-      messages: [
-        { 
-          role: 'system', 
-          content: 'You are a professional resume analyzer focused on extracting and structuring work experience details accurately.' 
-        },
-        { role: 'user', content: instruction }
-      ],
-      response_format: zodResponseFormat(
-        getResumeSchema(),
-        "resume_analysis"
-      ),
+const firestoreService = {
+  async getResumeText(userId) {
+    logger.info('Getting resume for user:', userId);
+    
+    const userCollectionsRef = db.collection('users').doc(userId).collection('UserCollections');
+    const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
+    const resumeSnapshot = await resumeQuery.get();
+
+    if (resumeSnapshot.empty) {
+      throw new Error(`No resume found for user ID: ${userId}`);
+    }
+
+    const resumeDoc = resumeSnapshot.docs[0];
+    return resumeDoc.data().extractedText;
+  }
+};
+
+const resumeProcessor = {
+  async structureResume(resumeText) {
+    try {
+      const result = await callAnthropicAPI(resumeText, CONFIG.instructions.resumeParsing);
+      
+      if (!result || result.error) {
+        throw new Error(result?.message || 'Error processing resume');
+      }
+
+      let parsedContent;
+      try {
+        let cleanedText = result.extractedText;
+        if (typeof cleanedText === 'string') {
+          cleanedText = cleanedText.replace(/^\uFEFF/, '');
+          cleanedText = cleanedText.replace(/\r\n/g, '\n');
+          cleanedText = cleanedText.trim();
+          
+          parsedContent = JSON.parse(cleanedText);
+        } else {
+          parsedContent = result.extractedText;
+        }
+      } catch (parseError) {
+        logger.error('Error parsing API response:', parseError);
+        throw new Error(`Invalid resume parsing response: ${parseError.message}`);
+      }
+
+      this.validateResumeStructure(parsedContent);
+      return parsedContent;
+
+    } catch (error) {
+      logger.error('Error in structureResume:', error);
+      throw new Error(`Resume structuring failed: ${error.message}`);
+    }
+  },
+
+  validateResumeStructure(data) {
+    const requiredFields = ['summary', 'companies', 'education', 'other'];
+    for (const field of requiredFields) {
+      if (!Object.hasOwn(data, field)) {
+        throw new Error(`Missing required field: ${field}`);
+      }
+    }
+
+    if (!Array.isArray(data.companies)) {
+      throw new Error('Companies must be an array');
+    }
+
+    data.companies.forEach((company, index) => {
+      if (!company.name) {
+        throw new Error(`Company at index ${index} missing name`);
+      }
+      if (!Array.isArray(company.positions)) {
+        throw new Error(`Company ${company.name} positions must be an array`);
+      }
+
+      company.positions.forEach((position, posIndex) => {
+        if (!position.title) {
+          throw new Error(`Position at index ${posIndex} in ${company.name} missing title`);
+        }
+        if (!Array.isArray(position.bullets)) {
+          throw new Error(`Position ${position.title} bullets must be an array`);
+        }
+      });
     });
 
-    if (completion.choices && completion.choices.length > 0) {
-      const parsedContent = completion.choices[0].message.parsed;
-      
-      logger.info('Successfully parsed resume content');
-      return { 
-        error: false, 
-        resumeSummary: parsedContent 
-      };
-    } else {
-      logger.error('Invalid API response structure:', completion);
-      return { error: true, message: 'Invalid API response structure' };
+    if (typeof data.summary !== 'string' || 
+        typeof data.education !== 'string' || 
+        typeof data.other !== 'string') {
+      throw new Error('Summary, education, and other must be strings');
     }
-
-  } catch (error) {
-    logger.error('Error in resume analysis:', error);
-    return { 
-      error: true, 
-      message: error.message,
-      details: error.response?.data || error 
-    };
   }
-}
+};
 
-exports.structureResume = functions.https.onRequest((req, res) => {
+exports.structureResume = onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
+      // Log the incoming request
       logger.info('Structure resume function called', req.body);
 
       const { userId } = req.body;
 
+      // Validate required fields
       if (!userId) {
-        logger.error('No userId provided');
+        logger.error('Missing required parameters');
         return res.status(400).json({ 
-          error: 'Missing userId',
-          received: req.body
+          error: 'Missing required parameters',
+          received: { userId }
         });
       }
 
+      // Get resume text from Firestore
+      const resumeText = await firestoreService.getResumeText(userId);
+      
+      // Process the resume
+      const structuredResume = await resumeProcessor.structureResume(resumeText);
+
+      // Save the structured resume
       const userCollectionsRef = db
         .collection('users')
         .doc(userId)
         .collection('UserCollections');
 
-      const resumeQuery = await userCollectionsRef
-        .where('type', '==', 'Resume')
-        .orderBy('timestamp', 'desc')
-        .limit(1)
-        .get();
-
-      if (resumeQuery.empty) {
-        logger.error('No resume found for user:', userId);
-        return res.status(404).json({
-          error: 'No resume found'
-        });
-      }
-
-      const resumeDoc = resumeQuery.docs[0];
-      const resumeData = resumeDoc.data();
-      
-      const result = await summarizeResume(resumeData.extractedText);
-      
-      if (result.error) {
-        throw new Error(result.message);
-      }
-
-      // Create a new document with the summary
       const newDoc = await userCollectionsRef.add({
-        type: 'ResumeSummary',
+        type: 'StructuredResume',
         createdAt: Firestore.FieldValue.serverTimestamp(),
-        originalResumeId: resumeDoc.id,
-        summary: result.resumeSummary,
+        structuredData: structuredResume,
         status: 'processed'
       });
 
-      res.status(200).json({
-        success: true,
-        summary: result.resumeSummary,
+      console.log('Structured Resume:', JSON.stringify(structuredResume, null, 2));
+
+
+        // Return success response
+        res.status(200).json({
+        message: 'Resume structured and saved successfully',
+        structuredResume,
         savedDocumentId: newDoc.id,
         timestamp: new Date().toISOString()
-      });
+        });
 
     } catch (error) {
       logger.error('Error processing resume:', error);

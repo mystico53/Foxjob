@@ -40,6 +40,7 @@
             summary = {
                 summary: data.summary?.summary || '',
                 experience: data.summary?.experience || [],
+                education: data.summary?.education || [],
                 remainingText: data.summary?.remainingText || ''
             };
         } catch (e) {
@@ -111,6 +112,28 @@
                                         </ul>
                                     </div>
                                 {/each}
+                            </div>
+                        {/each}
+                    </div>
+                {/if}
+
+                {#if summary.education?.length > 0}
+                    <div class="card p-4 variant-ghost-surface">
+                        <h3 class="h3 mb-2">Education</h3>
+                        {#each summary.education as edu}
+                            <div class="mb-4">
+                                <div class="flex justify-between items-center">
+                                    <h4 class="h4">{edu.school}</h4>
+                                    <span class="text-sm">{edu.dateRange}</span>
+                                </div>
+                                <p class="mt-1">{edu.degree}</p>
+                                {#if edu.details?.length > 0}
+                                    <ul class="list mt-2">
+                                        {#each edu.details as detail}
+                                            <li class="py-1">{detail}</li>
+                                        {/each}
+                                    </ul>
+                                {/if}
                             </div>
                         {/each}
                     </div>
