@@ -21,24 +21,24 @@ const CONFIG = {
     naText: 'na'
   },
   instructions: {
-    qualitiesExtraction: `Using the 'Count, Context, and Criticality' method, analyze the job description to identify exactly 10 crucial qualities. For each quality, combine all information into a single, comprehensive description using this exact format:
+    qualitiesExtraction: `Using the 'Count, Context, and Criticality' method, analyze the job description to identify exactly 7 crucial qualities. For each quality, combine all information into a single, comprehensive description using this exact format:
 
-Quality X: [Primary Skill/Requirement] | Criticality: [X/10] | Level: [Entry/Intermediate/Expert] | Evidence: [Key quotes from text] | Context: [Role significance] | Success Metrics: [How this is measured]
+Quality X: [Primary Skill/Requirement] | Criticality: [X/10] | Evidence: [Key quotes from text, can be more than one]
 
 Rules:
-1. Provide EXACTLY 10 qualities
+1. Provide EXACTLY 7 qualities
 2. Each quality must be in a single line/field
-3. Include all components (Criticality, Level, Evidence, Context, Metrics) for each quality
-4. Number qualities from 1-10 based on importance
+3. Include all components (Criticality, Evidence) for each quality
+4. Number qualities from 1-7 based on importance
 5. Use the pipe symbol (|) to separate different components
 6. Ensure each quality description is complete in a single field
 
 Evaluation weights:
 - Criticality (40%): Must-have vs nice-to-have language
 - Frequency (30%): Number of mentions and references
-- Context (30%): Placement and emphasis in description
+- Evidence (30%): Placement and emphasis in description
 
-Present the analysis as 10 consecutive quality fields, each containing the complete information about one quality. No additional text or explanations should be included.`
+Present the analysis as 7 consecutive quality fields, each containing the complete information about one quality. No additional text or explanations should be included.`
   }
 };
 
@@ -131,23 +131,37 @@ const qualitiesParser = {
       // Split by pipe to get different components
       const components = line.split('|').map(s => s.trim());
       
-      // Parse the main quality line (before first pipe)
-      const [qualityPrefix, primarySkill] = components[0].split(':').map(s => s.trim());
+      // Parse each component
+      let primarySkill = '';
+      let criticality = '';
+      let evidence = '';
       
+      components.forEach(component => {
+        const [key, value] = component.split(':').map(s => s.trim());
+        
+        if (component.startsWith('Quality')) {
+          primarySkill = value;
+        } else if (component.toLowerCase().includes('criticality')) {
+          criticality = value;
+        } else if (component.toLowerCase().includes('evidence')) {
+          evidence = value;
+        }
+      });
+
       // Create structured quality object
       qualities[qualityNumber] = {
-        primarySkill: primarySkill,
-        criticality: components[1]?.split(':')[1]?.trim() || '',
-        level: components[2]?.split(':')[1]?.trim() || '',
-        evidence: components[3]?.split(':')[1]?.trim() || '',
-        context: components[4]?.split(':')[1]?.trim() || '',
-        successMetrics: components[5]?.split(':')[1]?.trim() || ''
+        primarySkill,
+        criticality,
+        evidence,
       };
     });
 
     if (Object.keys(qualities).length === 0) {
       throw new Error('No valid qualities extracted from the response');
     }
+
+    // Log parsed qualities for debugging
+    logger.info('Parsed qualities:', qualities);
 
     return qualities;
   }

@@ -19,47 +19,66 @@ const CONFIG = {
   },
   instructions: {
     qualityMatching: `
-    You are tasked with finding VERBATIM QUOTES from a candidate's resume. You will be given the EXACT resume text to search through.
+    You are tasked with finding VERBATIM QUOTES from a candidate's resume that best demonstrate each required quality.
 
-    CRITICAL INSTRUCTIONS:
-    1. First, confirm you see the resume text by showing the first 100 characters
-    2. For each requirement, you must:
-       - Search through ONLY the provided resume text
-       - Copy/paste ONLY text that appears WORD FOR WORD in the resume
-       - Include the FULL relevant sentence or bullet point from the resume
-       - For each match, note which line number or section it was found in
-       - If no match is found, explain why in the location field
-    3. Never modify, rephrase, or clean up the resume text
-    4. Never combine multiple parts of the resume into one quote
-    5. Never standardize formatting or punctuation
-    6. Never invent or generate text that isn't in the resume
-    7. Your response must ONLY contain the JSON object - no additional text before or after
+CRITICAL PROCESS - Follow these steps IN ORDER:
 
-    The resume text to search through is:
-    """
-    {resumeText}
-    """
+1. First scan the resume:
+   - Confirm you see the resume text by showing the first 100 characters
+   - Make a first pass to identify ALL potential quotes that could match ANY of the qualities
+   - For each quote you find, note which qualities it could demonstrate
 
-    Your response MUST be ONLY a valid JSON object following this EXACT structure:
-    {
-      "confirmation": "First 100 chars of resume I'm searching: [insert first 100 chars here]",
-      "qualityMatches": {
-        "Q1": {
-          "resumeText": "EXACT quote from resume, preserving all original formatting, spacing, and punctuation",
-          "location": "Found in [section/line number]"
-        }
-      }
+2. For each quality requirement:
+   - Start with quotes that UNIQUELY demonstrate this quality
+   - If a quote could match multiple qualities, explicitly decide which ONE quality it best demonstrates
+   - Once you assign a quote to a quality, it CANNOT be used for any other quality
+   - For each match you find, verify it appears EXACTLY in the resume text - copy/paste only
+   - If no unused relevant quotes remain for a quality, return empty resumeText with explanation
+
+3. For each quality, your response must be EXACTLY ONE of these:
+   A) A verbatim quote that appears in the resume text, OR
+   B) Empty resumeText ("") with explanation if no suitable unused quote exists
+
+4. Double-check before responding:
+   - Verify every quote appears WORD FOR WORD in the resume
+   - Verify no quote is used more than once
+   - Verify you never return requirement text as a quote
+   - Verify each location field accurately describes where the quote was found
+
+5. Never:
+   - Return multiple matches for the same quality ID
+   - Use the same quote for different qualities
+   - Return text from the requirements as if it were a quote
+   - Modify, rephrase, or clean up the resume text
+   - Combine multiple parts of the resume into one quote
+   - Standardize formatting or punctuation
+   - Make up or generate text that isn't in the resume
+
+Your response must follow this EXACT structure:
+{
+  "confirmation": "First 100 chars of resume I'm searching: [insert first 100 chars here]",
+  "qualityMatches": {
+    "Q1": {
+      "resumeText": "EXACT quote from resume, preserving all formatting, spacing, and punctuation",
+      "location": "Found in [specific section/line number]"
     }
+  }
+}
 
-    If you cannot find an exact quote, include the reason in the location field:
-    {
-      "qualityMatches": {
-        "Q1": {
-          "resumeText": "",
-          "location": "No exact match found because [specific reason - e.g. 'resume focuses on product management rather than sales leadership']"
-        }
-      }
+If you cannot find an unused quote for a quality:
+{
+  "qualityMatches": {
+    "Q1": {
+      "resumeText": "",
+      "location": "No suitable match found because [specific reason - e.g. 'while the resume shows product management skills in educational software, it lacks specific ecommerce experience' or 'the strongest demonstration of agile methodology was already assigned to Q2']"
     }
+  }
+}
+
+The resume text to search through is:
+"""
+{resumeText}
+"""
     `
   }
 };
@@ -146,6 +165,7 @@ const firestoreService = {
     });
     
     const batch = db.batch();
+    const usedQuotes = new Set();
     
     // First, update the full resume text
     batch.update(docRef, {
@@ -156,8 +176,17 @@ const firestoreService = {
     Object.entries(qualityMatches).forEach(([qualityId, matchData]) => {
       logger.info(`Processing quality ${qualityId}:`, matchData);
       
-      // Handle the case where matchData is either a string or an object
-      const resumeText = typeof matchData === 'string' ? matchData : (matchData?.resumeText || 'Not enough overlap with candidate\'s experience');
+      let resumeText = matchData?.resumeText || '';
+      
+      // Check for duplicates
+      if (resumeText && usedQuotes.has(resumeText)) {
+        logger.warn(`Duplicate quote found for quality ${qualityId}, setting to empty string`, {
+          duplicateText: resumeText
+        });
+        resumeText = '';
+      } else if (resumeText) {
+        usedQuotes.add(resumeText);
+      }
       
       const updateData = {};
       updateData[`qualities.${qualityId}.resumeText`] = resumeText;
@@ -264,13 +293,13 @@ const qualityComparingService = {
           ${id}:
           Primary Skill: ${quality.primarySkill}
           Required Experience: ${quality.evidence}
-          Level Required: ${quality.level}
-          Context: ${quality.context}
           ---`;
           logger.info(`Formatting quality ${id}:`, formatted);
           return formatted;
         }).join('\n');
     };
+
+    const usedQuotes = new Set();
 
     const firstHalfString = formatQualities(firstHalf);
     logger.info('First half qualities being sent:', firstHalfString);
@@ -305,6 +334,13 @@ const qualityComparingService = {
             attempt: i + 1,
             parsedResponse
           });
+
+          Object.values(parsedResponse.qualityMatches).forEach(match => {
+            if (match.resumeText) {
+              usedQuotes.add(match.resumeText);
+            }
+          });
+
           allMatches = { ...allMatches, ...parsedResponse.qualityMatches };
           break;
         } catch (parseError) {
@@ -336,6 +372,9 @@ const qualityComparingService = {
 
     const secondInstruction = `
       ${CONFIG.instructions.qualityMatching.replace('{resumeText}', resumeText)}
+
+      IMPORTANT: These quotes have already been used and cannot be reused:
+    ${Array.from(usedQuotes).join('\n')}
       
       Here are the second set of qualities to match against the resume:
       ${secondHalfString}
