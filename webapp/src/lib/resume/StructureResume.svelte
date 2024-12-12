@@ -2,7 +2,6 @@
 <script>
     import { onMount, onDestroy } from 'svelte';
     import { auth } from '$lib/firebase';
-    import { ProgressRadial } from '@skeletonlabs/skeleton';
     import { getCloudFunctionUrl } from '$lib/config/environment.config.js';
 
     let user = null;
@@ -69,7 +68,7 @@
             disabled={loading || !user}
         >
             {#if loading}
-                <ProgressRadial indeterminate class="inline-block h-4 w-4" />
+                
                 <span class="sr-only">Loading...</span>
             {:else}
                 Analyze Resume
