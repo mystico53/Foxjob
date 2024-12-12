@@ -31,7 +31,7 @@ const CONFIG = {
 const firestoreService = {
   getDocRef(googleId, docId) {
     const path = `users/${googleId}/jobs/${docId}`;
-    logger.info('DocRef:', { path });
+    
     return db.collection('users')
       .doc(googleId)
       .collection('jobs')
@@ -39,7 +39,7 @@ const firestoreService = {
   },
 
   async getJobDocument(docRef) {
-    logger.info('Get:', { path: docRef.path });
+    
     
     const snapshot = await docRef.get();
     if (!snapshot.exists) {
@@ -48,20 +48,13 @@ const firestoreService = {
     }
 
     const data = snapshot.data();
-    logger.info('Found:', { 
-      path: docRef.path,
-      fields: Object.keys(data || {})
-    });
+    
 
     return data;
   },
 
   async updateJobDocument(docRef, extractedText, existingTexts = {}) {
-    logger.info('Update:', { 
-      path: docRef.path,
-      fields: ['texts', 'extractedText']
-    });
-
+    
     await docRef.set({
       texts: {
         ...existingTexts,
@@ -69,13 +62,13 @@ const firestoreService = {
       },
     }, { merge: true });
 
-    logger.info('Updated:', { path: docRef.path });
+    
   },
 
   async handleError(docRef) {
     logger.warn('Error:', { path: docRef.path });
     await this.updateJobDocument(docRef, CONFIG.defaultValues.naText);
-    logger.info('Recovered:', { path: docRef.path });
+    
   }
 };
 

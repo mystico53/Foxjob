@@ -10,24 +10,18 @@ const db = admin.firestore();
 // ===== Config =====
 const CONFIG = {
     topics: {
-      jobDescriptionExtracted: 'qualities-resumetext-added',
-      matchingCompleted: 'embeddings-matched'
+        jobDescriptionExtracted: 'qualities-resumetext-added',
+        matchingCompleted: 'embeddings-matched'
     },
     matching: {
-      similarityThreshold: 0.75,
-      embeddingModel: 'text-embedding-ada-002'
+        similarityThreshold: 0.75,
+        embeddingModel: 'text-embedding-ada-002',
+        batchSize: 10 // Number of embeddings to process in parallel
+    },
+    function: {
+        timeoutSeconds: 120 // Increased timeout
     }
 };
-
-// ===== Schema Definition =====
-const matchResultSchema = z.object({
-    timestamp: z.date(),
-    matchDetails: z.object({
-      similarityScore: z.number(),
-      keySkillMatches: z.array(z.string()),
-      recommendations: z.string()
-    })
-});
 
 // ===== Firestore Service =====
 const firestoreService = {
@@ -50,20 +44,27 @@ const firestoreService = {
         }
     },
 
-    async updateQualityEmbeddingScore(googleId, docId, qualityId, embeddingScore) {
+    async batchUpdateQualityScores(googleId, docId, updates) {
         try {
-            const updateData = {};
-            updateData[`qualities.${qualityId}.embeddingScore`] = embeddingScore;
-            
-            await db.collection('users')
+            // Create a batch write
+            const batch = db.batch();
+            const docRef = db.collection('users')
                 .doc(googleId)
                 .collection('jobs')
-                .doc(docId)
-                .update(updateData);
-            
-            logger.info('Updated embedding score for quality:', { qualityId, embeddingScore });
+                .doc(docId);
+
+            // Combine all updates into a single object
+            const consolidatedUpdates = updates.reduce((acc, { qualityId, embeddingScore }) => {
+                acc[`qualities.${qualityId}.embeddingScore`] = embeddingScore;
+                return acc;
+            }, {});
+
+            batch.update(docRef, consolidatedUpdates);
+            await batch.commit();
+
+            logger.info('Batch updated embedding scores:', { updateCount: updates.length });
         } catch (error) {
-            logger.error('Error updating quality embedding score:', error);
+            logger.error('Error in batch update:', error);
             throw error;
         }
     }
@@ -81,15 +82,22 @@ const embeddingService = {
         this.openai = new OpenAI({ apiKey });
     },
 
-    async getEmbedding(text) {
+    async getBatchEmbeddings(texts) {
         if (!this.openai) this.initialize();
 
-        const response = await this.openai.embeddings.create({
-            model: CONFIG.matching.embeddingModel,
-            input: this.preprocessText(text),
-        });
+        const preprocessedTexts = texts.map(this.preprocessText);
+        
+        try {
+            const response = await this.openai.embeddings.create({
+                model: CONFIG.matching.embeddingModel,
+                input: preprocessedTexts,
+            });
 
-        return response.data[0].embedding;
+            return response.data.map(item => item.embedding);
+        } catch (error) {
+            logger.error('Error getting embeddings:', error);
+            throw error;
+        }
     },
 
     preprocessText(text) {
@@ -109,90 +117,84 @@ const embeddingService = {
 
 // ===== Matching Service =====
 const matchingService = {
-  async processMatch(googleId, docId, jobData) {
-    try {
-        const qualities = jobData.qualities;
-        
-        for (const [qualityId, quality] of Object.entries(qualities)) {
-            // Skip if no resumeText
-            if (!quality.resumeText) {
-                logger.warn(`No resumeText found for quality ${qualityId}`);
-                continue;
+    async processMatch(googleId, docId, jobData) {
+        try {
+            const qualities = jobData.qualities;
+            const qualityBatches = this.createQualityBatches(qualities);
+            const allUpdates = [];
+
+            for (const batch of qualityBatches) {
+                const batchUpdates = await this.processBatch(batch);
+                allUpdates.push(...batchUpdates);
             }
 
-            // Combine quality fields into a single text
-            const qualityText = [
-                quality.context,
-                quality.evidence,
-                quality.primarySkill,
-                quality.successMetrics
-            ].filter(Boolean).join(' ');
+            // Perform batch update to Firestore
+            await firestoreService.batchUpdateQualityScores(googleId, docId, allUpdates);
 
-            // Add text comparison logging
-            logger.info('Comparing texts:', {
-                qualityId,
-                jobQuality: qualityText.substring(0, 200) + '...',
-                resumeText: quality.resumeText.substring(0, 200) + '...'
-            });
+            return true;
+        } catch (error) {
+            logger.error('Error processing match:', error);
+            throw error;
+        }
+    },
 
-            // Get embeddings
-            const [qualityEmbedding, resumeEmbedding] = await Promise.all([
-                embeddingService.getEmbedding(qualityText),
-                embeddingService.getEmbedding(quality.resumeText)
-            ]);
+    createQualityBatches(qualities) {
+        const qualityArray = Object.entries(qualities)
+            .filter(([_, quality]) => quality.resumeText) // Filter out qualities without resumeText
+            .map(([id, quality]) => ({ id, ...quality }));
 
-            // Calculate similarity
+        const batches = [];
+        for (let i = 0; i < qualityArray.length; i += CONFIG.matching.batchSize) {
+            batches.push(qualityArray.slice(i, i + CONFIG.matching.batchSize));
+        }
+        return batches;
+    },
+
+    async processBatch(qualityBatch) {
+        // Prepare texts for embedding
+        const qualityTexts = qualityBatch.map(quality => 
+            [quality.context, quality.evidence, quality.primarySkill, quality.successMetrics]
+                .filter(Boolean)
+                .join(' ')
+        );
+        const resumeTexts = qualityBatch.map(quality => quality.resumeText);
+
+        // Get embeddings in parallel
+        const [qualityEmbeddings, resumeEmbeddings] = await Promise.all([
+            embeddingService.getBatchEmbeddings(qualityTexts),
+            embeddingService.getBatchEmbeddings(resumeTexts)
+        ]);
+
+        // Process similarities and create updates
+        return qualityBatch.map((quality, index) => {
             const rawSimilarity = embeddingService.calculateSimilarity(
-                qualityEmbedding, 
-                resumeEmbedding
+                qualityEmbeddings[index],
+                resumeEmbeddings[index]
             );
 
-            // Calculate adjusted score
             const adjustedScore = this.calculateAdjustedScore(rawSimilarity);
 
-            // Store the embedding score for this quality
-            await firestoreService.updateQualityEmbeddingScore(
-                googleId,
-                docId,
-                qualityId,
-                adjustedScore
-            );
-
-            logger.info('Quality embedding processed:', {
-                qualityId,
-                rawSimilarity,
-                adjustedScore,
-                normalized: (rawSimilarity - 0.65) / 0.3, // Add scoring steps
-                sigmoid: 1 / (1 + Math.exp(-10 * ((rawSimilarity - 0.65) / 0.3 - 0.5)))
-            });
-        }
-
-              return true;
-          } catch (error) {
-              logger.error('Error processing match:', error);
-              throw error;
-          }
-      },
+            return {
+                qualityId: quality.id,
+                embeddingScore: adjustedScore
+            };
+        });
+    },
 
     calculateAdjustedScore(rawSimilarity) {
-      // Expand the expected similarity range (0.65-0.95) to better differentiate scores
-      const normalized = Math.max(0, (rawSimilarity - 0.65) / 0.3);
-      
-      // Use sigmoid function to create a more nuanced S-curve
-      // This will create more differentiation in the middle ranges
-      const sigmoid = 1 / (1 + Math.exp(-10 * (normalized - 0.5)));
-      
-      // Apply logarithmic scaling to further separate scores
-      const scaled = Math.log10(1 + 9 * sigmoid) / Math.log10(10);
-      
-      // Scale to 0-100 and round to nearest integer
-      return Math.round(scaled * 100);
-  }
+        const normalized = Math.max(0, (rawSimilarity - 0.65) / 0.3);
+        const sigmoid = 1 / (1 + Math.exp(-10 * (normalized - 0.5)));
+        const scaled = Math.log10(1 + 9 * sigmoid) / Math.log10(10);
+        return Math.round(scaled * 100);
+    }
 };
 
 // ===== Main Function =====
 exports.embeddingMatch = onMessagePublished(
-    { topic: CONFIG.topics.jobDescriptionExtracted },
+    { 
+        topic: CONFIG.topics.jobDescriptionExtracted,
+        timeoutSeconds: CONFIG.function.timeoutSeconds
+    },
     async (event) => {
         try {
             const messageData = (() => {
@@ -211,10 +213,7 @@ exports.embeddingMatch = onMessagePublished(
             const { googleId, docId } = messageData;
             logger.info('Starting match processing', { googleId, docId });
 
-            // Get job document
             const jobData = await firestoreService.getJobDocument(googleId, docId);
-
-            // Process matches for each quality
             await matchingService.processMatch(googleId, docId, jobData);
 
             logger.info('Match processing completed', { googleId, docId });

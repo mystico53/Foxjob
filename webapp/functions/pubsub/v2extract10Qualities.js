@@ -46,7 +46,7 @@ Present the analysis as 10 consecutive quality fields, each containing the compl
 const firestoreService = {
   getDocRef(googleId, docId) {
     const path = `users/${googleId}/jobs/${docId}`;
-    logger.info('DocRef:', { path });
+    
     return db.collection('users')
       .doc(googleId)
       .collection('jobs')
@@ -54,8 +54,6 @@ const firestoreService = {
   },
 
   async getJobDocument(docRef) {
-    logger.info('Get:', { path: docRef.path });
-    
     const snapshot = await docRef.get();
     if (!snapshot.exists) {
       logger.warn('404:', { path: docRef.path });
@@ -63,25 +61,14 @@ const firestoreService = {
     }
 
     const data = snapshot.data();
-    logger.info('Found:', { 
-      path: docRef.path,
-      fields: Object.keys(data || {})
-    });
-
     return data;
   },
 
   async updateJobQualities(docRef, qualities) {
-    logger.info('Update:', { 
-      path: docRef.path,
-      fields: ['qualities']
-    });
 
     await docRef.update({
       qualities: qualities  // Now qualities will be saved as Q1, Q2, etc. with nested fields
     });
-    
-    logger.info('Updated:', { path: docRef.path });
   }
 };
 
