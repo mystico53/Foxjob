@@ -66,6 +66,7 @@ export async function signInWithGoogle() {
     // Get Google's sub ID from the provider data
     const googleSubId = result.user.providerData[0].uid;
     console.log("google sub:", googleSubId);
+    
     return result.user;
   } catch (error) {
     console.error("Error signing in with Google", error);
