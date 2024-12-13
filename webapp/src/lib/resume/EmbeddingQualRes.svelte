@@ -49,8 +49,6 @@
         const payload = {
           googleId: $user.uid,
           docId: currentJobId
-          // If your Cloud Function requires additional fields like jobRequirement,
-          // ensure the Cloud Function retrieves them internally using googleId and docId.
         };
   
         const response = await fetch(EMBEDDING_MATCH_URL, {

@@ -1,8 +1,8 @@
 // src/lib/config/firebase.config.js
 const configs = {
   development: {
-    apiKey: "dummy-api-key",
-    authDomain: "localhost",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: "jobille-45494.web.app",
     projectId: "jobille-45494",
     storageBucket: "jobille-45494.appspot.com",
     messagingSenderId: "dummy-sender-id",
