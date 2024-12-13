@@ -19,29 +19,37 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
     return null;
   }
 
-  // Extract parameters from the Pub/Sub message
-  const { text, url, googleId } = pubSubMessage;
+  const { text, url, firebaseUid, isPending, originalGoogleId } = pubSubMessage;
 
   console.log('Received message with:', {
     textLength: text ? text.length : 0,
     url,
-    googleId,
+    firebaseUid,
+    isPending,
+    originalGoogleId
   });
 
-  if (!text || !url || !googleId) {
+  if (!text || !url || !firebaseUid) {
     console.error('Missing required parameters');
     return null;
   }
 
   try {
-    // Create a reference to the user's document
-    const userRef = db.collection('users').doc(googleId);
+    let basePath;
+    if (isPending) {
+      // For pending users, store in pending_users collection
+      const pendingId = firebaseUid.replace('pending_', '');
+      basePath = db.collection('pending_users').doc(pendingId);
+    } else {
+      // For regular users, use the users collection
+      basePath = db.collection('users').doc(firebaseUid);
+    }
 
     // Generate a new document ID
     const newDocId = db.collection('temp').doc().id;
 
     // Create a reference to the job document
-    const jobRef = userRef.collection('jobs').doc(newDocId);
+    const jobRef = basePath.collection('jobs').doc(newDocId);
 
     // Prepare the data to be saved
     const jobData = {
@@ -54,9 +62,9 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
         timestamp: Firestore.FieldValue.serverTimestamp(),
         status: "New",
         processingStatus: "processing",
-        hidden: false 
-      },
-      
+        hidden: false,
+        originalGoogleId // Store this for reference
+      }
     };
 
     // Add the data to the job document
@@ -78,8 +86,10 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
 
     // Prepare the simplified message
     const message = {
-      googleId: googleId,
-      docId: newDocId
+      firebaseUid,
+      isPending,
+      docId: newDocId,
+      originalGoogleId
     };
 
     // Publish the message to the topic
@@ -97,7 +107,9 @@ exports.saveRawPubSubMessage = onMessagePublished('job-text-submitted', async (e
     };
   } catch (error) {
     console.error('Error in saveRawPubSubMessage:', error);
-    await populateWithNA(googleId, newDocId);
+    if (!isPending) {
+      await populateWithNA(firebaseUid, newDocId);
+    }
     return null;
   }
 });

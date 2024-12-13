@@ -63,6 +63,7 @@ const { extractJobQualities } = require('./pubsub/v2extract10Qualities.js');
 const { compareQualities } = require('./pubsub/v2compare10Qualities.js');
 const { structureResume } = require('./assessments/structureResume');
 const { embeddingQualRes } = require('./assessments/embeddingQualRes');
+const { syncGoogleSubToUid } = require('./helpers/syncGoogleSubToUid');
 
 // Export all Cloud Functions
 
@@ -88,3 +89,4 @@ exports.extractJobQualities = extractJobQualities;
 exports.compareQualities = compareQualities;
 exports.structureResume = structureResume;
 exports.embeddingQualRes = embeddingQualRes;
+exports.syncGoogleSubToUid = syncGoogleSubToUid;

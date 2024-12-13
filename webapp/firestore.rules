@@ -5,7 +5,7 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
     // Helper function to check if user is accessing their own data
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
@@ -16,7 +16,7 @@ service cloud.firestore {
       // Allow users to read/write their own documents
       allow read, write: if isOwner(userId);
       
-      // Rules for UserCollections subcollection (for resumes)
+      // Rules for UserCollections subcollection (e.g., for resumes)
       match /UserCollections/{document=**} {
         allow read, write: if isOwner(userId);
       }
@@ -27,18 +27,28 @@ service cloud.firestore {
       }
     }
 
-    // Rules for test collection (for emulator testing)
-    match /test/{docId} {
-      // Allow authenticated users to read/write test documents
+    // Rules for googleSubToUid collection
+    match /googleSubToUid/{googleSubId} {
+      allow read: if false; // Disallow direct client reads
+      allow write: if request.auth != null && request.auth.token.admin == true; // Only admins or service accounts can write
+    }
+
+    // Rules for pending_users collection
+    match /pending_users/{pendingId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Development mode rules for testing (only active in emulator)
+    // Rules for test collection
+    match /test/{docId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Development mode rules
     match /dev-test/{docId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Default deny all other access
+    // Default deny
     match /{document=**} {
       allow read, write: if false;
     }
