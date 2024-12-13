@@ -36,7 +36,6 @@
 			  googleSubId: googleSubId,
 			  displayName: user.displayName,
 			  email: user.email,
-			  // Initialize consent fields if necessary
 			});
 			userDoc = await getDoc(userRef);
 		  } else {
