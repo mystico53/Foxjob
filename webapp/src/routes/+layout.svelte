@@ -3,7 +3,6 @@
     import Navbar from '$lib/Navbar.svelte';
     import { page } from '$app/stores';
     import { auth } from '$lib/firebase';
-    import { authStore } from '$lib/stores/authStore';
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
     import 'iconify-icon';
@@ -16,16 +15,8 @@
     // Then set up popup store
     storePopup.set({ computePosition, autoUpdate, offset, shift, flip, arrow });
     
-    // Use reactive statements instead of let declarations
-    $: isAuthenticated = !!$authStore;
-    $: currentPath = $page.url.pathname;
-    $: {
-        // Handle routing protection
-        if (!isAuthenticated && !publicRoutes.includes(currentPath)) {
-            console.log('Unauthorized access, redirecting to landing');
-            goto('/landing');
-        }
-    }
+    let isAuthenticated = false;
+    let isLoading = true;
     
     // Define public routes that don't require authentication
     const publicRoutes = [
@@ -36,17 +27,35 @@
         '/privacy',
         '/terms/',
         '/privacy/',
-        '/test'
+        '/test'  // Add this line
     ];
+    
+    onMount(() => {
+        const unsubscribe = auth.onAuthStateChanged((user) => {
+            isAuthenticated = !!user;
+            isLoading = false;
+            
+            // Get current path
+            const currentPath = $page.url.pathname;
+            
+            // If user is not authenticated and trying to access a protected route
+            if (!isAuthenticated && !publicRoutes.includes(currentPath)) {
+                console.log('Unauthorized access, redirecting to landing');
+                goto('/landing');
+            }
+        });
+    
+        return unsubscribe;
+    });
 </script>
 
-{#if $authStore === undefined}
+{#if isLoading}
     <div class="flex h-screen items-center justify-center">
         <div class="spinner" />
     </div>
 {:else}
     <div class="flex flex-col min-h-screen">
-        {#if $authStore && currentPath !== '/'}
+        {#if isAuthenticated && $page.url.pathname !== '/'}
             <Navbar />
         {/if}
 

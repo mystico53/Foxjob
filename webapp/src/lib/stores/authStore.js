@@ -11,27 +11,14 @@ function createAuthStore() {
     if (browser) {
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // Get the Google sub ID 
-                const googleSubId = user.providerData[0]?.uid;
-                
-                // Write user data with sub ID as document ID
-                const userRef = doc(db, 'users', googleSubId);
+                // Write basic user info to Firestore
+                const userRef = doc(db, 'users', user.uid);
                 await setDoc(userRef, {
                     displayName: user.displayName,
-                    email: user.email,
-                    firebaseUid: user.uid,
-                    lastLogin: new Date()
-                }, { merge: true });
-
-                // Make sure we're setting a user object that has all needed properties
-                set({
-                    ...user,
-                    subId: googleSubId,
-                    uid: googleSubId // Override Firebase UID with sub ID if needed
-                });
-            } else {
-                set(null);
+                    email: user.email
+                }, { merge: true }); // merge: true prevents overwriting other fields
             }
+            set(user);
         });
     }
 
