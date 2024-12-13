@@ -49,26 +49,26 @@ const CONFIG = {
 
 // ===== Firestore Service =====
 const firestoreService = {
-  async getResumeText(googleId) {
-    logger.info('Getting resume for user:', googleId);
+  async getResumeText(firebaseUid) {
+    logger.info('Getting resume for user:', firebaseUid);
     
-    const userCollectionsRef = db.collection('users').doc(googleId).collection('UserCollections');
+    const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
     const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
     const resumeSnapshot = await resumeQuery.get();
 
     if (resumeSnapshot.empty) {
-      throw new Error(`No resume found for user ID: ${googleId}`);
+      throw new Error(`No resume found for user ID: ${firebaseUid}`);
     }
 
     const resumeDoc = resumeSnapshot.docs[0];
     return resumeDoc.data().extractedText;
   },
 
-  getJobDocRef(googleId, docId) {
-    const path = `users/${googleId}/jobs/${docId}`;
+  getJobDocRef(firebaseUid, docId) {
+    const path = `users/${firebaseUid}/jobs/${docId}`;
     logger.info('DocRef:', { path });
     return db.collection('users')
-      .doc(googleId)
+      .doc(firebaseUid)
       .collection('jobs')
       .doc(docId);
   },
@@ -126,11 +126,11 @@ const pubSubService = {
   },
 
   validateMessageData(data) {
-    const { googleId, docId } = data;
-    if (!googleId || !docId) {
+    const { firebaseUid, docId } = data;
+    if (!firebaseUid || !docId) {
       throw new Error('Missing required fields in message data');
     }
-    return { googleId, docId };
+    return { firebaseUid, docId };
   },
 
   async ensureTopicExists(topicName) {
@@ -310,12 +310,12 @@ exports.matchQualities = onMessagePublished(
         }
       })();
       
-      const { googleId, docId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing quality matches for googleId: ${googleId}, docId: ${docId}`);
+      const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
+      logger.info(`Processing quality matches for firebaseUid: ${firebaseUid}, docId: ${docId}`);
 
       // Get resume and job data
-      const resumeText = await firestoreService.getResumeText(googleId);
-      docRef = firestoreService.getJobDocRef(googleId, docId);
+      const resumeText = await firestoreService.getResumeText(firebaseUid);
+      docRef = firestoreService.getJobDocRef(firebaseUid, docId);
       const jobData = await firestoreService.getJobDocument(docRef);
 
       // Process qualities
@@ -328,7 +328,7 @@ exports.matchQualities = onMessagePublished(
       // Publish to next topic
       await pubSubService.publishMessage(
         CONFIG.topics.qualitiesMatched,
-        { googleId, docId }
+        { firebaseUid, docId }
       );
 
       logger.info(`Successfully completed quality matching for docId: ${docId}`);

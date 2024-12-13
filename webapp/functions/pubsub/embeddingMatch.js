@@ -25,10 +25,10 @@ const CONFIG = {
 
 // ===== Firestore Service =====
 const firestoreService = {
-    async getJobDocument(googleId, docId) {
+    async getJobDocument(firebaseUid, docId) {
         try {
             const jobDoc = await db.collection('users')
-                .doc(googleId)
+                .doc(firebaseUid)
                 .collection('jobs')
                 .doc(docId)
                 .get();
@@ -44,12 +44,12 @@ const firestoreService = {
         }
     },
 
-    async batchUpdateQualityScores(googleId, docId, updates) {
+    async batchUpdateQualityScores(firebaseUid, docId, updates) {
         try {
             // Create a batch write
             const batch = db.batch();
             const docRef = db.collection('users')
-                .doc(googleId)
+                .doc(firebaseUid)
                 .collection('jobs')
                 .doc(docId);
 
@@ -117,7 +117,7 @@ const embeddingService = {
 
 // ===== Matching Service =====
 const matchingService = {
-    async processMatch(googleId, docId, jobData) {
+    async processMatch(firebaseUid, docId, jobData) {
         try {
             const qualities = jobData.qualities;
             const qualityBatches = this.createQualityBatches(qualities);
@@ -129,7 +129,7 @@ const matchingService = {
             }
 
             // Perform batch update to Firestore
-            await firestoreService.batchUpdateQualityScores(googleId, docId, allUpdates);
+            await firestoreService.batchUpdateQualityScores(firebaseUid, docId, allUpdates);
 
             return true;
         } catch (error) {
@@ -210,13 +210,13 @@ exports.embeddingMatch = onMessagePublished(
                 }
             })();
             
-            const { googleId, docId } = messageData;
-            logger.info('Starting match processing', { googleId, docId });
+            const { firebaseUid, docId } = messageData;
+            logger.info('Starting match processing', { firebaseUid, docId });
 
-            const jobData = await firestoreService.getJobDocument(googleId, docId);
-            await matchingService.processMatch(googleId, docId, jobData);
+            const jobData = await firestoreService.getJobDocument(firebaseUid, docId);
+            await matchingService.processMatch(firebaseUid, docId, jobData);
 
-            logger.info('Match processing completed', { googleId, docId });
+            logger.info('Match processing completed', { firebaseUid, docId });
 
         } catch (error) {
             logger.error('Error in match processing:', error);

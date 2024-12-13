@@ -24,18 +24,18 @@ exports.summarizeJobDescription = onMessagePublished(
         throw error;
       }
     })();
-    const { googleId, docId } = messageData;
+    const { firebaseUid , docId } = messageData;
 
-    logger.info(`Starting job description analysis for googleId: ${googleId}, docId: ${docId}`);
+    logger.info(`Starting job description analysis for firebaseUid : ${firebaseUid }, docId: ${docId}`);
 
-    if (!googleId || !docId) {
+    if (!firebaseUid  || !docId) {
       logger.error('Missing required information in the Pub/Sub message');
       return;
     }
 
     try {
-      // Create document reference using googleId and docId
-      const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+      // Create document reference using firebaseUid  and docId
+      const jobDocRef = db.collection('users').doc(firebaseUid ).collection('jobs').doc(docId);
 
       // Rest of your code remains the same...
       const docSnapshot = await jobDocRef.get();
@@ -114,7 +114,7 @@ exports.summarizeJobDescription = onMessagePublished(
         },
       });
 
-      logger.info(`Job description analysis saved to Firestore for googleId: ${googleId}, docId: ${docId}`);
+      logger.info(`Job description analysis saved to Firestore for firebaseUid : ${firebaseUid }, docId: ${docId}`);
 
     } catch (error) {
       logger.error('Error in summarizeJobDescription:', error);

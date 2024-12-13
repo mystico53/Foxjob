@@ -8,7 +8,7 @@ export const Environment = {
 };
 
 // Current environment setting
-export const CURRENT_ENV = Environment.DEVELOPMENT;
+export const CURRENT_ENV = Environment.PRODUCTION;
 
 // For backwards compatibility
 export const USE_EMULATOR = false;

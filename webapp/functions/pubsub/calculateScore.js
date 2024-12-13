@@ -20,25 +20,25 @@ exports.calculateScore = onMessagePublished(
       logger.info('Pub/Sub Message:', JSON.stringify(message.json));
 
       const messageData = event.data.message.json;
-      if (!messageData || !messageData.googleId || !messageData.docId) {
+      if (!messageData || !messageData.firebaseUid || !messageData.docId) {
         throw new Error('Invalid message format: missing required fields');
       }
-      const { googleId, docId } = messageData;
+      const { firebaseUid, docId } = messageData;
 
-      if (!docId || !googleId) {
-        logger.error('Missing docId or googleId in Pub/Sub message.');
-        throw new Error('Missing docId or googleId');
+      if (!docId || !firebaseUid) {
+        logger.error('Missing docId or firebaseUid in Pub/Sub message.');
+        throw new Error('Missing docId or firebaseUid');
       }
 
       // Retrieve the user's resume
-      const userCollectionsRef = db.collection('users').doc(googleId).collection('UserCollections');
+      const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
       const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
       const resumeSnapshot = await resumeQuery.get();
 
       let resumeText;
 
       if (resumeSnapshot.empty) {
-        logger.warn(`No resume found for user ID: ${googleId}. Using placeholder resume.`);
+        logger.warn(`No resume found for user ID: ${firebaseUid}. Using placeholder resume.`);
         resumeText = placeholderResumeText; // Make sure this is defined or imported
       } else {
         const resumeDoc = resumeSnapshot.docs[0];
@@ -48,7 +48,7 @@ exports.calculateScore = onMessagePublished(
       // Retrieve the job document and requirements
       const jobDocRef = db
         .collection('users')
-        .doc(googleId)
+        .doc(firebaseUid)
         .collection('jobs')
         .doc(docId);
 
@@ -95,7 +95,7 @@ exports.calculateScore = onMessagePublished(
 
       // Update the job document with the new Score object
       await jobDocRef.update(scoreObject);
-      logger.info(`Score saved to job document for job ID: ${docId}, user ID: ${googleId}`);
+      logger.info(`Score saved to job document for job ID: ${docId}, user ID: ${firebaseUid}`);
 
     } catch (error) {
       logger.error('Error in calculateScore function:', error);
@@ -203,22 +203,22 @@ exports.calculateScore = functions.pubsub
       logger.info('calculateScore function called');
       logger.info('Pub/Sub Message:', JSON.stringify(message.json));
 
-      const { googleId, docId } = message.json;
+      const { firebaseUid, docId } = message.json;
 
-      if (!docId || !googleId) {
-        logger.error('Missing docId or googleId in Pub/Sub message.');
-        throw new Error('Missing docId or googleId');
+      if (!docId || !firebaseUid) {
+        logger.error('Missing docId or firebaseUid in Pub/Sub message.');
+        throw new Error('Missing docId or firebaseUid');
       }
 
       // Retrieve the user's resume
-      const userCollectionsRef = db.collection('users').doc(googleId).collection('UserCollections');
+      const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
       const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
       const resumeSnapshot = await resumeQuery.get();
 
       let resumeText;
 
       if (resumeSnapshot.empty) {
-        logger.warn(`No resume found for user ID: ${googleId}. Using placeholder resume.`);
+        logger.warn(`No resume found for user ID: ${firebaseUid}. Using placeholder resume.`);
         resumeText = placeholderResumeText; // Make sure this is defined or imported
       } else {
         const resumeDoc = resumeSnapshot.docs[0];
@@ -228,7 +228,7 @@ exports.calculateScore = functions.pubsub
       // Retrieve the job document and requirements
       const jobDocRef = db
         .collection('users')
-        .doc(googleId)
+        .doc(firebaseUid)
         .collection('jobs')
         .doc(docId);
 
@@ -285,13 +285,13 @@ exports.calculateScore = functions.pubsub
       // Update the job document with the new Score object
       await jobDocRef.update(scoreObject);
 
-      logger.info(`Score saved to job document for job ID: ${docId}, user ID: ${googleId}`);
+      logger.info(`Score saved to job document for job ID: ${docId}, user ID: ${firebaseUid}`);
 
       await jobDocRef.update({
         'generalData.processingStatus': 'processed'
       });
 
-      logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${googleId}`);
+      logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${firebaseUid}`);
 
     } catch (error) {
       logger.error('Error in calculateScore function:', error);

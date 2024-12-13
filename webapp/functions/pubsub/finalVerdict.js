@@ -81,11 +81,11 @@ const treeLogger = {
 
 const services = {
   documentReader: {
-    async getJobDocument(googleId, docId) {
+    async getJobDocument(firebaseUid, docId) {
       try {
         const jobDoc = await db
           .collection(CONFIG.collections.users)
-          .doc(googleId)
+          .doc(firebaseUid)
           .collection(CONFIG.collections.jobs)
           .doc(docId)
           .get();
@@ -98,7 +98,7 @@ const services = {
         const fields = this.extractFields(jobData);
         
         return {
-          path: `users/${googleId}/jobs/${docId}`,
+          path: `users/${firebaseUid}/jobs/${docId}`,
           fields: fields,
           rawData: jobData
         };
@@ -174,10 +174,10 @@ const services = {
   },
 
   firestore: {
-    async updateVerdict(googleId, docId, verdict) {
+    async updateVerdict(firebaseUid, docId, verdict) {
       const jobDocRef = db
         .collection(CONFIG.collections.users)
-        .doc(googleId)
+        .doc(firebaseUid)
         .collection(CONFIG.collections.jobs)
         .doc(docId);
   
@@ -205,19 +205,19 @@ exports.finalVerdict = onMessagePublished(
           throw error;
         }
       })();
-      const { googleId, docId } = messageData;
+      const { firebaseUid, docId } = messageData;
 
       // Get reference to the job document
       const jobDocRef = db
         .collection(CONFIG.collections.users)
-        .doc(googleId)
+        .doc(firebaseUid)
         .collection(CONFIG.collections.jobs)
         .doc(docId);
 
       // Process the document
-      const documentData = await services.documentReader.getJobDocument(googleId, docId);
+      const documentData = await services.documentReader.getJobDocument(firebaseUid, docId);
       const parsedVerdict = await services.api.getFinalVerdict(documentData);
-      await services.firestore.updateVerdict(googleId, docId, parsedVerdict);
+      await services.firestore.updateVerdict(firebaseUid, docId, parsedVerdict);
 
       // After everything is processed and written, get the final state
       const finalJobDoc = await jobDocRef.get();
@@ -229,7 +229,7 @@ exports.finalVerdict = onMessagePublished(
 
       // Log the final structure
       logger.info('📂 Final Job Structure After Processing');
-      logger.info(`users/${googleId}/jobs/${docId}`);
+      logger.info(`users/${firebaseUid}/jobs/${docId}`);
       treeLogger.traverseObject(finalJobDoc.data());
 
       // Calculate and log accumulated score
@@ -276,7 +276,7 @@ exports.finalVerdict = onMessagePublished(
         'generalData.processingStatus': 'processed'
       });
 
-      logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${googleId}`);
+      logger.info(`Processing status updated to "processed" in generalData for job ID: ${docId}, user ID: ${firebaseUid}`);
         
       return parsedVerdict;
 

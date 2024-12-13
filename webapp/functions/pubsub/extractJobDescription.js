@@ -29,11 +29,11 @@ const CONFIG = {
 
 // ===== Firestore Service =====
 const firestoreService = {
-  getDocRef(googleId, docId) {
-    const path = `users/${googleId}/jobs/${docId}`;
+  getDocRef(firebaseUid , docId) {
+    const path = `users/${firebaseUid }/jobs/${docId}`;
     
     return db.collection('users')
-      .doc(googleId)
+      .doc(firebaseUid )
       .collection('jobs')
       .doc(docId);
   },
@@ -91,11 +91,11 @@ const pubSubService = {
   },
 
   validateMessageData(data) {
-    const { googleId, docId } = data;
-    if (!googleId || !docId) {
+    const { firebaseUid , docId } = data;
+    if (!firebaseUid  || !docId) {
       throw new Error('Missing required fields in message data');
     }
-    return { googleId, docId };
+    return { firebaseUid , docId };
   },
 
   async ensureTopicExists(topicName) {
@@ -159,11 +159,11 @@ exports.extractJobDescription = onMessagePublished(
     try {
       // Parse and validate message
       const messageData = pubSubService.parseMessage(event);
-      const { googleId, docId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing job for googleId: ${googleId}, docId: ${docId}`);
+      const { firebaseUid , docId } = pubSubService.validateMessageData(messageData);
+      logger.info(`Processing job for firebaseUid : ${firebaseUid }, docId: ${docId}`);
 
       // Rest of your function remains the same...
-      docRef = firestoreService.getDocRef(googleId, docId);
+      docRef = firestoreService.getDocRef(firebaseUid , docId);
       const jobData = await firestoreService.getJobDocument(docRef);
       
       const rawJD = jobData.texts?.rawText || "na";
@@ -176,7 +176,7 @@ exports.extractJobDescription = onMessagePublished(
 
       await pubSubService.publishMessage(
         CONFIG.topics.jobDescriptionExtracted,
-        { googleId, docId }
+        { firebaseUid , docId }
       );
 
     } catch (error) {

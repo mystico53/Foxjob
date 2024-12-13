@@ -30,21 +30,21 @@ exports.matchDomainExpertise = onMessagePublished(
 
       logger.info('Parsed Pub/Sub message data:', messageData);
 
-      const { googleId, docId } = messageData;
+      const { firebaseUid, docId } = messageData;
 
-      if (!docId || !googleId) {
-        logger.error('Missing docId or googleId in Pub/Sub message.');
-        throw new Error('Missing docId or googleId');
+      if (!docId || !firebaseUid) {
+        logger.error('Missing docId or firebaseUid in Pub/Sub message.');
+        throw new Error('Missing docId or firebaseUid');
       }
 
       // Retrieve the user's resume
-      const userCollectionsRef = db.collection('users').doc(googleId).collection('UserCollections');
+      const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
       const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
       const resumeSnapshot = await resumeQuery.get();
 
       let resumeText;
       if (resumeSnapshot.empty) {
-        logger.warn(`No resume found for user ID: ${googleId}. Using placeholder resume.`);
+        logger.warn(`No resume found for user ID: ${firebaseUid}. Using placeholder resume.`);
         resumeText = placeholderResumeText;
       } else {
         const resumeDoc = resumeSnapshot.docs[0];
@@ -54,7 +54,7 @@ exports.matchDomainExpertise = onMessagePublished(
       // Retrieve the job document and domain expertise
       const jobDocRef = db
         .collection('users')
-        .doc(googleId)
+        .doc(firebaseUid)
         .collection('jobs')
         .doc(docId);
 

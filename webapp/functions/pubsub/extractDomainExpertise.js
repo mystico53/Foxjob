@@ -26,17 +26,17 @@ exports.extractDomainExpertise = onMessagePublished(
       }
     })();
 
-    const { googleId, docId } = messageData;
+    const { firebaseUid, docId } = messageData;
 
-    logger.info(`Starting domain expertise extraction for googleId: ${googleId}, docId: ${docId}`);
+    logger.info(`Starting domain expertise extraction for firebaseUid: ${firebaseUid}, docId: ${docId}`);
 
-    if (!googleId || !docId) {
+    if (!firebaseUid || !docId) {
       logger.error('Missing required information in the Pub/Sub message');
       return;
     }
 
     try {
-      const jobDocRef = db.collection('users').doc(googleId).collection('jobs').doc(docId);
+      const jobDocRef = db.collection('users').doc(firebaseUid).collection('jobs').doc(docId);
       const docSnapshot = await jobDocRef.get();
 
       if (!docSnapshot.exists) {
@@ -118,7 +118,7 @@ exports.extractDomainExpertise = onMessagePublished(
         'SkillAssessment.DomainExpertise': domainExpertise
       });
 
-      logger.info(`Domain expertise saved to Firestore for googleId: ${googleId}, docId: ${docId}`);
+      logger.info(`Domain expertise saved to Firestore for firebaseUid: ${firebaseUid}, docId: ${docId}`);
 
       // Define the topic name first
       const topicName = 'domain-expertise-extracted';
@@ -135,7 +135,7 @@ exports.extractDomainExpertise = onMessagePublished(
       // Prepare the message
       const pubSubMessage = {
         docId: docId,
-        googleId: googleId
+        firebaseUid: firebaseUid
       };
       
       // Publish the message

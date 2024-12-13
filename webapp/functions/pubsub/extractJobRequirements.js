@@ -29,11 +29,11 @@ Provide only the list of 6 requirements, one per line, without any additional te
 
 // ===== Firestore Service =====
 const firestoreService = {
-  getDocRef(googleId, docId) {
-    const path = `users/${googleId}/jobs/${docId}`;
+  getDocRef(firebaseUid, docId) {
+    const path = `users/${firebaseUid}/jobs/${docId}`;
     logger.info('DocRef:', { path });
     return db.collection('users')
-      .doc(googleId)
+      .doc(firebaseUid)
       .collection('jobs')
       .doc(docId);
   },
@@ -81,11 +81,11 @@ const pubSubService = {
   },
 
   validateMessageData(data) {
-    const { googleId, docId } = data;
-    if (!googleId || !docId) {
+    const { firebaseUid, docId } = data;
+    if (!firebaseUid || !docId) {
       throw new Error('Missing required fields in message data');
     }
-    return { googleId, docId };
+    return { firebaseUid, docId };
   },
 
   async ensureTopicExists(topicName) {
@@ -180,11 +180,11 @@ exports.extractJobRequirements = onMessagePublished(
           throw error;
         }
       })();
-      const { googleId, docId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing requirements for googleId: ${googleId}, docId: ${docId}`);
+      const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
+      logger.info(`Processing requirements for firebaseUid: ${firebaseUid}, docId: ${docId}`);
 
       // Get Firestore document
-      docRef = firestoreService.getDocRef(googleId, docId);
+      docRef = firestoreService.getDocRef(firebaseUid, docId);
       const jobData = await firestoreService.getJobDocument(docRef);
       
       // Process job requirements
@@ -213,7 +213,7 @@ exports.extractJobRequirements = onMessagePublished(
       // Publish next message
       await pubSubService.publishMessage(
         CONFIG.topics.requirementsGathered,
-        { googleId, docId }
+        { firebaseUid, docId }
       );
 
     } catch (error) {
