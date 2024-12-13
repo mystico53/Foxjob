@@ -51,11 +51,8 @@ export const { app, auth, db, functions, analytics } = firebase;
 // Enhanced sign-in function with better error handling
 export async function signInWithGoogle() {
   console.log("google sigin in flow started");
-  
   if (!auth) throw new Error('Firebase auth not initialized');
   
-
-
   const provider = new GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/userinfo.email');
   provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
