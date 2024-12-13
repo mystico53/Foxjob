@@ -10,7 +10,7 @@ const db = admin.firestore();
 // ===== Config =====
 const CONFIG = {
     topics: {
-        jobDescriptionExtracted: 'ten-qualities-gathered',
+        jobDescriptionExtracted: 'ten-qualities-gathered-DISABLED',
         matchingCompleted: 'embeddings-matched'
     },
     matching: {
