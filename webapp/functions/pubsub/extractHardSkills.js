@@ -44,11 +44,11 @@ Provide only the JSON response without any additional text or explanations.`
 
 // ===== Firestore Service =====
 const firestoreService = {
-  getDocRef(googleId, docId) {
-    const path = `users/${googleId}/jobs/${docId}`;
+  getDocRef(firebaseUid, docId) {
+    const path = `users/${firebaseUid}/jobs/${docId}`;
     logger.info('DocRef:', { path });
     return db.collection('users')
-      .doc(googleId)
+      .doc(firebaseUid)
       .collection('jobs')
       .doc(docId);
   },
@@ -99,11 +99,11 @@ const pubSubService = {
   },
 
   validateMessageData(data) {
-    const { googleId, docId } = data;
-    if (!googleId || !docId) {
+    const { firebaseUid, docId } = data;
+    if (!firebaseUid || !docId) {
       throw new Error('Missing required fields in message data');
     }
-    return { googleId, docId };
+    return { firebaseUid, docId };
   },
 
   async ensureTopicExists(topicName) {
@@ -215,11 +215,11 @@ exports.extractHardSkills = onMessagePublished(
           throw error;
         }
       })();
-      const { googleId, docId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing hard skills for googleId: ${googleId}, docId: ${docId}`);
+      const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
+      logger.info(`Processing hard skills for firebaseUid: ${firebaseUid}, docId: ${docId}`);
 
       // Get Firestore document
-      docRef = firestoreService.getDocRef(googleId, docId);
+      docRef = firestoreService.getDocRef(firebaseUid, docId);
       const jobData = await firestoreService.getJobDocument(docRef);
       
       // Process hard skills
@@ -251,7 +251,7 @@ exports.extractHardSkills = onMessagePublished(
       // Publish next message
       await pubSubService.publishMessage(
         CONFIG.topics.hardSkillsExtracted,
-        { googleId, docId }
+        { firebaseUid, docId }
       );
 
     } catch (error) {

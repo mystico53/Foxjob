@@ -47,7 +47,7 @@
   
       try {
         const payload = {
-          googleId: $user.uid,
+          firebaseUid: $user.uid,
           docId: currentJobId
         };
   

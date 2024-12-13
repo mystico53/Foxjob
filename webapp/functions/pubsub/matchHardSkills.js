@@ -100,15 +100,15 @@ PeaceApp-Award, Cyprus, $5,000 for first place amongst 100 submissions).
 
 // ===== Firestore Service =====
 const firestoreService = {
-  async getResumeText(googleId) {
-    logger.info('Getting resume for user:', googleId);
+  async getResumeText(firebaseUid) {
+    logger.info('Getting resume for user:', firebaseUid);
     
-    const userCollectionsRef = db.collection('users').doc(googleId).collection('UserCollections');
+    const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
     const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
     const resumeSnapshot = await resumeQuery.get();
 
     if (resumeSnapshot.empty) {
-      logger.warn(`No resume found for user ID: ${googleId}. Using placeholder resume.`);
+      logger.warn(`No resume found for user ID: ${firebaseUid}. Using placeholder resume.`);
       return CONFIG.defaultValues.placeholderResumeText;
     }
 
@@ -116,8 +116,8 @@ const firestoreService = {
     return resumeDoc.data().extractedText;
   },
 
-  async getJobDocument(googleId, docId) {
-    const jobDocRef = this.getJobDocRef(googleId, docId);
+  async getJobDocument(firebaseUid, docId) {
+    const jobDocRef = this.getJobDocRef(firebaseUid, docId);
     const jobDoc = await jobDocRef.get();
 
     if (!jobDoc.exists) {
@@ -130,10 +130,10 @@ const firestoreService = {
     };
   },
 
-  getJobDocRef(googleId, docId) {
+  getJobDocRef(firebaseUid, docId) {
     return db
       .collection('users')
-      .doc(googleId)
+      .doc(firebaseUid)
       .collection('jobs')
       .doc(docId);
   },
@@ -160,11 +160,11 @@ const pubSubService = {
   },
 
   validateMessageData(data) {
-    const { googleId, docId } = data;
-    if (!googleId || !docId) {
+    const { firebaseUid, docId } = data;
+    if (!firebaseUid || !docId) {
       throw new Error('Missing required fields in message data');
     }
-    return { googleId, docId };
+    return { firebaseUid, docId };
   },
 
   async ensureTopicExists(topicName) {
@@ -394,13 +394,13 @@ exports.matchHardSkills = onMessagePublished(
           throw error;
         }
       })();
-      const { googleId, docId } = pubSubService.validateMessageData(messageData);
+      const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
 
-      logger.info(`Processing skills match for googleId: ${googleId}, docId: ${docId}`);
+      logger.info(`Processing skills match for firebaseUid: ${firebaseUid}, docId: ${docId}`);
 
       // Get resume and job data
-      const resumeText = await firestoreService.getResumeText(googleId);
-      const { ref: jobDocRef, data: jobData } = await firestoreService.getJobDocument(googleId, docId);
+      const resumeText = await firestoreService.getResumeText(firebaseUid);
+      const { ref: jobDocRef, data: jobData } = await firestoreService.getJobDocument(firebaseUid, docId);
 
       // Process hard skills
       const hardSkillsArray = skillsProcessor.extractHardSkillsArray(jobData.SkillAssessment?.Hardskills);
@@ -417,7 +417,7 @@ exports.matchHardSkills = onMessagePublished(
       // Publish to next topic using pubSubService
       await pubSubService.publishMessage(
         CONFIG.topics.hardSkillsMatched,
-        { googleId, docId }
+        { firebaseUid, docId }
       );
 
       logger.info(`Successfully completed skills matching for docId: ${docId}`);

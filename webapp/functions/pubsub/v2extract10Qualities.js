@@ -44,11 +44,11 @@ Present the analysis as 7 consecutive quality fields, each containing the comple
 
 // ===== Firestore Service =====
 const firestoreService = {
-  getDocRef(googleId, docId) {
-    const path = `users/${googleId}/jobs/${docId}`;
+  getDocRef(firebaseUid, docId) {
+    const path = `users/${firebaseUid}/jobs/${docId}`;
     
     return db.collection('users')
-      .doc(googleId)
+      .doc(firebaseUid)
       .collection('jobs')
       .doc(docId);
   },
@@ -86,11 +86,11 @@ const pubSubService = {
   },
 
   validateMessageData(data) {
-    const { googleId, docId } = data;
-    if (!googleId || !docId) {
+    const { firebaseUid, docId } = data;
+    if (!firebaseUid || !docId) {
       throw new Error('Missing required fields in message data');
     }
-    return { googleId, docId };
+    return { firebaseUid, docId };
   },
 
   async ensureTopicExists(topicName) {
@@ -202,11 +202,11 @@ exports.extractJobQualities = onMessagePublished(
           throw error;
         }
       })();
-      const { googleId, docId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing qualities for googleId: ${googleId}, docId: ${docId}`);
+      const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
+      logger.info(`Processing qualities for firebaseUid: ${firebaseUid}, docId: ${docId}`);
 
       // Get Firestore document
-      docRef = firestoreService.getDocRef(googleId, docId);
+      docRef = firestoreService.getDocRef(firebaseUid, docId);
       const jobData = await firestoreService.getJobDocument(docRef);
       
       // Process job qualities
@@ -237,7 +237,7 @@ exports.extractJobQualities = onMessagePublished(
       // Publish next message
       await pubSubService.publishMessage(
         CONFIG.topics.qualitiesGathered,
-        { googleId, docId }
+        { firebaseUid, docId }
       );
 
     } catch (error) {

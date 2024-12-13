@@ -89,10 +89,10 @@ const normalizeSpaces = (text) => {
 
 // Firestore Service
 const firestoreService = {
-  async getResumeText(googleId) {
-    logger.info(`Starting getResumeText for googleId: ${googleId}`);
+  async getResumeText(firebaseUid) {
+    logger.info(`Starting getResumeText for firebaseUid: ${firebaseUid}`);
     
-    const userCollectionsRef = db.collection('users').doc(googleId).collection('UserCollections');
+    const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
     logger.info(`Created reference to UserCollections: ${userCollectionsRef.path}`);
     
     const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
@@ -102,8 +102,8 @@ const firestoreService = {
     logger.info(`Resume query completed. Empty? ${resumeSnapshot.empty}. Size: ${resumeSnapshot.size}`);
 
     if (resumeSnapshot.empty) {
-      logger.error(`No resume found for user ID: ${googleId}. Collection path: ${userCollectionsRef.path}`);
-      throw new Error(`No resume found for user ID: ${googleId}`);
+      logger.error(`No resume found for user ID: ${firebaseUid}. Collection path: ${userCollectionsRef.path}`);
+      throw new Error(`No resume found for user ID: ${firebaseUid}`);
     }
 
     const resumeDoc = resumeSnapshot.docs[0];
@@ -127,9 +127,9 @@ const firestoreService = {
     return normalizeSpaces(resumeData.extractedText); 
   },
 
-  getJobDocRef(googleId, docId) {
+  getJobDocRef(firebaseUid, docId) {
     const docRef = db.collection('users')
-      .doc(googleId)
+      .doc(firebaseUid)
       .collection('jobs')
       .doc(docId);
     
@@ -450,19 +450,19 @@ exports.compareQualities = onMessagePublished(
       // Parse message
       const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
       messageData = JSON.parse(decodedData); // Removed 'const'
-      const { googleId, docId } = messageData;
+      const { firebaseUid, docId } = messageData;
       
-      logger.info('Parsed message data:', { googleId, docId });
+      logger.info('Parsed message data:', { firebaseUid, docId });
 
       // Get resume and job data
       logger.info('Fetching resume text');
-      const resumeText = await firestoreService.getResumeText(googleId);
+      const resumeText = await firestoreService.getResumeText(firebaseUid);
       logger.info('Resume text retrieved', {
         length: resumeText.length,
         preview: resumeText.substring(0, 100) // First 100 chars for verification
       });
 
-      const docRef = firestoreService.getJobDocRef(googleId, docId);
+      const docRef = firestoreService.getJobDocRef(firebaseUid, docId);
       const jobData = await firestoreService.getJobDocument(docRef);
 
       // Process qualities
@@ -482,7 +482,7 @@ exports.compareQualities = onMessagePublished(
       // Publish to next topic
       await pubSubService.publishMessage(
         CONFIG.topics.qualitiesMatched,
-        { googleId, docId }
+        { firebaseUid, docId }
       );
 
       logger.info(`Successfully completed quality comparison for docId: ${docId}`);
@@ -491,7 +491,7 @@ exports.compareQualities = onMessagePublished(
       logger.error('Processing Error:', {
         error: error.message,
         stack: error.stack,
-        googleId: messageData?.googleId,  // Now messageData will be accessible
+        firebaseUid: messageData?.firebaseUid,  // Now messageData will be accessible
         docId: messageData?.docId
       });
       throw error;
