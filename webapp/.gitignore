@@ -6,6 +6,13 @@ webapp/firebase-debug.log
 *firebase-debug*.log
 
 # Dependencies
+# Webapp specific
+webapp/.gitignore
+webapp/firestore-debug.log
+webapp/functions/firestore-debug.log
+webapp/firebase-debug.log
+
+# Dependencies
 node_modules
 
 # Build output

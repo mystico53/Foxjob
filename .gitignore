@@ -27,3 +27,4 @@ webapp/firestore-debug.log
 webapp/functions/ui-debug.log
 webapp/functions/firestore-debug.log
 webapp/pubsub-debug.log
+webapp/firebase-debug.log
