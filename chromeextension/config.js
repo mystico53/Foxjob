@@ -8,7 +8,7 @@ export const Environment = {
 };
 
 // Current environment setting
-export const CURRENT_ENV = Environment.PRODUCTION;
+export const CURRENT_ENV = Environment.STAGING;
 
 // For backwards compatibility
 export const USE_EMULATOR = false;
@@ -24,50 +24,50 @@ export const EMULATOR_CONFIG = {
 // Firebase configurations per environment
 export const FIREBASE_CONFIG = {
   [Environment.DEVELOPMENT]: {
-    apiKey: "AIzaSyDiiK5-8yzXxhpSV-B-Prm-8FLtlJjeZO8",
-    authDomain: "jobille-45494.firebaseapp.com",
-    projectId: "jobille-45494",
-    storageBucket: "jobille-45494.firebasestorage.app",
-    messagingSenderId: "656035288386",
-    appId: "1:656035288386:web:d034b9b6afc86f92fba4db",
-    measurementId: "G-B9037MYKGY"
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID,
+    measurementId: process.env.FIREBASE_MEASUREMENT_ID
   },
   [Environment.STAGING]: {
-    apiKey: "AIzaSyDiiK5-8yzXxhpSV-B-Prm-8FLtlJjeZO8",
-    authDomain: "jobille-45494.firebaseapp.com",
-    projectId: "jobille-45494",
-    storageBucket: "jobille-45494.firebasestorage.app",
-    messagingSenderId: "656035288386",
-    appId: "1:656035288386:web:d034b9b6afc86f92fba4db",
-    measurementId: "G-B9037MYKGY"
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID,
+    measurementId: process.env.FIREBASE_MEASUREMENT_ID
   },
   [Environment.PRODUCTION]: {
-    apiKey: "AIzaSyBsTIQkh_vOHRcRE9UCXM5MIw_AX2lFs6A",
-    authDomain: "foxjob-prod.firebaseapp.com",
-    projectId: "foxjob-prod",
-    storageBucket: "foxjob-prod.firebasestorage.app",
-    messagingSenderId: "272779924090",
-    appId: "1:272779924090:web:cdcc12777109fdab72a1c3",
-    measurementId: "G-ZH7V3JPRQZ"
+    apiKey: process.env.FIREBASE_API_KEY,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
+    projectId: process.env.FIREBASE_PROJECT_ID,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
+    appId: process.env.FIREBASE_APP_ID,
+    measurementId: process.env.FIREBASE_MEASUREMENT_ID
   }
 };
 
 // URL configurations per environment
 export const URL_CONFIG = {
   [Environment.DEVELOPMENT]: {
-    publishJob: `http://127.0.0.1:${EMULATOR_CONFIG.functions}/jobille-45494/us-central1/publishJobText`,
-    authSignin: `http://127.0.0.1:${EMULATOR_CONFIG.auth}/auth/signin`,
-    library: 'https://jobille-45494.web.app/workflow'
+    publishJob: process.env.PUBLISH_JOB_URL,
+    authSignin: process.env.AUTH_SIGNIN_URL,
+    library: process.env.LIBRARY_URL
   },
   [Environment.STAGING]: {
-    publishJob: 'https://us-central1-jobille-45494.cloudfunctions.net/publishJobText',
-    authSignin: 'https://jobille-45494.web.app/auth/signin',
-    library: 'https://jobille-45494.web.app/workflow'
+    publishJob: process.env.PUBLISH_JOB_URL,
+    authSignin: process.env.AUTH_SIGNIN_URL,
+    library: process.env.LIBRARY_URL
   },
   [Environment.PRODUCTION]: {
-    publishJob: 'https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText',
-    authSignin: 'https://foxjob-prod.web.app/auth/signin',
-    library: 'https://foxjob.io/workflow'
+    publishJob: process.env.PUBLISH_JOB_URL,
+    authSignin: process.env.AUTH_SIGNIN_URL,
+    library: process.env.LIBRARY_URL
   }
 };
 

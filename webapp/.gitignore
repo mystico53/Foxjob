@@ -1,16 +1,23 @@
+# Webapp specific
+webapp/.gitignore
+webapp/firestore-debug.log
+webapp/functions/firestore-debug.log
+webapp/firebase-debug.log
+
+# Dependencies
 node_modules
 
-# Output
+# Build output
 .output
 .vercel
 /.svelte-kit
 /build
 
-# OS
+# OS specific
 .DS_Store
 Thumbs.db
 
-# Env
+# Environment files
 .env
 .env.*
 !.env.example
@@ -19,3 +26,7 @@ Thumbs.db
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Build directories
+dist/
+dist-ssr/
