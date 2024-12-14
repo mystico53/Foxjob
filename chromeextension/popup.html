@@ -1,0 +1,442 @@
+@ -1,441 +0,0 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Jobille Extension</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Protest+Riot&display=swap"
+        rel="stylesheet">
+    <style>
+        body,
+        html {
+            width: 600px;
+
+            margin: 0%;
+            font-family: 'Inter', sans-serif;
+            font-size: 16px;
+            height: auto;
+            max-height: none;
+        }
+
+        #popup-container {
+            padding: 10px 20px;
+            display: flex;
+            position: relative;
+            min-height: 150px;
+        }
+
+        .title-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 10;
+            padding-top: 5px;
+        }
+
+        .giphy-container {
+            display: none;
+            width: 32px;
+            height: 32px;
+            overflow: hidden;
+            border-radius: 4px;
+        }
+
+        .giphy-container.visible {
+            display: block;
+        }
+
+        .giphy-container iframe {
+            width: 100%;
+            height: 100%;
+            transform: scale(1.8);
+            transform-origin: center center;
+        }
+
+        .foxjob-title {
+            font-size: 32px;
+            font-family: 'Protest Riot', sans-serif;
+            background: linear-gradient(to right, #FD5440 0%, #FF9C00 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin: 0;
+            padding: 0;
+            line-height: 1;
+            letter-spacing: 0.02em;
+            margin-right: auto;
+        }
+
+        #signInOutButton {
+            width: auto;
+            padding: 5px 15px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+            cursor: pointer;
+            background: none;
+            border: none;
+            color: black;
+            font-size: 14px;
+            font-family: 'Inter', sans-serif;
+            text-decoration: none;
+        }
+
+        #signInOutButton:hover {
+            text-decoration: underline;
+        }
+
+        .counter-column {
+            width: 30%;
+            display: none;
+            /* Hidden by default */
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding-right: 20px;
+            border-right: 1px solid #333;
+        }
+
+        /* Show counter column when logged in */
+        .counter-column.logged-in {
+            display: flex;
+        }
+
+        .content-column {
+            width: 100%;
+            /* Takes full width when counter is hidden */
+            padding-left: 20px;
+
+            flex-direction: column;
+            justify-content: center;
+
+            text-align: left;
+
+            transition: width 0.3s ease;
+        }
+
+        /* Adjust content column width when counter is visible */
+        .content-column.with-counter {
+            width: 70%;
+        }
+
+        .counter-number {
+            font-size: 48px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .counter-text {
+            font-size: 14px;
+            color: #333;
+            text-align: center;
+            margin-top: 5px;
+        }
+
+        button,
+        input {
+            font-size: 16px;
+            font-family: 'Inter', sans-serif;
+        }
+
+        #status {
+            color: #555;
+            font-size: 14px;
+            text-align: left;
+            margin-bottom: 8px;
+        }
+
+        .status-container {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 4px;
+            width: 100%;
+            padding-top: 20px;
+            padding-bottom: 10px;
+        }
+
+        .progress-container {
+            width: 100%;
+            height: 4px;
+            background-color: #f3f3f3;
+            border-radius: 2px;
+            overflow: hidden;
+            margin: 0 0 20px 0;
+        }
+
+        .progress-bar {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(to right,
+                    #FF9C00 0%,
+                    #E05D02 20%,
+                    #DC3701 40%,
+                    #941A02 60%,
+                    #510603 80%,
+                    #0A0809 100%);
+            transition: width 1500ms linear;
+        }
+
+        @keyframes fillProgress {
+            from {
+                width: 0%;
+            }
+
+            to {
+                width: 100%;
+            }
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+
+        #collectedStatus {
+            color: green;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .button-container {
+            bottom: 10px;
+            right: 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .button-container button:first-child {
+            margin-right: auto;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+
+        .button-bar {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            width: 100%;
+        }
+
+        .library-button {
+            display: inline-block;
+            padding: 8px 16px;
+            background-color: white;
+            color: black;
+            border: 2px solid #FF9C00;
+            border-radius: 20px;
+            text-decoration: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .library-button:hover {
+            background-color: #FFF5E6;
+        }
+
+        .scan-button {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #FF9C00;
+            border-radius: 20px;
+            text-decoration: none;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+            border: none;
+        }
+
+        /* Add new styles for sign-in view */
+        .sign-in-view {
+            display: none;
+            width: 100%;
+            text-align: center;
+            padding-bottom: 20px;
+        }
+
+        .giphy-container-sign-in {
+            display: block;
+            width: 96px;
+            /* 3x the original 32px */
+            height: 96px;
+            /* 3x the original 32px */
+            overflow: hidden;
+            border-radius: 12px;
+            margin: 0 auto 24px auto;
+        }
+
+        .giphy-container-sign-in iframe {
+            width: 100%;
+            height: 100%;
+            transform: scale(1.8);
+            transform-origin: center center;
+        }
+
+        .sign-in-view.active {
+            display: block;
+        }
+
+        .main-app-view {
+            display: none;
+            width: 100%;
+        }
+
+        .main-app-view.active {
+            display: flex;
+        }
+
+        .sign-in-content {
+            max-width: none;
+            /* Remove max-width restriction */
+            margin: 0;
+            /* Remove auto margins */
+            text-align: left;
+            /* Align text to the left */
+        }
+
+        .sign-in-container {
+            display: flex;
+            align-items: center;
+            width: 100%;
+            gap: 40px;
+        }
+
+        .sign-in-left {
+            flex: 0 0 40%;
+            /* This makes it exactly 20% width */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+
+        .sign-in-right {
+            flex: 0 0 60%;
+            /* This makes it exactly 80% width */
+        }
+
+        .giphy-container-sign-in {
+            width: 75px;
+            /* Adjust size as needed */
+            height: 75px;
+            /* Adjust size as needed */
+            margin: 0;
+            /* Remove auto margins */
+        }
+
+        .welcome-message {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 16px;
+            background: linear-gradient(to right, #FD5440 0%, #FF9C00 100%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .sign-in-description {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 24px;
+            line-height: 1.5;
+        }
+
+        .sign-in-button {
+            display: inline-block;
+            padding: 12px 32px;
+            background: linear-gradient(to right, #FD5440 0%, #FF9C00 100%);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+
+        .sign-in-button:hover {
+            transform: translateY(-2px);
+        }
+
+        .version-number {
+            position: absolute;
+            bottom: 8px;
+            left: 8px;
+            font-size: 10px;
+            color: #999;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="popup-container">
+        <!-- New Sign In View -->
+        <div id="signInView" class="sign-in-view">
+            <div class="sign-in-container">
+                <div class="sign-in-left">
+                    <div class="giphy-container-sign-in">
+                        <iframe src="https://giphy.com/embed/xsE65jaPsUKUo" frameBorder="0" class="giphy-embed"
+                            allowFullScreen></iframe>
+                    </div>
+                </div>
+                <div class="sign-in-right">
+                    <div class="sign-in-content">
+                        <h2 class="welcome-message">Welcome to Foxjob</h2>
+                        <p class="sign-in-description">
+                            Find better jobs. Sign in to start.
+                        </p>
+                        <button id="signInButton" class="sign-in-button">Sign in with Google</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main App View (Your Original Content) -->
+        <div id="mainAppView" class="main-app-view">
+            <div class="counter-column" id="counterColumn">
+                <div class="counter-number" id="counterNumber">0</div>
+                <div class="counter-text">Jobs collected today</div>
+            </div>
+            <div class="content-column" id="contentColumn">
+                <div class="title-container">
+                    <h1 class="foxjob-title">FOXJOB</h1>
+                    <div class="giphy-container">
+                        <iframe src="https://giphy.com/embed/xsE65jaPsUKUo" frameBorder="0" class="giphy-embed"
+                            allowFullScreen></iframe>
+                    </div>
+                    <button id="signInOutButton" title="">Sign Out</button>
+                </div>
+                <div class="header">
+                    <div class="status-container">
+                        <div id="status">Please sign in to process text</div>
+                        <div class="progress-container">
+                            <div id="progressBar" class="progress-bar"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="button-bar">
+                    <button id="libraryButton" class="library-button">Visit your library</button>
+                    <button id="scanButton" class="scan-button">Scan Job (Alt+S)</button>
+                </div>
+            </div>
+
+        </div>
+        <div class="version-number"></div>
+    </div>
+
+    <script type="module" src="popup.js"></script>
+</body>
+
+</html>

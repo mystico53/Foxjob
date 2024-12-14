@@ -1,41 +1,35 @@
 // src/lib/config/environment.config.js
 
-// Project IDs for different environments
+// All configuration is now pulled from environment variables
 const projectIds = {
-    development: 'jobille-45494',
-    staging: 'jobille-45494',
-    production: 'foxjob-prod'
+    development: import.meta.env.VITE_PROJECT_ID || 'jobille-45494', // Fallback for local dev
+    staging: import.meta.env.VITE_PROJECT_ID || 'jobille-45494',
+    production: import.meta.env.VITE_PROJECT_ID || 'foxjob-prod'
 };
 
-// Base URLs for different environments
+// Base URLs constructed from environment variables
 export const environmentUrls = {
-    development: `http://127.0.0.1:5001/${projectIds.development}/us-central1`,
-    staging: `https://us-central1-${projectIds.staging}.cloudfunctions.net`,
-    production: `https://us-central1-${projectIds.production}.cloudfunctions.net`
+    development: import.meta.env.VITE_BASE_URL || `http://127.0.0.1:5001/${projectIds.development}/us-central1`,
+    staging: import.meta.env.VITE_BASE_URL || `https://us-central1-${projectIds.staging}.cloudfunctions.net`,
+    production: import.meta.env.VITE_BASE_URL || `https://us-central1-${projectIds.production}.cloudfunctions.net`
 };
 
-// Function-specific configurations
+// Function-specific configurations with URLs from environment variables
 export const cloudFunctions = {
     retryProcessing: {
         path: '/retryProcessing',
-        // Override URLs for specific environments if needed
         urls: {
-            staging: 'https://retryprocessing-kvshkfhmua-uc.a.run.app',
-            production: 'https://retryprocessing-fy7t4rjjwa-uc.a.run.app'
+            staging: import.meta.env.VITE_RETRY_PROCESSING_URL_STAGING,
+            production: import.meta.env.VITE_RETRY_PROCESSING_URL_PROD
         }
     },
     structureResume: {
         path: '/structureResume',
         urls: {
-            staging: 'https://structureresume-staging-url.cloudfunctions.net',
-            production: 'https://structureresume-production-url.cloudfunctions.net'
+            staging: import.meta.env.VITE_STRUCTURE_RESUME_URL_STAGING,
+            production: import.meta.env.VITE_STRUCTURE_RESUME_URL_PROD
         }
-    },
-    // Example of how to add more functions:
-    // extractQualities: {
-    //     path: '/extractJobQualities',
-    //     urls: {} // Empty means it will use the base environment URLs
-    // }
+    }
 };
 
 /**
@@ -52,7 +46,13 @@ export const getCloudFunctionUrl = (functionName) => {
         throw new Error(`Cloud function configuration not found for: ${functionName}`);
     }
 
-    // Check if there's a function-specific override URL for this environment
+    // First check for direct environment variable override
+    const envUrlKey = `VITE_${functionName.toUpperCase()}_URL`;
+    if (import.meta.env[envUrlKey]) {
+        return import.meta.env[envUrlKey];
+    }
+
+    // Then check for function-specific override URL for this environment
     if (functionConfig.urls && functionConfig.urls[mode]) {
         return functionConfig.urls[mode];
     }
