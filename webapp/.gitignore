@@ -11,6 +11,9 @@ webapp/.gitignore
 webapp/firestore-debug.log
 webapp/functions/firestore-debug.log
 webapp/firebase-debug.log
+**/firestore-debug.log
+**/ui-debug.log
+**/pubsub-debug.log
 
 # Dependencies
 node_modules

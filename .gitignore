@@ -28,3 +28,6 @@ webapp/functions/ui-debug.log
 webapp/functions/firestore-debug.log
 webapp/pubsub-debug.log
 webapp/firebase-debug.log
+/webapp/.firebase
+webapp/.firebase/hosting.YnVpbGQ.cache
+webapp/firestore-debug.log

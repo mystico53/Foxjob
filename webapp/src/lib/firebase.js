@@ -19,8 +19,19 @@ const firebaseConfig = getFirebaseConfig();
 
 function initializeFirebase() {
   if (!getApps().length) {
+    console.log('Initializing Firebase with config:', {
+      authDomain: firebaseConfig.authDomain,
+      projectId: firebaseConfig.projectId,
+      // Don't log the actual API key for security
+      apiKeyLength: firebaseConfig.apiKey?.length
+    });
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+
+    auth.onAuthStateChanged((user) => {
+      console.log('Auth state changed, user:', user?.uid || 'null');
+    });
+
     const db = getFirestore(app);
     const functions = getFunctions(app);
 
@@ -50,24 +61,38 @@ export const { app, auth, db, functions, analytics } = firebase;
 
 // Enhanced sign-in function with better error handling
 export async function signInWithGoogle() {
-  console.log("google sigin in flow started");
+  console.log("Google sign-in flow started");
   if (!auth) throw new Error('Firebase auth not initialized');
   
+  // Log current Firebase config (without sensitive data)
+  console.log('Current Firebase config:', {
+    authDomain: auth.app.options.authDomain,
+    projectId: auth.app.options.projectId,
+    isApiKeyPresent: !!auth.app.options.apiKey
+  });
+
   const provider = new GoogleAuthProvider();
   provider.addScope('https://www.googleapis.com/auth/userinfo.email');
   provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
 
   try {
     const result = await signInWithPopup(auth, provider);
-    
-    // Get Google's sub ID from the provider data
-    const googleSubId = result.user.providerData[0].uid;
-    console.log("google sub:", googleSubId);
     return result.user;
   } catch (error) {
-    console.error("Error signing in with Google", error);
+    console.error("Detailed sign-in error:", {
+      code: error.code,
+      message: error.message,
+      customData: error.customData,
+      credential: error.credential
+    });
     
-    // Provide user-friendly error messages
+    // Handle API key specific errors
+    if (error.code === 'auth/api-key-expired' || 
+        error.message?.includes('API key expired')) {
+      throw new Error('Authentication configuration error. Please contact support.');
+    }
+
+    // Your existing error handling...
     switch (error.code) {
       case 'auth/popup-blocked':
         throw new Error('Please enable popups for this site to sign in with Google');
