@@ -31,3 +31,4 @@ webapp/firebase-debug.log
 /webapp/.firebase
 webapp/.firebase/hosting.YnVpbGQ.cache
 webapp/firestore-debug.log
+chromeextension/config.js
