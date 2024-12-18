@@ -2,11 +2,9 @@
 
 FoxJob is an intelligent job application tracking system that uses GenAI to match your resume with job descriptions, helping you focus on opportunities that matter. Try it now at [foxjob.io](https://foxjob.io)!
 
-## 🎯 About this document
+## 💡 About this document
 
 This documents purpose is to explain what the Foxjob application does and how it works. This project was submitted to the Berkeley Hackathon 2024 in the Application Track. It is NOT a guide on how to make the code run on your machine. However, if you're interested, please shoot a message to konkaiser@gmail.com. Thanks! 
-
-![FoxJob Dashboard](./public/dashboard-preview.png)
 
 ## 🎯 What FoxJob Does
 
