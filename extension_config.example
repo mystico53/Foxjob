@@ -1,17 +1,15 @@
-// config.js
-
-// Environment enum
+// extension-config.example.js
 export const Environment = {
   DEVELOPMENT: 0,
   STAGING: 1,
   PRODUCTION: 2
 };
 
-// Current environment setting
-export const CURRENT_ENV = Environment.STAGING;
+// Set this to your desired environment
+export const CURRENT_ENV = Environment.DEVELOPMENT;
 
-// For backwards compatibility
-export const USE_EMULATOR = false;
+// For development environment
+export const USE_EMULATOR = true;
 
 // Emulator ports configuration
 export const EMULATOR_CONFIG = {
@@ -24,55 +22,55 @@ export const EMULATOR_CONFIG = {
 // Firebase configurations per environment
 export const FIREBASE_CONFIG = {
   [Environment.DEVELOPMENT]: {
-    apiKey: process.env.FIREBASE_API_KEY,
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.FIREBASE_APP_ID,
-    measurementId: process.env.FIREBASE_MEASUREMENT_ID
+    apiKey: "your-dev-api-key",
+    authDomain: "your-dev-project.firebaseapp.com",
+    projectId: "your-dev-project",
+    storageBucket: "your-dev-project.firebasestorage.app",
+    messagingSenderId: "your-dev-sender-id",
+    appId: "your-dev-app-id",
+    measurementId: "your-dev-measurement-id"
   },
   [Environment.STAGING]: {
-    apiKey: process.env.FIREBASE_API_KEY,
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.FIREBASE_APP_ID,
-    measurementId: process.env.FIREBASE_MEASUREMENT_ID
+    apiKey: "your-staging-api-key",
+    authDomain: "your-staging-project.firebaseapp.com",
+    projectId: "your-staging-project",
+    storageBucket: "your-staging-project.firebasestorage.app",
+    messagingSenderId: "your-staging-sender-id",
+    appId: "your-staging-app-id",
+    measurementId: "your-staging-measurement-id"
   },
   [Environment.PRODUCTION]: {
-    apiKey: process.env.FIREBASE_API_KEY,
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.FIREBASE_APP_ID,
-    measurementId: process.env.FIREBASE_MEASUREMENT_ID
+    apiKey: "your-prod-api-key",
+    authDomain: "your-prod-project.firebaseapp.com",
+    projectId: "your-prod-project",
+    storageBucket: "your-prod-project.firebasestorage.app",
+    messagingSenderId: "your-prod-sender-id",
+    appId: "your-prod-app-id",
+    measurementId: "your-prod-measurement-id"
   }
 };
 
 // URL configurations per environment
 export const URL_CONFIG = {
   [Environment.DEVELOPMENT]: {
-    publishJob: process.env.PUBLISH_JOB_URL,
-    authSignin: process.env.AUTH_SIGNIN_URL,
-    library: process.env.LIBRARY_URL
+    publishJob: `http://127.0.0.1:${EMULATOR_CONFIG.functions}/your-project/us-central1/publishJobText`,
+    authSignin: `http://127.0.0.1:${EMULATOR_CONFIG.auth}/auth/signin`,
+    library: 'http://localhost:3000/workflow'
   },
   [Environment.STAGING]: {
-    publishJob: process.env.PUBLISH_JOB_URL,
-    authSignin: process.env.AUTH_SIGNIN_URL,
-    library: process.env.LIBRARY_URL
+    publishJob: 'https://us-central1-your-project.cloudfunctions.net/publishJobText',
+    authSignin: 'https://your-project.web.app/auth/signin',
+    library: 'https://your-project.web.app/workflow'
   },
   [Environment.PRODUCTION]: {
-    publishJob: process.env.PUBLISH_JOB_URL,
-    authSignin: process.env.AUTH_SIGNIN_URL,
-    library: process.env.LIBRARY_URL
+    publishJob: 'https://us-central1-your-prod-project.cloudfunctions.net/publishJobText',
+    authSignin: 'https://your-prod-domain.web.app/auth/signin',
+    library: 'https://your-prod-domain.com/workflow'
   }
 };
 
 // Environment-specific icons
-const ICONS = {
+export const ICONS = {
   development: {
     "16": "icons/E_icon16.png",
     "32": "icons/E_icon32.png",
@@ -96,7 +94,7 @@ export function getFirebaseConfig() {
       ...config,
       emulator: {
         enabled: true,
-        host: '127.0.0.1',  // Changed from localhost to 127.0.0.1
+        host: '127.0.0.1',
         ports: EMULATOR_CONFIG
       }
     };
@@ -158,7 +156,6 @@ export async function updateExtensionIcon() {
   } catch (error) {
     console.error('Error updating icon:', error);
     console.error('Current environment:', getEnvironmentName());
-    console.error('Attempted icon path:', iconPath);
     throw error;
   }
 }
@@ -176,6 +173,3 @@ export function getEnvironmentName() {
       return 'Unknown';
   }
 }
-
-// Export the icons configuration for potential external use
-export const IconsConfig = ICONS;

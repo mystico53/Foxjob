@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Foxjob",
+  "name": "Foxjob (Dev)",
   "version": "0.23",
   "description": "Foxjob matches your resume with job descriptions. Scan any job to receive a personalized compatibility score for every job.",
   "permissions": [
@@ -41,7 +41,7 @@
     "extension_pages": "script-src 'self'; object-src 'self'; connect-src 'self' https://foxjob.io https://jobille-45494.web.app https://foxjob-prod.web.app https://securetoken.googleapis.com https://www.googleapis.com https://www.gstatic.com https://apis.google.com https://*.googleapis.com https://api.openai.com https://api.anthropic.com https://processtext-kvshkfhmua-uc.a.run.app https://us-central1-jobille-45494.cloudfunctions.net/publishJobText https://us-central1-foxjob-prod.cloudfunctions.net/publishJobText http://127.0.0.1:5001 http://127.0.0.1:5000"
   },
   "oauth2": {
-    "client_id": "272779924090-j5h51c96rsmcpu9pdmik6arho291340c.apps.googleusercontent.com",
+    "client_id": "656035288386-ahv31mde8asocelmcgkefhfun35pqr5v.apps.googleusercontent.com",
     "scopes": [
       "https://www.googleapis.com/auth/userinfo.email",
       "https://www.googleapis.com/auth/userinfo.profile"

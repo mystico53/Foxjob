@@ -1,7 +1,7 @@
 // popup.js
 
 import Counter from './counter.js';
-import { getServiceUrl } from './config.js';
+import { getServiceUrl } from './extension-config.js';
 
 let statusDiv;
 let popupContainer;

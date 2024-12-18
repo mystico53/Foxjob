@@ -1,0 +1,11 @@
+{
+    "name": "foxjob-extension",
+    "private": true,
+    "scripts": {
+    "build:extension:dev": "node build-extension.js development",
+    "build:extension:prod": "node build-extension.js production && cd chromeextension && zip -r ../extension-prod.zip . -x '*.git*'"
+  },
+    "workspaces": [
+      "webapp"
+    ]
+  }

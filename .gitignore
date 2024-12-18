@@ -1,34 +1,41 @@
+# Dependencies
 node_modules
 
-# Output
+# Build output
 .output
 .vercel
 /.svelte-kit
 /build
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
 
-# Env
+# Environment files
 .env
 .env.*
 !.env.example
 !.env.test
+webapp/env.development
+
+# Chrome extension configs
+extension-config.development.js
+extension-config.production.js
+extension-config.js
+chromeextension/config.js
+
+# Debug logs
+webapp/firebase-debug.log
+webapp/ui-debug.log
+webapp/firestore-debug.log
+webapp/pubsub-debug.log
+webapp/functions/ui-debug.log
+webapp/functions/firestore-debug.log
+
+# Firebase cache and debug
+/webapp/.firebase
+webapp/.firebase/hosting.YnVpbGQ.cache
 
 # Vite
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
-webapp/firebase-debug.log
-webapp/ui-debug.log
-webapp/.firebase/hosting.YnVpbGQ.cache
-webapp/env.development
-webapp/firestore-debug.log
-webapp/functions/ui-debug.log
-webapp/functions/firestore-debug.log
-webapp/pubsub-debug.log
-webapp/firebase-debug.log
-/webapp/.firebase
-webapp/.firebase/hosting.YnVpbGQ.cache
-webapp/firestore-debug.log
-chromeextension/config.js

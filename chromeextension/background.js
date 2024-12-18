@@ -5,7 +5,7 @@ import {
   updateExtensionIcon, 
   getEnvironmentName,
   getFirebaseConfig
-} from './config.js';
+} from './extension-config.js';
 import Counter from './counter.js';
 import RateLimit from './rateLimit.js';
 
