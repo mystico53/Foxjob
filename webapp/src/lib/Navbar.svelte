@@ -3,7 +3,7 @@
 	import { authStore } from '$lib/stores/authStore';
 	import { AppBar, Avatar } from '@skeletonlabs/skeleton';
 	import { goto } from '$app/navigation';
-	import foxIcon from '../assets/Fox_Icon_128x128-nobg.png';
+	import foxIcon from '../assets/icon128.png';
 	import FeedbackButton from '$lib/admincomponents/FeedbackButton.svelte';
 	import { tooltipStore } from '$lib/stores/tooltipStore';
 	import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
@@ -16,7 +16,7 @@
 
 	const navItems = [
 		{ href: '/list', label: 'Home' },
-		{ href: '/workflow', label: 'Jobs' },
+		{ href: '/workflow', label: 'Jobs' }
 		//{ href: '/assessments', label: 'Assesments' },
 		//{ href: '/resume', label: 'My resume' },
 	];
@@ -40,9 +40,9 @@
 	slotTrail="place-self-end"
 >
 	<svelte:fragment slot="lead">
-		<div class="flex items-center gap-2">
-			<img src={foxIcon} alt="Fox Icon" class="h-12 w-12" />
-			<strong class="foxjob-title text-xl uppercase">Foxjob - internal test</strong>
+		<div class="flex items-center gap-4">
+			<img src={foxIcon} alt="Fox Icon" class="h-8 w-8" />
+			<strong class="foxjob-title text-xl uppercase">Foxjob</strong>
 		</div>
 	</svelte:fragment>
 

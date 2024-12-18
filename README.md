@@ -12,19 +12,63 @@ FoxJob is an intelligent job application tracking system that uses GenAI to matc
 - ⚡ **Skip Mismatches** - Focus your time on opportunities where you're a strong candidate
 - 🤖 **GenAI-Powered Filtering** - Let AI help you find the most relevant positions
 
-## 🚀 How It Works
+## 🚀 Getting Started
 
-### 1. Upload Your Resume
+### 1. Create Your Account
 
-Start by uploading your resume to get personalized job matches
+- Visit [foxjob.io](https://foxjob.io)
+- Sign in with Google
+- Upload your resume to enable personalized matching
 
 ### 2. Install the Extension
 
-Get real-time job compatibility analysis as you browse
+- Get it from the [Chrome Web Store](link-to-extension)
+- Pin the extension for easy access (click the puzzle piece icon → pin)
 
-### 3. Scan Job Descriptions
+### 3. Start Scanning Jobs
 
-Instantly see how well you match with any job posting
+- Browse any job board (LinkedIn, Indeed, company sites)
+- Click the Foxjob extension icon and hit "Scan"
+- Continue browsing - processing happens in background
+- View your analyzed jobs in the webapp
+
+## 📊 Understanding Your Job Analysis
+
+### Quick Overview
+
+- Job title and company details
+- Industry and compensation info
+- Remote work status
+- Company and role summary
+
+### Match Analysis
+
+- Overall compatibility score
+- Top 3 strengths - perfect for cover letters and networking
+- Areas for improvement - prepare your talking points
+- Customized assessment based on your resume
+
+### Detailed Breakdown
+
+Click "Show Details" for:
+
+- 📋 "Big Six" Requirements Analysis
+  - Key requirements with direct quotes
+  - Your match score for each
+- 💻 Hard Skills Assessment
+  - Critical technical skills
+  - Your proficiency evaluation
+- 🎯 Domain Expertise Analysis
+  - Industry knowledge requirements
+  - Experience match assessment
+
+## 💡 Pro Tips
+
+- Focus on strong matches (65%+ match score)
+- Use identified strengths in your cover letters
+- Prepare for interviews using the detailed analysis
+- Customize applications based on the insights
+- Scan multiple positions to understand market trends
 
 ## 🛠️ Tech Stack
 
@@ -36,16 +80,6 @@ Instantly see how well you match with any job posting
 - **Database**: Firestore
 - **Hosting**: Vercel/Firebase Hosting
 - **AI**: Custom GenAI integration
-
-## 🔥 Features
-
-- 📋 Google Sign-In integration
-- 📄 Resume parsing and analysis
-- 🎯 Job description matching
-- 📊 Compatibility scoring
-- 💡 AI-powered insights
-- 🔍 Browser extension support
-- 📱 Responsive design
 
 ## 💻 Development
 
@@ -96,9 +130,17 @@ npm run dev
 
 We love contributions! Please read our [Contributing Guide](CONTRIBUTING.md) to get started.
 
-## 📜 License
+## 📦 Version
 
-This project is MIT licensed. See [LICENSE](LICENSE) file for details.
+- Webapp Version: 0.2
+- Chrome Extension Version: 0.19
+
+## 🤝 Support
+
+Need help? We're here:
+
+- Email: konkaiser@gmail.com
+- In-app: Use the "Give Feedback" button
 
 ## 🔗 Links
 
@@ -106,9 +148,9 @@ This project is MIT licensed. See [LICENSE](LICENSE) file for details.
 - **Privacy Policy**: [foxjob.io/privacy](https://foxjob.io/privacy)
 - **Terms of Service**: [foxjob.io/terms](https://foxjob.io/terms)
 
-## 📦 Version
+## 📜 License
 
-Current Version: 0.2
+This project is MIT licensed. See [LICENSE](LICENSE) file for details.
 
 ---
 
