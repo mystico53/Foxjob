@@ -4,7 +4,7 @@ FoxJob is an intelligent job application tracking system that uses GenAI to matc
 
 ## 💡 About this document
 
-This documents purpose is to explain what the Foxjob application does and how it works. This project was submitted to the Berkeley Hackathon 2024 in the Application Track. It is NOT a guide on how to make the code run on your machine. However, if you're interested, please shoot a message to konkaiser@gmail.com. Thanks! 
+This document explains the purpose and functionality of the FoxJob application. The project was submitted to the Berkeley Hackathon 2024 in the Application Track. While there are initial instructions below for running the code, the documentation is still in early development. If you have questions, or you're interested in contributing or learning more, please contact konkaiser@gmail.com. Thank you!
 
 ## 🎯 What FoxJob Does
 
