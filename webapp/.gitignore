@@ -41,3 +41,6 @@ vite.config.ts.timestamp-*
 # Build directories
 dist/
 dist-ssr/
+
+# API Secrets
+api-config-secrets.json

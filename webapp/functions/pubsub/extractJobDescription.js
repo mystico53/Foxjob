@@ -4,6 +4,7 @@ const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
 const { callAnthropicAPI } = require('../services/anthropicService');
+require('dotenv').config();
 
 // Initialize
 const db = admin.firestore();

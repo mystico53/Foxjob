@@ -1,6 +1,7 @@
 const fetch = require('node-fetch');
 const { logger } = require('firebase-functions');
 const functions = require('firebase-functions');
+require('dotenv').config();
 
 async function countTokensWithAnthropicAPI(messages, apiKey) {
   try {

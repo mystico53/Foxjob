@@ -29,7 +29,6 @@
 		
 
 		$: if (score !== null) {
-        console.log(`ProgressRadial loaded with score: ${score}`);
     }		
 
 	function getStatusDisplay(status) {
