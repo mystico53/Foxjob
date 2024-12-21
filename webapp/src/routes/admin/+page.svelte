@@ -6,7 +6,7 @@
     import UserTable from '$lib/admincomponents/UserTable.svelte';
     import OpenFeedbackTable from '$lib/admincomponents/OpenFeedbackTable.svelte';
     
-    const ADMIN_PASSWORD = 'foxie';
+    const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
     let isAuthenticated = false;
     let password = '';
     let error = '';
