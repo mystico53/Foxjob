@@ -112,10 +112,10 @@
 	async function handleRetry(jobId) {
     if (!auth.currentUser || processingJobs.has(jobId)) return;
 
-    processingJobs = processingJobs.add(jobId);
+    processingJobs = new Set(processingJobs).add(jobId);
+    const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
 
     try {
-        const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
         await updateDoc(jobRef, {
             'generalData.processingStatus': 'retrying'
         });
@@ -132,25 +132,47 @@
             })
         });
 
-        while (true) {
+        const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.message || data.error || 'Failed to retry processing');
+        }
+
+        let attempts = 0;
+        const maxAttempts = 90;
+        
+        const checkStatus = async () => {
             const docSnap = await getDoc(jobRef);
             const status = docSnap.data()?.generalData?.processingStatus;
 
-            if (status === 'completed') break;
+            // Check for both 'completed' and 'processed' status
+            if (status === 'completed' || status === 'processed') {
+                return true;
+            }
+            
             if (status === 'cancelled' || status === 'error') {
-                throw new Error(`Job failed with status: ${status}`);
+                return false;
             }
 
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-        }
-    } catch (err) {
-        console.error('Error in handleRetry:', err);
+            if (attempts >= maxAttempts) {
+                return false;
+            }
+
+            attempts++;
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            return checkStatus();
+        };
+
+        await checkStatus();
+
+    } catch (error) {
+        console.error('Error in handleRetry:', error);
         const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
         await updateDoc(jobRef, {
-            'generalData.processingStatus': 'cancelled'
+            'generalData.processingStatus': 'error'
         });
     } finally {
-        processingJobs = new Set([...processingJobs].filter((id) => id !== jobId));
+        processingJobs = new Set([...processingJobs].filter(id => id !== jobId));
     }
 }
 </script>
@@ -452,9 +474,9 @@
 				disabled={isHiding}
 			>
 				{#if isHiding}
-					<iconify-icon icon="solar:archive-check-bold"></iconify-icon>
+					<iconify-icon icon="solar:trash-bin-trash-bold"></iconify-icon>
 				{:else}
-					<iconify-icon class="text-xl" icon="solar:archive-bold"></iconify-icon>
+					<iconify-icon class="text-xl" icon="solar:trash-bin-minimalistic-outline"></iconify-icon>
 				{/if}
 			</button>
 		</div>

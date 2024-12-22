@@ -11,16 +11,16 @@ exports.retryProcessing = onRequest((req, res) => {
   return cors(req, res, async () => {
     try {
       // Get data from request body
-      const { jobId: docId, userId: googleId } = req.body;
+      const { jobId: docId, userId: firebaseUid } = req.body;
       
       // Log the received parameters
       logger.info('Received retry request with:', {
         docId,
-        googleId,
+        firebaseUid,
       });
 
-      if (!docId || !googleId) {
-        const errorMsg = 'Missing required parameters: docId or googleId';
+      if (!docId || !firebaseUid) {
+        const errorMsg = 'Missing required parameters: docId or firebaseUid';
         logger.error(errorMsg);
         res.status(400).json({ error: errorMsg });
         return;
@@ -40,7 +40,7 @@ exports.retryProcessing = onRequest((req, res) => {
 
       // Prepare the message (same format as original function)
       const message = {
-        googleId,
+        firebaseUid,
         docId
       };
 
@@ -62,7 +62,7 @@ exports.retryProcessing = onRequest((req, res) => {
         topicName,
         message: 'Processing retry initiated!',
         docId,
-        googleId,
+        firebaseUid,
         timestamp: new Date().toISOString()
       });
 

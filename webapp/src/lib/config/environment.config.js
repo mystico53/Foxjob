@@ -61,7 +61,6 @@ export const getCloudFunctionUrl = (functionName) => {
     const baseUrl = environmentUrls[mode] || environmentUrls.staging;
     const url = `${baseUrl}${functionConfig.path}`;
     
-    console.log(`Using cloud function URL: ${url}`);
     return url;
 };
 

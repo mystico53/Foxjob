@@ -16,34 +16,36 @@ service cloud.firestore {
       // Allow users to read/write their own documents
       allow read, write: if isOwner(userId);
       
-      // Rules for UserCollections subcollection (e.g., for resumes)
+      // Rules for UserCollections subcollection
       match /UserCollections/{document=**} {
         allow read, write: if isOwner(userId);
       }
       
-      // Rules for jobs subcollection
+      // Rules for jobs subcollection - explicitly allow listing
       match /jobs/{jobId} {
-        allow read, write: if isOwner(userId);
+        allow read, write, list: if isOwner(userId);
+      }
+
+      // Rules for processed subcollection - explicitly allow listing
+      match /processed/{docId} {
+        allow read, write, list: if isOwner(userId);
       }
     }
 
-    // Rules for googleSubToUid collection
+    // Rest of your rules remain the same
     match /googleSubToUid/{googleSubId} {
-      allow read: if false; // Disallow direct client reads
-      allow write: if request.auth != null && request.auth.token.admin == true; // Only admins or service accounts can write
+      allow read: if false;
+      allow write: if request.auth != null && request.auth.token.admin == true;
     }
 
-    // Rules for pending_users collection
     match /pending_users/{pendingId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Rules for test collection
     match /test/{docId} {
       allow read, write: if isAuthenticated();
     }
 
-    // Development mode rules
     match /dev-test/{docId} {
       allow read, write: if isAuthenticated();
     }

@@ -142,10 +142,10 @@
 </AppBar>
 
 <style>
-	@import url('https://fonts.googleapis.com/css2?family=Protest+Riot&display=swap');
+	@import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
 
 	.foxjob-title {
-		font-family: 'Protest Riot', sans-serif;
+		font-family: 'Lalezar', cursive;
 		background: linear-gradient(to right, #fd5440 0%, #ff9c00 100%);
 		-webkit-background-clip: text;
 		background-clip: text;
