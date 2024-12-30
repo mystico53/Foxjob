@@ -1,13 +1,5 @@
 const { onRequest } = require('firebase-functions/v2/https');
-const { setGlobalOptions } = require('firebase-functions/v2');
 const puppeteer = require('puppeteer');
-
-// Set global options for all functions
-setGlobalOptions({
-  maxInstances: 2,
-  timeoutSeconds: 120,
-  memory: '1GiB',
-});
 
 async function scrapeIndeedJobs(keywords, location, maxPages = 1) {
   const browser = await puppeteer.launch({
