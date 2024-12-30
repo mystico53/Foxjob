@@ -56,15 +56,14 @@
         </Accordion>
     {/if}
     <h3 class="h5 mb-4 mt-4 font-bold">Hard Skills</h3>
-{#if job.SkillAssessment?.Hardskills}
+    {#if job.SkillAssessment?.Hardskills}
     <Accordion>
         {#each sortedHardSkills as skill}
-            <AccordionItem>
+            <AccordionItem class="mb-2">
                 <svelte:fragment slot="summary">
                     <div class="flex items-center gap-4 w-full">
                         <div class="flex-1">{skill.name}</div>
                         <div class="flex items-center gap-4 w-64">
-                            
                             <div class="w-64">
                                 <ProgressBar 
                                     value={Math.round(skill.score || 0)} 
@@ -77,21 +76,20 @@
                     </div>
                 </svelte:fragment>
                 <svelte:fragment slot="content">
-                    <div class="space-y-4">
+                    <div class="rounded-lg space-y-4 p-4 bg-surface-100 border border-surface-300">
                         <div>
                             <span class="font-semibold">Description:</span>
                             <p class="mt-1">{skill.description || 'N/A'}</p>
                         </div>
                         <div>
-                            <span class="font-semibold">Assessment:</span>
-                            <p class="mt-1">{skill.assessment || 'No assessment available'}</p>
+                            <span class="font-semibold">Quote from Resume:</span>
+                            <p class="mt-1 italic">{skill.assessment || 'No assessment available'}</p>
                         </div>
                     </div>
                 </svelte:fragment>
             </AccordionItem>
         {/each}
     </Accordion>
-    
 {/if}
 
 <h3 class="h5 mb-4 mt-4 font-bold">Initial assessment</h3>

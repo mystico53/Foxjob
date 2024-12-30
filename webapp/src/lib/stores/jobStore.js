@@ -7,7 +7,7 @@ const jobs = writable([]);
 const loading = writable(true);
 const error = writable(null);
 const sortConfig = writable({
-    column: 'AccumulatedScores.accumulatedScore',
+    column: 'generalData.timestamp',
     direction: 'desc'
 });
 const searchText = writable('');
@@ -21,35 +21,46 @@ const sortedJobs = derived(
     [jobs, sortConfig, searchText],
     ([$jobs, $sortConfig, $searchText]) => {
         let filteredJobs = $jobs;
+        
+        // Search filtering
         if ($searchText) {
             const searchLower = $searchText.toLowerCase();
             filteredJobs = $jobs.filter(job => {
                 return (
-                    job?.companyInfo?.name?.toLowerCase()?.includes(searchLower) ||
-                    job?.jobInfo?.jobTitle?.toLowerCase()?.includes(searchLower) ||
-                    job?.jobInfo?.description?.toLowerCase()?.includes(searchLower)
+                    (job?.companyInfo?.name || '').toLowerCase().includes(searchLower) ||
+                    (job?.jobInfo?.jobTitle || '').toLowerCase().includes(searchLower) ||
+                    (job?.jobInfo?.description || '').toLowerCase().includes(searchLower)
                 );
             });
         }
 
+        // Sorting
         return [...filteredJobs].sort((a, b) => {
             const aValue = getNestedValue(a, $sortConfig.column);
             const bValue = getNestedValue(b, $sortConfig.column);
 
+            // Handle timestamp sorting
             if ($sortConfig.column === 'generalData.timestamp') {
                 const aDate = aValue?.toDate?.() || new Date(0);
                 const bDate = bValue?.toDate?.() || new Date(0);
                 return $sortConfig.direction === 'desc' ? bDate - aDate : aDate - bDate;
             }
 
+            // Handle numeric sorting (scores)
             if ($sortConfig.column === 'AccumulatedScores.accumulatedScore') {
-                const scoreA = aValue || 0;
-                const scoreB = bValue || 0;
+                const scoreA = typeof aValue === 'number' ? aValue : 0;
+                const scoreB = typeof bValue === 'number' ? bValue : 0;
                 return $sortConfig.direction === 'desc' ? scoreB - scoreA : scoreA - scoreB;
             }
 
-            const valA = (aValue || '').toLowerCase();
-            const valB = (bValue || '').toLowerCase();
+            // Handle string sorting (company name, status)
+            const valA = (aValue || '').toString().toLowerCase();
+            const valB = (bValue || '').toString().toLowerCase();
+            
+            // Handle empty values
+            if (!valA && !valB) return 0;
+            if (!valA) return $sortConfig.direction === 'asc' ? -1 : 1;
+            if (!valB) return $sortConfig.direction === 'asc' ? 1 : -1;
             
             return $sortConfig.direction === 'asc' ? 
                 valA.localeCompare(valB) : 
