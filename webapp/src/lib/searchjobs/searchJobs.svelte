@@ -74,28 +74,35 @@
     {/if}
 
     <!-- Results -->
-    {#if jobs.length > 0}
-      <div class="space-y-4">
-        {#each jobs as job}
-          <div class="card variant-filled-surface p-4">
-            <h3 class="h3">{job.title}</h3>
-            <p class="font-bold">{job.company}</p>
-            <p>{job.location}</p>
-            {#if job.salary}
-              <p class="text-success-500">{job.salary}</p>
-            {/if}
-            <p class="mt-2">{job.snippet}</p>
-            <a
-              href={job.jobUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              class="btn variant-ghost-primary mt-2"
-            >
-              View Job
-            </a>
-          </div>
-        {/each}
-      </div>
-    {/if}
+    <!-- Results -->
+{#if jobs.length > 0}
+<div class="space-y-4">
+  {#each jobs as job}
+    <div class="card variant-filled-surface p-4">
+      <h3 class="h3">{job.title}</h3>
+      <p class="font-bold">{job.company}</p>
+      <p>{job.location}</p>
+      {#if job.salary}
+        <p class="text-success-500">{job.salary}</p>
+      {/if}
+      <p class="mt-2">{job.snippet}</p>
+      {#if job.description}
+        <details class="mt-4">
+          <summary class="cursor-pointer font-semibold">View Full Description</summary>
+          <div class="mt-2 whitespace-pre-line">{job.description}</div>
+        </details>
+      {/if}
+      <a
+        href={job.jobUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="btn variant-ghost-primary mt-2"
+      >
+        View Job
+      </a>
+    </div>
+  {/each}
+</div>
+{/if}
   </div>
 </div>
