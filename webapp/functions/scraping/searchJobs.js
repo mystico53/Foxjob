@@ -2,7 +2,6 @@ const { onRequest } = require('firebase-functions/v2/https');
 const puppeteer = require('puppeteer');
 const logger = require('firebase-functions/logger');
 
-// Job type mapping with both parameters
 const jobTypeMap = {
   fulltime: { jt: 'fulltime', sc: 'FCGTU' },
   parttime: { jt: 'parttime', sc: 'PTPTT' },
@@ -25,7 +24,10 @@ async function getBrowser() {
         '--no-first-run',
         '--no-zygote',
         '--disable-gpu',
-        '--window-size=1920,1080'
+        '--window-size=1920,1080',
+        '--disable-blink-features=AutomationControlled',
+        '--disable-web-security',
+        '--disable-features=IsolateOrigins,site-per-process'
       ]
     });
   }
@@ -35,13 +37,41 @@ async function getBrowser() {
 async function createPage(browser) {
   const page = await browser.newPage();
   
+  await page.evaluateOnNewDocument(() => {
+    Object.defineProperty(navigator, 'webdriver', {
+      get: () => undefined
+    });
+    
+    window.chrome = {
+      runtime: {},
+      loadTimes: function() {},
+      csi: function() {},
+      app: {}
+    };
+    
+    const originalQuery = window.navigator.permissions.query;
+    window.navigator.permissions.query = (parameters) => (
+      parameters.name === 'notifications' ?
+        Promise.resolve({ state: Notification.permission }) :
+        originalQuery(parameters)
+    );
+  });
+  
   await Promise.all([
     page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'),
     page.setExtraHTTPHeaders({
       'Accept-Language': 'en-US,en;q=0.9',
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8',
       'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache'
+      'Pragma': 'no-cache',
+      'Sec-Ch-Ua': '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"Windows"',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Upgrade-Insecure-Requests': '1'
     }),
     page.setViewport({
       width: 1920,
@@ -52,7 +82,7 @@ async function createPage(browser) {
 
   await page.setRequestInterception(true);
   page.on('request', (request) => {
-    if (['image', 'stylesheet', 'font', 'media'].includes(request.resourceType())) {
+    if (['image', 'font'].includes(request.resourceType())) {
       request.abort();
     } else {
       request.continue();
@@ -60,6 +90,22 @@ async function createPage(browser) {
   });
 
   return page;
+}
+
+async function handleCloudflareChallenge(page) {
+  try {
+    await page.waitForFunction(() => {
+      return !document.querySelector('#challenge-running') &&
+             !document.querySelector('#cf-spinner');
+    }, { timeout: 30000 });
+    
+    await new Promise(r => setTimeout(r, 2000));
+    
+    return true;
+  } catch (error) {
+    logger.error('Error handling Cloudflare challenge:', error);
+    return false;
+  }
 }
 
 async function scrapeJobDescription(page, jobUrl) {
@@ -93,12 +139,11 @@ async function scrapeIndeedJobs(searchParams, maxPages = 1) {
       const start = pageNum * 10;
       const url = new URL('https://www.indeed.com/jobs');
       
-      // Basic search parameters
       url.searchParams.set('q', searchParams.keywords);
       url.searchParams.set('l', searchParams.location || '');
       url.searchParams.set('start', start.toString());
+      url.searchParams.set('from', 'searchOnHP');
 
-      // Optional filters
       if (searchParams.salary) {
         url.searchParams.set('sal', searchParams.salary);
       }
@@ -111,70 +156,79 @@ async function scrapeIndeedJobs(searchParams, maxPages = 1) {
         url.searchParams.set('explvl', searchParams.experience);
       }
 
-      // Updated job type handling
+      if (searchParams.radius) {
+        url.searchParams.set('radius', searchParams.radius);
+      }
+
       if (searchParams.jobType && jobTypeMap[searchParams.jobType]) {
         const { jt, sc } = jobTypeMap[searchParams.jobType];
         url.searchParams.set('jt', jt);
         url.searchParams.set('sc', `0kf:attr(${sc});`);
       }
 
-      if (searchParams.radius) {
-        url.searchParams.set('radius', searchParams.radius);
-      }
-
-      // Remote work parameter
       if (searchParams.remote) {
-        // If a job type is already set, append to existing sc parameter
         const currentSc = url.searchParams.get('sc') || '';
         const remoteSc = '0kf:attr(DSQF7)';
         url.searchParams.set('sc', currentSc ? `${currentSc}${remoteSc};` : `${remoteSc};`);
         url.searchParams.set('rbl', 'Remote');
       }
-
+      
       logger.info('Searching URL:', url.toString());
       
       await searchPage.goto(url.toString(), { 
-        waitUntil: 'domcontentloaded',
-        timeout: 20000
+        waitUntil: 'networkidle2',
+        timeout: 30000
       });
       
-      // Add a delay and wait for content
+      const passedChallenge = await handleCloudflareChallenge(searchPage);
+      if (!passedChallenge) {
+        logger.error('Failed to pass Cloudflare challenge');
+        break;
+      }
+
       await Promise.race([
         searchPage.waitForSelector('.job_seen_beacon'),
         searchPage.waitForSelector('.tapItem'),
-        new Promise(r => setTimeout(r, 3000))
+        searchPage.waitForSelector('[data-testid="jobsearch-JobCard"]'),
+        new Promise(r => setTimeout(r, 10000))
       ]);
       
       const pageJobs = await searchPage.evaluate(() => {
-        // Helper function to get text content safely
         function getTextContent(element, selector) {
           const el = element.querySelector(selector);
           return el ? el.innerText.trim() : '';
         }
 
-        // Try multiple selectors for job cards
-        const cardSelectors = ['.job_seen_beacon', '.tapItem'];
-        let elements = [];
-        
-        for (const selector of cardSelectors) {
-          elements = document.querySelectorAll(selector);
-          if (elements.length > 0) break;
-        }
+        const selectors = [
+          '.job_seen_beacon',
+          '.tapItem',
+          '[data-testid="jobsearch-JobCard"]'
+        ];
 
-        return Array.from(elements).map(card => ({
-          title: getTextContent(card, '.jobTitle') || getTextContent(card, '[data-testid="jobTitle"]'),
-          company: getTextContent(card, '.companyName') || getTextContent(card, '[data-testid="company-name"]'),
-          location: getTextContent(card, '.companyLocation') || getTextContent(card, '[data-testid="text-location"]'),
-          salary: getTextContent(card, '.salary-snippet') || getTextContent(card, '[data-testid="salary-snippet"]') || null,
-          snippet: getTextContent(card, '.job-snippet') || getTextContent(card, '[data-testid="job-snippet"]'),
-          jobUrl: card.querySelector('a.jcs-JobTitle')?.href || card.querySelector('a[data-testid="job-title-link"]')?.href || '',
-          scrapedAt: new Date().toISOString()
-        }));
+        for (const selector of selectors) {
+          const elements = document.querySelectorAll(selector);
+          if (elements.length > 0) {
+            return Array.from(elements).map(card => ({
+              title: getTextContent(card, '[data-testid="jobTitle"], .jobTitle'),
+              company: getTextContent(card, '[data-testid="company-name"], .companyName'),
+              location: getTextContent(card, '[data-testid="text-location"], .companyLocation'),
+              salary: getTextContent(card, '[data-testid="salary-snippet"], .salary-snippet') || null,
+              snippet: getTextContent(card, '[data-testid="job-snippet"], .job-snippet'),
+              jobUrl: card.querySelector('a[data-testid="job-title-link"], a.jcs-JobTitle')?.href || '',
+              scrapedAt: new Date().toISOString()
+            }));
+          }
+        }
+        return [];
       });
-      
+
       logger.info(`Found ${pageJobs.length} jobs on page ${pageNum + 1}`);
       
-      // Scrape descriptions in parallel batches
+      if (pageJobs.length === 0) {
+        const html = await searchPage.content();
+        logger.warn('No jobs found. Page content length:', html.length);
+      }
+
       const batchSize = 3;
       for (let i = 0; i < pageJobs.length; i += batchSize) {
         const batch = pageJobs.slice(i, i + batchSize);
@@ -202,6 +256,8 @@ async function scrapeIndeedJobs(searchParams, maxPages = 1) {
         logger.warn('Captcha detected - stopping pagination');
         break;
       }
+
+      await new Promise(r => setTimeout(r, 3000 + Math.random() * 2000));
     }
 
     await searchPage.close();
