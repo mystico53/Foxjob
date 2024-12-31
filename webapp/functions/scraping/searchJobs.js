@@ -1,6 +1,9 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const puppeteer = require('puppeteer');
 const logger = require('firebase-functions/logger');
+const { getFirestore } = require('firebase-admin/firestore');
+
+const db = getFirestore();
 
 const jobTypeMap = {
   fulltime: { jt: 'fulltime', sc: 'FCGTU' },
@@ -11,6 +14,31 @@ const jobTypeMap = {
 };
 
 let browserInstance = null;
+
+async function storeJobBatch(jobs, batchId, uid) {
+  if (!uid) {
+    throw new Error('User ID is required for storing jobs');
+  }
+
+  const batch = db.batch();
+  const timestamp = new Date();
+  
+  // Create proper path: collection/doc/subcollection
+  const scrapedjobsRef = db.collection('users').doc(uid).collection('scrapedjobs');
+  
+  jobs.forEach(job => {
+    const docRef = scrapedjobsRef.doc(); // Auto-generated ID
+    batch.set(docRef, {
+      ...job,
+      batchId,
+      processed: false,
+      storedAt: timestamp,
+    });
+  });
+
+  await batch.commit();
+  logger.info(`Stored batch ${batchId} with ${jobs.length} jobs for user ${uid}`);
+}
 
 async function getBrowser() {
   if (!browserInstance) {
@@ -125,11 +153,14 @@ async function scrapeJobDescription(page, jobUrl) {
   }
 }
 
-async function scrapeIndeedJobs(searchParams, maxPages = 1) {
+async function scrapeIndeedJobs(searchParams, uid, maxPages = 1) {
   const browser = await getBrowser();
   const jobs = [];
   const descriptionPages = await Promise.all([...Array(3)].map(() => createPage(browser)));
   let descriptionPageIndex = 0;
+
+  const batchId = Date.now().toString();
+  let batchCounter = 0;
   
   try {
     const searchPage = await createPage(browser);
@@ -245,6 +276,9 @@ async function scrapeIndeedJobs(searchParams, maxPages = 1) {
         batch.forEach((job, index) => {
           job.description = descriptions[index];
         });
+
+        // Store this batch immediately with user ID
+        await storeJobBatch(batch, `${batchId}-${batchCounter++}`, uid);
         
         await new Promise(r => setTimeout(r, 500));
       }
@@ -294,11 +328,17 @@ exports.searchJobs = onRequest({
       radius,
       remote,
       salary,
-      experience
+      experience,
+      uid  // Add uid here
     } = req.query;
 
     if (!keywords) {
       res.status(400).json({ error: 'Missing required parameter: keywords' });
+      return;
+    }
+
+    if (!uid) {  // Add uid validation
+      res.status(400).json({ error: 'Missing required parameter: uid' });
       return;
     }
 
@@ -315,7 +355,7 @@ exports.searchJobs = onRequest({
 
     logger.info('Search parameters:', searchParams);
 
-    const jobs = await scrapeIndeedJobs(searchParams);
+    const jobs = await scrapeIndeedJobs(searchParams, uid);  // Pass uid here
     res.json({ jobs });
     
   } catch (error) {

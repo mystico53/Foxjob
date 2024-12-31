@@ -1,5 +1,6 @@
 <script>
   import { getCloudFunctionUrl } from '$lib/config/environment.config';
+  import { auth } from '$lib/firebase';
 
   let keywords = '';
   let location = '';
@@ -57,6 +58,11 @@
       return;
     }
 
+    if (!auth.currentUser) {
+      error = 'You must be logged in to search jobs';
+      return;
+    }
+
     loading = true;
     error = null;
     jobs = [];
@@ -64,6 +70,7 @@
     try {
       const params = new URLSearchParams({
         keywords,
+        uid: auth.currentUser.uid,  // Add the uid here
         ...(location && { location }),
         ...(jobType && { jobType }),
         ...(datePosted && { datePosted }),
@@ -89,7 +96,7 @@
     } finally {
       loading = false;
     }
-  }
+}
 </script>
 
 <div class="container mx-auto p-4">
