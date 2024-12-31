@@ -1,94 +1,78 @@
 const { onRequest } = require('firebase-functions/v2/https');
-const { setGlobalOptions } = require('firebase-functions/v2');
-const puppeteer = require('puppeteer');
+const logger = require('firebase-functions/logger');
+const cors = require('cors')({ origin: true });
+const { PubSub } = require('@google-cloud/pubsub');
 
-// Set global options for all functions
-setGlobalOptions({
-  maxInstances: 2,
-  timeoutSeconds: 120,
-  memory: '1GiB',
-});
+const pubSubClient = new PubSub();
 
-async function scrapeIndeedJobs(keywords, location, maxPages = 1) {
-  const browser = await puppeteer.launch({
-    headless: "new",
-    args: ['--no-sandbox', '--disable-setuid-sandbox']
-  });
-  
-  const jobs = [];
-  
-  try {
-    const page = await browser.newPage();
-    
-    // Basic evasion setup
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-    
-    // Optimize performance
-    await page.setRequestInterception(true);
-    page.on('request', (request) => {
-      if (['image', 'stylesheet', 'font'].includes(request.resourceType())) {
-        request.abort();
-      } else {
-        request.continue();
-      }
-    });
+exports.retryProcessing = onRequest((req, res) => {
+  logger.info('retryProcessing function called');
 
-    for (let pageNum = 0; pageNum < maxPages; pageNum++) {
-      const start = pageNum * 10;
-      const url = `https://www.indeed.com/jobs?q=${encodeURIComponent(keywords)}&l=${encodeURIComponent(location)}&start=${start}`;
+  return cors(req, res, async () => {
+    try {
+      // Get data from request body
+      const { jobId: docId, userId: firebaseUid } = req.body;
       
-      await page.goto(url, { waitUntil: 'networkidle0' });
-      // Random delay between 2-3 seconds
-      await new Promise(r => setTimeout(r, 2000 + Math.random() * 1000));
-      
-      const pageJobs = await page.evaluate(() => {
-        return Array.from(document.querySelectorAll('.job_seen_beacon')).map(card => ({
-          title: card.querySelector('.jobTitle')?.innerText?.trim() || '',
-          company: card.querySelector('.companyName')?.innerText?.trim() || '',
-          location: card.querySelector('.companyLocation')?.innerText?.trim() || '',
-          salary: card.querySelector('.salary-snippet')?.innerText?.trim() || null,
-          snippet: card.querySelector('.job-snippet')?.innerText?.trim() || '',
-          jobUrl: card.querySelector('a.jcs-JobTitle')?.href || '',
-          scrapedAt: new Date().toISOString()
-        }));
+      // Log the received parameters
+      logger.info('Received retry request with:', {
+        docId,
+        firebaseUid,
       });
-      
-      jobs.push(...pageJobs);
-      
-      // Check for captcha
-      const hasCaptcha = await page.$('.g-recaptcha') !== null;
-      if (hasCaptcha) {
-        console.log('Captcha detected - stopping pagination');
-        break;
+
+      // Validate required parameters
+      if (!docId || !firebaseUid) {
+        const errorMsg = 'Missing required parameters: docId or firebaseUid';
+        logger.error(errorMsg);
+        res.status(400).json({ error: errorMsg });
+        return;
       }
+
+      // Create a new topic name
+      const topicName = 'raw-text-stored';
+      
+      // Ensure the topic exists
+      await pubSubClient.createTopic(topicName).catch((err) => {
+        if (err.code === 6) {
+          logger.info('Topic already exists');
+        } else {
+          throw err;
+        }
+      });
+
+      // Prepare the message
+      const message = {
+        firebaseUid,
+        docId
+      };
+
+      // Debug log the message being published
+      logger.info('Publishing message:', message);
+
+      // Publish the message to the topic
+      const messageId = await pubSubClient.topic(topicName).publishMessage({
+        data: Buffer.from(JSON.stringify(message)),
+      });
+
+      logger.info(`Message ${messageId} published to topic ${topicName}`);
+      logger.info('retryProcessing function completed successfully');
+
+      // Send success response
+      res.json({ 
+        success: true,
+        messageId,
+        topicName,
+        message: 'Processing retry initiated!',
+        docId,
+        firebaseUid,
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      logger.error('Error in retryProcessing:', error);
+      res.status(500).json({ 
+        error: 'Internal server error',
+        message: error.message 
+      });
     }
-
-  } catch (error) {
-    console.error('Scraping error:', error);
-    throw error;
-  } finally {
-    await browser.close();
-  }
-  
-  return jobs;
-}
-
-exports.searchJobs = onRequest({
-  cors: true  // Enable CORS for frontend access
-}, async (req, res) => {
-  try {
-    const { keywords, location } = req.query;
-
-    if (!keywords || !location) {
-      res.status(400).json({ error: 'Missing required parameters: keywords or location' });
-      return;
-    }
-
-    const jobs = await scrapeIndeedJobs(keywords.toString(), location.toString());
-    res.json({ jobs });
-    
-  } catch (error) {
-    console.error('Function error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
+  });
 });
