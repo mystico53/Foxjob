@@ -2,7 +2,15 @@ const { onRequest } = require('firebase-functions/v2/https');
 const puppeteer = require('puppeteer');
 const logger = require('firebase-functions/logger');
 
-// Reusable browser instance
+// Job type mapping with both parameters
+const jobTypeMap = {
+  fulltime: { jt: 'fulltime', sc: 'FCGTU' },
+  parttime: { jt: 'parttime', sc: 'PTPTT' },
+  contract: { jt: 'contract', sc: 'NJXCK' },
+  temporary: { jt: 'temporary', sc: 'TEGKS' },
+  internship: { jt: 'internship', sc: 'KO5EV' }
+};
+
 let browserInstance = null;
 
 async function getBrowser() {
@@ -27,7 +35,6 @@ async function getBrowser() {
 async function createPage(browser) {
   const page = await browser.newPage();
   
-  // Set up page configurations
   await Promise.all([
     page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'),
     page.setExtraHTTPHeaders({
@@ -43,7 +50,6 @@ async function createPage(browser) {
     })
   ]);
 
-  // Optimize resource loading
   await page.setRequestInterception(true);
   page.on('request', (request) => {
     if (['image', 'stylesheet', 'font', 'media'].includes(request.resourceType())) {
@@ -59,11 +65,10 @@ async function createPage(browser) {
 async function scrapeJobDescription(page, jobUrl) {
   try {
     await page.goto(jobUrl, { 
-      waitUntil: 'domcontentloaded', // Changed from networkidle0 for faster loading
-      timeout: 15000 // Reduced timeout
+      waitUntil: 'domcontentloaded',
+      timeout: 15000
     });
     
-    // Use a more efficient selector strategy
     const description = await page.$eval('#jobDescriptionText', el => el.innerText.trim())
       .catch(() => '');
     
@@ -74,10 +79,10 @@ async function scrapeJobDescription(page, jobUrl) {
   }
 }
 
-async function scrapeIndeedJobs(keywords, location, maxPages = 1) {
+async function scrapeIndeedJobs(searchParams, maxPages = 1) {
   const browser = await getBrowser();
   const jobs = [];
-  const descriptionPages = await Promise.all([...Array(3)].map(() => createPage(browser))); // Create multiple pages for parallel scraping
+  const descriptionPages = await Promise.all([...Array(3)].map(() => createPage(browser)));
   let descriptionPageIndex = 0;
   
   try {
@@ -86,28 +91,87 @@ async function scrapeIndeedJobs(keywords, location, maxPages = 1) {
 
     for (let pageNum = 0; pageNum < maxPages; pageNum++) {
       const start = pageNum * 10;
-      const url = `https://www.indeed.com/jobs?q=${encodeURIComponent(keywords)}&l=${encodeURIComponent(location)}&start=${start}`;
+      const url = new URL('https://www.indeed.com/jobs');
       
-      await searchPage.goto(url, { 
+      // Basic search parameters
+      url.searchParams.set('q', searchParams.keywords);
+      url.searchParams.set('l', searchParams.location || '');
+      url.searchParams.set('start', start.toString());
+
+      // Optional filters
+      if (searchParams.salary) {
+        url.searchParams.set('sal', searchParams.salary);
+      }
+
+      if (searchParams.datePosted) {
+        url.searchParams.set('fromage', searchParams.datePosted);
+      }
+
+      if (searchParams.experience) {
+        url.searchParams.set('explvl', searchParams.experience);
+      }
+
+      // Updated job type handling
+      if (searchParams.jobType && jobTypeMap[searchParams.jobType]) {
+        const { jt, sc } = jobTypeMap[searchParams.jobType];
+        url.searchParams.set('jt', jt);
+        url.searchParams.set('sc', `0kf:attr(${sc});`);
+      }
+
+      if (searchParams.radius) {
+        url.searchParams.set('radius', searchParams.radius);
+      }
+
+      // Remote work parameter
+      if (searchParams.remote) {
+        // If a job type is already set, append to existing sc parameter
+        const currentSc = url.searchParams.get('sc') || '';
+        const remoteSc = '0kf:attr(DSQF7)';
+        url.searchParams.set('sc', currentSc ? `${currentSc}${remoteSc};` : `${remoteSc};`);
+        url.searchParams.set('rbl', 'Remote');
+      }
+
+      logger.info('Searching URL:', url.toString());
+      
+      await searchPage.goto(url.toString(), { 
         waitUntil: 'domcontentloaded',
         timeout: 20000
       });
       
-      // Minimal delay
-      await new Promise(r => setTimeout(r, 1000));
+      // Add a delay and wait for content
+      await Promise.race([
+        searchPage.waitForSelector('.job_seen_beacon'),
+        searchPage.waitForSelector('.tapItem'),
+        new Promise(r => setTimeout(r, 3000))
+      ]);
       
       const pageJobs = await searchPage.evaluate(() => {
-        return Array.from(document.querySelectorAll('.job_seen_beacon')).map(card => ({
-          title: card.querySelector('.jobTitle')?.innerText?.trim() || '',
-          company: card.querySelector('.companyName')?.innerText?.trim() || '',
-          location: card.querySelector('.companyLocation')?.innerText?.trim() || '',
-          salary: card.querySelector('.salary-snippet')?.innerText?.trim() || null,
-          snippet: card.querySelector('.job-snippet')?.innerText?.trim() || '',
-          jobUrl: card.querySelector('a.jcs-JobTitle')?.href || '',
+        // Helper function to get text content safely
+        function getTextContent(element, selector) {
+          const el = element.querySelector(selector);
+          return el ? el.innerText.trim() : '';
+        }
+
+        // Try multiple selectors for job cards
+        const cardSelectors = ['.job_seen_beacon', '.tapItem'];
+        let elements = [];
+        
+        for (const selector of cardSelectors) {
+          elements = document.querySelectorAll(selector);
+          if (elements.length > 0) break;
+        }
+
+        return Array.from(elements).map(card => ({
+          title: getTextContent(card, '.jobTitle') || getTextContent(card, '[data-testid="jobTitle"]'),
+          company: getTextContent(card, '.companyName') || getTextContent(card, '[data-testid="company-name"]'),
+          location: getTextContent(card, '.companyLocation') || getTextContent(card, '[data-testid="text-location"]'),
+          salary: getTextContent(card, '.salary-snippet') || getTextContent(card, '[data-testid="salary-snippet"]') || null,
+          snippet: getTextContent(card, '.job-snippet') || getTextContent(card, '[data-testid="job-snippet"]'),
+          jobUrl: card.querySelector('a.jcs-JobTitle')?.href || card.querySelector('a[data-testid="job-title-link"]')?.href || '',
           scrapedAt: new Date().toISOString()
         }));
       });
-
+      
       logger.info(`Found ${pageJobs.length} jobs on page ${pageNum + 1}`);
       
       // Scrape descriptions in parallel batches
@@ -117,7 +181,6 @@ async function scrapeIndeedJobs(keywords, location, maxPages = 1) {
         const descriptionPromises = batch.map(async (job) => {
           if (!job.jobUrl) return '';
           
-          // Rotate through description pages
           const page = descriptionPages[descriptionPageIndex];
           descriptionPageIndex = (descriptionPageIndex + 1) % descriptionPages.length;
           
@@ -129,13 +192,11 @@ async function scrapeIndeedJobs(keywords, location, maxPages = 1) {
           job.description = descriptions[index];
         });
         
-        // Small delay between batches
         await new Promise(r => setTimeout(r, 500));
       }
-      
+  
       jobs.push(...pageJobs);
       
-      // Check for captcha
       const hasCaptcha = await searchPage.$('.g-recaptcha');
       if (hasCaptcha) {
         logger.warn('Captcha detected - stopping pagination');
@@ -149,7 +210,6 @@ async function scrapeIndeedJobs(keywords, location, maxPages = 1) {
     logger.error('Scraping error:', error);
     throw error;
   } finally {
-    // Close description pages
     await Promise.all(descriptionPages.map(page => page.close()));
     logger.info('Scraping completed', { totalJobs: jobs.length });
   }
@@ -157,7 +217,6 @@ async function scrapeIndeedJobs(keywords, location, maxPages = 1) {
   return jobs;
 }
 
-// Close browser on function termination
 process.on('exit', async () => {
   if (browserInstance) {
     await browserInstance.close();
@@ -171,14 +230,36 @@ exports.searchJobs = onRequest({
   timeoutSeconds: 300
 }, async (req, res) => {
   try {
-    const { keywords, location } = req.query;
+    const {
+      keywords,
+      location,
+      jobType,
+      datePosted,
+      radius,
+      remote,
+      salary,
+      experience
+    } = req.query;
 
-    if (!keywords || !location) {
-      res.status(400).json({ error: 'Missing required parameters: keywords or location' });
+    if (!keywords) {
+      res.status(400).json({ error: 'Missing required parameter: keywords' });
       return;
     }
 
-    const jobs = await scrapeIndeedJobs(keywords.toString(), location.toString());
+    const searchParams = {
+      keywords: keywords.toString(),
+      location: location?.toString() || '',
+      jobType: jobType?.toString(),
+      datePosted: datePosted?.toString(),
+      radius: radius?.toString(),
+      remote: remote === 'true',
+      salary: salary?.toString(),
+      experience: experience?.toString()
+    };
+
+    logger.info('Search parameters:', searchParams);
+
+    const jobs = await scrapeIndeedJobs(searchParams);
     res.json({ jobs });
     
   } catch (error) {
