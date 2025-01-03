@@ -4,6 +4,7 @@
   import { scrapeStore, isLoading, initJobListener, clearScrapeStore } from '$lib/stores/scrapeStore';
   import { auth } from '$lib/firebase';
   import { db } from '$lib/firebase'; 
+  import SearchStatus from '$lib/searchJobs/SearchStatus.svelte';
 
   let keywords = '';
   let location = '';
@@ -18,6 +19,9 @@
   let error = null;
   let totalJobs = 0;
   let unsubscribe;
+
+  let searchStartTime = null;
+  let currentBatch = 0;  
 
   // Add this to initialize the listener when component mounts
   onMount(() => {
@@ -74,6 +78,12 @@
   ];
 
   async function searchJobs() {
+
+    searchStartTime = Date.now();
+    currentBatch = 0;
+    loading = true;
+    error = null;
+
     if (!keywords) {
       error = 'Please enter keywords to search';
       return;
@@ -255,6 +265,22 @@
         {/if}
       </div>
     </form>
+
+    <SearchStatus
+  isSearching={loading}
+  {totalJobs}
+  {searchStartTime}
+  searchParams={{
+    keywords,
+    location,
+    jobType,
+    datePosted,
+    radius,
+    salary,
+    experience,
+    remote
+  }}
+/>
 
     {#if error}
       <div class="alert variant-filled-error" role="alert">
