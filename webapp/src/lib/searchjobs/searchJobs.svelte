@@ -1,6 +1,9 @@
 <script>
+  import { onMount, onDestroy } from 'svelte';
   import { getCloudFunctionUrl } from '$lib/config/environment.config';
+  import { jobStore, isLoading, initJobListener } from '$lib/stores/scrapeStore';
   import { auth } from '$lib/firebase';
+  import { db } from '$lib/firebase'; 
 
   let keywords = '';
   let location = '';
@@ -14,6 +17,18 @@
   let loading = false;
   let error = null;
   let totalJobs = 0;
+  let unsubscribe;
+
+  // Add this to initialize the listener when component mounts
+  onMount(() => {
+    if (auth.currentUser) {
+      unsubscribe = initJobListener(db, auth.currentUser.uid);
+    }
+  });
+  
+  onDestroy(() => {
+    if (unsubscribe) unsubscribe();
+  });
 
   const jobTypes = [
     { value: 'fulltime', label: 'Full-time' },
@@ -65,12 +80,11 @@
 
     loading = true;
     error = null;
-    jobs = [];
 
     try {
       const params = new URLSearchParams({
         keywords,
-        uid: auth.currentUser.uid,  // Add the uid here
+        uid: auth.currentUser.uid,
         ...(location && { location }),
         ...(jobType && { jobType }),
         ...(datePosted && { datePosted }),
@@ -88,15 +102,13 @@
         throw new Error('Failed to fetch jobs');
       }
 
-      const data = await response.json();
-      jobs = data.jobs;
-      totalJobs = jobs.length;
+      // Don't set jobs directly anymore - they'll come from the store
     } catch (err) {
       error = err.message || 'An error occurred';
     } finally {
       loading = false;
     }
-}
+  }
 </script>
 
 <div class="container mx-auto p-4">
@@ -240,9 +252,9 @@
     {/if}
 
     <!-- Results -->
-    {#if jobs.length > 0}
-      <div class="space-y-4">
-        {#each jobs as job}
+    {#if $jobStore.length > 0}
+    <div class="space-y-4">
+      {#each $jobStore as job}
           <article class="card variant-filled-surface p-4">
             <header class="mb-3">
               <h3 class="h3">{job.title}</h3>

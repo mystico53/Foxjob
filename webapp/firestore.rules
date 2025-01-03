@@ -21,13 +21,18 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
       
-      // Rules for jobs subcollection - explicitly allow listing
+      // Rules for jobs subcollection
       match /jobs/{jobId} {
         allow read, write, list: if isOwner(userId);
       }
 
-      // Rules for processed subcollection - explicitly allow listing
+      // Rules for processed subcollection
       match /processed/{docId} {
+        allow read, write, list: if isOwner(userId);
+      }
+      
+      // Rules for scrapedjobs subcollection - MOVED INSIDE users/{userId}
+      match /scrapedjobs/{jobId} {
         allow read, write, list: if isOwner(userId);
       }
     }
