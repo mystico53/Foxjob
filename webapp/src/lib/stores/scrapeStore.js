@@ -2,7 +2,7 @@
 import { writable, derived } from 'svelte/store'
 import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
 
-export const jobStore = writable([])
+export const scrapeStore = writable([])
 export const isLoading = writable(true)
 export const latestBatchTimestamp = writable(null)
 
@@ -32,7 +32,13 @@ export function initJobListener(db, uid) {
       job.batchId.startsWith(latestBatchId)
     )
 
-    jobStore.set(latestJobs)
+    scrapeStore.set(latestJobs)
     isLoading.set(false)
   })
+}
+
+// Add clear function for the store
+export function clearScrapeStore() {
+  scrapeStore.set([])
+  latestBatchTimestamp.set(null)
 }

@@ -1,7 +1,7 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { getCloudFunctionUrl } from '$lib/config/environment.config';
-  import { jobStore, isLoading, initJobListener } from '$lib/stores/scrapeStore';
+  import { scrapeStore, isLoading, initJobListener, clearScrapeStore } from '$lib/stores/scrapeStore';
   import { auth } from '$lib/firebase';
   import { db } from '$lib/firebase'; 
 
@@ -29,6 +29,12 @@
   onDestroy(() => {
     if (unsubscribe) unsubscribe();
   });
+
+  function handleClearResults() {
+    clearScrapeStore();
+    totalJobs = 0;
+    error = null;
+  }
 
   const jobTypes = [
     { value: 'fulltime', label: 'Full-time' },
@@ -229,13 +235,25 @@
         </div>
       </div>
       
-      <button
-        type="submit"
-        class="btn variant-filled-primary w-full"
-        disabled={loading}
-      >
-        {loading ? 'Searching...' : 'Search Jobs'}
-      </button>
+      <div class="flex gap-4">
+        <button
+          type="submit"
+          class="btn variant-filled-primary flex-1"
+          disabled={loading}
+        >
+          {loading ? 'Searching...' : 'Search Jobs'}
+        </button>
+        
+        {#if $scrapeStore.length > 0}
+          <button
+            type="button"
+            class="btn variant-ghost-error"
+            on:click={handleClearResults}
+          >
+            Clear Results
+          </button>
+        {/if}
+      </div>
     </form>
 
     {#if error}
@@ -252,9 +270,9 @@
     {/if}
 
     <!-- Results -->
-    {#if $jobStore.length > 0}
+    {#if $scrapeStore.length > 0}
     <div class="space-y-4">
-      {#each $jobStore as job}
+      {#each $scrapeStore as job}
           <article class="card variant-filled-surface p-4">
             <header class="mb-3">
               <h3 class="h3">{job.title}</h3>
