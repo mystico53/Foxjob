@@ -101,30 +101,55 @@
     const params = new URLSearchParams({
       keywords,
       uid: auth.currentUser.uid,
-      ...(location && { location }),
-      ...(jobType && { jobType }),
-      ...(datePosted && { datePosted }),
-      ...(radius && { radius }),
-      ...(salary && { salary }),
-      ...(experience && { experience }),
-      ...(remote && { remote: 'true' })
+      ...(location && { location })
     });
 
-    const response = await fetch(
-      `${getCloudFunctionUrl('searchJobs')}?${params.toString()}`
-    );
-
+    const response = await fetch(`${getCloudFunctionUrl('searchJobs')}?${params.toString()}`);
+    console.log("Raw response status:", response.status);
+    
     if (!response.ok) {
       throw new Error('Failed to fetch jobs');
     }
 
     const data = await response.json();
-    totalJobs = data.totalJobs;
-    // Jobs will be updated through the Firestore listener
+    console.log("Full response data:", data);
+
+    // Process all jobs found
+    const timestamp = Date.now();
+    const batchId = `${Math.floor(timestamp / 1000)}-${auth.currentUser.uid}`;
+
+    // Check if we have job titles in the data
+    if (data.one_job_title) {
+      const formattedJob = {
+        id: `${batchId}-0`,
+        batchId,
+        storedAt: timestamp,
+        title: data.one_job_title, // Note: changing to 'title' to match your existing UI
+        source: 'indeed'
+      };
+
+      console.log("Formatted first job:", formattedJob);
+      
+      // Update stores with this job
+      totalJobs.set(1);
+      scrapeStore.set([formattedJob]);
+    } else {
+      console.warn("No jobs found in response");
+      totalJobs.set(0);
+      scrapeStore.set([]);
+    }
+
   } catch (err) {
+    console.error("Error during job search:", {
+      message: err.message,
+      stack: err.stack,
+      error: err
+    });
     error = err.message || 'An error occurred';
+  } finally {
+    loading = false;
   }
-  }
+}
 </script>
 
 <div class="container mx-auto p-4">
@@ -296,6 +321,7 @@
     {/if}
 
     <!-- Results -->
+
     {#if $scrapeStore.length > 0}
     <div class="space-y-4">
       {#each $scrapeStore as job}
@@ -303,24 +329,21 @@
             <header class="mb-3">
               <h3 class="h3">{job.title}</h3>
               <p class="font-bold">{job.company}</p>
-              <p class="text-sm opacity-75">{job.location}</p>
+              <div class="flex gap-2 text-sm opacity-75">
+                <span>{job.location}</span>
+                {#if job.datePosted}
+                  <span>•</span>
+                  <span>{job.datePosted}</span>
+                {/if}
+              </div>
             </header>
             
             {#if job.salary}
               <p class="text-success-500 font-semibold">{job.salary}</p>
             {/if}
             
-            {#if job.snippet}
-              <p class="mt-2">{job.snippet}</p>
-            {/if}
-            
             {#if job.description}
-              <details class="mt-4">
-                <summary class="cursor-pointer font-semibold hover:text-primary-500">
-                  View Full Description
-                </summary>
-                <div class="mt-2 whitespace-pre-line text-sm">{job.description}</div>
-              </details>
+              <p class="mt-2">{job.description}</p>
             {/if}
             
             <div class="mt-4">
@@ -334,8 +357,8 @@
               </a>
             </div>
           </article>
-        {/each}
-      </div>
+      {/each}
+    </div>
     {/if}
   </div>
 </div>
