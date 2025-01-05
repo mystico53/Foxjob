@@ -103,39 +103,101 @@ exports.searchJobs = onRequest(async (req, res) => {
       }
     );
 
-    functions.logger.info("Got response from Oxylabs", {
+    // Log the entire response structure
+    functions.logger.info("Complete Oxylabs response structure:", {
       status: response.status,
-      statusText: response.statusText
+      statusText: response.statusText,
+      headers: response.headers,
+      responseSize: JSON.stringify(response.data).length
+    });
+
+    // Log the results array structure
+    functions.logger.info("Results array structure:", {
+      hasResults: !!response.data.results,
+      resultsLength: response.data.results ? response.data.results.length : 0,
+      resultsType: response.data.results ? typeof response.data.results : 'undefined'
     });
 
     if (!response.data.results) {
-      functions.logger.warn("No 'results' field in Oxylabs response");
+      functions.logger.warn("No 'results' field in Oxylabs response", {
+        responseKeys: Object.keys(response.data)
+      });
       return res.status(200).json({ error: "No results field" });
     }
 
     const { results } = response.data;
     if (!Array.isArray(results) || results.length === 0) {
-      functions.logger.warn("Results array is empty");
+      functions.logger.warn("Results array details:", {
+        isArray: Array.isArray(results),
+        length: results.length,
+        type: typeof results,
+        sample: results
+      });
       return res.status(200).json({ error: "Empty results array" });
     }
 
     const firstResult = results[0];
+    // Log the structure of the first result
+    functions.logger.info("First result structure:", {
+      hasContent: !!firstResult.content,
+      contentKeys: firstResult.content ? Object.keys(firstResult.content) : [],
+      firstResultKeys: Object.keys(firstResult)
+    });
+
     if (!firstResult.content) {
-      functions.logger.warn("results[0].content is missing");
+      functions.logger.warn("First result content details:", {
+        firstResult: firstResult
+      });
       return res.status(200).json({ error: "No content in first result" });
     }
 
     const content = firstResult.content;
     
-    // Return the job listings array directly
+    // Log detailed content structure
+    functions.logger.info("Content structure:", {
+      hasJobListings: !!content.job_listings,
+      jobListingsType: typeof content.job_listings,
+      isJobListingsArray: Array.isArray(content.job_listings),
+      contentKeys: Object.keys(content)
+    });
+
     if (!content.job_listings || !Array.isArray(content.job_listings)) {
-      functions.logger.warn("No job listings found or invalid format");
+      functions.logger.warn("Job listings structure issue:", {
+        content: content,
+        jobListingsType: typeof content.job_listings,
+        jobListingsValue: content.job_listings
+      });
       return res.status(200).json({ jobs: [] });
     }
 
-    functions.logger.info("Found jobs", { 
+    // Log details about each job listing
+    content.job_listings.forEach((job, index) => {
+      functions.logger.info(`Job ${index + 1} details:`, {
+        hasTitle: !!job.job_title,
+        hasCompany: !!job.company_name,
+        hasLocation: !!job.location,
+        hasSalary: !!job.salary_range,
+        hasDate: !!job.date_posted,
+        hasDescription: !!job.job_description,
+        descriptionLength: job.job_description ? job.job_description.length : 0,
+        altDescriptionLength: job.job_description_alt ? job.job_description_alt.length : 0,
+        description: job.job_description,
+        altDescription: job.job_description_alt,
+        allFields: Object.keys(job)
+      });
+    });
+
+    functions.logger.info("Final jobs summary", { 
       count: content.job_listings.length,
-      sample: content.job_listings[0] 
+      sample: content.job_listings[0],
+      allJobsHaveTitle: content.job_listings.every(job => !!job.job_title),
+      allJobsHaveCompany: content.job_listings.every(job => !!job.company_name),
+      missingFields: content.job_listings.reduce((acc, job) => {
+        Object.keys(job).forEach(key => {
+          if (!job[key]) acc[key] = (acc[key] || 0) + 1;
+        });
+        return acc;
+      }, {})
     });
     
     return res.json({ 
@@ -146,7 +208,9 @@ exports.searchJobs = onRequest(async (req, res) => {
   } catch (error) {
     functions.logger.error("searchJobs Error", {
       error: error.message || error,
-      stack: error.stack
+      stack: error.stack,
+      errorType: error.constructor.name,
+      errorKeys: Object.keys(error)
     });
     return res.status(500).json({ error: "Internal server error" });
   }
