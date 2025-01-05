@@ -98,32 +98,32 @@
     error = null;
 
     try {
-      const params = new URLSearchParams({
-        keywords,
-        uid: auth.currentUser.uid,
-        ...(location && { location }),
-        ...(jobType && { jobType }),
-        ...(datePosted && { datePosted }),
-        ...(radius && { radius }),
-        ...(salary && { salary }),
-        ...(experience && { experience }),
-        ...(remote && { remote: 'true' })
-      });
+    const params = new URLSearchParams({
+      keywords,
+      uid: auth.currentUser.uid,
+      ...(location && { location }),
+      ...(jobType && { jobType }),
+      ...(datePosted && { datePosted }),
+      ...(radius && { radius }),
+      ...(salary && { salary }),
+      ...(experience && { experience }),
+      ...(remote && { remote: 'true' })
+    });
 
-      const response = await fetch(
-        `${getCloudFunctionUrl('searchJobs')}?${params.toString()}`
-      );
+    const response = await fetch(
+      `${getCloudFunctionUrl('searchJobs')}?${params.toString()}`
+    );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch jobs');
-      }
-
-      // Don't set jobs directly anymore - they'll come from the store
-    } catch (err) {
-      error = err.message || 'An error occurred';
-    } finally {
-      loading = false;
+    if (!response.ok) {
+      throw new Error('Failed to fetch jobs');
     }
+
+    const data = await response.json();
+    totalJobs = data.totalJobs;
+    // Jobs will be updated through the Firestore listener
+  } catch (err) {
+    error = err.message || 'An error occurred';
+  }
   }
 </script>
 

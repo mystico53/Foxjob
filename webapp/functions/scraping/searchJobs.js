@@ -2,19 +2,28 @@ const { onRequest } = require('firebase-functions/v2/https');
 const axios = require('axios');
 const functions = require('firebase-functions');
 
-// Put these in your .env or functions config if you prefer
+// Hardcoded credentials
 const OXY_USERNAME = "mystico_FXPQA";
 const OXY_PASSWORD = "ti_QMg2h2WzZMp";
 
 exports.searchJobs = onRequest(async (req, res) => {
   try {
-    // 1) Hardcode a minimal Indeed URL for a simple test
-    const testUrl = "https://www.indeed.com/jobs?q=test";
+    const { keywords, location } = req.query;
 
-    // 2) Minimal Oxylabs payload
+    // Build the Indeed URL
+    const url = new URL('https://www.indeed.com/jobs');
+    url.searchParams.set('q', keywords || 'test');
+    if (location) {
+      url.searchParams.set('l', location);
+    }
+
+    const searchUrl = url.toString();
+    functions.logger.info("Search URL:", { url: searchUrl });
+
+    // Minimal Oxylabs payload - exactly as in your working version
     const payload = {
       source: "universal",
-      url: testUrl,
+      url: searchUrl,
       render: "html",
       parse: true,
       parsing_instructions: {
@@ -22,7 +31,6 @@ exports.searchJobs = onRequest(async (req, res) => {
           _fns: [
             {
               _fn: "xpath_one",
-              // Grab just the first job title text node
               _args: ["(//h2[contains(@class,'jobTitle')]/a/span/text())[1]"]
             }
           ]
@@ -30,9 +38,8 @@ exports.searchJobs = onRequest(async (req, res) => {
       }
     };
 
-    functions.logger.info("Sending minimal payload to Oxylabs", { payload });
+    functions.logger.info("Sending payload to Oxylabs", { payload });
 
-    // 3) Make the POST request
     const authStr = Buffer.from(`${OXY_USERNAME}:${OXY_PASSWORD}`).toString('base64');
     const response = await axios.post(
       "https://realtime.oxylabs.io/v1/queries",
@@ -42,7 +49,7 @@ exports.searchJobs = onRequest(async (req, res) => {
           "Content-Type": "application/json",
           "Authorization": `Basic ${authStr}`
         },
-        timeout: 60000 // 60 seconds
+        timeout: 60000
       }
     );
 
@@ -51,13 +58,12 @@ exports.searchJobs = onRequest(async (req, res) => {
       statusText: response.statusText
     });
 
-    // 4) Log the entire data object (or a truncated version if too large)
+    // Log the entire data object
     const fullDataStr = JSON.stringify(response.data);
     functions.logger.info("Oxylabs response.data", {
       truncated: fullDataStr.substring(0, 2000) + (fullDataStr.length > 2000 ? "...(truncated)" : "")
     });
 
-    // 5) Extract the relevant fields
     if (!response.data.results) {
       functions.logger.warn("No 'results' field in Oxylabs response");
       return res.status(200).json({ one_job_title: null, note: "No results field" });
@@ -84,13 +90,14 @@ exports.searchJobs = onRequest(async (req, res) => {
       });
     }
 
-    // 6) Finally, return what we found
     functions.logger.info("Found job title", { one_job_title: content.one_job_title });
     return res.json({ one_job_title: content.one_job_title });
 
   } catch (error) {
-    // 7) More logging if there's an error
-    functions.logger.error("searchJobs Error", { error: error.message || error });
+    functions.logger.error("searchJobs Error", {
+      error: error.message || error,
+      stack: error.stack
+    });
     return res.status(500).json({ error: "Internal server error" });
   }
 });
