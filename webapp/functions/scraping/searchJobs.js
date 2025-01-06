@@ -6,7 +6,8 @@ const functions = require('firebase-functions');
 const OXY_USERNAME = "mystico_FXPQA";
 const OXY_PASSWORD = "ti_QMg2h2WzZMp";
 
-exports.searchJobs = onRequest(async (req, res) => {
+exports.searchJobs = onRequest({ timeoutSeconds: 120 }, async (req, res) => {
+  const startTime = Date.now();
   try {
     const { keywords, location } = req.query;
 
@@ -20,7 +21,6 @@ exports.searchJobs = onRequest(async (req, res) => {
     const searchUrl = url.toString();
     functions.logger.info("Search URL:", { url: searchUrl });
 
-    // Enhanced payload using the correct Oxylabs structure for multiple items
     const payload = {
       source: "universal",
       url: searchUrl,
@@ -75,23 +75,19 @@ exports.searchJobs = onRequest(async (req, res) => {
           "Content-Type": "application/json",
           "Authorization": `Basic ${authStr}`
         },
-        timeout: 60000
+        timeout: 75000  // reduced from 60000
       }
     );
 
-    // Log the entire response structure
+    functions.logger.info("Initial search request completed in:", { 
+      timeMs: Date.now() - startTime 
+    });
+
     functions.logger.info("Complete Oxylabs response structure:", {
       status: response.status,
       statusText: response.statusText,
       headers: response.headers,
       responseSize: JSON.stringify(response.data).length
-    });
-
-    // Log the results array structure
-    functions.logger.info("Results array structure:", {
-      hasResults: !!response.data.results,
-      resultsLength: response.data.results ? response.data.results.length : 0,
-      resultsType: response.data.results ? typeof response.data.results : 'undefined'
     });
 
     if (!response.data.results) {
@@ -113,13 +109,6 @@ exports.searchJobs = onRequest(async (req, res) => {
     }
 
     const firstResult = results[0];
-    // Log the structure of the first result
-    functions.logger.info("First result structure:", {
-      hasContent: !!firstResult.content,
-      contentKeys: firstResult.content ? Object.keys(firstResult.content) : [],
-      firstResultKeys: Object.keys(firstResult)
-    });
-
     if (!firstResult.content) {
       functions.logger.warn("First result content details:", {
         firstResult: firstResult
@@ -128,15 +117,6 @@ exports.searchJobs = onRequest(async (req, res) => {
     }
 
     const content = firstResult.content;
-    
-    // Log detailed content structure
-    functions.logger.info("Content structure:", {
-      hasJobListings: !!content.job_listings,
-      jobListingsType: typeof content.job_listings,
-      isJobListingsArray: Array.isArray(content.job_listings),
-      contentKeys: Object.keys(content)
-    });
-
     if (!content.job_listings || !Array.isArray(content.job_listings)) {
       functions.logger.warn("Job listings structure issue:", {
         content: content,
@@ -146,44 +126,85 @@ exports.searchJobs = onRequest(async (req, res) => {
       return res.status(200).json({ jobs: [] });
     }
 
-    // Log details about each job listing
-    content.job_listings.forEach((job, index) => {
-      functions.logger.info(`Job ${index + 1} details:`, {
-        hasTitle: !!job.job_title,
-        hasCompany: !!job.company_name,
-        hasLocation: !!job.location,
-        hasSalary: !!job.salary_range,
-        hasDate: !!job.date_posted,
-        hasDescription: !!job.job_description,
-        descriptionLength: job.job_description ? job.job_description.length : 0,
-        altDescriptionLength: job.job_description_alt ? job.job_description_alt.length : 0,
-        description: job.job_description,
-        altDescription: job.job_description_alt,
-        allFields: Object.keys(job)
+    // Get first job details
+    if (content.job_listings.length > 0) {
+      const firstJob = content.job_listings[0];
+      functions.logger.info("Attempting to fetch details for first job:", {
+        id: firstJob.job_id,
+        title: firstJob.job_title,
+        company: firstJob.company_name,
+        timeMs: Date.now() - startTime
       });
-    });
-
-    content.job_listings.forEach((job, index) => {
-      functions.logger.info(`Job ${index + 1} identification:`, {
-        job_id: job.job_id,
-        job_link: job.job_link,
-        title: job.job_title,
-      });
-    });
-
-    functions.logger.info("Final jobs summary", { 
-      count: content.job_listings.length,
-      sample: content.job_listings[0],
-      allJobsHaveTitle: content.job_listings.every(job => !!job.job_title),
-      allJobsHaveCompany: content.job_listings.every(job => !!job.company_name),
-      missingFields: content.job_listings.reduce((acc, job) => {
-        Object.keys(job).forEach(key => {
-          if (!job[key]) acc[key] = (acc[key] || 0) + 1;
-        });
-        return acc;
-      }, {})
-    });
     
+      const viewJobUrl = `https://www.indeed.com/viewjob?jk=${firstJob.job_id}`;
+      functions.logger.info("Constructed job detail URL:", { url: viewJobUrl });
+    
+      const jobDetailsPayload = {
+        source: "universal",
+        url: viewJobUrl,
+        render: "html",
+        parse: false  // Just get the raw HTML first
+      };
+    
+      try {
+        functions.logger.info("Sending basic job details request payload:", { jobDetailsPayload });
+        
+        const detailsResponse = await axios.post(
+          "https://realtime.oxylabs.io/v1/queries",
+          jobDetailsPayload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Basic ${authStr}`
+            },
+            timeout: 75000
+          }
+        );
+
+        // Add detailed content logging
+        functions.logger.info("Raw job details content sample:", {
+          hasContent: !!detailsResponse.data.results[0].content,
+          contentLength: detailsResponse.data.results[0].content?.length || 0,
+          contentPreview: detailsResponse.data.results[0].content?.substring(0, 500) + "...", // First 500 chars
+          timeMs: Date.now() - startTime
+        });
+
+        functions.logger.info("Important HTML sections:", {
+          hasJobDescription: detailsResponse.data.results[0].content.includes('jobDescriptionText'),
+          hasJobHeaderSection: detailsResponse.data.results[0].content.includes('jobsearch-JobInfoHeader'),
+          importantDivs: detailsResponse.data.results[0].content.match(/<div[^>]*id="[^"]*"[^>]*>/g)?.slice(0,10) // First 10 div IDs
+        });
+    
+        functions.logger.info("Raw job details response:", {
+          status: detailsResponse.status,
+          hasResults: !!detailsResponse.data.results,
+          resultKeys: detailsResponse.data.results ? Object.keys(detailsResponse.data.results[0]) : [],
+          timeMs: Date.now() - startTime
+        });
+    
+        return res.json({
+          jobs: content.job_listings,
+          count: content.job_listings.length,
+          rawJobDetailsResponse: detailsResponse.data
+        });
+    
+      } catch (error) {
+        functions.logger.error("Error fetching job details:", {
+          error: error.message,
+          stack: error.stack,
+          url: viewJobUrl,
+          timeMs: Date.now() - startTime
+        });
+        return res.json({
+          jobs: content.job_listings,
+          count: content.job_listings.length,
+          error: "Failed to fetch job details"
+        });
+      }
+    }
+    
+
+    // Fallback return if no jobs to get details for
     return res.json({ 
       jobs: content.job_listings,
       count: content.job_listings.length
@@ -194,7 +215,9 @@ exports.searchJobs = onRequest(async (req, res) => {
       error: error.message || error,
       stack: error.stack,
       errorType: error.constructor.name,
-      errorKeys: Object.keys(error)
+      errorKeys: Object.keys(error),
+      timeMs: Date.now() - startTime,
+      phase: error.config ? 'axios' : 'processing'
     });
     return res.status(500).json({ error: "Internal server error" });
   }
