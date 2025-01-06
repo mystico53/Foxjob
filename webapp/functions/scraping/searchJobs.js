@@ -188,7 +188,28 @@ exports.searchJobs = onRequest({ timeoutSeconds: 120 }, async (req, res) => {
             source: "universal",
             url: viewJobUrl,
             render: "html",
-            parse: false
+            parse: true,
+            timeout: 45000,
+            "parsing_instructions": {
+              "jobTitle": {
+                "_fns": [{
+                  "_fn": "css",
+                  "_args": ["[data-testid='simpler-jobTitle']"]
+                }]
+              },
+              "location": {
+                "_fns": [{
+                  "_fn": "css",
+                  "_args": ["[data-testid='jobsearch-JobInfoHeader-companyLocation']"]
+                }]
+              },
+              "description": {
+                "_fns": [{
+                  "_fn": "css",
+                  "_args": ["[data-testid='vjJobDetails-test']"]
+                }]
+              }
+            }
           };
     
           functions.logger.info("Starting parsing attempt");
@@ -207,7 +228,10 @@ exports.searchJobs = onRequest({ timeoutSeconds: 120 }, async (req, res) => {
           functions.logger.info("Parsing complete", {
             status: detailsResponse.status,
             hasResults: !!detailsResponse.data.results,
-            timeMs: Date.now() - startTime
+            timeMs: Date.now() - startTime,
+            // Add these new logging details:
+            parsedData: detailsResponse.data.results?.[0]?.content,
+            fullResponse: detailsResponse.data
           });
     
           return res.json({
