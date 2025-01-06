@@ -26,6 +26,8 @@ exports.searchJobs = onRequest({ timeoutSeconds: 120 }, async (req, res) => {
       url: searchUrl,
       render: "html",
       parse: true,
+      wait_for: [".job_seen_beacon"],  // Wait for specific element
+      timeout: 45000,
       parsing_instructions: {
         job_listings: {
           _fns: [
