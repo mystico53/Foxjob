@@ -141,66 +141,88 @@ exports.searchJobs = onRequest({ timeoutSeconds: 120 }, async (req, res) => {
       const viewJobUrl = `https://www.indeed.com/viewjob?jk=${firstJob.job_id}`;
       functions.logger.info("Constructed job detail URL:", { url: viewJobUrl });
     
-      const jobDetailsPayload = {
-        source: "universal",
-        url: viewJobUrl,
-        render: "html",
-        parse: false  // Just get the raw HTML first
-      };
-    
       try {
-        functions.logger.info("Sending basic job details request payload:", { jobDetailsPayload });
-        
-        const detailsResponse = await axios.post(
+        // First stage - verify page loads
+        functions.logger.info("Starting initial page load verification");
+        const verifyPage = await axios.post(
           "https://realtime.oxylabs.io/v1/queries",
-          jobDetailsPayload,
+          {
+            source: "universal",
+            url: viewJobUrl,
+            render: "html",
+            parse: false
+          },
           {
             headers: {
               "Content-Type": "application/json",
               "Authorization": `Basic ${authStr}`
             },
-            timeout: 75000
+            timeout: 45000
           }
         );
-
-        // Add detailed content logging
-        functions.logger.info("Raw job details content sample:", {
-          hasContent: !!detailsResponse.data.results[0].content,
-          contentLength: detailsResponse.data.results[0].content?.length || 0,
-          contentPreview: detailsResponse.data.results[0].content?.substring(0, 500) + "...", // First 500 chars
-          timeMs: Date.now() - startTime
-        });
-
-        functions.logger.info("Important HTML sections:", {
-          hasJobDescription: detailsResponse.data.results[0].content.includes('jobDescriptionText'),
-          hasJobHeaderSection: detailsResponse.data.results[0].content.includes('jobsearch-JobInfoHeader'),
-          importantDivs: detailsResponse.data.results[0].content.match(/<div[^>]*id="[^"]*"[^>]*>/g)?.slice(0,10) // First 10 div IDs
-        });
     
-        functions.logger.info("Raw job details response:", {
-          status: detailsResponse.status,
-          hasResults: !!detailsResponse.data.results,
-          resultKeys: detailsResponse.data.results ? Object.keys(detailsResponse.data.results[0]) : [],
+        functions.logger.info("Verification stage complete", {
+          hasContent: !!verifyPage.data.results[0].content,
+          contentLength: verifyPage.data.results[0].content?.length || 0,
           timeMs: Date.now() - startTime
         });
     
-        return res.json({
-          jobs: content.job_listings,
-          count: content.job_listings.length,
-          rawJobDetailsResponse: detailsResponse.data
-        });
+        // If we got HTML successfully, then try parsing
+        if (verifyPage.data.results[0].content) {
+          const jobDetailsPayload = {
+            source: "universal",
+            url: viewJobUrl,
+            render: "html",
+            parse: false  // Just get the raw HTML first
+          };
+    
+          functions.logger.info("Starting parsing attempt");
+          const detailsResponse = await axios.post(
+            "https://realtime.oxylabs.io/v1/queries",
+            jobDetailsPayload,
+            {
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Basic ${authStr}`
+              },
+              timeout: 75000
+            }
+          );
+    
+          functions.logger.info("Parsing complete", {
+            status: detailsResponse.status,
+            hasResults: !!detailsResponse.data.results,
+            timeMs: Date.now() - startTime
+          });
+    
+          return res.json({
+            jobs: content.job_listings,
+            count: content.job_listings.length,
+            rawJobDetailsResponse: detailsResponse.data,
+            verificationStatus: "Success"
+          });
+        } else {
+          // If verification failed
+          return res.json({
+            jobs: content.job_listings,
+            count: content.job_listings.length,
+            error: "Page verification failed",
+            verificationStatus: "Failed"
+          });
+        }
     
       } catch (error) {
-        functions.logger.error("Error fetching job details:", {
+        functions.logger.error("Error in job details process:", {
           error: error.message,
           stack: error.stack,
           url: viewJobUrl,
-          timeMs: Date.now() - startTime
+          timeMs: Date.now() - startTime,
+          stage: error.config?.url.includes('verify') ? 'verification' : 'parsing'
         });
         return res.json({
           jobs: content.job_listings,
           count: content.job_listings.length,
-          error: "Failed to fetch job details"
+          error: `Failed during ${error.config?.url.includes('verify') ? 'verification' : 'parsing'} stage`
         });
       }
     }
