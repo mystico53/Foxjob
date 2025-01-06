@@ -35,53 +35,29 @@ exports.searchJobs = onRequest(async (req, res) => {
             }
           ],
           _items: {
+            job_id: {
+              _fns: [{
+                _fn: "xpath_one",
+                _args: [".//@data-jk"]
+              }]
+            },
+            job_link: {
+              _fns: [{
+                _fn: "xpath_one",
+                _args: [".//h2[contains(@class,'jobTitle')]/a/@href"]
+              }]
+            },
             job_title: {
-              _fns: [
-                {
-                  _fn: "xpath_one",
-                  _args: [".//h2[contains(@class,'jobTitle')]/a/span/text()"]
-                }
-              ]
+              _fns: [{
+                _fn: "xpath_one",
+                _args: [".//h2[contains(@class,'jobTitle')]//span/text()"]
+              }]
             },
             company_name: {
-              _fns: [
-                {
-                  _fn: "xpath_one",
-                  _args: [".//span[@data-testid='company-name']/text()"]
-                }
-              ]
-            },
-            location: {
-              _fns: [
-                {
-                  _fn: "xpath_one",
-                  _args: [".//div[@data-testid='text-location']//text()"]
-                }
-              ]
-            },
-            salary_range: {
-              _fns: [
-                {
-                  _fn: "xpath_one",
-                  _args: [".//div[contains(@class, 'salary-snippet-container') or contains(@class, 'estimated-salary')]//text()"]
-                }
-              ]
-            },
-            date_posted: {
-              _fns: [
-                {
-                  _fn: "xpath_one",
-                  _args: [".//span[@class='date']/text()"]
-                }
-              ]
-            },
-            job_description: {
-              _fns: [
-                {
-                  _fn: "xpath_one",
-                  _args: ["normalize-space(.//div[@class='job-snippet'])"]
-                }
-              ]
+              _fns: [{
+                _fn: "xpath_one",
+                _args: [".//span[@data-testid='company-name']//text()"]
+              }]
             }
           }
         }
@@ -184,6 +160,14 @@ exports.searchJobs = onRequest(async (req, res) => {
         description: job.job_description,
         altDescription: job.job_description_alt,
         allFields: Object.keys(job)
+      });
+    });
+
+    content.job_listings.forEach((job, index) => {
+      functions.logger.info(`Job ${index + 1} identification:`, {
+        job_id: job.job_id,
+        job_link: job.job_link,
+        title: job.job_title,
       });
     });
 
