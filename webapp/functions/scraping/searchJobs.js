@@ -169,11 +169,26 @@ exports.searchJobs = onRequest({ timeoutSeconds: 120 }, async (req, res) => {
     
         // If we got HTML successfully, then try parsing
         if (verifyPage.data.results[0].content) {
+          const htmlContent = verifyPage.data.results[0].content;
+  
+          functions.logger.info("HTML Content Analysis:", {
+            // Look for key elements we might want to parse
+            hasJobTitle: htmlContent.includes('jobsearch-JobInfoHeader-title'),
+            hasLocation: htmlContent.includes('jobsearch-JobInfoHeader-companyLocation'),
+            hasCompany: htmlContent.includes('jobsearch-CompanyInfoContainer'),
+            hasDescription: htmlContent.includes('jobDescriptionText'),
+            // Get all data-testid attributes to see what's available
+            dataTestIds: htmlContent.match(/data-testid="([^"]+)"/g)?.slice(0, 10),
+            // Get all class names containing 'jobsearch'
+            jobsearchClasses: htmlContent.match(/class="[^"]*jobsearch[^"]*"/g)?.slice(0, 10)
+          });
+
+          // Then proceed with the simple payload
           const jobDetailsPayload = {
             source: "universal",
             url: viewJobUrl,
             render: "html",
-            parse: false  // Just get the raw HTML first
+            parse: false
           };
     
           functions.logger.info("Starting parsing attempt");
