@@ -88,7 +88,7 @@ const createJobDetailsPayload = (viewJobUrl) => ({
     description: {
       _fns: [{
         _fn: "css",
-        _args: ["[data-testid='vjJobDetails-test']"]
+        _args: ["#jobDescriptionText.jobsearch-JobComponent-description"]
       }]
     }
   }
