@@ -2,7 +2,7 @@ import { writable } from 'svelte/store'
 import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 
 export const scrapeStore = writable([])
-export const isLoading = writable(true)
+export const isLoading = writable(false)
 export const totalJobs = writable(0)
 export const currentBatch = writable(0) // Add missing export
 
@@ -78,4 +78,5 @@ export function clearScrapeStore() {
   scrapeStore.set([]);
   totalJobs.set(0);
   currentBatch.set(0);
+  isLoading.set(false); // Ensure loading state is reset when clearing
 }

@@ -97,61 +97,61 @@
   ];
 
   async function searchJobs() {
-    console.log('🔎 Search started with keywords:', keywords);
-    searchStartTime = Date.now();
-    isLoading.set(true);
-    error = null;
+  console.log('🔎 Search started with keywords:', keywords);
+  searchStartTime = Date.now();
+  isLoading.set(true); // Set to true when search starts
+  error = null;
 
-    if (!keywords) {
-      error = 'Please enter keywords to search';
-      isLoading.set(false);
-      return;
-    }
-
-    if (!auth.currentUser) {
-      error = 'You must be logged in to search jobs';
-      isLoading.set(false);
-      return;
-    }
-
-    try {
-      const params = new URLSearchParams({
-        keywords,
-        userId: auth.currentUser.uid,
-        ...(location && { location }),
-        ...(jobType && { jobType }),
-        ...(datePosted && { datePosted }),
-        ...(radius && { radius }),
-        ...(salary && { salary }),
-        ...(experience && { experience }),
-        ...(remote && { remote: 'true' })
-      });
-
-      console.log('🌐 Making API request...');
-      const response = await fetch(`${getCloudFunctionUrl('searchJobs')}?${params.toString()}`);
-      console.log('📥 Raw response status:', response.status);
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch jobs: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('📦 Full response data:', data);
-
-      if (data.jobs && data.jobs.length > 0) {
-        totalJobs.set(data.count);
-        console.log('✨ Found', data.count, 'jobs. Firestore listener will update UI');
-      } else {
-        console.warn('⚠️ No jobs found in response');
-        totalJobs.set(0);
-      }
-    } catch (err) {
-      console.error('❌ Error during job search:', err);
-      error = err.message || 'An error occurred';
-    } finally {
-      isLoading.set(false);
-    }
+  if (!keywords) {
+    error = 'Please enter keywords to search';
+    isLoading.set(false); // Reset on validation error
+    return;
   }
+
+  if (!auth.currentUser) {
+    error = 'You must be logged in to search jobs';
+    isLoading.set(false); // Reset on auth error
+    return;
+  }
+
+  try {
+    const params = new URLSearchParams({
+      keywords,
+      userId: auth.currentUser.uid,
+      ...(location && { location }),
+      ...(jobType && { jobType }),
+      ...(datePosted && { datePosted }),
+      ...(radius && { radius }),
+      ...(salary && { salary }),
+      ...(experience && { experience }),
+      ...(remote && { remote: 'true' })
+    });
+
+    console.log('🌐 Making API request...');
+    const response = await fetch(`${getCloudFunctionUrl('searchJobs')}?${params.toString()}`);
+    console.log('📥 Raw response status:', response.status);
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch jobs: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('📦 Full response data:', data);
+
+    if (data.jobs && data.jobs.length > 0) {
+      totalJobs.set(data.count);
+      console.log('✨ Found', data.count, 'jobs. Firestore listener will update UI');
+    } else {
+      console.warn('⚠️ No jobs found in response');
+      totalJobs.set(0);
+    }
+  } catch (err) {
+    console.error('❌ Error during job search:', err);
+    error = err.message || 'An error occurred';
+  } finally {
+    isLoading.set(false); // Always reset loading state when done
+  }
+}
 </script>
 
 <div class="container mx-auto p-4">
