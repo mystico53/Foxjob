@@ -8,9 +8,9 @@ const CONFIG = {
   OXY_PASSWORD: "ti_QMg2h2WzZMp",
   TIMEOUTS: {
     FUNCTION: 240,
-    SEARCH: 90000,     // reduced from 60000 as per original
-    VERIFY: 90000,     // specific to verification stage
-    DETAILS: 90000     // for detailed parsing
+    SEARCH: 180000,     // reduced from 60000 as per original
+    VERIFY: 180000,     // specific to verification stage
+    DETAILS: 180000     // for detailed parsing
   },
   BASE_URLS: {
     INDEED: 'https://www.indeed.com/jobs',
@@ -44,7 +44,7 @@ const createSearchPayload = (searchUrl) => ({
   parse: true,
   wait_for: [".job_seen_beacon"],
   timeout: 60000,  // Original timeout value
-  limit: 2,
+  limit: 3,
   parsing_instructions: {
     job_listings: {
       _fns: [{ _fn: "css", _args: [".job_seen_beacon"] }],
@@ -201,7 +201,10 @@ const getJobDetails = async (jobId, firstJob, startTime) => {
 };
 
 // Main Function
-exports.searchJobs = onRequest({ timeoutSeconds: CONFIG.TIMEOUTS.FUNCTION }, async (req, res) => {
+exports.searchJobs = onRequest({ 
+  timeoutSeconds: 540,  // Maximum allowed timeout of 9 minutes
+  memory: "1GiB"       // Optional: Specify memory if needed
+}, async (req, res) => {
   const startTime = Date.now();
   try {
     const { keywords, location } = req.query;
@@ -244,20 +247,37 @@ exports.searchJobs = onRequest({ timeoutSeconds: CONFIG.TIMEOUTS.FUNCTION }, asy
     
     // Get job details if there are jobs
     if (content.job_listings.length > 0) {
-      const firstJob = content.job_listings[0];
-      functions.logger.info("Attempting to fetch details for first job:", {
-        id: firstJob.job_id,
-        title: firstJob.job_title,
-        company: firstJob.company_name,
-        timeMs: Date.now() - startTime
+      functions.logger.info("Starting to process jobs for details", {
+        totalJobs: content.job_listings.length,
+        processingJobs: Math.min(content.job_listings.length, 2)
+      });
+      
+      const jobDetailsPromises = content.job_listings.slice(0, 5).map(async (job, index) => {
+        functions.logger.info("Attempting to fetch details for job:", {
+          id: job.job_id,
+          title: job.job_title,
+          company: job.company_name,
+          timeMs: Date.now() - startTime
+        });
+
+        return getJobDetails(job.job_id, job, startTime);
       });
 
-      const jobDetails = await getJobDetails(firstJob.job_id, firstJob, startTime);
+      functions.logger.info("About to await all job detail promises");
+      const jobDetailsResults = await Promise.all(jobDetailsPromises);
+      
+      functions.logger.info("Completed fetching all job details", {
+        resultsCount: jobDetailsResults.length,
+        results: jobDetailsResults.map(result => ({
+          success: !result.error,
+          error: result.error || null
+        }))
+      });
       
       return res.json({
         jobs: content.job_listings,
         count: content.job_listings.length,
-        ...jobDetails
+        jobDetails: jobDetailsResults
       });
     }
 
