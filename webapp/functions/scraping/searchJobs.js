@@ -306,7 +306,7 @@ const FirestoreService = {
     // Add debug logging to see what we're trying to save
     functions.logger.debug("Attempting to save job with details:", {
       userId,
-      jobDetailId: jobDetail?.basicInfo?.job_id,  // Changed from id to job_id
+      jobDetailId: jobDetail?.basicInfo?.job_id,
       basicInfo: jobDetail?.basicInfo
     });
 
@@ -317,7 +317,7 @@ const FirestoreService = {
     const docRef = db.collection('users')
                     .doc(userId)
                     .collection('scrapedjobs')
-                    .doc(jobDetail.basicInfo.job_id);  // Changed from id to job_id
+                    .doc(jobDetail.basicInfo.job_id);  
     
     functions.logger.info("Saving job to Firestore:", {
       userId,
@@ -362,23 +362,22 @@ const getJobDetails = async (jobId, basicInfo, startTime) => {
   functions.logger.info("Getting job details for URL:", { url: viewJobUrl });
 
   try {
-    // Submit the job details request
     const detailsPayload = PayloadBuilders.createJobDetailsPayload(viewJobUrl);
     const jobSubmission = await ApiService.submitSearchJob(detailsPayload);
-
-    // Poll for results
     const detailsResults = await PollingService.pollForResults(jobSubmission.id);
 
-    functions.logger.info("Job details retrieved:", {
-      timeMs: Date.now() - startTime,
-      jobId: jobId,
-      status: 'success'
-    });
+    // Extract content properly from detailsResults
+    const content = detailsResults?.results?.[0]?.content || {};
 
     return {
-      detailsResponse: detailsResults,
       basicInfo: basicInfo,
-      verificationStatus: "Success"
+      verificationStatus: "Success",
+      details: {
+        title: content.jobTitle || basicInfo.job_title || "", // Fallback to basic info or empty string
+        location: content.location || "",
+        description: content.description || "",
+        postingDate: content.postingDate || ""
+      }
     };
 
   } catch (error) {
@@ -388,9 +387,17 @@ const getJobDetails = async (jobId, basicInfo, startTime) => {
       url: viewJobUrl,
       timeMs: Date.now() - startTime
     });
+    
+    // Even on error, return valid data structure with empty strings
     return {
-      error: `Failed during job details retrieval`,
-      basicInfo: basicInfo
+      basicInfo: basicInfo,
+      verificationStatus: "Failed",
+      details: {
+        title: basicInfo.job_title || "", // Fallback to basic info or empty string
+        location: "",
+        description: "",
+        postingDate: ""
+      }
     };
   }
 };
@@ -413,28 +420,10 @@ const JobProcessor = {
       });
 
       try {
-        // Changed from JobProcessor.getJobDetails to getJobDetails
         const details = await getJobDetails(job.job_id, job, startTime);
         
-        const jobContent = details.detailsResponse?.results?.[0]?.content;
-        functions.logger.debug("Job content received:", {
-          jobId: job.job_id,
-          hasTitle: !!jobContent?.jobTitle,
-          hasLocation: !!jobContent?.location,
-          hasDescription: !!jobContent?.description
-        });
-
-        const cleanedDetails = {
-          ...details,
-          details: {
-            title: HtmlAnalyzer.extractCleanContent(jobContent?.jobTitle),
-            location: HtmlAnalyzer.extractCleanContent(jobContent?.location),
-            description: HtmlAnalyzer.extractCleanContent(jobContent?.description),
-            postingDate: HtmlAnalyzer.extractCleanContent(jobContent?.postingDate)
-          }
-        };
-
-        await FirestoreService.saveJobToUserCollection(userId, cleanedDetails);
+        // No need for extra cleaning since getJobDetails already returns clean data
+        await FirestoreService.saveJobToUserCollection(userId, details);
         
         functions.logger.info("Successfully processed job:", {
           userId,
@@ -442,7 +431,7 @@ const JobProcessor = {
           processingTimeMs: Date.now() - startTime
         });
 
-        return cleanedDetails;
+        return details;
 
       } catch (error) {
         functions.logger.error("Error processing job:", {
