@@ -78,7 +78,6 @@
   ];
 
   async function searchJobs() {
-
     searchStartTime = Date.now();
     currentBatch = 0;
     loading = true;
@@ -94,61 +93,43 @@
       return;
     }
 
-    loading = true;
-    error = null;
-
     try {
-    const params = new URLSearchParams({
-      keywords,
-      uid: auth.currentUser.uid,
-      ...(location && { location })
-    });
+        // Make sure to use 'userId' not 'uid'
+        const params = new URLSearchParams({
+            keywords,
+            userId: auth.currentUser.uid, // This matches the cloud function's expectation
+            ...(location && { location })
+        });
 
-    const response = await fetch(`${getCloudFunctionUrl('searchJobs')}?${params.toString()}`);
-    console.log("Raw response status:", response.status);
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch jobs');
+        const response = await fetch(`${getCloudFunctionUrl('searchJobs')}?${params.toString()}`);
+        console.log("Raw response status:", response.status);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch jobs: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log("Full response data:", data);
+
+        // Just update the total count - the Firestore listener will handle the rest
+        if (data.jobs && data.jobs.length > 0) {
+            totalJobs.set(data.count);
+            console.log(`Found ${data.count} jobs. Firestore listener will update UI`);
+        } else {
+            console.warn("No jobs found in response");
+            totalJobs.set(0);
+        }
+
+    } catch (err) {
+        console.error("Error during job search:", {
+            message: err.message,
+            stack: err.stack,
+            error: err
+        });
+        error = err.message || 'An error occurred';
+    } finally {
+        loading = false;
     }
-
-    const data = await response.json();
-    console.log("Full response data:", data);
-
-    // Process all jobs found
-    const timestamp = Date.now();
-    const batchId = `${Math.floor(timestamp / 1000)}-${auth.currentUser.uid}`;
-
-    // Check if we have job titles in the data
-    if (data.one_job_title) {
-      const formattedJob = {
-        id: `${batchId}-0`,
-        batchId,
-        storedAt: timestamp,
-        title: data.one_job_title, // Note: changing to 'title' to match your existing UI
-        source: 'indeed'
-      };
-
-      console.log("Formatted first job:", formattedJob);
-      
-      // Update stores with this job
-      totalJobs.set(1);
-      scrapeStore.set([formattedJob]);
-    } else {
-      console.warn("No jobs found in response");
-      totalJobs.set(0);
-      scrapeStore.set([]);
-    }
-
-  } catch (err) {
-    console.error("Error during job search:", {
-      message: err.message,
-      stack: err.stack,
-      error: err
-    });
-    error = err.message || 'An error occurred';
-  } finally {
-    loading = false;
-  }
 }
 </script>
 
