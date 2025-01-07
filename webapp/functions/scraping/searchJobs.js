@@ -149,8 +149,14 @@ const HtmlAnalyzer = {
 };
 
 // ============= API SERVICE =============
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 const ApiService = {
   submitSearchJob: async (payload) => {
+    // Add delay of 1-2 seconds before making request
+    await delay(2000 + Math.random() * 2000); // Random delay between 2-4 seconds
+    functions.logger.info("Delaying:", delay);
+
     functions.logger.info("Submitting search job to Oxylabs:", {
       url: payload.url,
       source: payload.source,
@@ -173,6 +179,7 @@ const ApiService = {
   },
 
   checkJobStatus: async (jobId) => {
+    // No need for delay here as this is just checking status
     functions.logger.debug("Checking job status:", { jobId });
     
     const response = await axios.get(
@@ -190,6 +197,9 @@ const ApiService = {
   },
 
   getJobResults: async (jobId) => {
+    // Add delay before fetching results
+    await delay(1000 + Math.random() * 1000); // Random delay between 1-2 seconds
+
     functions.logger.info("Fetching job results:", { jobId });
     
     const response = await axios.get(
@@ -205,7 +215,7 @@ const ApiService = {
 
     return response.data;
   }
-};
+};;
 
 // ============= POLLING SERVICE =============
 const PollingService = {

@@ -1,42 +1,81 @@
-import { writable, derived } from 'svelte/store'
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore'
+import { writable } from 'svelte/store'
+import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 
 export const scrapeStore = writable([])
 export const isLoading = writable(true)
-export const latestBatchTimestamp = writable(null)
-export const currentBatch = writable(0)
-export const totalJobs = writable(0) // Add this store
+export const totalJobs = writable(0)
+export const currentBatch = writable(0) // Add missing export
+
+scrapeStore.subscribe(value => {
+  console.log('🔄 scrapeStore updated:', value.length, 'jobs')
+})
 
 export function initJobListener(db, uid) {
-  if (!uid) return
+  console.log('🎯 1. Initializing job listener for uid:', uid);
+  if (!uid) {
+    console.warn('❌ No uid provided to initJobListener');
+    return;
+  }
 
-  const scrapedjobsRef = collection(db, 'users', uid, 'scrapedjobs')
-  const q = query(
-    scrapedjobsRef,
-    orderBy('storedAt', 'desc')
-  )
+  try {
+    const scrapedjobsRef = collection(db, 'users', uid, 'scrapedjobs');
+    
+    const q = query(
+      scrapedjobsRef,
+      orderBy('createdAt', 'desc')
+    );
 
-  return onSnapshot(q, (snapshot) => {
-    const jobs = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }))
+    const unsubscribe = onSnapshot(q, 
+      (snapshot) => {
+        console.log('📥 Snapshot received:', {
+          empty: snapshot.empty,
+          size: snapshot.size
+        });
 
-    const latestBatchId = jobs.length > 0 ? jobs[0].batchId.split('-')[0] : null
-    const latestJobs = jobs.filter(job => 
-      job.batchId.startsWith(latestBatchId)
-    )
+        if (snapshot.empty) {
+          scrapeStore.set([]);
+          currentBatch.set(0);
+          return;
+        }
 
-    currentBatch.set(latestBatchId ? parseInt(latestBatchId) : 0)
-    totalJobs.set(latestJobs.length) // Update total jobs count
-    scrapeStore.set(latestJobs)
-    isLoading.set(false)
-  })
+        const jobs = snapshot.docs
+          .filter(doc => doc.data().verificationStatus === 'Success')
+          .map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              title: data.details?.title || data.basicInfo?.job_title,
+              company: data.details?.company || data.basicInfo?.company_name,
+              jobUrl: data.basicInfo?.job_link || data.details?.url,
+              description: data.details?.description,
+              location: data.details?.location,
+              salary: data.details?.salary,
+              datePosted: data.details?.datePosted,
+              createdAt: data.createdAt
+            };
+          });
+
+        console.log('✨ Processed', jobs.length, 'verified jobs');
+        
+        scrapeStore.set(jobs);
+        totalJobs.set(jobs.length);
+        currentBatch.set(jobs.length);
+      },
+      (error) => {
+        console.error('🚨 Firestore listener error:', error);
+      }
+    );
+
+    return unsubscribe;
+  } catch (error) {
+    console.error('💥 Error setting up Firestore listener:', error);
+    return () => {};
+  }
 }
 
 export function clearScrapeStore() {
-  scrapeStore.set([])
-  latestBatchTimestamp.set(null)
-  currentBatch.set(0)
-  totalJobs.set(0)
+  console.log('🧹 Clearing scrape store');
+  scrapeStore.set([]);
+  totalJobs.set(0);
+  currentBatch.set(0);
 }

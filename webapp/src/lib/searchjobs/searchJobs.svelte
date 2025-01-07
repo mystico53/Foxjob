@@ -1,7 +1,10 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { getCloudFunctionUrl } from '$lib/config/environment.config';
-  import { scrapeStore, isLoading, initJobListener, clearScrapeStore } from '$lib/stores/scrapeStore';
+  import { scrapeStore, isLoading, totalJobs, initJobListener, clearScrapeStore } from '$lib/stores/scrapeStore';
+
+  export let searchStartTime = null;
+
   import { auth } from '$lib/firebase';
   import { db } from '$lib/firebase'; 
   import SearchStatus from '$lib/searchJobs/SearchStatus.svelte';
@@ -14,29 +17,45 @@
   let salary = '';
   let experience = '';
   let remote = false;
-  let jobs = [];
-  let loading = false;
   let error = null;
-  let totalJobs = 0;
-  let unsubscribe;
-
-  let searchStartTime = null;
-  let currentBatch = 0;  
+  let unsubscribe; 
 
   // Add this to initialize the listener when component mounts
   onMount(() => {
+    console.log('🔄 Component mounted');
+    console.log('👤 Auth current user:', auth.currentUser?.uid);
+    
     if (auth.currentUser) {
+      console.log('🎯 Initializing listener for user:', auth.currentUser.uid);
       unsubscribe = initJobListener(db, auth.currentUser.uid);
+    } else {
+      console.log('⚠️ No user found on mount');
+      const unsubAuth = auth.onAuthStateChanged(user => {
+        console.log('🔐 Auth state changed:', user?.uid);
+        if (user) {
+          console.log('✅ User logged in, initializing listener');
+          unsubscribe = initJobListener(db, user.uid);
+        }
+      });
+      
+      return () => {
+        console.log('🧹 Cleaning up auth listener');
+        unsubAuth();
+        if (unsubscribe) unsubscribe();
+      };
     }
   });
-  
+
   onDestroy(() => {
-    if (unsubscribe) unsubscribe();
-  });
+    console.log('Component destroying')
+    if (unsubscribe) {
+      console.log('Unsubscribing from listener')
+      unsubscribe()
+    }
+  })
 
   function handleClearResults() {
     clearScrapeStore();
-    totalJobs = 0;
     error = null;
   }
 
@@ -78,59 +97,61 @@
   ];
 
   async function searchJobs() {
+    console.log('🔎 Search started with keywords:', keywords);
     searchStartTime = Date.now();
-    currentBatch = 0;
-    loading = true;
+    isLoading.set(true);
     error = null;
 
     if (!keywords) {
       error = 'Please enter keywords to search';
+      isLoading.set(false);
       return;
     }
 
     if (!auth.currentUser) {
       error = 'You must be logged in to search jobs';
+      isLoading.set(false);
       return;
     }
 
     try {
-        // Make sure to use 'userId' not 'uid'
-        const params = new URLSearchParams({
-            keywords,
-            userId: auth.currentUser.uid, // This matches the cloud function's expectation
-            ...(location && { location })
-        });
+      const params = new URLSearchParams({
+        keywords,
+        userId: auth.currentUser.uid,
+        ...(location && { location }),
+        ...(jobType && { jobType }),
+        ...(datePosted && { datePosted }),
+        ...(radius && { radius }),
+        ...(salary && { salary }),
+        ...(experience && { experience }),
+        ...(remote && { remote: 'true' })
+      });
 
-        const response = await fetch(`${getCloudFunctionUrl('searchJobs')}?${params.toString()}`);
-        console.log("Raw response status:", response.status);
-        
-        if (!response.ok) {
-            throw new Error(`Failed to fetch jobs: ${response.status}`);
-        }
+      console.log('🌐 Making API request...');
+      const response = await fetch(`${getCloudFunctionUrl('searchJobs')}?${params.toString()}`);
+      console.log('📥 Raw response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch jobs: ${response.status}`);
+      }
 
-        const data = await response.json();
-        console.log("Full response data:", data);
+      const data = await response.json();
+      console.log('📦 Full response data:', data);
 
-        // Just update the total count - the Firestore listener will handle the rest
-        if (data.jobs && data.jobs.length > 0) {
-            totalJobs.set(data.count);
-            console.log(`Found ${data.count} jobs. Firestore listener will update UI`);
-        } else {
-            console.warn("No jobs found in response");
-            totalJobs.set(0);
-        }
-
+      if (data.jobs && data.jobs.length > 0) {
+        totalJobs.set(data.count);
+        console.log('✨ Found', data.count, 'jobs. Firestore listener will update UI');
+      } else {
+        console.warn('⚠️ No jobs found in response');
+        totalJobs.set(0);
+      }
     } catch (err) {
-        console.error("Error during job search:", {
-            message: err.message,
-            stack: err.stack,
-            error: err
-        });
-        error = err.message || 'An error occurred';
+      console.error('❌ Error during job search:', err);
+      error = err.message || 'An error occurred';
     } finally {
-        loading = false;
+      isLoading.set(false);
     }
-}
+  }
 </script>
 
 <div class="container mx-auto p-4">
@@ -255,9 +276,9 @@
         <button
           type="submit"
           class="btn variant-filled-primary flex-1"
-          disabled={loading}
+          disabled={$isLoading}
         >
-          {loading ? 'Searching...' : 'Search Jobs'}
+          {$isLoading ? 'Searching...' : 'Search Jobs'}
         </button>
         
         {#if $scrapeStore.length > 0}
@@ -273,20 +294,18 @@
     </form>
 
     <SearchStatus
-  isSearching={loading}
-  {totalJobs}
-  {searchStartTime}
-  searchParams={{
-    keywords,
-    location,
-    jobType,
-    datePosted,
-    radius,
-    salary,
-    experience,
-    remote
-  }}
-/>
+      {searchStartTime}
+      searchParams={{
+        keywords,
+        location,
+        jobType,
+        datePosted,
+        radius,
+        salary,
+        experience,
+        remote
+      }}
+    />
 
     {#if error}
       <div class="alert variant-filled-error" role="alert">
@@ -295,21 +314,23 @@
     {/if}
 
     <!-- Results Header -->
-    {#if jobs.length > 0}
+    {#if $totalJobs > 0}
       <div class="pt-4 pb-2">
-        <h2 class="h3">Found {totalJobs} jobs</h2>
+        <h2 class="h3">Found {$totalJobs} jobs</h2>
       </div>
     {/if}
 
     <!-- Results -->
 
+
     {#if $scrapeStore.length > 0}
     <div class="space-y-4">
       {#each $scrapeStore as job}
-          <article class="card variant-filled-surface p-4">
-            <header class="mb-3">
-              <h3 class="h3">{job.title}</h3>
-              <p class="font-bold">{job.company}</p>
+        <article class="card variant-filled-surface p-4">
+          <header class="mb-3">
+            <h3 class="h3">{job.title || 'Untitled Position'}</h3>
+            <p class="font-bold">{job.company || 'Company Not Listed'}</p>
+            {#if job.location}
               <div class="flex gap-2 text-sm opacity-75">
                 <span>{job.location}</span>
                 {#if job.datePosted}
@@ -317,29 +338,38 @@
                   <span>{job.datePosted}</span>
                 {/if}
               </div>
-            </header>
-            
-            {#if job.salary}
-              <p class="text-success-500 font-semibold">{job.salary}</p>
             {/if}
-            
-            {#if job.description}
-              <p class="mt-2">{job.description}</p>
-            {/if}
-            
-            <div class="mt-4">
+          </header>
+          
+          {#if job.salary}
+            <p class="text-success-500 font-semibold">{job.salary}</p>
+          {/if}
+          
+          {#if job.description}
+            <p class="mt-2">{job.description}</p>
+          {/if}
+          
+          <div class="mt-4">
+            {#if job.jobUrl}
               <a
                 href={job.jobUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 class="btn variant-ghost-primary"
               >
-                View on Indeed
+                View Job Details
               </a>
-            </div>
-          </article>
+            {/if}
+          </div>
+        </article>
       {/each}
     </div>
+    {:else}
+      {#if $totalJobs > 0}
+        <div class="alert variant-ghost-warning">
+          <p>Loading job details...</p>
+        </div>
+      {/if}
     {/if}
   </div>
 </div>
