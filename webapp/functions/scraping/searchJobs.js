@@ -58,6 +58,58 @@ const createSearchPayload = (searchUrl) => ({
   }
 });
 
+const createJobDetailsPayload = (viewJobUrl) => ({
+  source: "universal",
+  url: viewJobUrl,
+  render: "html",
+  parse: true,
+  wait_for: ["#jobDescriptionText", "[data-testid='jobsearch-JobInfoHeader-title']"],
+  parsing_instructions: {
+    jobTitle: {
+      _fns: [{
+        _fn: "css",
+        _args: ["[data-testid='simpler-jobTitle'], [data-testid='jobsearch-JobInfoHeader-title']"]
+      }]
+    },
+    location: {
+      _fns: [{
+        _fn: "css",
+        _args: ["[data-testid='job-location'], [data-testid='jobsearch-JobInfoHeader-companyLocation'], [data-testid='inlineHeader-companyLocation']"]
+      }]
+    },
+    description: {
+      _fns: [{
+        _fn: "css",
+        _args: ["#jobDescriptionText.jobsearch-JobComponent-description"]
+      }]
+    },
+    postingDate: {
+      _fns: [{
+        _fn: "css",
+        _args: [".jobSectionHeader:contains('Job Posting Date') + div, [data-testid='job-posting-date']"]
+      }]
+    },
+    salary: {
+      _fns: [{
+        _fn: "css",
+        _args: ["[data-testid='attribute_snippet_compensation'], .salary-snippet-container"]
+      }]
+    },
+    employmentType: {
+      _fns: [{
+        _fn: "css",
+        _args: ["[data-testid='attribute_snippet_job_type'], .metadata:contains('Job Type') + *"]
+      }]
+    },
+    benefits: {
+      _fns: [{
+        _fn: "css",
+        _args: ["[data-testid='job-benefits-section']"]
+      }]
+    }
+  }
+});
+
 // API Calls
 const submitSearchJob = async (payload) => {
   const response = await axios.post(
@@ -107,6 +159,50 @@ const pollForResults = async (jobId, maxAttempts = 10, initialDelay = 1000) => {
   throw new Error('Max polling attempts reached');
 };
 
+const getJobDetails = async (jobId, basicInfo, startTime) => {
+  try {
+    const viewJobUrl = `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${jobId}`;
+    functions.logger.info("Getting details for job:", {
+      id: jobId,
+      url: viewJobUrl,
+      timeMs: Date.now() - startTime
+    });
+
+    // Submit job details request
+    const detailsPayload = createJobDetailsPayload(viewJobUrl);
+    const detailsJob = await submitSearchJob(detailsPayload);
+    
+    // Poll for details results
+    const detailsResponse = await pollForResults(detailsJob.id);
+    
+    functions.logger.info("Retrieved details for job", {
+      id: jobId,
+      timeMs: Date.now() - startTime,
+      hasContent: !!detailsResponse?.results?.[0]?.content
+    });
+
+    return {
+      basicInfo,
+      detailsResponse,
+      timeTaken: Date.now() - startTime
+    };
+
+  } catch (error) {
+    functions.logger.error("Error getting job details:", {
+      error: error.message || error,
+      stack: error.stack,
+      jobId,
+      timeMs: Date.now() - startTime
+    });
+    
+    return {
+      basicInfo,
+      error: error.message || "Failed to fetch job details",
+      timeTaken: Date.now() - startTime
+    };
+  }
+};
+
 // Main Function
 exports.searchJobs = onRequest({ 
   timeoutSeconds: 540,
@@ -139,8 +235,63 @@ exports.searchJobs = onRequest({
       // Log the results we got back
       functions.logger.info("Job listings retrieved:", {
         totalJobs: jobs.length,
+        page: results.results[0].content.page,
+        totalJobsCount: results.results[0].content.totalJobs,
         sampleJobs: jobs.slice(0, 3)  // Log first 3 jobs
       });
+
+      // Get job details if there are jobs
+      if (jobs.length > 0) {
+        functions.logger.info("Starting to process jobs for details", {
+          totalJobs: jobs.length,
+          processingJobs: Math.min(jobs.length, 3)
+        });
+        
+        const jobDetailsPromises = jobs.slice(0, 3).map(async (job) => {
+          functions.logger.info("Fetching details for job:", {
+            id: job.job_id,
+            title: job.job_title,
+            company: job.company_name
+          });
+
+          return getJobDetails(job.job_id, job, startTime);
+        });
+
+        const jobDetailsResults = await Promise.all(jobDetailsPromises);
+        
+        // Log detailed information for each job
+        functions.logger.info("All job details retrieved", {
+          count: jobDetailsResults.length,
+          jobs: jobDetailsResults.map(result => {
+            const jobContent = result.detailsResponse?.results?.[0]?.content;
+            const basicInfo = result.basicInfo;
+            return {
+              basicInfo: {
+                id: basicInfo.job_id,
+                title: basicInfo.job_title,
+                company: basicInfo.company_name,
+              },
+              details: {
+                title: jobContent?.jobTitle,
+                location: jobContent?.location,
+                datePosted: jobContent?.postingDate,
+                salary: jobContent?.salary,
+                employmentType: jobContent?.employmentType,
+                benefits: jobContent?.benefits,
+                hasDescription: !!jobContent?.description,
+                descriptionLength: jobContent?.description?.length,
+                hasCompanyInfo: !!jobContent?.companyInfo
+              }
+            };
+          })
+        });
+
+        return res.json({
+          jobs: jobs,
+          count: jobs.length,
+          jobDetails: jobDetailsResults
+        });
+      }
 
       return res.json({
         jobs: jobs,
