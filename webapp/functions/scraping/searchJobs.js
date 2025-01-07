@@ -246,11 +246,22 @@ exports.searchJobs = onRequest({
         const jobDetailsResults = await Promise.all(jobDetailsPromises);
         
         // Log detailed information for each job
+        // Log detailed information for each job
         functions.logger.info("All job details retrieved", {
           count: jobDetailsResults.length,
           jobs: jobDetailsResults.map(result => {
             const jobContent = result.detailsResponse?.results?.[0]?.content;
             const basicInfo = result.basicInfo;
+            
+            // Add safer description logging
+            const description = jobContent?.description;
+            const descriptionInfo = {
+              type: typeof description,
+              isArray: Array.isArray(description),
+              rawContent: description, // Log the entire raw content first
+              contentKeys: description ? Object.keys(description) : null // If it's an object, what keys does it have?
+            };
+            
             return {
               basicInfo: {
                 id: basicInfo.job_id,
@@ -261,12 +272,7 @@ exports.searchJobs = onRequest({
                 title: jobContent?.jobTitle,
                 location: jobContent?.location,
                 datePosted: jobContent?.postingDate,
-                salary: jobContent?.salary,
-                employmentType: jobContent?.employmentType,
-                benefits: jobContent?.benefits,
-                hasDescription: !!jobContent?.description,
-                descriptionLength: jobContent?.description?.length,
-                hasCompanyInfo: !!jobContent?.companyInfo
+                descriptionInfo  // New detailed description info without any risky operations
               }
             };
           })
