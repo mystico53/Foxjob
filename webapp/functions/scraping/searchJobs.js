@@ -6,16 +6,11 @@ const functions = require('firebase-functions');
 const CONFIG = {
   OXY_USERNAME: "mystico_FXPQA",
   OXY_PASSWORD: "ti_QMg2h2WzZMp",
-  TIMEOUTS: {
-    FUNCTION: 240,
-    SEARCH: 180000,     // reduced from 60000 as per original
-    VERIFY: 180000,     // specific to verification stage
-    DETAILS: 180000     // for detailed parsing
-  },
   BASE_URLS: {
     INDEED: 'https://www.indeed.com/jobs',
     INDEED_VIEW_JOB: 'https://www.indeed.com/viewjob',
-    OXYLABS: 'https://realtime.oxylabs.io/v1/queries'
+    OXYLABS: 'https://data.oxylabs.io/v1/queries',
+    OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries'
   }
 };
 
@@ -42,9 +37,6 @@ const createSearchPayload = (searchUrl) => ({
   url: searchUrl,
   render: "html",
   parse: true,
-  wait_for: [".job_seen_beacon"],
-  timeout: 60000,  // Original timeout value
-  limit: 3,
   parsing_instructions: {
     job_listings: {
       _fns: [{ _fn: "css", _args: [".job_seen_beacon"] }],
@@ -66,144 +58,59 @@ const createSearchPayload = (searchUrl) => ({
   }
 });
 
-const createJobDetailsPayload = (viewJobUrl) => ({
-  source: "universal",
-  url: viewJobUrl,
-  render: "html",
-  parse: true,
-      timeout: CONFIG.TIMEOUTS.DETAILS,
-  parsing_instructions: {
-    jobTitle: {
-      _fns: [{
-        _fn: "css",
-        _args: ["[data-testid='simpler-jobTitle'], [data-testid='jobsearch-JobInfoHeader-title']"]
-      }]
-    },
-    location: {
-      _fns: [{
-        _fn: "css",
-        _args: ["[data-testid='job-location'], [data-testid='jobsearch-JobInfoHeader-companyLocation'], [data-testid='inlineHeader-companyLocation']"]
-      }]
-    },
-    description: {
-      _fns: [{
-        _fn: "css",
-        _args: ["#jobDescriptionText.jobsearch-JobComponent-description"]
-      }]
-    },
-    postingDate: {  // Add this new field
-      _fns: [{
-        _fn: "css",
-        _args: [".jobSectionHeader:contains('Job Posting Date') + div, [data-testid='job-posting-date']"]
-      }]
-    }
-  }
-});
-
 // API Calls
-const makeOxylabsRequest = async (payload, customTimeout = CONFIG.TIMEOUTS.SEARCH) => {
+const submitSearchJob = async (payload) => {
   const response = await axios.post(
     CONFIG.BASE_URLS.OXYLABS,
     payload,
-    {
-      headers: getAuthHeader(),
-      timeout: customTimeout
-    }
+    { headers: getAuthHeader() }
   );
-  
-  // Log complete response structure
-  functions.logger.info("Complete Oxylabs response structure:", {
-    status: response.status,
-    statusText: response.statusText,
-    headers: response.headers,
-    responseSize: JSON.stringify(response.data).length
-  });
-  
-  return response;
+  return response.data;
 };
 
-const verifyJobPage = async (viewJobUrl) => {
-  const verifyPayload = {
-    source: "universal",
-    url: viewJobUrl,
-    render: "html",
-    parse: false
-  };
-
-  return makeOxylabsRequest(verifyPayload, CONFIG.TIMEOUTS.VERIFY);
+const checkJobStatus = async (jobId) => {
+  const response = await axios.get(
+    `${CONFIG.BASE_URLS.OXYLABS}/${jobId}`,
+    { headers: getAuthHeader() }
+  );
+  return response.data;
 };
 
-const analyzeHtmlContent = (htmlContent) => {
-  return {
-    hasJobTitle: htmlContent.includes('jobsearch-JobInfoHeader-title'),
-    hasLocation: htmlContent.includes('jobsearch-JobInfoHeader-companyLocation'),
-    hasCompany: htmlContent.includes('jobsearch-CompanyInfoContainer'),
-    hasDescription: htmlContent.includes('jobDescriptionText'),
-    dataTestIds: htmlContent.match(/data-testid="([^"]+)"/g)?.slice(0, 10),
-    jobsearchClasses: htmlContent.match(/class="[^"]*jobsearch[^"]*"/g)?.slice(0, 10)
-  };
+const getJobResults = async (jobId) => {
+  const response = await axios.get(
+    `${CONFIG.BASE_URLS.OXYLABS}/${jobId}/results`,
+    { headers: getAuthHeader() }
+  );
+  return response.data;
 };
 
-const getJobDetails = async (jobId, firstJob, startTime) => {
-  const viewJobUrl = `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${jobId}`;
-  functions.logger.info("Constructed job detail URL:", { url: viewJobUrl });
+// Poll for results with exponential backoff
+const pollForResults = async (jobId, maxAttempts = 10, initialDelay = 1000) => {
+  let attempts = 0;
+  let delay = initialDelay;
 
-  try {
-    // Verify page loads
-    const verifyPage = await verifyJobPage(viewJobUrl);
-    const htmlContent = verifyPage.data.results[0].content;
-
-    if (!htmlContent) {
-      return { error: "Page verification failed" };
+  while (attempts < maxAttempts) {
+    const jobStatus = await checkJobStatus(jobId);
+    
+    if (jobStatus.status === 'done') {
+      return await getJobResults(jobId);
+    } else if (jobStatus.status === 'faulted') {
+      throw new Error(`Job failed: ${jobId}`);
     }
 
-    // Log HTML content analysis
-    functions.logger.info("HTML Content Analysis:", analyzeHtmlContent(htmlContent));
-
-    // Get detailed job information
-    const detailsResponse = await makeOxylabsRequest(createJobDetailsPayload(viewJobUrl));
-
-    functions.logger.info("Parsing complete", {
-      status: detailsResponse.status,
-      timeMs: Date.now() - startTime,
-      fullJobData: {
-        rawResponse: detailsResponse.data,
-        jobContent: detailsResponse.data.results?.[0]?.content,
-        parsedTitle: detailsResponse.data.results?.[0]?.content?.jobTitle,
-        parsedLocation: detailsResponse.data.results?.[0]?.content?.location,
-        parsedDescription: detailsResponse.data.results?.[0]?.content?.description,
-        allParsedFields: Object.keys(detailsResponse.data.results?.[0]?.content || {}),
-        responseStatus: detailsResponse.status,
-        jobId: firstJob.job_id,
-        searchJobTitle: firstJob.job_title,
-        searchCompanyName: firstJob.company_name,
-        fullHtmlContent: detailsResponse.data.results?.[0]?.content || null
-      }
-    });
-
-    return {
-      detailsResponse: detailsResponse.data,
-      verificationStatus: "Success"
-    };
-
-  } catch (error) {
-    functions.logger.error("Error in job details process:", {
-      error: error.message,
-      stack: error.stack,
-      url: viewJobUrl,
-      timeMs: Date.now() - startTime,
-      stage: error.config?.url.includes('verify') ? 'verification' : 'parsing'
-    });
-    return {
-      error: `Failed during ${error.config?.url.includes('verify') ? 'verification' : 'parsing'} stage`
-    };
+    // Exponential backoff
+    await new Promise(resolve => setTimeout(resolve, delay));
+    delay *= 2;
+    attempts++;
   }
+  
+  throw new Error('Max polling attempts reached');
 };
 
 // Main Function
 exports.searchJobs = onRequest({ 
-  timeoutSeconds: 540,  // Maximum allowed timeout of 9 minutes
-  memory: "1GiB"       // Optional: Specify memory if needed
+  timeoutSeconds: 540,
+  memory: "1GiB"
 }, async (req, res) => {
   const startTime = Date.now();
   try {
@@ -211,90 +118,43 @@ exports.searchJobs = onRequest({
     const searchUrl = buildSearchUrl(keywords, location);
     functions.logger.info("Search URL:", { url: searchUrl });
 
+    // Submit the search job
     const searchPayload = createSearchPayload(searchUrl);
-    functions.logger.info("Sending payload to Oxylabs", { payload: searchPayload });
-
-    const response = await makeOxylabsRequest(searchPayload);
-    functions.logger.info("Initial search request completed in:", { 
-      timeMs: Date.now() - startTime 
+    const jobSubmission = await submitSearchJob(searchPayload);
+    functions.logger.info("Job submitted:", { 
+      jobId: jobSubmission.id,
+      status: jobSubmission.status
     });
 
-    // Validate response structure
-    if (!response.data.results) {
-      functions.logger.warn("No 'results' field in Oxylabs response", {
-        responseKeys: Object.keys(response.data)
-      });
-      return res.status(200).json({ error: "No results field" });
-    }
+    // Poll for results
+    const results = await pollForResults(jobSubmission.id);
+    functions.logger.info("Results retrieved:", {
+      timeMs: Date.now() - startTime
+    });
 
-    const { results } = response.data;
-    if (!Array.isArray(results) || results.length === 0) {
-      functions.logger.warn("Results array details:", {
-        isArray: Array.isArray(results),
-        length: results.length,
-        type: typeof results,
-        sample: results
-      });
-      return res.status(200).json({ error: "Empty results array" });
-    }
-
-    const firstResult = results[0];
-    if (!firstResult.content?.job_listings || !Array.isArray(firstResult.content.job_listings)) {
-      return res.status(200).json({ jobs: [] });
-    }
-
-    const content = firstResult.content;
-    
-    // Get job details if there are jobs
-    if (content.job_listings.length > 0) {
-      functions.logger.info("Starting to process jobs for details", {
-        totalJobs: content.job_listings.length,
-        processingJobs: Math.min(content.job_listings.length, 2)
-      });
+    // Process and return results
+    if (results.results && results.results[0]?.content?.job_listings) {
+      const jobs = results.results[0].content.job_listings;
       
-      const jobDetailsPromises = content.job_listings.slice(0, 5).map(async (job, index) => {
-        functions.logger.info("Attempting to fetch details for job:", {
-          id: job.job_id,
-          title: job.job_title,
-          company: job.company_name,
-          timeMs: Date.now() - startTime
-        });
-
-        return getJobDetails(job.job_id, job, startTime);
+      // Log the results we got back
+      functions.logger.info("Job listings retrieved:", {
+        totalJobs: jobs.length,
+        sampleJobs: jobs.slice(0, 3)  // Log first 3 jobs
       });
 
-      functions.logger.info("About to await all job detail promises");
-      const jobDetailsResults = await Promise.all(jobDetailsPromises);
-      
-      functions.logger.info("Completed fetching all job details", {
-        resultsCount: jobDetailsResults.length,
-        results: jobDetailsResults.map(result => ({
-          success: !result.error,
-          error: result.error || null
-        }))
-      });
-      
       return res.json({
-        jobs: content.job_listings,
-        count: content.job_listings.length,
-        jobDetails: jobDetailsResults
+        jobs: jobs,
+        count: jobs.length
       });
     }
 
-    // Fallback return if no jobs to get details for
-    return res.json({ 
-      jobs: content.job_listings,
-      count: content.job_listings.length
-    });
+    return res.json({ jobs: [], count: 0 });
 
   } catch (error) {
     functions.logger.error("searchJobs Error", {
       error: error.message || error,
       stack: error.stack,
-      errorType: error.constructor.name,
-      errorKeys: Object.keys(error),
-      timeMs: Date.now() - startTime,
-      phase: error.config ? 'axios' : 'processing'
+      timeMs: Date.now() - startTime
     });
     return res.status(500).json({ error: "Internal server error" });
   }
