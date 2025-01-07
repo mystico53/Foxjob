@@ -90,6 +90,12 @@ const createJobDetailsPayload = (viewJobUrl) => ({
         _fn: "css",
         _args: ["#jobDescriptionText.jobsearch-JobComponent-description"]
       }]
+    },
+    postingDate: {  // Add this new field
+      _fns: [{
+        _fn: "css",
+        _args: [".jobSectionHeader:contains('Job Posting Date') + div, [data-testid='job-posting-date']"]
+      }]
     }
   }
 });
