@@ -18,9 +18,10 @@ const CONFIG = {
     INDEED: 'https://www.indeed.com/jobs',
     INDEED_VIEW_JOB: 'https://www.indeed.com/viewjob',
     OXYLABS: 'https://data.oxylabs.io/v1/queries',
-    OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries'
+    OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries',
+    OXYLABS_BATCH: 'https://data.oxylabs.io/v1/queries/batch',
   },
-  MAX_JOBS_TO_PROCESS: 3,
+  MAX_JOBS_TO_PROCESS: 1,
   POLLING_MAX_ATTEMPTS: 30,
   POLLING_INITIAL_DELAY: 1000,
   SELECTORS: {
@@ -136,16 +137,15 @@ const HtmlAnalyzer = {
   },
 
   extractCleanContent: (content) => {
+    if (!content) return "No description available.";
     if (Array.isArray(content)) {
-      return content.map(item => {
-        if (typeof item === 'string') {
-          return item.replace(/<[^>]*>/g, '').trim();
-        }
-        return item;
-      }).filter(Boolean);
+      return content
+        .map(item => (typeof item === 'string' ? item.replace(/<[^>]*>/g, '').trim() : item))
+        .filter(Boolean);
     }
-    return content;
-  }
+    return content.replace(/<[^>]*>/g, '').trim();
+  },
+  
 };
 
 // ============= API SERVICE =============
@@ -196,6 +196,55 @@ const ApiService = {
     return response.data;
   },
 
+  submitBatchJob: async (payload) => {
+    functions.logger.info("Submitting batch job to Oxylabs:", {
+      urlCount: payload.url.length,
+      source: payload.source
+    });
+
+    const response = await axios.post(
+      CONFIG.BASE_URLS.OXYLABS_BATCH,
+      payload,
+      { headers: AuthHelpers.getAuthHeader() }
+    );
+
+    const { queries } = response.data;
+
+    if (!queries || !queries.length) {
+      throw new Error('No queries returned in batch response');
+    }
+
+    // Log each query's basic info
+    queries.forEach(query => {
+      functions.logger.info("Batch query created:", {
+        id: query.id,
+        url: query.url,
+        status: query.status,
+        createdAt: query.created_at
+      });
+    });
+
+    // Return structured data with query information
+    return {
+      ids: queries.map(query => query.id),
+      queries: queries.map(query => ({
+        id: query.id,
+        url: query.url,
+        status: query.status,
+        created_at: query.created_at,
+        results_url: query._links.find(link => link.rel === 'results')?.href
+      }))
+    };
+  },
+
+  getAllBatchResults: async (jobIds) => {
+    const results = await Promise.all(
+      jobIds.map(jobId => PollingService.pollForResults(jobId))
+    );
+    
+    return results;
+  },
+
   getJobResults: async (jobId) => {
     // Add delay before fetching results
     await delay(1000 + Math.random() * 1000); // Random delay between 1-2 seconds
@@ -215,7 +264,7 @@ const ApiService = {
 
     return response.data;
   }
-};;
+};
 
 // ============= POLLING SERVICE =============
 const PollingService = {
@@ -339,7 +388,7 @@ const FirestoreService = {
       ...jobDetail,
       details: {
         ...jobDetail.details,
-        description: HtmlAnalyzer.extractCleanContent(jobDetail.details?.description),
+        description: HtmlAnalyzer.extractCleanContent(jobDetail.details?.description|| "No description available."),
         title: HtmlAnalyzer.extractCleanContent(jobDetail.details?.title),
         location: HtmlAnalyzer.extractCleanContent(jobDetail.details?.location)
       },
@@ -367,106 +416,101 @@ const FirestoreService = {
 };
 
 // ============= JOB PROCESSOR =============
-const getJobDetails = async (jobId, basicInfo, startTime) => {
-  const viewJobUrl = `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${jobId}`;
-  functions.logger.info("Getting job details for URL:", { url: viewJobUrl });
-
-  try {
-    const detailsPayload = PayloadBuilders.createJobDetailsPayload(viewJobUrl);
-    const jobSubmission = await ApiService.submitSearchJob(detailsPayload);
-    const detailsResults = await PollingService.pollForResults(jobSubmission.id);
-
-    // Extract content properly from detailsResults
-    const content = detailsResults?.results?.[0]?.content || {};
-
-    return {
-      basicInfo: basicInfo,
-      verificationStatus: "Success",
-      details: {
-        title: content.jobTitle || basicInfo.job_title || "", // Fallback to basic info or empty string
-        location: content.location || "",
-        description: content.description || "",
-        postingDate: content.postingDate || ""
-      }
-    };
-
-  } catch (error) {
-    functions.logger.error("Error in job details process:", {
-      error: error.message,
-      stack: error.stack,
-      url: viewJobUrl,
-      timeMs: Date.now() - startTime
-    });
-    
-    // Even on error, return valid data structure with empty strings
-    return {
-      basicInfo: basicInfo,
-      verificationStatus: "Failed",
-      details: {
-        title: basicInfo.job_title || "", // Fallback to basic info or empty string
-        location: "",
-        description: "",
-        postingDate: ""
-      }
-    };
-  }
-};
-
-// Job Processor object with fixed reference to getJobDetails
 const JobProcessor = {
   processJobDetails: async (userId, jobs, startTime) => {
-    functions.logger.info("Starting job processing:", {
+    functions.logger.info("Starting batch job processing:", {
       userId,
       totalJobs: jobs.length,
       jobsToProcess: Math.min(jobs.length, CONFIG.MAX_JOBS_TO_PROCESS)
     });
 
-    const jobDetailsPromises = jobs.slice(0, CONFIG.MAX_JOBS_TO_PROCESS).map(async (job) => {
-      functions.logger.info("Processing individual job:", {
-        userId,
-        jobId: job.job_id,
-        companyName: job.company_name,
-        startTime
+    try {
+      // Prepare URLs for batch processing
+      const jobUrls = jobs
+        .slice(0, CONFIG.MAX_JOBS_TO_PROCESS)
+        .map(job => `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${job.job_id}`);
+
+        const batchPayload = {
+          url: jobUrls,
+          source: "universal",
+          render: "html",
+          parse: true,
+          parsing_instructions: {
+            jobTitle: {
+              _fns: [{
+                _fn: "css",
+                _args: ["[data-testid='simpler-jobTitle'], [data-testid='jobsearch-JobInfoHeader-title']"]
+              }]
+            },
+            location: {
+              _fns: [{
+                _fn: "css",
+                _args: ["[data-testid='job-location'], [data-testid='jobsearch-JobInfoHeader-companyLocation']"]
+              }]
+            },
+            description: {
+              _fns: [{
+                _fn: "css",
+                _args: ["#jobDescriptionText.jobsearch-JobComponent-description"]
+              }]
+            }
+          }
+        };
+
+      const batchSubmission = await ApiService.submitBatchJob(batchPayload);
+
+      functions.logger.info("Batch jobs created:", {
+        totalQueries: batchSubmission.queries.length,
+        queryIds: batchSubmission.ids,
       });
 
-      try {
-        const details = await getJobDetails(job.job_id, job, startTime);
-        
-        // No need for extra cleaning since getJobDetails already returns clean data
-        await FirestoreService.saveJobToUserCollection(userId, details);
-        
-        functions.logger.info("Successfully processed job:", {
-          userId,
-          jobId: job.job_id,
-          processingTimeMs: Date.now() - startTime
-        });
+      functions.logger.info("Batch submission response:", batchSubmission);      
 
-        return details;
+      // Get all results from batch processing
+      const batchResults = await ApiService.getAllBatchResults(batchSubmission.ids);
 
-      } catch (error) {
-        functions.logger.error("Error processing job:", {
-          userId,
-          jobId: job.job_id,
-          error: error.message,
-          stack: error.stack,
-          processingTimeMs: Date.now() - startTime
-        });
-        return null;
-      }
-    });
+      functions.logger.info("Batch results:", batchResults);
 
-    const results = await Promise.all(jobDetailsPromises);
-    const successfulResults = results.filter(result => result !== null);
+      // Process and save results
+      const processedResults = await Promise.all(
+        batchResults.map(async (result, index) => {
+          const job = jobs[index];
+          const queryInfo = batchSubmission.queries[index];
 
-    functions.logger.info("Completed job processing:", {
-      userId,
-      totalProcessed: results.length,
-      successfulJobs: successfulResults.length,
-      failedJobs: results.length - successfulResults.length,
-      totalTimeMs: Date.now() - startTime
-    });
+          const details = {
+            basicInfo: job,
+            verificationStatus: "Success",
+            queryInfo: {
+              id: queryInfo.id,
+              created_at: queryInfo.created_at,
+              status: queryInfo.status
+            },
+            rawResult: result
+          };
 
-    return successfulResults;
+          await FirestoreService.saveJobToUserCollection(userId, details);
+          return details;
+        })
+      );
+
+      functions.logger.info("Completed batch job processing:", {
+        userId,
+        totalProcessed: processedResults.length,
+        successfulJobs: processedResults.filter(r => r !== null).length,
+        totalTimeMs: Date.now() - startTime
+      });
+
+      return processedResults;
+
+    } catch (error) {
+      functions.logger.error("Error in batch processing:", {
+        userId,
+        error: error.message,
+        stack: error.stack,
+        timeMs: Date.now() - startTime
+      });
+      throw error;
+    }
   }
 };
 
