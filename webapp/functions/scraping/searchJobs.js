@@ -50,7 +50,7 @@ const AuthHelpers = {
   }
 };
 
-// ============= URL BUILDERS =============
+// ============= URL BUILDERS =============s
 const UrlBuilders = {
   buildSearchUrl: (keywords, location) => {
     const url = new URL(CONFIG.BASE_URLS.INDEED);
@@ -430,32 +430,59 @@ const JobProcessor = {
         .slice(0, CONFIG.MAX_JOBS_TO_PROCESS)
         .map(job => `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${job.job_id}`);
 
-        const batchPayload = {
-          url: jobUrls,
-          source: "universal",
-          render: "html",
-          parse: true,
-          parsing_instructions: {
-            jobTitle: {
-              _fns: [{
-                _fn: "css",
-                _args: ["[data-testid='simpler-jobTitle'], [data-testid='jobsearch-JobInfoHeader-title']"]
-              }]
-            },
-            location: {
-              _fns: [{
-                _fn: "css",
-                _args: ["[data-testid='job-location'], [data-testid='jobsearch-JobInfoHeader-companyLocation']"]
-              }]
-            },
-            description: {
-              _fns: [{
-                _fn: "css",
-                _args: ["#jobDescriptionText.jobsearch-JobComponent-description"]
-              }]
-            }
+      const batchPayload = {
+        url: jobUrls,
+        source: "universal",
+        render: "html",
+        parse: true,
+        parsing_instructions: {
+          // JSON-LD data extraction
+          jsonLd: {
+            _fns: [{
+              _fn: "xpath_one",
+              _args: ["//script[@type='application/ld+json']/text()"]
+            }]
+          },
+          // Modern UI selectors
+          jobTitle: {
+            _fns: [{
+              _fn: "css",
+              _args: ["[data-testid='jobsearch-JobInfoHeader-title'], [data-testid='simpler-jobTitle']"]
+            }]
+          },
+          location: {
+            _fns: [{
+              _fn: "css",
+              _args: ["[data-testid='jobsearch-JobInfoHeader-companyLocation'], [data-testid='job-location']"]
+            }]
+          },
+          description: {
+            _fns: [{
+              _fn: "css",
+              _args: ["#jobDescriptionText.jobsearch-JobComponent-description"]
+            }]
+          },
+          // Additional selectors for comprehensive data
+          salary: {
+            _fns: [{
+              _fn: "css",
+              _args: ["[data-testid='jobsearch-JobInfoHeader-salaryInfo']"]
+            }]
+          },
+          companyName: {
+            _fns: [{
+              _fn: "css",
+              _args: ["[data-testid='jobsearch-JobInfoHeader-companyName'], [data-testid='company-name']"]
+            }]
+          },
+          employmentType: {
+            _fns: [{
+              _fn: "css",
+              _args: ["[data-testid='jobsearch-JobInfoHeader-employmentType']"]
+            }]
           }
-        };
+        }
+      };
 
       const batchSubmission = await ApiService.submitBatchJob(batchPayload);
 
@@ -476,17 +503,85 @@ const JobProcessor = {
         batchResults.map(async (result, index) => {
           const job = jobs[index];
           const queryInfo = batchSubmission.queries[index];
+          const content = result.results?.[0]?.content;
+
+          let jobDetails = {};
+          
+          // Try to parse JSON-LD data first
+          if (content?.jsonLd) {
+            try {
+              const jsonLd = JSON.parse(content.jsonLd);
+              jobDetails = {
+                title: jsonLd.title,
+                description: HtmlAnalyzer.extractCleanContent(jsonLd.description),
+                location: jsonLd.jobLocation?.address ? 
+                  `${jsonLd.jobLocation.address.addressLocality}, ${jsonLd.jobLocation.address.addressRegion}` : 
+                  null,
+                salary: jsonLd.baseSalary ? {
+                  min: jsonLd.baseSalary.value.minValue,
+                  max: jsonLd.baseSalary.value.maxValue,
+                  currency: jsonLd.baseSalary.currency,
+                  unit: jsonLd.baseSalary.value.unitText
+                } : null,
+                company: jsonLd.hiringOrganization?.name,
+                employmentType: jsonLd.employmentType,
+                datePosted: jsonLd.datePosted,
+                validThrough: jsonLd.validThrough
+              };
+
+              functions.logger.info("Successfully parsed JSON-LD data", {
+                jobId: job.job_id,
+                hasDescription: !!jobDetails.description,
+                hasSalary: !!jobDetails.salary
+              });
+            } catch (error) {
+              functions.logger.error("Error parsing JSON-LD:", {
+                error: error.message,
+                jobId: job.job_id
+              });
+            }
+          }
+
+          // Merge with or fallback to CSS selector data
+          const selectorData = {
+            title: content?.jobTitle,
+            description: HtmlAnalyzer.extractCleanContent(content?.description),
+            location: content?.location,
+            company: content?.companyName,
+            salary: content?.salary,
+            employmentType: content?.employmentType
+          };
+
+          // Combine both sources, preferring JSON-LD when available
+          const combinedDetails = {
+            title: jobDetails.title || selectorData.title,
+            description: jobDetails.description || selectorData.description,
+            location: jobDetails.location || selectorData.location,
+            company: jobDetails.company || selectorData.company,
+            salary: jobDetails.salary || selectorData.salary,
+            employmentType: jobDetails.employmentType || selectorData.employmentType,
+            datePosted: jobDetails.datePosted,
+            validThrough: jobDetails.validThrough
+          };
 
           const details = {
             basicInfo: job,
+            details: combinedDetails,
             verificationStatus: "Success",
             queryInfo: {
               id: queryInfo.id,
               created_at: queryInfo.created_at,
               status: queryInfo.status
-            },
-            rawResult: result
+            }
           };
+
+          // Log the extraction results
+          functions.logger.debug("Job details extracted:", {
+            jobId: job.job_id,
+            hasJsonLd: !!content?.jsonLd,
+            hasSelectorData: !!selectorData.description,
+            finalDescriptionLength: combinedDetails.description?.length
+          });
 
           await FirestoreService.saveJobToUserCollection(userId, details);
           return details;
