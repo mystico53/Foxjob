@@ -21,7 +21,7 @@ const CONFIG = {
     OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries',
     OXYLABS_BATCH: 'https://data.oxylabs.io/v1/queries/batch',
   },
-  MAX_JOBS_TO_PROCESS: 1,
+  MAX_JOBS_TO_PROCESS: 3,
   POLLING_MAX_ATTEMPTS: 30,
   POLLING_INITIAL_DELAY: 1000,
   SELECTORS: {
@@ -114,9 +114,9 @@ const PayloadBuilders = {
     parsing_instructions: ParsingInstructions.searchResults
   }),
 
-  createJobDetailsPayload: (viewJobUrl) => ({
+  createBatchJobDetailsPayload: (jobUrls) => ({
+    url: jobUrls,
     source: "universal",
-    url: viewJobUrl,
     render: "html",
     parse: true,
     parsing_instructions: ParsingInstructions.jobDetails
@@ -202,46 +202,79 @@ const ApiService = {
       source: payload.source
     });
 
-    const response = await axios.post(
-      CONFIG.BASE_URLS.OXYLABS_BATCH,
-      payload,
-      { headers: AuthHelpers.getAuthHeader() }
-    );
+    // Add delay before batch submission
+    await delay(2000 + Math.random() * 2000);
 
-    const { queries } = response.data;
+    try {
+        const response = await axios.post(
+            CONFIG.BASE_URLS.OXYLABS_BATCH,
+            payload,
+            { headers: AuthHelpers.getAuthHeader() }
+        );
 
-    if (!queries || !queries.length) {
-      throw new Error('No queries returned in batch response');
+        const { queries } = response.data;
+
+        if (!queries || !queries.length) {
+            throw new Error('No queries returned in batch response');
+        }
+
+        // Log each query's basic info
+        queries.forEach(query => {
+            functions.logger.info("Batch query created:", {
+                id: query.id,
+                url: query.url,
+                status: query.status,
+                createdAt: query.created_at
+            });
+        });
+
+        functions.logger.info("Batch submission successful:", {
+            totalQueries: queries.length,
+            firstQueryId: queries[0]?.id,
+            responseStatus: response.status
+        });
+
+        return {
+            ids: queries.map(query => query.id),
+            queries: queries.map(query => ({
+                id: query.id,
+                url: query.url,
+                status: query.status,
+                created_at: query.created_at,
+                results_url: query._links.find(link => link.rel === 'results')?.href
+            }))
+        };
+    } catch (error) {
+        functions.logger.error("Batch submission error details:", {
+            status: error.response?.status,
+            statusText: error.response?.statusText,
+            headers: error.response?.headers,  // Might contain rate limit info
+            data: error.response?.data,        // Might contain error details
+            config: {
+                url: error.config?.url,
+                method: error.config?.method,
+                headers: error.config?.headers
+            }
+        });
+
+        functions.logger.error("Full error context:", {
+            message: error.message,
+            code: error.code,
+            stack: error.stack
+        });
+
+        // Rethrow with more context if available
+        if (error.response?.data) {
+            throw new Error(`Batch submission failed: ${JSON.stringify(error.response.data)}`);
+        }
+        throw error;
     }
-
-    // Log each query's basic info
-    queries.forEach(query => {
-      functions.logger.info("Batch query created:", {
-        id: query.id,
-        url: query.url,
-        status: query.status,
-        createdAt: query.created_at
-      });
-    });
-
-    // Return structured data with query information
-    return {
-      ids: queries.map(query => query.id),
-      queries: queries.map(query => ({
-        id: query.id,
-        url: query.url,
-        status: query.status,
-        created_at: query.created_at,
-        results_url: query._links.find(link => link.rel === 'results')?.href
-      }))
-    };
   },
 
   getAllBatchResults: async (jobIds) => {
     const results = await Promise.all(
       jobIds.map(jobId => PollingService.pollForResults(jobId))
     );
-    
     return results;
   },
 
@@ -360,6 +393,23 @@ const PollingService = {
 }
 
 // ============= FIRESTORE SERVICE =============
+// Helper function to recursively remove undefined values and replace them with null
+const sanitizeForFirestore = (obj) => {
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForFirestore(item));
+  }
+  if (typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([_, v]) => v !== undefined)
+        .map(([k, v]) => [k, sanitizeForFirestore(v)])
+    );
+  }
+  return obj;
+};
+
 const FirestoreService = {
   saveJobToUserCollection: async (userId, jobDetail) => {
     // Add debug logging to see what we're trying to save
@@ -384,17 +434,17 @@ const FirestoreService = {
       hasDetails: !!jobDetail.details
     });
                      
-    const cleanedDetails = {
+    const cleanedDetails = sanitizeForFirestore({
       ...jobDetail,
       details: {
         ...jobDetail.details,
-        description: HtmlAnalyzer.extractCleanContent(jobDetail.details?.description|| "No description available."),
-        title: HtmlAnalyzer.extractCleanContent(jobDetail.details?.title),
-        location: HtmlAnalyzer.extractCleanContent(jobDetail.details?.location)
+        description: HtmlAnalyzer.extractCleanContent(jobDetail.details?.description || "No description available."),
+        title: HtmlAnalyzer.extractCleanContent(jobDetail.details?.title || ""),
+        location: HtmlAnalyzer.extractCleanContent(jobDetail.details?.location || ""),
       },
       lastUpdated: FieldValue.serverTimestamp(),
       createdAt: FieldValue.serverTimestamp()
-    };
+    });
 
     try {
       await docRef.set(cleanedDetails, { merge: true });
@@ -425,83 +475,36 @@ const JobProcessor = {
     });
 
     try {
+      // Process jobs in batches of 5
+      const jobsToProcess = jobs.slice(0, CONFIG.MAX_JOBS_TO_PROCESS);
+      
       // Prepare URLs for batch processing
-      const jobUrls = jobs
-        .slice(0, CONFIG.MAX_JOBS_TO_PROCESS)
-        .map(job => `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${job.job_id}`);
+      const jobUrls = jobsToProcess.map(job => 
+        `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${job.job_id}`
+      );
 
-      const batchPayload = {
-        url: jobUrls,
-        source: "universal",
-        render: "html",
-        parse: true,
-        parsing_instructions: {
-          // JSON-LD data extraction
-          jsonLd: {
-            _fns: [{
-              _fn: "xpath_one",
-              _args: ["//script[@type='application/ld+json']/text()"]
-            }]
-          },
-          // Modern UI selectors
-          jobTitle: {
-            _fns: [{
-              _fn: "css",
-              _args: ["[data-testid='jobsearch-JobInfoHeader-title'], [data-testid='simpler-jobTitle']"]
-            }]
-          },
-          location: {
-            _fns: [{
-              _fn: "css",
-              _args: ["[data-testid='jobsearch-JobInfoHeader-companyLocation'], [data-testid='job-location']"]
-            }]
-          },
-          description: {
-            _fns: [{
-              _fn: "css",
-              _args: ["#jobDescriptionText.jobsearch-JobComponent-description"]
-            }]
-          },
-          // Additional selectors for comprehensive data
-          salary: {
-            _fns: [{
-              _fn: "css",
-              _args: ["[data-testid='jobsearch-JobInfoHeader-salaryInfo']"]
-            }]
-          },
-          companyName: {
-            _fns: [{
-              _fn: "css",
-              _args: ["[data-testid='jobsearch-JobInfoHeader-companyName'], [data-testid='company-name']"]
-            }]
-          },
-          employmentType: {
-            _fns: [{
-              _fn: "css",
-              _args: ["[data-testid='jobsearch-JobInfoHeader-employmentType']"]
-            }]
-          }
-        }
-      };
+      const batchPayload = PayloadBuilders.createBatchJobDetailsPayload(jobUrls);
+
+      functions.logger.info("Debug - Full Batch Payload:", {
+        totalUrls: jobUrls.length,
+        firstUrl: jobUrls[0],
+        payload: JSON.stringify(batchPayload, null, 2)
+      });
 
       const batchSubmission = await ApiService.submitBatchJob(batchPayload);
 
       functions.logger.info("Batch jobs created:", {
         totalQueries: batchSubmission.queries.length,
-        queryIds: batchSubmission.ids,
+        queryIds: batchSubmission.ids
       });
-
-      functions.logger.info("Batch submission response:", batchSubmission);      
 
       // Get all results from batch processing
       const batchResults = await ApiService.getAllBatchResults(batchSubmission.ids);
 
-      functions.logger.info("Batch results:", batchResults);
-
       // Process and save results
       const processedResults = await Promise.all(
         batchResults.map(async (result, index) => {
-          const job = jobs[index];
+          const job = jobsToProcess[index];
           const queryInfo = batchSubmission.queries[index];
           const content = result.results?.[0]?.content;
 
@@ -574,14 +577,6 @@ const JobProcessor = {
               status: queryInfo.status
             }
           };
-
-          // Log the extraction results
-          functions.logger.debug("Job details extracted:", {
-            jobId: job.job_id,
-            hasJsonLd: !!content?.jsonLd,
-            hasSelectorData: !!selectorData.description,
-            finalDescriptionLength: combinedDetails.description?.length
-          });
 
           await FirestoreService.saveJobToUserCollection(userId, details);
           return details;
