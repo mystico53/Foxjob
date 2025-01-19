@@ -4,7 +4,60 @@ import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
 export const scrapeStore = writable([])
 export const isLoading = writable(false)
 export const totalJobs = writable(0)
-export const currentBatch = writable(0) // Add missing export
+export const currentBatch = writable(0)
+
+// Add helper functions at the top
+function cleanDescription(text) {
+  if (!text) return '';
+  
+  // Remove HTML entities
+  text = text.replace(/&#\d+;/g, function(match) {
+    return String.fromCharCode(match.match(/\d+/)[0]);
+  });
+  
+  // Add line breaks before sections
+  const sections = [
+    'Job Summary:', 
+    'About the job',
+    'Responsibilities:', 
+    'Requirements:', 
+    'Qualifications:',
+    'Minimum Qualifications:',
+    'Preferred Qualifications:',
+    'Benefits:',
+    'Additional Information:'
+  ];
+  
+  sections.forEach(section => {
+    text = text.replace(new RegExp(`(${section})`, 'g'), '\n\n$1');
+  });
+
+  return text.replace(/\n\s*\n/g, '\n\n').trim();
+}
+
+function formatSalaryDisplay(salaryData) {
+  if (!salaryData) return null;
+  
+  const { min, max, currency = 'USD', period = 'YEAR' } = salaryData;
+  const formatNumber = num => num?.toLocaleString('en-US');
+  
+  if (min && max) {
+    return `${currency} ${formatNumber(min)} - ${formatNumber(max)} per ${period.toLowerCase()}`;
+  } else if (min) {
+    return `${currency} ${formatNumber(min)}+ per ${period.toLowerCase()}`;
+  } else if (max) {
+    return `Up to ${currency} ${formatNumber(max)} per ${period.toLowerCase()}`;
+  }
+  
+  return null;
+}
+
+function extractSchedule(description) {
+  if (!description) return null;
+  
+  const scheduleMatch = description.match(/(?:Schedule|Hours|Shift):\s*([^\.]+)/i);
+  return scheduleMatch ? scheduleMatch[1].trim() : null;
+}
 
 scrapeStore.subscribe(value => {
   console.log('🔄 scrapeStore updated:', value.length, 'jobs')
@@ -17,13 +70,52 @@ export function initJobListener(db, uid) {
     return;
   }
 
+  function cleanDescription(text) {
+    if (!text) return '';
+    
+    // Remove HTML entities
+    text = text.replace(/&#\d+;/g, function(match) {
+      return String.fromCharCode(match.match(/\d+/)[0]);
+    });
+    
+    // Add line breaks before sections
+    const sections = [
+      'Job Summary:', 
+      'About the job',
+      'Responsibilities:', 
+      'Requirements:', 
+      'Qualifications:',
+      'Minimum Qualifications:',
+      'Preferred Qualifications:',
+      'Benefits:',
+      'Additional Information:'
+    ];
+    
+    sections.forEach(section => {
+      text = text.replace(new RegExp(`(${section})`, 'g'), '\n\n$1');
+    });
+
+    return text.replace(/\n\s*\n/g, '\n\n').trim();
+  }
+
+  function formatSalaryDisplay(salary) {
+    if (!salary) return null;
+    const { min, max, currency = 'USD', unit = 'YEAR' } = salary;
+    const formatNumber = num => num?.toLocaleString('en-US');
+    
+    if (min && max) {
+      return `${currency} ${formatNumber(min)} - ${formatNumber(max)} per ${unit.toLowerCase()}`;
+    } else if (min) {
+      return `${currency} ${formatNumber(min)}+ per ${unit.toLowerCase()}`;
+    } else if (max) {
+      return `Up to ${currency} ${formatNumber(max)} per ${unit.toLowerCase()}`;
+    }
+    return null;
+  }
+
   try {
     const scrapedjobsRef = collection(db, 'users', uid, 'scrapedjobs');
-    
-    const q = query(
-      scrapedjobsRef,
-      orderBy('createdAt', 'desc')
-    );
+    const q = query(scrapedjobsRef, orderBy('createdAt', 'desc'));
 
     const unsubscribe = onSnapshot(q, 
       (snapshot) => {
@@ -42,20 +134,42 @@ export function initJobListener(db, uid) {
           .filter(doc => doc.data().verificationStatus === 'Success')
           .map(doc => {
             const data = doc.data();
+            console.log('Raw job data:', data);
+            
+            const salaryData = data.details?.salary;
+            
             return {
+              // Basic Info
               id: doc.id,
-              title: data.details?.title || data.basicInfo?.job_title,
-              company: data.details?.company || data.basicInfo?.company_name,
-              jobUrl: data.basicInfo?.job_link || data.details?.url,
-              description: data.details?.description,
-              location: data.details?.location,
-              salary: data.details?.salary,
+              job_id: data.basicInfo?.job_id,
+              title: data.basicInfo?.job_title,
+              company: data.basicInfo?.company_name,
+              jobUrl: data.basicInfo?.job_link,
+              
+              // Location
+              location: data.details?.location?.[0],
+              
+              // Salary
+              salary: salaryData ? {
+                raw: salaryData,
+                displayText: formatSalaryDisplay(salaryData)
+              } : null,
+              
+              // Description
+              description: cleanDescription(data.details?.description?.[0]),
+              
+              // Employment Details
+              employmentType: data.details?.employmentType?.[0],
+              
+              // Dates and Metadata
               datePosted: data.details?.datePosted,
-              createdAt: data.createdAt
+              validThrough: data.details?.validThrough,
+              createdAt: data.createdAt,
+              lastUpdated: data.lastUpdated
             };
           });
 
-        console.log('✨ Processed', jobs.length, 'verified jobs');
+        console.log('✨ Processed jobs:', jobs);
         
         scrapeStore.set(jobs);
         totalJobs.set(jobs.length);
@@ -78,5 +192,5 @@ export function clearScrapeStore() {
   scrapeStore.set([]);
   totalJobs.set(0);
   currentBatch.set(0);
-  isLoading.set(false); // Ensure loading state is reset when clearing
+  isLoading.set(false);
 }
