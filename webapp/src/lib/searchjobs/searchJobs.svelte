@@ -99,40 +99,107 @@
   async function searchJobs() {
   console.log('🔎 Search started with keywords:', keywords);
   searchStartTime = Date.now();
-  isLoading.set(true); // Set to true when search starts
+  isLoading.set(true);
   error = null;
 
   if (!keywords) {
     error = 'Please enter keywords to search';
-    isLoading.set(false); // Reset on validation error
+    isLoading.set(false);
     return;
   }
 
   if (!auth.currentUser) {
     error = 'You must be logged in to search jobs';
-    isLoading.set(false); // Reset on auth error
+    isLoading.set(false);
     return;
   }
 
   try {
-    const params = new URLSearchParams({
-      keywords,
-      userId: auth.currentUser.uid,
-      ...(location && { location }),
-      ...(jobType && { jobType }),
-      ...(datePosted && { datePosted }),
-      ...(radius && { radius }),
-      ...(salary && { salary }),
-      ...(experience && { experience }),
-      ...(remote && { remote: 'true' })
-    });
+    // Build the search criteria string (sc parameter)
+    let searchCriteria = [];
+    
+    // Add job type attributes
+    if (jobType) {
+      const jobTypeMapping = {
+        'fulltime': 'FCGTU',  // Full-time attribute
+        'parttime': 'NJXCK',  // Part-time attribute
+        'contract': 'CNTRC',  // Contract attribute
+        'temporary': 'TMPRY',  // Temporary attribute
+        'internship': 'INTRN'  // Internship attribute
+      };
+      
+      const jobTypeAttr = jobTypeMapping[jobType];
+      if (jobTypeAttr) {
+        searchCriteria.push(`attr(${jobTypeAttr})`);
+      }
+    }
 
-    console.log('🌐 Making API request...');
-    const response = await fetch(`${getCloudFunctionUrl('searchJobs')}?${params.toString()}`);
-    console.log('📥 Raw response status:', response.status);
+    // Add remote attributes
+    if (remote) {
+      searchCriteria.push('attr(CF3CP)'); // Remote work attribute
+      searchCriteria.push('attr(DSQF7)'); // Additional remote work filter
+    }
+
+    // Add experience level
+    if (experience) {
+      const expMapping = {
+        entry_level: 'ENTRY_LEVEL',
+        mid_level: 'MID_LEVEL',
+        senior_level: 'SENIOR_LEVEL'
+      };
+      searchCriteria.push(`explvl(${expMapping[experience]})`);
+    }
+
+    // Add salary if specified (using Indeed's format)
+    if (salary) {
+      const salaryMapping = {
+        '30000': 'SALARY',
+        '50000': 'SALARY',
+        '75000': 'SALARY',
+        '100000': 'SALARY',
+        '125000': 'SALARY',
+        '150000': 'SALARY'
+      };
+      if (salaryMapping[salary]) {
+        searchCriteria.push(`attr(${salaryMapping[salary]},${salary})`);
+      }
+    }
+
+    // Combine search criteria
+    const sc = searchCriteria.length > 0 ? 
+      `0kf:${searchCriteria.join('')};` : '';
+
+    // Build base parameters
+    const indeedParams = {
+      q: keywords.trim() + ' +',             // Add + to improve relevance
+      l: location?.trim(),                   // Location
+      fromage: datePosted,                   // Date posted (days)
+      radius: radius,                        // Search radius in miles
+      sc: sc || undefined,                   // Search criteria string
+      sort: 'date',                         // Sort by date (most recent first)
+      userId: auth.currentUser.uid           // User ID for our backend
+    };
+
+    // Filter out undefined/empty values
+    const cleanParams = Object.fromEntries(
+      Object.entries(indeedParams)
+        .filter(([_, value]) => value !== undefined && value !== '')
+    );
+
+    // Create and encode URL parameters
+    const params = new URLSearchParams(cleanParams);
+    const baseUrl = getCloudFunctionUrl('searchJobs');
+    const searchUrl = `${baseUrl}?${params.toString()}`;
+    
+    console.log('🌐 Making API request to:', searchUrl);
+    const response = await fetch(searchUrl);
     
     if (!response.ok) {
-      throw new Error(`Failed to fetch jobs: ${response.status}`);
+      const errorData = await response.json().catch(() => null);
+      throw new Error(
+        errorData?.message || 
+        `Failed to fetch jobs: ${response.status} ${response.statusText}`
+      );
     }
 
     const data = await response.json();
@@ -147,9 +214,9 @@
     }
   } catch (err) {
     console.error('❌ Error during job search:', err);
-    error = err.message || 'An error occurred';
+    error = err.message || 'An error occurred while searching for jobs';
   } finally {
-    isLoading.set(false); // Always reset loading state when done
+    isLoading.set(false);
   }
 }
 </script>
@@ -321,79 +388,76 @@
     {/if}
 
     <!-- Results -->
-
-
-    <!-- Results -->
-      {#if $scrapeStore.length > 0}
-      <div class="space-y-4">
-        {#each $scrapeStore as job}
-          <article class="card variant-filled-surface p-4">
-            <header class="mb-4">
-              <h3 class="h3">{job.title || 'Untitled Position'}</h3>
-              <p class="font-bold">{job.company || 'Company Not Listed'}</p>
-              
-              <div class="flex flex-wrap gap-2 text-sm opacity-75">
-                {#if job.location}
-                  <span>{job.location}</span>
-                {/if}
-                {#if job.datePosted}
-                  <span>•</span>
-                  <span>{new Date(job.datePosted).toLocaleDateString()}</span>
-                {/if}
-                {#if job.id}
-                  <span>•</span>
-                  <span class="font-mono">ID: {job.id}</span>
-                {/if}
-              </div>
-            </header>
+    {#if $scrapeStore.length > 0}
+    <div class="space-y-4">
+      {#each $scrapeStore as job}
+        <article class="card variant-filled-surface p-4">
+          <header class="mb-4">
+            <h3 class="h3">{job.title || 'Untitled Position'}</h3>
+            <p class="font-bold">{job.company || 'Company Not Listed'}</p>
             
-            <!-- Key Details Section -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              {#if job.salary?.displayText}
-                <div class="text-success-500 font-semibold">
-                  {job.salary.displayText}
-                </div>
+            <div class="flex flex-wrap gap-2 text-sm opacity-75">
+              {#if job.location}
+                <span>{job.location}</span>
               {/if}
-              
-              {#if job.schedule?.hours}
-                <div class="text-sm opacity-75">
-                  {job.schedule.hours}
-                </div>
+              {#if job.datePosted}
+                <span>•</span>
+                <span>{new Date(job.datePosted).toLocaleDateString()}</span>
+              {/if}
+              {#if job.id}
+                <span>•</span>
+                <span class="font-mono">ID: {job.id}</span>
               {/if}
             </div>
+          </header>
+          
+          <!-- Salary Information -->
+          {#if job.salary?.displayText}
+            <div class="text-success-500 font-semibold">
+              {job.salary.displayText}
+            </div>
+          {/if}
+          
+          <!-- Schedule Information -->
+          {#if job.schedule}
+            <div class="text-sm opacity-75">
+              {job.schedule}
+            </div>
+          {/if}
+          
 
-            <!-- Description Section -->
-            {#if job.description}
-              <div class="prose max-w-none">
-                {#each job.description.split('\n\n') as paragraph}
-                  {#if paragraph.trim()}
-                    <p class="whitespace-pre-line mb-4">{paragraph}</p>
-                  {/if}
-                {/each}
-              </div>
+          <!-- Description Section -->
+          {#if job.description}
+            <div class="prose max-w-none">
+              {#each job.description.split('\n\n') as paragraph}
+                {#if paragraph.trim()}
+                  <p class="whitespace-pre-line mb-4">{paragraph}</p>
+                {/if}
+              {/each}
+            </div>
+          {/if}
+  
+          <div class="mt-6">
+            {#if job.jobUrl}
+              <a 
+                href={job.jobUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                class="btn variant-ghost-primary"
+              >
+                View Full Job Details
+              </a>
             {/if}
-
-            <div class="mt-6">
-              {#if job.jobUrl}
-                <a 
-                  href={job.jobUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  class="btn variant-ghost-primary"
-                >
-                  View Full Job Details
-                </a>
-              {/if}
-            </div>
-          </article>
-        {/each}
-      </div>
-      {:else}
-        {#if $totalJobs > 0}
-          <div class="alert variant-ghost-warning">
-            <p>Loading job details...</p>
           </div>
-        {/if}
-      {/if}
+        </article>
+      {/each}
+    </div>
+  {:else}
+    {#if $totalJobs > 0}
+      <div class="alert variant-ghost-warning">
+        <p>Loading job details...</p>
+      </div>
+    {/if}
+  {/if}
   </div>
 </div>

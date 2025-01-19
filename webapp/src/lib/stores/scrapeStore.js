@@ -6,7 +6,6 @@ export const isLoading = writable(false)
 export const totalJobs = writable(0)
 export const currentBatch = writable(0)
 
-// Add helper functions at the top
 function cleanDescription(text) {
   if (!text) return '';
   
@@ -55,8 +54,21 @@ function formatSalaryDisplay(salaryData) {
 function extractSchedule(description) {
   if (!description) return null;
   
-  const scheduleMatch = description.match(/(?:Schedule|Hours|Shift):\s*([^\.]+)/i);
-  return scheduleMatch ? scheduleMatch[1].trim() : null;
+  // Enhanced schedule pattern matching
+  const schedulePatterns = [
+    /(?:Schedule|Hours|Shift):\s*([^\.]+)/i,
+    /(?:This is a|Position is)\s*(full-time|part-time|temporary|contract)/i,
+    /(\d{1,2}\s*-\s*\d{1,2}\s*hours?\s*(?:per|a)\s*week)/i
+  ];
+  
+  for (const pattern of schedulePatterns) {
+    const match = description.match(pattern);
+    if (match) {
+      return match[1].trim();
+    }
+  }
+  
+  return null;
 }
 
 scrapeStore.subscribe(value => {
@@ -68,49 +80,6 @@ export function initJobListener(db, uid) {
   if (!uid) {
     console.warn('❌ No uid provided to initJobListener');
     return;
-  }
-
-  function cleanDescription(text) {
-    if (!text) return '';
-    
-    // Remove HTML entities
-    text = text.replace(/&#\d+;/g, function(match) {
-      return String.fromCharCode(match.match(/\d+/)[0]);
-    });
-    
-    // Add line breaks before sections
-    const sections = [
-      'Job Summary:', 
-      'About the job',
-      'Responsibilities:', 
-      'Requirements:', 
-      'Qualifications:',
-      'Minimum Qualifications:',
-      'Preferred Qualifications:',
-      'Benefits:',
-      'Additional Information:'
-    ];
-    
-    sections.forEach(section => {
-      text = text.replace(new RegExp(`(${section})`, 'g'), '\n\n$1');
-    });
-
-    return text.replace(/\n\s*\n/g, '\n\n').trim();
-  }
-
-  function formatSalaryDisplay(salary) {
-    if (!salary) return null;
-    const { min, max, currency = 'USD', unit = 'YEAR' } = salary;
-    const formatNumber = num => num?.toLocaleString('en-US');
-    
-    if (min && max) {
-      return `${currency} ${formatNumber(min)} - ${formatNumber(max)} per ${unit.toLowerCase()}`;
-    } else if (min) {
-      return `${currency} ${formatNumber(min)}+ per ${unit.toLowerCase()}`;
-    } else if (max) {
-      return `Up to ${currency} ${formatNumber(max)} per ${unit.toLowerCase()}`;
-    }
-    return null;
   }
 
   try {
@@ -137,6 +106,8 @@ export function initJobListener(db, uid) {
             console.log('Raw job data:', data);
             
             const salaryData = data.details?.salary;
+            const description = cleanDescription(data.details?.description?.[0]);
+            const schedule = extractSchedule(description);
             
             return {
               // Basic Info
@@ -149,6 +120,9 @@ export function initJobListener(db, uid) {
               // Location
               location: data.details?.location?.[0],
               
+              // Schedule
+              schedule,
+              
               // Salary
               salary: salaryData ? {
                 raw: salaryData,
@@ -156,7 +130,7 @@ export function initJobListener(db, uid) {
               } : null,
               
               // Description
-              description: cleanDescription(data.details?.description?.[0]),
+              description: description,
               
               // Employment Details
               employmentType: data.details?.employmentType?.[0],
