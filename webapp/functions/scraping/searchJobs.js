@@ -52,12 +52,50 @@ const AuthHelpers = {
 
 // ============= URL BUILDERS =============s
 const UrlBuilders = {
-  buildSearchUrl: (keywords, location) => {
+  buildSearchUrl: (keywords, location, params = {}) => {
     const url = new URL(CONFIG.BASE_URLS.INDEED);
-    url.searchParams.set('q', keywords || 'test');
+    url.searchParams.set('q', keywords);
+    
     if (location) {
       url.searchParams.set('l', location);
     }
+    
+    // Add job type (fulltime, parttime, contract, temporary, internship)
+    if (params.jt) {
+      url.searchParams.set('jt', params.jt);
+    }
+    
+    // Add date posted (1, 3, 7, 14 days)
+    if (params.fromage) {
+      url.searchParams.set('fromage', params.fromage);
+    }
+    
+    // Add radius (5, 10, 25, 50 miles)
+    if (params.radius) {
+      url.searchParams.set('radius', params.radius);
+    }
+    
+    // Add salary (30000, 50000, 75000, 100000, 125000, 150000)
+    if (params.salary) {
+      url.searchParams.set('salary', params.salary);
+    }
+    
+    // Add experience level (entry_level, mid_level, senior_level)
+    if (params.experience) {
+      url.searchParams.set('explvl', params.experience);
+    }
+    
+    // Add remote flag
+    if (params.remote === 'true') {
+      url.searchParams.set('remote', '1');
+    }
+
+    // Log the final URL for debugging
+    functions.logger.debug("Built search URL:", {
+      baseUrl: url.origin + url.pathname,
+      params: Object.fromEntries(url.searchParams.entries())
+    });
+    
     return url.toString();
   },
 
@@ -596,15 +634,45 @@ exports.searchJobs = onRequest({
   memory: "1GiB"
 }, async (req, res) => {
   const startTime = Date.now();
-  const { userId, q, l } = req.query;  // Changed to match frontend parameter names
+  const { 
+    userId, 
+    q,           // keywords
+    l,           // location
+    jt,          // job type
+    fromage,     // date posted
+    radius,      // search radius
+    salary,      // minimum salary
+    explvl,      // experience level
+    remote       // remote only
+  } = req.query;
 
   if (!userId) {
     return res.status(400).json({ error: "userId is required" });
   }
 
   try {
-    const searchUrl = UrlBuilders.buildSearchUrl(q, l);  // Pass q instead of keywords
-    functions.logger.info("Search URL:", { url: searchUrl });
+    const searchUrl = UrlBuilders.buildSearchUrl(q, l, {
+      jt,
+      fromage,
+      radius,
+      salary,
+      experience: explvl,
+      remote
+    });
+    
+    functions.logger.info("Search URL:", { 
+      url: searchUrl,
+      params: {
+        keywords: q,
+        location: l,
+        jobType: jt,
+        datePosted: fromage,
+        radius,
+        salary,
+        experience: explvl,
+        remote
+      }
+    });
 
     const searchPayload = PayloadBuilders.createSearchPayload(searchUrl);
     const jobSubmission = await ApiService.submitSearchJob(searchPayload);
