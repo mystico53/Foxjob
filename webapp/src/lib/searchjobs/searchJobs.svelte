@@ -97,7 +97,19 @@
   ];
 
   async function searchJobs() {
-  console.log('🔎 Search started with keywords:', keywords);
+  // Debug log all parameters being sent
+  console.log('Search Parameters:', {
+    keywords,            // Looking specifically at what keywords contains
+    location,
+    jobType,
+    datePosted,
+    radius,
+    salary,
+    experience,
+    remote,
+    userId: auth.currentUser?.uid
+  });
+
   searchStartTime = Date.now();
   isLoading.set(true);
   error = null;
@@ -115,85 +127,52 @@
   }
 
   try {
-    // Build the search criteria string (sc parameter)
-    let searchCriteria = [];
-    
-    // Add job type attributes
+    // Construct the search URL with explicit params
+    const params = new URLSearchParams({
+    q: keywords.trim(),           // 'q' instead of 'keywords'
+    l: location?.trim() || '',    // 'l' instead of 'location'
+    userId: auth.currentUser.uid
+  });
+
+    if (location?.trim()) {
+      params.append('location', location.trim());
+    }
+
+    // Add optional parameters only if they have values
     if (jobType) {
-      const jobTypeMapping = {
-        'fulltime': 'FCGTU',  // Full-time attribute
-        'parttime': 'NJXCK',  // Part-time attribute
-        'contract': 'CNTRC',  // Contract attribute
-        'temporary': 'TMPRY',  // Temporary attribute
-        'internship': 'INTRN'  // Internship attribute
-      };
-      
-      const jobTypeAttr = jobTypeMapping[jobType];
-      if (jobTypeAttr) {
-        searchCriteria.push(`attr(${jobTypeAttr})`);
-      }
+      params.append('jt', jobType); // Using 'jt' for job type
     }
-
-    // Add remote attributes
-    if (remote) {
-      searchCriteria.push('attr(CF3CP)'); // Remote work attribute
-      searchCriteria.push('attr(DSQF7)'); // Additional remote work filter
+    
+    if (datePosted) {
+      params.append('fromage', datePosted); // Common parameter name for date posted
     }
-
-    // Add experience level
-    if (experience) {
-      const expMapping = {
-        entry_level: 'ENTRY_LEVEL',
-        mid_level: 'MID_LEVEL',
-        senior_level: 'SENIOR_LEVEL'
-      };
-      searchCriteria.push(`explvl(${expMapping[experience]})`);
+    
+    if (radius) {
+      params.append('radius', radius);
     }
-
-    // Add salary if specified (using Indeed's format)
+    
     if (salary) {
-      const salaryMapping = {
-        '30000': 'SALARY',
-        '50000': 'SALARY',
-        '75000': 'SALARY',
-        '100000': 'SALARY',
-        '125000': 'SALARY',
-        '150000': 'SALARY'
-      };
-      if (salaryMapping[salary]) {
-        searchCriteria.push(`attr(${salaryMapping[salary]},${salary})`);
-      }
+      params.append('salary', salary);
+    }
+    
+    if (experience) {
+      params.append('exp_level', experience);
+    }
+    
+    if (remote) {
+      params.append('remote', 'true');
     }
 
-    // Combine search criteria
-    const sc = searchCriteria.length > 0 ? 
-      `0kf:${searchCriteria.join('')};` : '';
+    // Log the complete params for debugging
+    console.log('Search parameters:', Object.fromEntries(params));
 
-    // Build base parameters
-    const indeedParams = {
-      q: keywords.trim() + ' +',             // Add + to improve relevance
-      l: location?.trim(),                   // Location
-      fromage: datePosted,                   // Date posted (days)
-      radius: radius,                        // Search radius in miles
-      sc: sc || undefined,                   // Search criteria string
-      sort: 'date',                         // Sort by date (most recent first)
-      userId: auth.currentUser.uid           // User ID for our backend
-    };
-
-    // Filter out undefined/empty values
-    const cleanParams = Object.fromEntries(
-      Object.entries(indeedParams)
-        .filter(([_, value]) => value !== undefined && value !== '')
-    );
-
-    // Create and encode URL parameters
-    const params = new URLSearchParams(cleanParams);
+    // Log the exact URL being called
     const baseUrl = getCloudFunctionUrl('searchJobs');
     const searchUrl = `${baseUrl}?${params.toString()}`;
-    
-    console.log('🌐 Making API request to:', searchUrl);
+    console.log('Making request to:', searchUrl);
+
     const response = await fetch(searchUrl);
-    
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => null);
       throw new Error(
@@ -203,17 +182,17 @@
     }
 
     const data = await response.json();
-    console.log('📦 Full response data:', data);
+    console.log('Response data:', data);
 
     if (data.jobs && data.jobs.length > 0) {
       totalJobs.set(data.count);
-      console.log('✨ Found', data.count, 'jobs. Firestore listener will update UI');
+      console.log('Found', data.count, 'jobs. Firestore listener will update UI');
     } else {
-      console.warn('⚠️ No jobs found in response');
+      console.warn('No jobs found in response');
       totalJobs.set(0);
     }
   } catch (err) {
-    console.error('❌ Error during job search:', err);
+    console.error('Error during job search:', err);
     error = err.message || 'An error occurred while searching for jobs';
   } finally {
     isLoading.set(false);

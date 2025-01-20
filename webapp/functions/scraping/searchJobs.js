@@ -21,7 +21,7 @@ const CONFIG = {
     OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries',
     OXYLABS_BATCH: 'https://data.oxylabs.io/v1/queries/batch',
   },
-  MAX_JOBS_TO_PROCESS: 3,
+  MAX_JOBS_TO_PROCESS: 1,
   POLLING_MAX_ATTEMPTS: 30,
   POLLING_INITIAL_DELAY: 1000,
   SELECTORS: {
@@ -316,36 +316,23 @@ const PollingService = {
     let consecutiveErrors = 0;
     const MAX_CONSECUTIVE_ERRORS = 3;
 
-    functions.logger.info("Starting polling for results:", {
-      jobId,
-      maxAttempts,
-      initialDelay: 5000
-    });
+    functions.logger.info(`Started polling job ${jobId}`);
 
     while (attempts < maxAttempts) {
       attempts++;
       const nextDelay = PollingService.calculateNextDelay(elapsedTime);
       
       try {
-        functions.logger.debug("Polling attempt:", {
-          jobId,
-          attempt: attempts,
-          elapsedTime,
-          nextDelay,
-          consecutiveErrors
-        });
-
         const jobStatus = await ApiService.checkJobStatus(jobId);
-        
-        // Reset consecutive errors on successful API call
         consecutiveErrors = 0;
         
+        // Log every 5th attempt or status change
+        if (attempts % 5 === 0 || jobStatus.status !== 'pending') {
+          functions.logger.info(`Job ${jobId} status: ${jobStatus.status} (attempt ${attempts})`);
+        }
+        
         if (jobStatus.status === 'done') {
-          functions.logger.info("Polling successful:", {
-            jobId,
-            totalAttempts: attempts,
-            totalTimeMs: elapsedTime
-          });
+          functions.logger.info(`Job ${jobId} completed in ${elapsedTime}ms`);
           return await ApiService.getJobResults(jobId);
         }
         
@@ -353,7 +340,6 @@ const PollingService = {
           throw new Error(`Job faulted with status: ${JSON.stringify(jobStatus)}`);
         }
 
-        // Additional status handling
         if (jobStatus.status === 'failed') {
           throw new Error(`Job failed with status: ${JSON.stringify(jobStatus)}`);
         }
@@ -365,20 +351,11 @@ const PollingService = {
       } catch (error) {
         consecutiveErrors++;
         
-        functions.logger.error("Polling attempt error:", {
-          jobId,
-          attempt: attempts,
-          error: error.message,
-          consecutiveErrors,
-          elapsedTime
-        });
-
-        // If we hit too many consecutive errors, abort
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+          functions.logger.error(`Job ${jobId} failed after ${consecutiveErrors} errors: ${error.message}`);
           throw new Error(`Polling aborted after ${consecutiveErrors} consecutive errors: ${error.message}`);
         }
 
-        // On error, we might want to wait a bit longer before retrying
         await new Promise(resolve => setTimeout(resolve, nextDelay * 1.5));
         elapsedTime += nextDelay * 1.5;
         continue;
@@ -424,9 +401,9 @@ const FirestoreService = {
     }
 
     const docRef = db.collection('users')
-                    .doc(userId)
-                    .collection('scrapedjobs')
-                    .doc(jobDetail.basicInfo.job_id);  
+                .doc(userId)
+                .collection('scrapedjobs')
+                .doc(jobDetail.basicInfo.job_id);
     
     functions.logger.info("Saving job to Firestore:", {
       userId,
@@ -446,8 +423,17 @@ const FirestoreService = {
       createdAt: FieldValue.serverTimestamp()
     });
 
+    // First check if the document exists
+    const doc = await docRef.get();
+    if (!doc.exists) {
+        // Only create if it doesn't exist
+        await docRef.set(cleanedDetails);
+    } else {
+        // Update if it exists
+        await docRef.update(cleanedDetails);
+    } 
+
     try {
-      await docRef.set(cleanedDetails, { merge: true });
       functions.logger.info("Successfully saved job to Firestore:", {
         userId,
         jobId: jobDetail.basicInfo.job_id,
@@ -606,18 +592,18 @@ const JobProcessor = {
 
 // ============= MAIN FUNCTION =============
 exports.searchJobs = onRequest({ 
-  timeoutSeconds: 540,
+  timeoutSeconds: 20,
   memory: "1GiB"
 }, async (req, res) => {
   const startTime = Date.now();
-  const { userId, keywords, location } = req.query;
+  const { userId, q, l } = req.query;  // Changed to match frontend parameter names
 
   if (!userId) {
     return res.status(400).json({ error: "userId is required" });
   }
 
   try {
-    const searchUrl = UrlBuilders.buildSearchUrl(keywords, location);
+    const searchUrl = UrlBuilders.buildSearchUrl(q, l);  // Pass q instead of keywords
     functions.logger.info("Search URL:", { url: searchUrl });
 
     const searchPayload = PayloadBuilders.createSearchPayload(searchUrl);
