@@ -368,75 +368,84 @@
 
     <!-- Results -->
     {#if $scrapeStore.length > 0}
-    <div class="space-y-4">
-      {#each $scrapeStore as job}
-        <article class="card variant-filled-surface p-4">
-          <header class="mb-4">
-            <h3 class="h3">{job.title || 'Untitled Position'}</h3>
-            <p class="font-bold">{job.company || 'Company Not Listed'}</p>
-            
-            <div class="flex flex-wrap gap-2 text-sm opacity-75">
-              {#if job.location}
-                <span>{job.location}</span>
-              {/if}
-              {#if job.datePosted}
-                <span>•</span>
-                <span>{new Date(job.datePosted).toLocaleDateString()}</span>
-              {/if}
-              {#if job.id}
-                <span>•</span>
-                <span class="font-mono">ID: {job.id}</span>
-              {/if}
-            </div>
-          </header>
-          
-          <!-- Salary Information -->
-          {#if job.salary?.displayText}
-            <div class="text-success-500 font-semibold">
-              {job.salary.displayText}
-            </div>
-          {/if}
-          
-          <!-- Schedule Information -->
-          {#if job.schedule}
-            <div class="text-sm opacity-75">
-              {job.schedule}
-            </div>
-          {/if}
-          
-
-          <!-- Description Section -->
-          {#if job.description}
-            <div class="prose max-w-none">
-              {#each job.description.split('\n\n') as paragraph}
-                {#if paragraph.trim()}
-                  <p class="whitespace-pre-line mb-4">{paragraph}</p>
-                {/if}
-              {/each}
-            </div>
-          {/if}
-  
-          <div class="mt-6">
-            {#if job.jobUrl}
-              <a 
-                href={job.jobUrl} 
-                target="_blank" 
-                rel="noopener noreferrer"
-                class="btn variant-ghost-primary"
-              >
-                View Full Job Details
-              </a>
-            {/if}
+<div class="space-y-4">
+  {#each $scrapeStore as job}
+    <article class="card variant-filled-surface p-4">
+      <!-- Match Score Display -->
+      {#if job.matchScore?.score !== undefined}
+        <div class="mb-4">
+          <div class="text-4xl font-bold text-success-500 flex items-center gap-2">
+            {job.matchScore.score}%
+            <span class="text-base opacity-75">match</span>
           </div>
-        </article>
-      {/each}
-    </div>
-  {:else}
-    {#if $totalJobs > 0}
-      <div class="alert variant-ghost-warning">
-        <p>Loading job details...</p>
+        </div>
+      {/if}
+
+      <header class="mb-4">
+        <h3 class="h3">{job.title || 'Untitled Position'}</h3>
+        <p class="font-bold">{job.company || 'Company Not Listed'}</p>
+        
+        <div class="flex flex-wrap gap-2 text-sm opacity-75">
+          {#if job.location}
+            <span>{job.location}</span>
+          {/if}
+          {#if job.datePosted}
+            <span>•</span>
+            <span>{new Date(job.datePosted).toLocaleDateString()}</span>
+          {/if}
+          {#if job.id}
+            <span>•</span>
+            <span class="font-mono">ID: {job.id}</span>
+          {/if}
+        </div>
+      </header>
+      
+      <!-- Salary Information -->
+      {#if job.salary?.displayText}
+        <div class="text-success-500 font-semibold">
+          {job.salary.displayText}
+        </div>
+      {/if}
+      
+      <!-- Schedule Information -->
+      {#if job.schedule}
+        <div class="text-sm opacity-75">
+          {job.schedule}
+        </div>
+      {/if}
+      
+      <!-- Description Section -->
+      {#if job.description}
+        <div class="prose max-w-none">
+          {#each job.description.split('\n\n') as paragraph}
+            {#if paragraph.trim()}
+              <p class="whitespace-pre-line mb-4">{paragraph}</p>
+            {/if}
+          {/each}
+        </div>
+      {/if}
+
+      <div class="mt-6">
+        {#if job.jobUrl}
+          <a 
+            href={job.jobUrl} 
+            target="_blank" 
+            rel="noopener noreferrer"
+            class="btn variant-ghost-primary"
+          >
+            View Full Job Details
+          </a>
+        {/if}
       </div>
-    {/if}
+    </article>
+  {/each}
+</div>
+{:else}
+  {#if $totalJobs > 0}
+    <div class="alert variant-ghost-warning">
+      <p>Loading job details...</p>
+    </div>
   {/if}
+{/if}
   </div>
 </div>

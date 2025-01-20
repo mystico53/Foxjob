@@ -134,6 +134,10 @@ export function initJobListener(db, uid) {
               
               // Employment Details
               employmentType: data.details?.employmentType?.[0],
+
+              matchScore: {
+                score: data.embeddingMatch?.score || 0,
+              },
               
               // Dates and Metadata
               datePosted: data.details?.datePosted,

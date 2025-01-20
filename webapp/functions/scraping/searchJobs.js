@@ -21,7 +21,7 @@ const CONFIG = {
     OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries',
     OXYLABS_BATCH: 'https://data.oxylabs.io/v1/queries/batch',
   },
-  MAX_JOBS_TO_PROCESS: 1,
+  MAX_JOBS_TO_PROCESS: 3,
   POLLING_MAX_ATTEMPTS: 30,
   POLLING_INITIAL_DELAY: 1000,
   SELECTORS: {
