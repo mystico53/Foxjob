@@ -21,7 +21,7 @@ const CONFIG = {
     OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries',
     OXYLABS_BATCH: 'https://data.oxylabs.io/v1/queries/batch',
   },
-  MAX_JOBS_TO_PROCESS: 3,
+  MAX_JOBS_TO_PROCESS: 12,
   POLLING_MAX_ATTEMPTS: 30,
   POLLING_INITIAL_DELAY: 1000,
   SELECTORS: {
@@ -262,6 +262,26 @@ const ApiService = {
             { headers: AuthHelpers.getAuthHeader() }
         );
 
+        functions.logger.info("Detailed API Response:", {
+          headers: response.headers,
+          rateLimits: {
+              remaining: response.headers['x-ratelimit-remaining'],
+              limit: response.headers['x-ratelimit-limit'],
+              reset: response.headers['x-ratelimit-reset']
+          },
+          quotaInfo: {
+              renderQuotaRemaining: response.headers['x-render-quota-remaining'],
+              renderQuotaLimit: response.headers['x-render-quota-limit'],
+              renderQuotaReset: response.headers['x-render-quota-reset']
+          },
+          responseData: {
+              status: response.status,
+              statusText: response.statusText,
+              dataSize: JSON.stringify(response.data).length,
+              queryCount: response.data.queries?.length
+          }
+      });
+
         const { queries } = response.data;
 
         if (!queries || !queries.length) {
@@ -322,10 +342,49 @@ const ApiService = {
   },
 
   getAllBatchResults: async (jobIds) => {
-    const results = await Promise.all(
+    functions.logger.info("Starting to fetch all batch results", {
+      totalJobs: jobIds.length
+    });
+
+    // Use Promise.allSettled instead of Promise.all to handle partial failures
+    const results = await Promise.allSettled(
       jobIds.map(jobId => PollingService.pollForResults(jobId))
     );
-    return results;
+
+    // Process the results
+    const successfulResults = [];
+    const failedResults = [];
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        successfulResults.push({
+          jobId: jobIds[index],
+          data: result.value
+        });
+      } else {
+        failedResults.push({
+          jobId: jobIds[index],
+          error: result.reason.message
+        });
+      }
+    });
+
+    functions.logger.info("Batch results processing complete", {
+      totalJobs: jobIds.length,
+      successfulJobs: successfulResults.length,
+      failedJobs: failedResults.length
+    });
+
+    if (failedResults.length > 0) {
+      functions.logger.warn("Some jobs failed in batch", {
+        failedJobs: failedResults
+      });
+    }
+
+    return {
+      successful: successfulResults,
+      failed: failedResults
+    };
   },
 
   getJobResults: async (jobId) => {
@@ -575,99 +634,141 @@ const JobProcessor = {
         queryIds: batchSubmission.ids
       });
 
-      // Get all results from batch processing
+      // Get all results from batch processing using allSettled
       const batchResults = await ApiService.getAllBatchResults(batchSubmission.ids);
 
-      // Process and save results
-      const processedResults = await Promise.all(
-        batchResults.map(async (result, index) => {
-          const job = jobsToProcess[index];
-          const queryInfo = batchSubmission.queries[index];
-          const content = result.results?.[0]?.content;
+      // Process and save results with error handling for each job
+      const processedResults = await Promise.allSettled(
+        batchResults.successful.map(async (result, index) => {
+          try {
+            const job = jobsToProcess[index];
+            const queryInfo = batchSubmission.queries[index];
+            const content = result.data.results?.[0]?.content;
 
-          let jobDetails = {};
-          
-          // Try to parse JSON-LD data first
-          if (content?.jsonLd) {
-            try {
-              const jsonLd = JSON.parse(content.jsonLd);
-              jobDetails = {
-                title: jsonLd.title,
-                description: HtmlAnalyzer.extractCleanContent(jsonLd.description),
-                location: jsonLd.jobLocation?.address ? 
-                  `${jsonLd.jobLocation.address.addressLocality}, ${jsonLd.jobLocation.address.addressRegion}` : 
-                  null,
-                salary: jsonLd.baseSalary ? {
-                  min: jsonLd.baseSalary.value.minValue,
-                  max: jsonLd.baseSalary.value.maxValue,
-                  currency: jsonLd.baseSalary.currency,
-                  unit: jsonLd.baseSalary.value.unitText
-                } : null,
-                company: jsonLd.hiringOrganization?.name,
-                employmentType: jsonLd.employmentType,
-                datePosted: jsonLd.datePosted,
-                validThrough: jsonLd.validThrough
-              };
-
-              functions.logger.info("Successfully parsed JSON-LD data", {
-                jobId: job.job_id,
-                hasDescription: !!jobDetails.description,
-                hasSalary: !!jobDetails.salary
-              });
-            } catch (error) {
-              functions.logger.error("Error parsing JSON-LD:", {
-                error: error.message,
-                jobId: job.job_id
-              });
+            if (!content) {
+              throw new Error('No content in response');
             }
+
+            let jobDetails = {};
+            
+            // Try to parse JSON-LD data first
+            if (content?.jsonLd) {
+              try {
+                const jsonLd = JSON.parse(content.jsonLd);
+                jobDetails = {
+                  title: jsonLd.title,
+                  description: HtmlAnalyzer.extractCleanContent(jsonLd.description),
+                  location: jsonLd.jobLocation?.address ? 
+                    `${jsonLd.jobLocation.address.addressLocality}, ${jsonLd.jobLocation.address.addressRegion}` : 
+                    null,
+                  salary: jsonLd.baseSalary ? {
+                    min: jsonLd.baseSalary.value.minValue,
+                    max: jsonLd.baseSalary.value.maxValue,
+                    currency: jsonLd.baseSalary.currency,
+                    unit: jsonLd.baseSalary.value.unitText
+                  } : null,
+                  company: jsonLd.hiringOrganization?.name,
+                  employmentType: jsonLd.employmentType,
+                  datePosted: jsonLd.datePosted,
+                  validThrough: jsonLd.validThrough
+                };
+
+                functions.logger.info("Successfully parsed JSON-LD data", {
+                  jobId: job.job_id,
+                  hasDescription: !!jobDetails.description,
+                  hasSalary: !!jobDetails.salary
+                });
+              } catch (error) {
+                functions.logger.error("Error parsing JSON-LD:", {
+                  error: error.message,
+                  jobId: job.job_id
+                });
+              }
+            }
+
+            // Merge with or fallback to CSS selector data
+            const selectorData = {
+              title: content?.jobTitle,
+              description: HtmlAnalyzer.extractCleanContent(content?.description),
+              location: content?.location,
+              company: content?.companyName,
+              salary: content?.salary,
+              employmentType: content?.employmentType
+            };
+
+            // Combine both sources, preferring JSON-LD when available
+            const combinedDetails = {
+              title: jobDetails.title || selectorData.title,
+              description: jobDetails.description || selectorData.description,
+              location: jobDetails.location || selectorData.location,
+              company: jobDetails.company || selectorData.company,
+              salary: jobDetails.salary || selectorData.salary,
+              employmentType: jobDetails.employmentType || selectorData.employmentType,
+              datePosted: jobDetails.datePosted,
+              validThrough: jobDetails.validThrough
+            };
+
+            const details = {
+              basicInfo: job,
+              details: combinedDetails,
+              verificationStatus: "Success",
+              queryInfo: {
+                id: queryInfo.id,
+                created_at: queryInfo.created_at,
+                status: queryInfo.status
+              }
+            };
+
+            await FirestoreService.saveJobToUserCollection(userId, details);
+            return details;
+          } catch (error) {
+            functions.logger.error("Error processing individual job:", {
+              jobId: jobsToProcess[index]?.job_id,
+              error: error.message
+            });
+            return {
+              basicInfo: jobsToProcess[index],
+              verificationStatus: "Failed",
+              error: error.message
+            };
           }
-
-          // Merge with or fallback to CSS selector data
-          const selectorData = {
-            title: content?.jobTitle,
-            description: HtmlAnalyzer.extractCleanContent(content?.description),
-            location: content?.location,
-            company: content?.companyName,
-            salary: content?.salary,
-            employmentType: content?.employmentType
-          };
-
-          // Combine both sources, preferring JSON-LD when available
-          const combinedDetails = {
-            title: jobDetails.title || selectorData.title,
-            description: jobDetails.description || selectorData.description,
-            location: jobDetails.location || selectorData.location,
-            company: jobDetails.company || selectorData.company,
-            salary: jobDetails.salary || selectorData.salary,
-            employmentType: jobDetails.employmentType || selectorData.employmentType,
-            datePosted: jobDetails.datePosted,
-            validThrough: jobDetails.validThrough
-          };
-
-          const details = {
-            basicInfo: job,
-            details: combinedDetails,
-            verificationStatus: "Success",
-            queryInfo: {
-              id: queryInfo.id,
-              created_at: queryInfo.created_at,
-              status: queryInfo.status
-            }
-          };
-
-          await FirestoreService.saveJobToUserCollection(userId, details);
-          return details;
         })
       );
 
+      // Separate successful and failed processes
+      const successfulProcesses = processedResults
+        .filter(r => r.status === 'fulfilled' && r.value?.verificationStatus === 'Success')
+        .map(r => r.value);
+      
+      const failedProcesses = [
+        ...processedResults
+          .filter(r => r.status === 'rejected' || r.value?.verificationStatus === 'Failed')
+          .map(r => r.status === 'rejected' ? r.reason : r.value),
+        ...batchResults.failed.map(f => ({
+          basicInfo: jobsToProcess[batchResults.successful.findIndex(s => s.jobId === f.jobId)],
+          verificationStatus: "Failed",
+          error: f.error
+        }))
+      ];
+
       functions.logger.info("Completed batch job processing:", {
         userId,
-        totalProcessed: processedResults.length,
-        successfulJobs: processedResults.filter(r => r !== null).length,
+        totalAttempted: jobsToProcess.length,
+        successfulJobs: successfulProcesses.length,
+        failedJobs: failedProcesses.length,
         totalTimeMs: Date.now() - startTime
       });
 
-      return processedResults;
+      return {
+        successful: successfulProcesses,
+        failed: failedProcesses,
+        stats: {
+          totalAttempted: jobsToProcess.length,
+          successfulJobs: successfulProcesses.length,
+          failedJobs: failedProcesses.length,
+          processingTimeMs: Date.now() - startTime
+        }
+      };
 
     } catch (error) {
       functions.logger.error("Error in batch processing:", {
@@ -739,7 +840,14 @@ exports.searchJobs = onRequest({
         userId,
         jobs: jobs,
         count: jobs.length,
-        jobDetails: jobDetailsResults
+        successfulDetails: jobDetailsResults.successful,
+        failedDetails: jobDetailsResults.failed,
+        stats: {
+          totalJobs: jobs.length,
+          successfulJobs: jobDetailsResults.successful.length,
+          failedJobs: jobDetailsResults.failed.length,
+          processingTimeMs: Date.now() - startTime
+        }
       });
     }
 
