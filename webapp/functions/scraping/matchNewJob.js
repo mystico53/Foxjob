@@ -29,115 +29,99 @@ const jobParserService = {
         console.log('\n=== Input Text ===\n', text);
 
         const extracted = {
-            requirements: [],      
-            responsibilities: [],  
-            tools: new Set(),     
-            experience: []        
+            requirements: [],      // All requirements and qualifications
+            responsibilities: [],  // Job duties and tasks
+            tools: new Set(),
+            experience: []       // Technical skills and technologies
         };
 
         const patterns = {
-            // Split document into major sections first
-            sections: {
-                education: /education(?:\s*&\s*experience)?:?[\s\n]+(.*?)(?=\n\s*\n|$)/is,
-                responsibilities: /(?:depth\s*&\s*scope|responsibilities|job\s*description):?[\s\n]+(.*?)(?=\n\s*(?:education|physical|who\s*we\s*are)|$)/is,
-                physical: /physical\s*requirements:?[\s\n]+(.*?)(?=\n\s*(?:who\s*we\s*are|additional|$))/is
-            },
-
-            // Pattern for bullet points or numbered lists
-            bulletPoints: /(?:^|\n)\s*[•\-\*\d]+\s*(.+?)(?=\n|$)/gm,
-
-            // Pattern for skills and tools, excluding common words
-            skills: /(?:proficient|experience|expertise|knowledge|skills?|mastery|understanding|competency|familiarity)\s+(?:with|in|of|using)\s+([^.]*?)(?=\.|\n|,|\(|or)/gi,
+            // Comprehensive requirements pattern combining all qualification-related sections
+            requirements: /(?:minimum qualifications|basic qualifications|required|requirements|qualifications|what we['']re looking for|what you need|key qualifications|required skills|preferred qualifications|who you are|ideal candidate|what you bring|candidate requirements|must have|you should have|you will need|job requirements|position requirements|skills needed|required experience|essential requirements|desired skills|candidate profile|your profile|your background|what it takes|skill requirements|required attributes|experience required|experience|background|track record|work history|previous roles|prerequisites?|about you)[:\s]+(.*?)(?=(?:\n\s*\n|\n(?:[A-Z][a-z]|\n|About|Responsibilities||Company))|$)/is,
             
-            // Pattern for years of experience
-            yearsExp: /(\d+(?:\+|\s*-\s*\d+)?)\s*(?:years?|yrs?)(?:\s+of)?\s+(?:work\s+)?experience/gi
+            // Comprehensive responsibilities pattern
+            responsibilities: /(?:responsibilities|job responsibilities|the role|what you['']ll do|key responsibilities|essential functions|how you will fulfill your potential|key duties|job description|position overview|role overview|day to day|main duties|core responsibilities|your role|job duties|primary responsibilities|principal duties|position responsibilities|what you will be doing|your responsibilities|job function|role description|primary duties|key activities|scope of work|job scope|objectives|mission|purpose of role)[:\s]+(.*?)(?=(?:\n\s*\n|\n(?:[A-Z][a-z]|\n|About|Requirements|Qualifications|Benefits|Company|Location))|$)/is,
+            
+            // Pattern for technical skills
+            technicalSkills: /(?:proficiency|experience|expertise|knowledge|skills?|mastery|understanding|background|competency|familiarity|capability|literacy|fluency|command)\s+(?:with|in|of|using)\s+([^.]*?)(?=\.|\n|,|\(|or)/gi,
+        
         };
 
         // Helper function to clean text
         const cleanText = (text) => {
-            if (!text) return [];
-            return text
-                .split('\n')
+            return text.split('\n')
                 .map(line => line.trim())
-                .filter(line => {
-                    // Filter out empty lines and common headers
-                    return line.length > 2 && 
-                           !line.match(/^(?:requirements?|responsibilities|education|experience|physical):?$/i);
-                })
-                .map(line => {
-                    // Clean up bullet points and leading symbols
-                    return line.replace(/^[-•*\d]+\s*/, '').trim();
-                });
+                .filter(line => line.length > 2)
+                .map(line => line.replace(/^[-•*]\s*/, '').trim())
+                .filter(line => !line.match(/^[A-Za-z\s&]+:$/));
         };
 
-        // Extract sections
-        const sections = {};
-        for (const [name, pattern] of Object.entries(patterns.sections)) {
-            const match = text.match(pattern);
-            if (match) {
-                sections[name] = match[1];
+        // Extract main sections
+        console.log('\n=== Extracting Main Sections ===');
+        ['requirements', 'responsibilities'].forEach(section => {
+            try {
+                const match = text.match(patterns[section]);
+                if (match) {
+                    console.log(`\nFound ${section} section:`, match[1]);
+                    const cleanedSection = cleanText(match[1]);
+                    console.log(`Cleaned ${section}:`, cleanedSection);
+                    extracted[section] = cleanedSection;
+                } else {
+                    logger.warn(`No match found for ${section} section`);
+                }
+            } catch (error) {
+                logger.error(`Error processing ${section} section:`, error);
+                extracted[section] = [];
             }
-        }
+        });
 
-        // Process responsibilities
-        if (sections.responsibilities) {
-            // Extract bullet points from responsibilities section
-            const bulletPoints = [...sections.responsibilities.matchAll(patterns.bulletPoints)]
-                .map(match => match[1].trim())
-                .filter(point => point.length > 10);  // Filter out very short points
-
-            extracted.responsibilities = bulletPoints.length > 0 ? 
-                bulletPoints : 
-                cleanText(sections.responsibilities);
-        }
-
-        // Process education and experience
-        if (sections.education) {
-            // Extract requirements including education and experience
-            const requirements = [...sections.education.matchAll(patterns.bulletPoints)]
-                .map(match => match[1].trim())
-                .filter(point => point.length > 10);
-
-            extracted.requirements = requirements.length > 0 ? 
-                requirements : 
-                cleanText(sections.education);
-
-            // Extract years of experience
-            const expMatches = sections.education.matchAll(patterns.yearsExp);
-            for (const match of expMatches) {
-                extracted.experience.push(match[0]);
-            }
-        }
-
-        // Extract skills and tools
-        const skillMatches = text.matchAll(patterns.skills);
-        const commonWords = new Set(['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by']);
+        // Extract technical skills and tools
+        console.log('\n=== Extracting Technical Skills ===');
         
+        // From explicit skill mentions
+        const skillMatches = text.matchAll(patterns.technicalSkills);
         for (const match of skillMatches) {
             const skills = match[1]
                 .split(/[,\s]+/)
-                .map(s => s.trim().toLowerCase())
-                .filter(s => {
-                    return s.length > 2 && 
-                           !commonWords.has(s) &&
-                           !s.match(/^(and|or|with|using)$/i);
-                });
+                .map(s => s.trim())
+                .filter(s => s.length > 1);
             
             skills.forEach(skill => {
                 const cleanSkill = skill.replace(/[,.]$/, '');
-                if (cleanSkill.length > 2) {
+                if (cleanSkill.length > 1 && !cleanSkill.match(/^(and|or|with|using)$/i)) {
+                    console.log('Found skill mention:', cleanSkill);
                     extracted.tools.add(cleanSkill);
                 }
             });
         }
 
-        // Final cleanup and deduplication
+        // From technology keywords
+        const techMatches = text.match(patterns.technologies) || [];
+        techMatches.forEach(tech => {
+            const cleanTech = tech.trim().replace(/[,.]$/, '');
+            console.log('Found technology:', cleanTech);
+            extracted.tools.add(cleanTech);
+        });
+
+        // Additional Requirements section
+        const additionalReqMatch = text.match(/Additional Requirements:[^\n]*\n(.*?)(?=\n\s*\n|$)/s);
+        if (additionalReqMatch) {
+            console.log('\n=== Processing Additional Requirements ===');
+            const additionalReqs = cleanText(additionalReqMatch[1]);
+            console.log('Additional requirements:', additionalReqs);
+            extracted.requirements = [...extracted.requirements, ...additionalReqs];
+        }
+
+        // Final cleanup
+        console.log('\n=== Final Cleanup ===');
         extracted.tools = Array.from(extracted.tools);
+        
         for (const [key, value] of Object.entries(extracted)) {
             if (Array.isArray(value)) {
                 extracted[key] = [...new Set(value)]
                     .map(item => item.trim())
                     .filter(item => item.length > 2);
+                console.log(`\nFinal ${key}:`, extracted[key]);
             }
         }
 
@@ -295,7 +279,7 @@ const matchingService = {
 
 // ===== Main Function =====
 exports.matchNewJob = onDocumentCreated(
-    'users/{userId}/scrapedjobs/{jobId}',
+    'users/{userId}/scrapedjobsDEBUG/{jobId}',
     async (event) => {
         logger.debug('Trigger received event:', {
             path: event.data.ref.path,

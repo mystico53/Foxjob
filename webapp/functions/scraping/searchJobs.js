@@ -21,7 +21,7 @@ const CONFIG = {
     OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries',
     OXYLABS_BATCH: 'https://data.oxylabs.io/v1/queries/batch',
   },
-  MAX_JOBS_TO_PROCESS: 12,
+  MAX_JOBS_TO_PROCESS: 5,
   POLLING_MAX_ATTEMPTS: 30,
   POLLING_INITIAL_DELAY: 1000,
   SELECTORS: {
@@ -201,6 +201,15 @@ const HtmlAnalyzer = {
 // ============= API SERVICE =============
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+const extractIndeedJobId = (url) => {
+  if (!url) return url;
+  if (url.includes('jk=')) {
+    const match = url.match(/jk=([^&]+)/);
+    return match ? match[1] : url;
+  }
+  return url;
+};
+
 const ApiService = {
   submitSearchJob: async (payload) => {
     // Add delay of 1-2 seconds before making request
@@ -229,22 +238,60 @@ const ApiService = {
   },
 
   checkJobStatus: async (jobId) => {
-    // No need for delay here as this is just checking status
-    functions.logger.debug("Checking job status:", { jobId });
-    
-    const response = await axios.get(
-      `${CONFIG.BASE_URLS.OXYLABS}/${jobId}`,
-      { headers: AuthHelpers.getAuthHeader() }
-    );
+    try {
+      const response = await axios.get(
+        `${CONFIG.BASE_URLS.OXYLABS}/${jobId}`,
+        { headers: AuthHelpers.getAuthHeader() }
+      );
+      
+      // Add detailed error logging for faulted/failed states
+      if (response.data.status === 'faulted' || response.data.status === 'failed') {
+        // Log complete response data
+        functions.logger.error("Job failure details:", {
+          jobId,
+          status: response.data.status,
+          url: response.data.url,
+          createdAt: response.data.created_at,
+          updatedAt: response.data.updated_at,
+          context: response.data.context,
+          statuses: response.data.statuses,
+          clientNotes: response.data.client_notes,
+          // Add these additional fields
+          session_info: response.data.session_info,
+          storage_type: response.data.storage_type,
+          storage_url: response.data.storage_url,
+          render_status: response.data.render_status,
+          parsing_status: response.data.parsing_status,
+          // Log any error codes/messages that might be nested
+          errors: response.data.errors || response.data.error,
+          // Log the full raw response for complete investigation
+          rawResponse: response.data
+        });
 
-    functions.logger.info("Job status response:", {
-      jobId,
-      status: response.data.status,
-      progress: response.data.progress
-    });
-
-    return response.data;
-  },
+        // Also log the last known good state
+        if (response.data.statuses && response.data.statuses.length > 0) {
+          functions.logger.info("Last known states before failure:", {
+            jobId,
+            statusHistory: response.data.statuses
+          });
+        }
+      }
+      return response.data;
+    } catch (error) {
+      // Log API error details
+      functions.logger.error("Job status check failed:", {
+        jobId,
+        errorResponse: error.response?.data,
+        errorStatus: error.response?.status,
+        errorHeaders: error.response?.headers,
+        // Add these
+        errorMessage: error.message,
+        errorName: error.name,
+        errorStack: error.stack
+      });
+      throw error;
+    }
+},
 
   submitBatchJob: async (payload) => {
     functions.logger.info("Submitting batch job to Oxylabs:", {
@@ -418,104 +465,152 @@ const PollingService = {
     return 30000;
   },
 
-  pollForResults: async (jobId, maxAttempts = CONFIG.POLLING_MAX_ATTEMPTS) => {
-    let attempts = 0;
-    let elapsedTime = 0;
-    let consecutiveErrors = 0;
-    let lastLoggedStatus = null;
-    const MAX_CONSECUTIVE_ERRORS = 3;
+  pollForResults: async (jobId, maxAttempts = CONFIG.POLLING_MAX_ATTEMPTS, totalRetries = 3) => {
+    let retryCount = 0;
+    let originalJobId = jobId; // Store the original URL/ID for retries
     
-    functions.logger.debug(`Started polling job ${jobId}`);
-
-    while (attempts < maxAttempts) {
-      attempts++;
-      const nextDelay = PollingService.calculateNextDelay(elapsedTime);
+    while (retryCount < totalRetries) {
+      let attempts = 0;
+      let elapsedTime = 0;
+      let consecutiveErrors = 0;
+      let lastLoggedStatus = null;
+      const MAX_CONSECUTIVE_ERRORS = 3;
       
+      functions.logger.debug(`Started polling job ${jobId} (retry ${retryCount + 1}/${totalRetries})`);
+
       try {
-        const jobStatus = await ApiService.checkJobStatus(jobId);
-        
-        // First, check for terminal states before any other processing
-        if (jobStatus.status === 'faulted' || jobStatus.status === 'failed') {
-          functions.logger.error({
-            message: `Job entered terminal state: ${jobStatus.status}`,
-            jobId,
-            attempts,
-            durationMs: elapsedTime,
-            url: jobStatus.url,
-            errorDetails: {
-              status: jobStatus.status,
-              updatedAt: jobStatus.updated_at,
-              clientNotes: jobStatus.client_notes
+        while (attempts < maxAttempts) {
+          attempts++;
+          const nextDelay = PollingService.calculateNextDelay(elapsedTime);
+          
+          try {
+            const jobStatus = await ApiService.checkJobStatus(jobId);
+            
+            // First, check for terminal states before any other processing
+            if (jobStatus.status === 'faulted' || jobStatus.status === 'failed') {
+              functions.logger.error({
+                message: `Job entered terminal state: ${jobStatus.status}`,
+                jobId,
+                attempts,
+                durationMs: elapsedTime,
+                url: jobStatus.url,
+                errorDetails: {
+                  status: jobStatus.status,
+                  updatedAt: jobStatus.updated_at,
+                  clientNotes: jobStatus.client_notes
+                }
+              });
+              // Instead of rejecting, throw error to trigger retry
+              throw new Error(`Job ${jobStatus.status} - Triggering retry`);
             }
-          });
-          // Exit immediately on terminal states
-          return Promise.reject(new Error(`Job ${jobStatus.status} - ${jobStatus.client_notes || 'No additional details'}`));
-        }
 
-        // Reset error counter on successful response
-        consecutiveErrors = 0;
-        
-        // Log status transitions
-        if (jobStatus.status !== lastLoggedStatus) {
-          functions.logger.debug(`Job ${jobId} transitioned to ${jobStatus.status}`);
-          lastLoggedStatus = jobStatus.status;
-        }
-        
-        // Handle successful completion
-        if (jobStatus.status === 'done') {
-          functions.logger.info({
-            message: 'Job completed',
-            jobId,
-            totalAttempts: attempts,
-            durationMs: elapsedTime,
-            finalStatus: jobStatus.status
-          });
-          return await ApiService.getJobResults(jobId);
-        }
+            // Reset error counter on successful response
+            consecutiveErrors = 0;
+            
+            // Log status transitions
+            if (jobStatus.status !== lastLoggedStatus) {
+              functions.logger.debug(`Job ${jobId} transitioned to ${jobStatus.status}`);
+              lastLoggedStatus = jobStatus.status;
+            }
+            
+            // Handle successful completion
+            if (jobStatus.status === 'done') {
+              functions.logger.info({
+                message: 'Job completed',
+                jobId,
+                totalAttempts: attempts,
+                durationMs: elapsedTime,
+                finalStatus: jobStatus.status,
+                retryCount
+              });
+              return await ApiService.getJobResults(jobId);
+            }
 
-        // Validate status is one we expect
-        if (!['pending', 'running'].includes(jobStatus.status)) {
-          throw new Error(`Unknown status: ${jobStatus.status}`);
+            // Validate status is one we expect
+            if (!['pending', 'running'].includes(jobStatus.status)) {
+              throw new Error(`Unknown status: ${jobStatus.status}`);
+            }
+
+          } catch (error) {
+            consecutiveErrors++;
+            
+            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+              functions.logger.error({
+                message: 'Polling aborted due to consecutive errors',
+                jobId,
+                attempts,
+                consecutiveErrors,
+                error: error.message
+              });
+              throw error;
+            }
+
+            functions.logger.warn({
+              message: 'Retryable error encountered',
+              jobId,
+              attempt: attempts,
+              consecutiveErrors,
+              error: error.message
+            });
+
+            await new Promise(resolve => setTimeout(resolve, nextDelay * 1.5));
+            elapsedTime += nextDelay * 1.5;
+            continue;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, nextDelay));
+          elapsedTime += nextDelay;
         }
+        
+        functions.logger.error({
+          message: 'Max polling attempts reached',
+          jobId,
+          attempts: maxAttempts,
+          totalDurationMs: elapsedTime
+        });
+        throw new Error(`Max attempts (${maxAttempts}) reached after ${elapsedTime}ms`);
 
       } catch (error) {
-        consecutiveErrors++;
+        retryCount++;
         
-        if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          functions.logger.error({
-            message: 'Polling aborted due to consecutive errors',
-            jobId,
-            attempts,
-            consecutiveErrors,
+        if (retryCount >= totalRetries) {
+          functions.logger.error('Max retries reached for job', {
+            originalJobId,
+            currentJobId: jobId,
+            retries: retryCount,
             error: error.message
           });
           throw error;
         }
 
-        functions.logger.warn({
-          message: 'Retryable error encountered',
-          jobId,
-          attempt: attempts,
-          consecutiveErrors,
-          error: error.message
+        functions.logger.info('Retrying job with new submission', {
+          originalJobId,
+          currentJobId: jobId,
+          retryNumber: retryCount,
+          maxRetries: totalRetries
         });
 
-        await new Promise(resolve => setTimeout(resolve, nextDelay * 1.5));
-        elapsedTime += nextDelay * 1.5;
-        continue;
-      }
+        // Create new job submission
+        const indeedJobId = extractIndeedJobId(originalJobId);
+        const jobUrl = originalJobId.includes('http') ? 
+          originalJobId : 
+          `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${indeedJobId}`;
 
-      await new Promise(resolve => setTimeout(resolve, nextDelay));
-      elapsedTime += nextDelay;
+        functions.logger.info('Creating new job submission with:', {
+          originalJobId,
+          indeedJobId,
+          jobUrl
+        });
+        const batchPayload = PayloadBuilders.createBatchJobDetailsPayload([jobUrl]);
+        const submission = await ApiService.submitBatchJob(batchPayload);
+        
+        // Update jobId to new submission while keeping original for reference
+        jobId = submission.ids[0];
+        
+        // Add delay before starting new retry
+        await new Promise(resolve => setTimeout(resolve, 5000));
+      }
     }
-    
-    functions.logger.error({
-      message: 'Max polling attempts reached',
-      jobId,
-      attempts: maxAttempts,
-      totalDurationMs: elapsedTime
-    });
-    throw new Error(`Max attempts (${maxAttempts}) reached after ${elapsedTime}ms`);
   }
 }
 
@@ -603,181 +698,319 @@ const FirestoreService = {
 
 // ============= JOB PROCESSOR =============
 const JobProcessor = {
-  processJobDetails: async (userId, jobs, startTime) => {
-    functions.logger.info("Starting batch job processing:", {
-      userId,
-      totalJobs: jobs.length,
-      jobsToProcess: Math.min(jobs.length, CONFIG.MAX_JOBS_TO_PROCESS)
+  // Track state across all processing
+  state: {
+    activeJobs: new Set(),
+    rateLimit: {
+      limit: null,
+      remaining: null,
+      isLimited: false,
+      lastUpdated: null
+    },
+    processedJobs: {
+      successful: [],
+      failed: [],
+      pending: 0
+    }
+  },
+
+  getRateLimitInfo: (headers) => {
+    if (!headers) return null;
+    
+    // Find the specific render request headers
+    const renderLimitHeader = Object.keys(headers).find(key => 
+      key.toLowerCase().includes('ratelimit') && 
+      key.toLowerCase().includes('render-requests') && 
+      key.toLowerCase().includes('limit')
+    );
+    const renderRemainingHeader = Object.keys(headers).find(key => 
+      key.toLowerCase().includes('ratelimit') && 
+      key.toLowerCase().includes('render-requests') && 
+      key.toLowerCase().includes('remaining')
+    );
+
+    return {
+      limit: parseInt(headers[renderLimitHeader]) || null,
+      remaining: parseInt(headers[renderRemainingHeader]) || null,
+      isLimited: headers[renderRemainingHeader] ? 
+                 parseInt(headers[renderRemainingHeader]) <= 0 : 
+                 false
+    };
+  },
+
+  updateRateLimits: (headers) => {
+    if (!headers) return;
+    
+    const rateLimitInfo = JobProcessor.getRateLimitInfo(headers);
+    if (!rateLimitInfo) return;
+    
+    JobProcessor.state.rateLimit = {
+      ...rateLimitInfo,
+      lastUpdated: new Date()
+    };
+
+    functions.logger.info("Rate limits updated:", {
+      current: JobProcessor.state.rateLimit,
+      activeJobs: JobProcessor.state.activeJobs.size
     });
 
-    try {
-      // Process jobs in batches of 5
-      const jobsToProcess = jobs.slice(0, CONFIG.MAX_JOBS_TO_PROCESS);
-      
-      // Prepare URLs for batch processing
-      const jobUrls = jobsToProcess.map(job => 
-        `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${job.job_id}`
-      );
+    return JobProcessor.state.rateLimit;
+  },
 
-      const batchPayload = PayloadBuilders.createBatchJobDetailsPayload(jobUrls);
+  canStartNewJob: () => {
+    const { remaining, isLimited } = JobProcessor.state.rateLimit;
+    
+    // If we haven't tracked limits yet, assume we can start
+    if (remaining === null) return true;
+    
+    // Check if we have renders remaining and aren't rate limited
+    return remaining > 0 && !isLimited;
+  },
 
-      functions.logger.info("Debug - Full Batch Payload:", {
-        totalUrls: jobUrls.length,
-        firstUrl: jobUrls[0],
-        payload: JSON.stringify(batchPayload, null, 2)
-      });
+  processJobsInRollingBatches: async (userId, jobs, startTime) => {
+    // Reset state for new processing run
+    JobProcessor.state = {
+      activeJobs: new Set(),
+      rateLimit: {
+        limit: null,
+        remaining: null,
+        isLimited: false,
+        lastUpdated: null
+      },
+      processedJobs: {
+        successful: [],
+        failed: [],
+        pending: jobs.length
+      }
+    };
 
-      const batchSubmission = await ApiService.submitBatchJob(batchPayload);
+    const BATCH_SIZE = 3; // Process 3 jobs at a time
+    let currentIndex = 0;
+    let waitTimeMs = 5000; // Initial wait time 5 seconds
 
-      functions.logger.info("Batch jobs created:", {
-        totalQueries: batchSubmission.queries.length,
-        queryIds: batchSubmission.ids
-      });
+    functions.logger.info("Starting rolling batch processing:", {
+      totalJobs: jobs.length,
+      batchSize: BATCH_SIZE
+    });
 
-      // Get all results from batch processing using allSettled
-      const batchResults = await ApiService.getAllBatchResults(batchSubmission.ids);
+    while (currentIndex < jobs.length) {
+      // Check if we can start new jobs
+      if (JobProcessor.canStartNewJob()) {
+        // Calculate how many jobs we can start
+        const availableSlots = Math.min(
+          BATCH_SIZE - JobProcessor.state.activeJobs.size,
+          jobs.length - currentIndex,
+          JobProcessor.state.rateLimit.remaining || BATCH_SIZE
+        );
 
-      // Process and save results with error handling for each job
-      const processedResults = await Promise.allSettled(
-        batchResults.successful.map(async (result, index) => {
-          try {
-            const job = jobsToProcess[index];
-            const queryInfo = batchSubmission.queries[index];
-            const content = result.data.results?.[0]?.content;
+        if (availableSlots > 0) {
+          // Get next batch of jobs
+          const currentBatch = jobs.slice(
+            currentIndex,
+            currentIndex + availableSlots
+          );
 
-            if (!content) {
-              throw new Error('No content in response');
-            }
+          functions.logger.info("Processing new batch:", {
+            batchSize: availableSlots,
+            startIndex: currentIndex,
+            activeJobs: JobProcessor.state.activeJobs.size,
+            rateLimit: JobProcessor.state.rateLimit
+          });
 
-            let jobDetails = {};
-            
-            // Try to parse JSON-LD data first
-            if (content?.jsonLd) {
-              try {
-                const jsonLd = JSON.parse(content.jsonLd);
-                jobDetails = {
-                  title: jsonLd.title,
-                  description: HtmlAnalyzer.extractCleanContent(jsonLd.description),
-                  location: jsonLd.jobLocation?.address ? 
-                    `${jsonLd.jobLocation.address.addressLocality}, ${jsonLd.jobLocation.address.addressRegion}` : 
-                    null,
-                  salary: jsonLd.baseSalary ? {
-                    min: jsonLd.baseSalary.value.minValue,
-                    max: jsonLd.baseSalary.value.maxValue,
-                    currency: jsonLd.baseSalary.currency,
-                    unit: jsonLd.baseSalary.value.unitText
-                  } : null,
-                  company: jsonLd.hiringOrganization?.name,
-                  employmentType: jsonLd.employmentType,
-                  datePosted: jsonLd.datePosted,
-                  validThrough: jsonLd.validThrough
-                };
+          // Process each job in the batch
+          const batchPromises = currentBatch.map(async (job) => {
+            try {
+              const jobUrl = `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${job.job_id}`;
+              JobProcessor.state.activeJobs.add(job.job_id);
 
-                functions.logger.info("Successfully parsed JSON-LD data", {
-                  jobId: job.job_id,
-                  hasDescription: !!jobDetails.description,
-                  hasSalary: !!jobDetails.salary
-                });
-              } catch (error) {
-                functions.logger.error("Error parsing JSON-LD:", {
-                  error: error.message,
-                  jobId: job.job_id
+              // Submit single job as batch
+              const batchPayload = PayloadBuilders.createBatchJobDetailsPayload([jobUrl]);
+              const submission = await ApiService.submitBatchJob(batchPayload);
+              
+              // Update rate limits from response
+              if (submission.headers) {
+                JobProcessor.updateRateLimits(submission.headers);
+              }
+
+              // Get results
+              const result = await ApiService.getAllBatchResults([submission.ids[0]]);
+              
+              // Process the successful result
+              if (result.successful && result.successful.length > 0) {
+                const jobDetails = await JobProcessor.processIndividualJob(
+                  userId, 
+                  job, 
+                  result.successful[0]
+                );
+
+                if (jobDetails.verificationStatus === 'Success') {
+                  JobProcessor.state.processedJobs.successful.push(jobDetails);
+                } else {
+                  JobProcessor.state.processedJobs.failed.push(jobDetails);
+                }
+              } else if (result.failed && result.failed.length > 0) {
+                JobProcessor.state.processedJobs.failed.push({
+                  basicInfo: job,
+                  verificationStatus: "Failed",
+                  error: result.failed[0].error
                 });
               }
+
+            } catch (error) {
+              functions.logger.error("Job processing failed:", {
+                jobId: job.job_id,
+                errorType: error.name,
+                errorMessage: error.message,
+                errorStack: error.stack,
+                responseData: error.response?.data,
+                responseStatus: error.response?.status,
+                responseHeaders: error.response?.headers,
+                attempt: currentAttempt
+              });
+              JobProcessor.state.processedJobs.failed.push({
+                basicInfo: job,
+                verificationStatus: "Failed",
+                error: error.message,
+                errorDetails: {
+                  type: error.name,
+                  response: error.response?.data,
+                  status: error.response?.status
+                }
+              });
+            } finally {
+              JobProcessor.state.activeJobs.delete(job.job_id);
+              JobProcessor.state.processedJobs.pending--;
             }
+          });
 
-            // Merge with or fallback to CSS selector data
-            const selectorData = {
-              title: content?.jobTitle,
-              description: HtmlAnalyzer.extractCleanContent(content?.description),
-              location: content?.location,
-              company: content?.companyName,
-              salary: content?.salary,
-              employmentType: content?.employmentType
-            };
+          // Wait for batch to complete
+          await Promise.allSettled(batchPromises);
+          currentIndex += availableSlots;
 
-            // Combine both sources, preferring JSON-LD when available
-            const combinedDetails = {
-              title: jobDetails.title || selectorData.title,
-              description: jobDetails.description || selectorData.description,
-              location: jobDetails.location || selectorData.location,
-              company: jobDetails.company || selectorData.company,
-              salary: jobDetails.salary || selectorData.salary,
-              employmentType: jobDetails.employmentType || selectorData.employmentType,
-              datePosted: jobDetails.datePosted,
-              validThrough: jobDetails.validThrough
-            };
+          // Log progress
+          functions.logger.info("Rolling batch progress:", {
+            processedJobs: currentIndex,
+            totalJobs: jobs.length,
+            activeJobs: JobProcessor.state.activeJobs.size,
+            rateLimit: JobProcessor.state.rateLimit,
+            successfulSoFar: JobProcessor.state.processedJobs.successful.length,
+            failedSoFar: JobProcessor.state.processedJobs.failed.length,
+            pending: JobProcessor.state.processedJobs.pending
+          });
 
-            const details = {
-              basicInfo: job,
-              details: combinedDetails,
-              verificationStatus: "Success",
-              queryInfo: {
-                id: queryInfo.id,
-                created_at: queryInfo.created_at,
-                status: queryInfo.status
-              }
-            };
+          // Reset wait time after successful processing
+          waitTimeMs = 5000;
 
-            await FirestoreService.saveJobToUserCollection(userId, details);
-            return details;
-          } catch (error) {
-            functions.logger.error("Error processing individual job:", {
-              jobId: jobsToProcess[index]?.job_id,
-              error: error.message
-            });
-            return {
-              basicInfo: jobsToProcess[index],
-              verificationStatus: "Failed",
-              error: error.message
-            };
-          }
-        })
-      );
-
-      // Separate successful and failed processes
-      const successfulProcesses = processedResults
-        .filter(r => r.status === 'fulfilled' && r.value?.verificationStatus === 'Success')
-        .map(r => r.value);
-      
-      const failedProcesses = [
-        ...processedResults
-          .filter(r => r.status === 'rejected' || r.value?.verificationStatus === 'Failed')
-          .map(r => r.status === 'rejected' ? r.reason : r.value),
-        ...batchResults.failed.map(f => ({
-          basicInfo: jobsToProcess[batchResults.successful.findIndex(s => s.jobId === f.jobId)],
-          verificationStatus: "Failed",
-          error: f.error
-        }))
-      ];
-
-      functions.logger.info("Completed batch job processing:", {
-        userId,
-        totalAttempted: jobsToProcess.length,
-        successfulJobs: successfulProcesses.length,
-        failedJobs: failedProcesses.length,
-        totalTimeMs: Date.now() - startTime
-      });
-
-      return {
-        successful: successfulProcesses,
-        failed: failedProcesses,
-        stats: {
-          totalAttempted: jobsToProcess.length,
-          successfulJobs: successfulProcesses.length,
-          failedJobs: failedProcesses.length,
-          processingTimeMs: Date.now() - startTime
+        } else {
+          // No slots available, wait before checking again
+          await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+          waitTimeMs = Math.min(waitTimeMs * 1.5, 30000); // Exponential backoff up to 30 seconds
         }
+      } else {
+        // Rate limited, wait before checking again
+        functions.logger.warn("Rate limit reached, waiting:", {
+          rateLimit: JobProcessor.state.rateLimit,
+          waitTimeMs
+        });
+        await new Promise(resolve => setTimeout(resolve, waitTimeMs));
+        waitTimeMs = Math.min(waitTimeMs * 1.5, 30000); // Exponential backoff up to 30 seconds
+      }
+    }
+
+    const totalTimeMs = Date.now() - startTime;
+    functions.logger.info("Completed rolling batch processing:", {
+      totalJobs: jobs.length,
+      successful: JobProcessor.state.processedJobs.successful.length,
+      failed: JobProcessor.state.processedJobs.failed.length,
+      timeMs: totalTimeMs
+    });
+
+    return {
+      successful: JobProcessor.state.processedJobs.successful,
+      failed: JobProcessor.state.processedJobs.failed,
+      stats: {
+        totalAttempted: jobs.length,
+        successfulJobs: JobProcessor.state.processedJobs.successful.length,
+        failedJobs: JobProcessor.state.processedJobs.failed.length,
+        processingTimeMs: totalTimeMs
+      }
+    };
+  },
+
+  processIndividualJob: async (userId, job, result) => {
+    try {
+      const content = result.data.results?.[0]?.content;
+      if (!content) {
+        throw new Error('No content in response');
+      }
+
+      let jobDetails = {};
+      
+      // Your existing JSON-LD parsing logic...
+      if (content?.jsonLd) {
+        try {
+          const jsonLd = JSON.parse(content.jsonLd);
+          jobDetails = {
+            title: jsonLd.title,
+            description: HtmlAnalyzer.extractCleanContent(jsonLd.description),
+            location: jsonLd.jobLocation?.address ? 
+              `${jsonLd.jobLocation.address.addressLocality}, ${jsonLd.jobLocation.address.addressRegion}` : 
+              null,
+            salary: jsonLd.baseSalary ? {
+              min: jsonLd.baseSalary.value.minValue,
+              max: jsonLd.baseSalary.value.maxValue,
+              currency: jsonLd.baseSalary.currency,
+              unit: jsonLd.baseSalary.value.unitText
+            } : null,
+            company: jsonLd.hiringOrganization?.name,
+            employmentType: jsonLd.employmentType,
+            datePosted: jsonLd.datePosted,
+            validThrough: jsonLd.validThrough
+          };
+        } catch (error) {
+          functions.logger.error("Error parsing JSON-LD:", {
+            error: error.message,
+            jobId: job.job_id
+          });
+        }
+      }
+
+      // Your existing selector data processing...
+      const selectorData = {
+        title: content?.jobTitle,
+        description: HtmlAnalyzer.extractCleanContent(content?.description),
+        location: content?.location,
+        company: content?.companyName,
+        salary: content?.salary,
+        employmentType: content?.employmentType
       };
 
+      const combinedDetails = {
+        title: jobDetails.title || selectorData.title,
+        description: jobDetails.description || selectorData.description,
+        location: jobDetails.location || selectorData.location,
+        company: jobDetails.company || selectorData.company,
+        salary: jobDetails.salary || selectorData.salary,
+        employmentType: jobDetails.employmentType || selectorData.employmentType,
+        datePosted: jobDetails.datePosted,
+        validThrough: jobDetails.validThrough
+      };
+
+      const details = {
+        basicInfo: job,
+        details: combinedDetails,
+        verificationStatus: "Success"
+      };
+
+      await FirestoreService.saveJobToUserCollection(userId, details);
+      return details;
+
     } catch (error) {
-      functions.logger.error("Error in batch processing:", {
-        userId,
-        error: error.message,
-        stack: error.stack,
-        timeMs: Date.now() - startTime
-      });
-      throw error;
+      return {
+        basicInfo: job,
+        verificationStatus: "Failed",
+        error: error.message
+      };
     }
   }
 };
@@ -834,7 +1067,7 @@ exports.searchJobs = onRequest({
 
     if (results.results?.[0]?.content?.job_listings) {
       const jobs = results.results[0].content.job_listings;
-      const jobDetailsResults = await JobProcessor.processJobDetails(userId, jobs, startTime);
+      const jobDetailsResults = await JobProcessor.processJobsInRollingBatches(userId, jobs, startTime);
       
       return res.json({
         userId,
