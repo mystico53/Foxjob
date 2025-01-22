@@ -36,6 +36,11 @@ const CONFIG = {
       DESCRIPTION: "#jobDescriptionText.jobsearch-JobComponent-description",
       POSTING_DATE: ".jobSectionHeader:contains('Job Posting Date') + div, [data-testid='job-posting-date']"
     }
+  },
+  LOGGING: {
+    DEVELOPMENT: 'DEBUG',
+    STAGING: 'INFO',
+    PRODUCTION: 'INFO'
   }
 };
 
@@ -100,6 +105,13 @@ const UrlBuilders = {
   },
 
   buildJobDetailsUrl: (jobId) => {
+    // If we receive a full URL, extract just the job ID
+    if (typeof jobId === 'string' && jobId.includes('jk=')) {
+      const match = jobId.match(/jk=([^&]+)/);
+      if (match) {
+        jobId = match[1];
+      }
+    }
     return `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${jobId}`;
   }
 };
@@ -340,21 +352,21 @@ const ApiService = {
 // ============= POLLING SERVICE =============
 const PollingService = {
   calculateNextDelay: (elapsedTime) => {
-    // Start with shorter intervals and gradually increase
-    if (elapsedTime === 0) return 5000;  // Start with 5s
-    if (elapsedTime < 30000) return 10000;  // 10s intervals until 30s
-    if (elapsedTime < 60000) return 15000;  // 15s intervals until 60s
-    if (elapsedTime < 120000) return 20000; // 20s intervals until 120s
-    return 30000;  // 30s intervals after 120s
+    if (elapsedTime === 0) return 5000;
+    if (elapsedTime < 30000) return 10000;
+    if (elapsedTime < 60000) return 15000;
+    if (elapsedTime < 120000) return 20000;
+    return 30000;
   },
 
   pollForResults: async (jobId, maxAttempts = CONFIG.POLLING_MAX_ATTEMPTS) => {
     let attempts = 0;
     let elapsedTime = 0;
     let consecutiveErrors = 0;
+    let lastLoggedStatus = null;
     const MAX_CONSECUTIVE_ERRORS = 3;
-
-    functions.logger.info(`Started polling job ${jobId}`);
+    
+    functions.logger.debug(`Started polling job ${jobId}`);
 
     while (attempts < maxAttempts) {
       attempts++;
@@ -362,37 +374,72 @@ const PollingService = {
       
       try {
         const jobStatus = await ApiService.checkJobStatus(jobId);
+        
+        // First, check for terminal states before any other processing
+        if (jobStatus.status === 'faulted' || jobStatus.status === 'failed') {
+          functions.logger.error({
+            message: `Job entered terminal state: ${jobStatus.status}`,
+            jobId,
+            attempts,
+            durationMs: elapsedTime,
+            url: jobStatus.url,
+            errorDetails: {
+              status: jobStatus.status,
+              updatedAt: jobStatus.updated_at,
+              clientNotes: jobStatus.client_notes
+            }
+          });
+          // Exit immediately on terminal states
+          return Promise.reject(new Error(`Job ${jobStatus.status} - ${jobStatus.client_notes || 'No additional details'}`));
+        }
+
+        // Reset error counter on successful response
         consecutiveErrors = 0;
         
-        // Log every 5th attempt or status change
-        if (attempts % 5 === 0 || jobStatus.status !== 'pending') {
-          functions.logger.info(`Job ${jobId} status: ${jobStatus.status} (attempt ${attempts})`);
+        // Log status transitions
+        if (jobStatus.status !== lastLoggedStatus) {
+          functions.logger.debug(`Job ${jobId} transitioned to ${jobStatus.status}`);
+          lastLoggedStatus = jobStatus.status;
         }
         
+        // Handle successful completion
         if (jobStatus.status === 'done') {
-          functions.logger.info(`Job ${jobId} completed in ${elapsedTime}ms`);
+          functions.logger.info({
+            message: 'Job completed',
+            jobId,
+            totalAttempts: attempts,
+            durationMs: elapsedTime,
+            finalStatus: jobStatus.status
+          });
           return await ApiService.getJobResults(jobId);
         }
-        
-        if (jobStatus.status === 'faulted') {
-          throw new Error(`Job faulted with status: ${JSON.stringify(jobStatus)}`);
-        }
 
-        if (jobStatus.status === 'failed') {
-          throw new Error(`Job failed with status: ${JSON.stringify(jobStatus)}`);
-        }
-
+        // Validate status is one we expect
         if (!['pending', 'running'].includes(jobStatus.status)) {
-          throw new Error(`Unknown job status: ${jobStatus.status}`);
+          throw new Error(`Unknown status: ${jobStatus.status}`);
         }
 
       } catch (error) {
         consecutiveErrors++;
         
         if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-          functions.logger.error(`Job ${jobId} failed after ${consecutiveErrors} errors: ${error.message}`);
-          throw new Error(`Polling aborted after ${consecutiveErrors} consecutive errors: ${error.message}`);
+          functions.logger.error({
+            message: 'Polling aborted due to consecutive errors',
+            jobId,
+            attempts,
+            consecutiveErrors,
+            error: error.message
+          });
+          throw error;
         }
+
+        functions.logger.warn({
+          message: 'Retryable error encountered',
+          jobId,
+          attempt: attempts,
+          consecutiveErrors,
+          error: error.message
+        });
 
         await new Promise(resolve => setTimeout(resolve, nextDelay * 1.5));
         elapsedTime += nextDelay * 1.5;
@@ -403,7 +450,13 @@ const PollingService = {
       elapsedTime += nextDelay;
     }
     
-    throw new Error(`Max polling attempts (${maxAttempts}) reached after ${elapsedTime}ms`);
+    functions.logger.error({
+      message: 'Max polling attempts reached',
+      jobId,
+      attempts: maxAttempts,
+      totalDurationMs: elapsedTime
+    });
+    throw new Error(`Max attempts (${maxAttempts}) reached after ${elapsedTime}ms`);
   }
 }
 
@@ -630,7 +683,7 @@ const JobProcessor = {
 
 // ============= MAIN FUNCTION =============
 exports.searchJobs = onRequest({ 
-  timeoutSeconds: 20,
+  timeoutSeconds: 540,
   memory: "1GiB"
 }, async (req, res) => {
   const startTime = Date.now();

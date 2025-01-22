@@ -66,6 +66,7 @@ const { embeddingQualRes } = require('./assessments/embeddingQualRes');
 const { syncGoogleSubToUid } = require('./helpers/syncGoogleSubToUid');
 const { searchJobs } = require('./scraping/searchJobs');
 const { matchNewJob } = require('./scraping/matchNewJob');
+const { parseTest } = require('./scraping/parseTest');
 
 // Export all Cloud Functions
 
@@ -94,3 +95,4 @@ exports.embeddingQualRes = embeddingQualRes;
 exports.syncGoogleSubToUid = syncGoogleSubToUid;
 exports.searchJobs = searchJobs;
 exports.matchNewJob = matchNewJob;
+exports.parseTest = parseTest;

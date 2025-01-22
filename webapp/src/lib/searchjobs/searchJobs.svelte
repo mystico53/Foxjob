@@ -96,6 +96,30 @@
     { value: 'senior_level', label: 'Senior Level' }
   ];
 
+  async function testParse() {
+  try {
+    if (!auth.currentUser) {
+      error = 'You must be logged in to test parsing';
+      return;
+    }
+
+    const response = await fetch(
+      `http://127.0.0.1:5001/jobille-45494/us-central1/parseTest?userId=${auth.currentUser.uid}`
+    );
+
+    if (!response.ok) {
+      throw new Error(`Parse test failed: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('Parse test results:', data);
+
+  } catch (err) {
+    console.error('Error during parse test:', err);
+    error = err.message || 'An error occurred while testing parse';
+  }
+}
+
   async function searchJobs() {
   // Debug log all parameters being sent
   console.log('Search Parameters:', {
@@ -325,6 +349,14 @@
           disabled={$isLoading}
         >
           {$isLoading ? 'Searching...' : 'Search Jobs'}
+        </button>
+        
+        <button
+          type="button"
+          class="btn variant-filled-secondary"
+          on:click={testParse}
+        >
+          Test Parse
         </button>
         
         {#if $scrapeStore.length > 0}
