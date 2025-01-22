@@ -701,6 +701,7 @@ const JobProcessor = {
   // Track state across all processing
   state: {
     activeJobs: new Set(),
+    MAX_CONCURRENT_JOBS: 10,
     rateLimit: {
       limit: null,
       remaining: null,
@@ -759,18 +760,19 @@ const JobProcessor = {
 
   canStartNewJob: () => {
     const { remaining, isLimited } = JobProcessor.state.rateLimit;
+    const currentActiveJobs = JobProcessor.state.activeJobs.size;
     
-    // If we haven't tracked limits yet, assume we can start
-    if (remaining === null) return true;
-    
-    // Check if we have renders remaining and aren't rate limited
-    return remaining > 0 && !isLimited;
+    // Check both rate limits and concurrent job limit
+    return (remaining === null || remaining > 0) && 
+           !isLimited && 
+           currentActiveJobs < JobProcessor.state.MAX_CONCURRENT_JOBS;
   },
 
   processJobsInRollingBatches: async (userId, jobs, startTime) => {
     // Reset state for new processing run
     JobProcessor.state = {
       activeJobs: new Set(),
+      MAX_CONCURRENT_JOBS: 10,
       rateLimit: {
         limit: null,
         remaining: null,
@@ -784,141 +786,100 @@ const JobProcessor = {
       }
     };
 
-    const BATCH_SIZE = 3; // Process 3 jobs at a time
     let currentIndex = 0;
-    let waitTimeMs = 5000; // Initial wait time 5 seconds
+    let waitTimeMs = 5000;
 
-    functions.logger.info("Starting rolling batch processing:", {
+    functions.logger.info("Starting concurrent job processing:", {
       totalJobs: jobs.length,
-      batchSize: BATCH_SIZE
+      maxConcurrentJobs: JobProcessor.state.MAX_CONCURRENT_JOBS
     });
 
-    while (currentIndex < jobs.length) {
-      // Check if we can start new jobs
-      if (JobProcessor.canStartNewJob()) {
-        // Calculate how many jobs we can start
-        const availableSlots = Math.min(
-          BATCH_SIZE - JobProcessor.state.activeJobs.size,
-          jobs.length - currentIndex,
-          JobProcessor.state.rateLimit.remaining || BATCH_SIZE
-        );
+    // Create a function to process a single job
+    const processJob = async (job) => {
+      try {
+        const jobUrl = `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${job.job_id}`;
+        JobProcessor.state.activeJobs.add(job.job_id);
 
-        if (availableSlots > 0) {
-          // Get next batch of jobs
-          const currentBatch = jobs.slice(
-            currentIndex,
-            currentIndex + availableSlots
+        const batchPayload = PayloadBuilders.createBatchJobDetailsPayload([jobUrl]);
+        const submission = await ApiService.submitBatchJob(batchPayload);
+        
+        if (submission.headers) {
+          JobProcessor.updateRateLimits(submission.headers);
+        }
+
+        const result = await ApiService.getAllBatchResults([submission.ids[0]]);
+        
+        if (result.successful && result.successful.length > 0) {
+          const jobDetails = await JobProcessor.processIndividualJob(
+            userId, 
+            job, 
+            result.successful[0]
           );
 
-          functions.logger.info("Processing new batch:", {
-            batchSize: availableSlots,
-            startIndex: currentIndex,
-            activeJobs: JobProcessor.state.activeJobs.size,
-            rateLimit: JobProcessor.state.rateLimit
+          if (jobDetails.verificationStatus === 'Success') {
+            JobProcessor.state.processedJobs.successful.push(jobDetails);
+          } else {
+            JobProcessor.state.processedJobs.failed.push(jobDetails);
+          }
+        } else if (result.failed && result.failed.length > 0) {
+          JobProcessor.state.processedJobs.failed.push({
+            basicInfo: job,
+            verificationStatus: "Failed",
+            error: result.failed[0].error
           });
-
-          // Process each job in the batch
-          const batchPromises = currentBatch.map(async (job) => {
-            try {
-              const jobUrl = `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${job.job_id}`;
-              JobProcessor.state.activeJobs.add(job.job_id);
-
-              // Submit single job as batch
-              const batchPayload = PayloadBuilders.createBatchJobDetailsPayload([jobUrl]);
-              const submission = await ApiService.submitBatchJob(batchPayload);
-              
-              // Update rate limits from response
-              if (submission.headers) {
-                JobProcessor.updateRateLimits(submission.headers);
-              }
-
-              // Get results
-              const result = await ApiService.getAllBatchResults([submission.ids[0]]);
-              
-              // Process the successful result
-              if (result.successful && result.successful.length > 0) {
-                const jobDetails = await JobProcessor.processIndividualJob(
-                  userId, 
-                  job, 
-                  result.successful[0]
-                );
-
-                if (jobDetails.verificationStatus === 'Success') {
-                  JobProcessor.state.processedJobs.successful.push(jobDetails);
-                } else {
-                  JobProcessor.state.processedJobs.failed.push(jobDetails);
-                }
-              } else if (result.failed && result.failed.length > 0) {
-                JobProcessor.state.processedJobs.failed.push({
-                  basicInfo: job,
-                  verificationStatus: "Failed",
-                  error: result.failed[0].error
-                });
-              }
-
-            } catch (error) {
-              functions.logger.error("Job processing failed:", {
-                jobId: job.job_id,
-                errorType: error.name,
-                errorMessage: error.message,
-                errorStack: error.stack,
-                responseData: error.response?.data,
-                responseStatus: error.response?.status,
-                responseHeaders: error.response?.headers,
-                attempt: currentAttempt
-              });
-              JobProcessor.state.processedJobs.failed.push({
-                basicInfo: job,
-                verificationStatus: "Failed",
-                error: error.message,
-                errorDetails: {
-                  type: error.name,
-                  response: error.response?.data,
-                  status: error.response?.status
-                }
-              });
-            } finally {
-              JobProcessor.state.activeJobs.delete(job.job_id);
-              JobProcessor.state.processedJobs.pending--;
-            }
-          });
-
-          // Wait for batch to complete
-          await Promise.allSettled(batchPromises);
-          currentIndex += availableSlots;
-
-          // Log progress
-          functions.logger.info("Rolling batch progress:", {
-            processedJobs: currentIndex,
-            totalJobs: jobs.length,
-            activeJobs: JobProcessor.state.activeJobs.size,
-            rateLimit: JobProcessor.state.rateLimit,
-            successfulSoFar: JobProcessor.state.processedJobs.successful.length,
-            failedSoFar: JobProcessor.state.processedJobs.failed.length,
-            pending: JobProcessor.state.processedJobs.pending
-          });
-
-          // Reset wait time after successful processing
-          waitTimeMs = 5000;
-
-        } else {
-          // No slots available, wait before checking again
-          await new Promise(resolve => setTimeout(resolve, waitTimeMs));
-          waitTimeMs = Math.min(waitTimeMs * 1.5, 30000); // Exponential backoff up to 30 seconds
         }
-      } else {
-        // Rate limited, wait before checking again
-        functions.logger.warn("Rate limit reached, waiting:", {
-          rateLimit: JobProcessor.state.rateLimit,
-          waitTimeMs
+      } catch (error) {
+        functions.logger.error("Job processing failed:", {
+          jobId: job.job_id,
+          error: error.message
         });
-        await new Promise(resolve => setTimeout(resolve, waitTimeMs));
-        waitTimeMs = Math.min(waitTimeMs * 1.5, 30000); // Exponential backoff up to 30 seconds
+        JobProcessor.state.processedJobs.failed.push({
+          basicInfo: job,
+          verificationStatus: "Failed",
+          error: error.message
+        });
+      } finally {
+        JobProcessor.state.activeJobs.delete(job.job_id);
+        JobProcessor.state.processedJobs.pending--;
+
+        // After this job completes, try to start a new one if there are jobs remaining
+        if (currentIndex < jobs.length && JobProcessor.canStartNewJob()) {
+          const nextJob = jobs[currentIndex++];
+          processJob(nextJob);
+        }
+
+        // Log progress
+        functions.logger.info("Job progress:", {
+          processedJobs: currentIndex,
+          totalJobs: jobs.length,
+          activeJobs: JobProcessor.state.activeJobs.size,
+          rateLimit: JobProcessor.state.rateLimit,
+          successfulSoFar: JobProcessor.state.processedJobs.successful.length,
+          failedSoFar: JobProcessor.state.processedJobs.failed.length,
+          pending: JobProcessor.state.processedJobs.pending
+        });
       }
+    };
+
+    // Start initial batch of concurrent jobs
+    const initialBatchSize = Math.min(
+      JobProcessor.state.MAX_CONCURRENT_JOBS,
+      jobs.length
+    );
+
+    const initialPromises = [];
+    for (let i = 0; i < initialBatchSize; i++) {
+      const job = jobs[currentIndex++];
+      initialPromises.push(processJob(job));
+    }
+
+    // Wait for all jobs to complete
+    while (JobProcessor.state.processedJobs.pending > 0) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     const totalTimeMs = Date.now() - startTime;
-    functions.logger.info("Completed rolling batch processing:", {
+    functions.logger.info("Completed job processing:", {
       totalJobs: jobs.length,
       successful: JobProcessor.state.processedJobs.successful.length,
       failed: JobProcessor.state.processedJobs.failed.length,
