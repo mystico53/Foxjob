@@ -3,7 +3,6 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { FieldValue } = require("firebase-admin/firestore");
 
-
 // Initialize Firebase (if not already initialized)
 if (!admin.apps.length) {
   admin.initializeApp();
@@ -35,23 +34,82 @@ const HtmlAnalyzer = {
   }
 };
 
-// Keep your existing sanitizeForFirestore helper
+// Helper function to recursively remove undefined values
 const sanitizeForFirestore = (obj) => {
-    if (obj === undefined) return null;
-    if (obj === null) return null;
-    if (Array.isArray(obj)) {
-      return obj.map(item => sanitizeForFirestore(item));
-    }
-    if (typeof obj === 'object') {
-      return Object.fromEntries(
-        Object.entries(obj)
-          .filter(([_, v]) => v !== undefined)
-          .map(([k, v]) => [k, sanitizeForFirestore(v)])
-      );
-    }
-    return obj;
-  };
+  if (obj === undefined) return null;
+  if (obj === null) return null;
+  if (Array.isArray(obj)) {
+    return obj.map(item => sanitizeForFirestore(item));
+  }
+  if (typeof obj === 'object') {
+    return Object.fromEntries(
+      Object.entries(obj)
+        .filter(([_, v]) => v !== undefined)
+        .map(([k, v]) => [k, sanitizeForFirestore(v)])
+    );
+  }
+  return obj;
+};
 
+// ============= FIRESTORE SERVICE =============
+const FirestoreService = {
+  saveJobToUserCollection: async (userId, jobDetail, jobId = null) => {
+    // Add debug logging to see what we're trying to save
+    functions.logger.debug("Attempting to save job with details:", {
+      userId,
+      jobId: jobId || jobDetail?.basicInfo?.job_id,
+      basicInfo: jobDetail?.basicInfo,
+      isUpdate: !!jobId
+    });
+
+    // For updates (details), we use the passed jobId
+    // For new documents (search results), we use the job_id from basicInfo
+    const documentId = jobId || jobDetail?.basicInfo?.job_id;
+
+    if (!userId || !documentId) {
+      throw new Error(`Invalid document path parameters. userId: ${userId}, jobId: ${documentId}`);
+    }
+
+    const docRef = db.collection('users')
+                .doc(userId)
+                .collection('scrapedcallback')
+                .doc(documentId);
+    
+    functions.logger.info("Saving job to Firestore:", {
+      userId,
+      jobId: documentId,
+      hasDetails: !!jobDetail.details
+    });
+
+    // First check if the document exists
+    const doc = await docRef.get();
+    if (!doc.exists) {
+      // Only create if it doesn't exist
+      await docRef.set(jobDetail);
+    } else {
+      // Update if it exists, merging with existing data
+      await docRef.update(jobDetail);
+    }
+
+    try {
+      functions.logger.info("Successfully saved job to Firestore:", {
+        userId,
+        jobId: documentId,
+        timeMs: Date.now()
+      });
+    } catch (error) {
+      functions.logger.error("Error saving job to Firestore:", {
+        userId,
+        jobId: documentId,
+        error: error.message,
+        stack: error.stack
+      });
+      throw error;
+    }
+  }
+};
+
+// ============= MAIN HANDLER =============
 exports.handleOxylabsCallback = onRequest({
   timeoutSeconds: 540,
   memory: "1GiB"
@@ -73,38 +131,70 @@ exports.handleOxylabsCallback = onRequest({
 
     // Process based on type
     if (callbackType === 'search') {
-      // For now, just log search results
       const jobListings = req.body.results?.[0]?.content?.job_listings || [];
       functions.logger.info("Search results:", {
         count: jobListings.length,
         jobs: jobListings
       });
+
+      // Create initial documents for each job listing
+      for (const job of jobListings) {
+        const cleanedDetails = sanitizeForFirestore({
+          basicInfo: {
+            job_id: job.job_id,
+            job_title: job.job_title,
+            company_name: job.company_name,
+            job_link: job.job_link
+          },
+          details: null, // Will be populated by subsequent detail callback
+          status: 'pending_details',
+          lastUpdated: FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp()
+        });
+
+        await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails);
+      }
     } else {
       // Process job detail
-      const jobDetail = req.body.results?.[0]?.content;
-      const jsonLd = JSON.parse(jobDetail.jsonLd || '{}');
+      const result = req.body.results?.[0];
+      const content = result?.content;
       
-      const cleanedDetails = sanitizeForFirestore({
-        basicInfo: {
-          job_id: jsonLd.identifier || `job_${Date.now()}`,
-          job_title: jobDetail.jobTitle || jsonLd.title,
-          company_name: jsonLd.hiringOrganization?.name
-        },
-        details: {
-          title: jobDetail.jobTitle || jsonLd.title,
-          location: jobDetail.location,
-          description: jobDetail.description,
-          postingDate: jobDetail.postingDate,
-          employmentType: jsonLd.employmentType,
-          datePosted: jsonLd.datePosted,
-          validThrough: jsonLd.validThrough
-        },
-        lastUpdated: FieldValue.serverTimestamp(),
-        createdAt: FieldValue.serverTimestamp()
+      // Extract job ID from the URL
+      let jobId;
+      if (result?.url) {
+        const match = result.url.match(/jk=([^&]+)/);
+        jobId = match ? match[1] : null;
+      }
+      
+      if (!jobId) {
+        functions.logger.error("Could not determine job ID from response:", {
+          url: result?.url,
+          jobId: result?.job_id,
+          content
+        });
+        return res.status(200).json({ success: false, error: "Could not determine job ID" });
+      }
+
+      functions.logger.info("Processing job details:", { 
+        jobId,
+        oxylabsJobId: result?.job_id,
+        url: result?.url
       });
 
-      // Save to Firestore - using a test user ID for now
-      await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails);
+      const cleanedDetails = sanitizeForFirestore({
+        details: {
+          title: HtmlAnalyzer.extractCleanContent(content?.jobTitle?.[0] || ""),
+          location: HtmlAnalyzer.extractCleanContent(content?.location?.[0] || ""),
+          description: HtmlAnalyzer.extractCleanContent(content?.description?.[0] || ""),
+          postingDate: content?.postingDate?.[0],
+          parseStatusCode: content?.parse_status_code
+        },
+        status: 'complete',
+        lastUpdated: FieldValue.serverTimestamp()
+      });
+
+      // Update existing document with job details
+      await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails, jobId);
     }
 
     return res.status(200).json({
@@ -126,68 +216,3 @@ exports.handleOxylabsCallback = onRequest({
     });
   }
 });
-
-// Keep your existing FirestoreService
-FirestoreService = {
-  saveJobToUserCollection: async (userId, jobDetail) => {
-    // Add debug logging to see what we're trying to save
-    functions.logger.debug("Attempting to save job with details:", {
-      userId,
-      jobDetailId: jobDetail?.basicInfo?.job_id,
-      basicInfo: jobDetail?.basicInfo
-    });
-
-    if (!userId || !jobDetail?.basicInfo?.job_id) {
-      throw new Error(`Invalid document path parameters. userId: ${userId}, jobId: ${jobDetail?.basicInfo?.job_id}`);
-    }
-
-    const docRef = db.collection('users')
-                .doc(userId)
-                .collection('scrapedcallback')
-                .doc(jobDetail.basicInfo.job_id);
-    
-    functions.logger.info("Saving job to Firestore:", {
-      userId,
-      jobId: jobDetail.basicInfo.job_id,
-      hasDetails: !!jobDetail.details
-    });
-                     
-    const cleanedDetails = sanitizeForFirestore({
-      ...jobDetail,
-      details: {
-        ...jobDetail.details,
-        description: HtmlAnalyzer.extractCleanContent(jobDetail.details?.description || "No description available."),
-        title: HtmlAnalyzer.extractCleanContent(jobDetail.details?.title || ""),
-        location: HtmlAnalyzer.extractCleanContent(jobDetail.details?.location || ""),
-      },
-      lastUpdated: FieldValue.serverTimestamp(),
-      createdAt: FieldValue.serverTimestamp()
-    });
-
-    // First check if the document exists
-    const doc = await docRef.get();
-    if (!doc.exists) {
-        // Only create if it doesn't exist
-        await docRef.set(cleanedDetails);
-    } else {
-        // Update if it exists
-        await docRef.update(cleanedDetails);
-    } 
-
-    try {
-      functions.logger.info("Successfully saved job to Firestore:", {
-        userId,
-        jobId: jobDetail.basicInfo.job_id,
-        timeMs: Date.now()
-      });
-    } catch (error) {
-      functions.logger.error("Error saving job to Firestore:", {
-        userId,
-        jobId: jobDetail.basicInfo.job_id,
-        error: error.message,
-        stack: error.stack
-      });
-      throw error;
-    }
-  }
-}

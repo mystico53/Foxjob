@@ -238,14 +238,14 @@ const ApiService = {
       timeMs: response.data.time_taken
     });
 
-    functions.logger.info("Search job submission - FULL STRUCTURE:", {
-      type: "SEARCH_JOB",
-      response: {
-        id: response.data.id,
-        fullData: JSON.stringify(response.data, null, 2),
-        parsing_instructions: payload.parsing_instructions
-      }
-    });
+    // functions.logger.info("Search job submission - FULL STRUCTURE:", {
+    //   type: "SEARCH_JOB",
+    //   response: {
+    //     id: response.data.id,
+    //     fullData: JSON.stringify(response.data, null, 2),
+    //     parsing_instructions: payload.parsing_instructions
+    //   }
+    // });
 
     return response.data;
   },
@@ -364,19 +364,19 @@ const ApiService = {
             responseStatus: response.status
         });
 
-        functions.logger.info("Batch job submission - FULL STRUCTURE:", {
-          type: "JOB_DETAILS",
-          response: {
-            queries: queries.map(query => ({
-              id: query.id,
-              url: query.url,
-              status: query.status,
-              created_at: query.created_at,
-              _links: query._links,
-              fullData: JSON.stringify(query, null, 2)
-            }))
-          }
-        });
+        // functions.logger.info("Batch job submission - FULL STRUCTURE:", {
+        //   type: "JOB_DETAILS",
+        //   response: {
+        //     queries: queries.map(query => ({
+        //       id: query.id,
+        //       url: query.url,
+        //       status: query.status,
+        //       created_at: query.created_at,
+        //       _links: query._links,
+        //       fullData: JSON.stringify(query, null, 2)
+        //     }))
+        //   }
+        // });
 
         return {
             ids: queries.map(query => query.id),
@@ -483,18 +483,18 @@ const ApiService = {
       contentSize: JSON.stringify(response.data).length
     });
 
-    functions.logger.info("Job results - FULL STRUCTURE:", {
-      type: "JOB_RESULTS",
-      jobId,
-      response: {
-        fullData: JSON.stringify(response.data, null, 2),
-        results: response.data.results?.[0],
-        parsing: {
-          content: response.data.results?.[0]?.content,
-          jsonLd: response.data.results?.[0]?.content?.jsonLd
-        }
-      }
-    });
+    // functions.logger.info("Job results - FULL STRUCTURE:", {
+    //   type: "JOB_RESULTS",
+    //   jobId,
+    //   response: {
+    //     fullData: JSON.stringify(response.data, null, 2),
+    //     results: response.data.results?.[0],
+    //     parsing: {
+    //       content: response.data.results?.[0]?.content,
+    //       jsonLd: response.data.results?.[0]?.content?.jsonLd
+    //     }
+    //   }
+    // });
 
     return response.data;
   }
