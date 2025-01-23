@@ -959,7 +959,7 @@ const JobProcessor = {
 
 // ============= MAIN FUNCTION =============
 exports.searchJobs = onRequest({ 
-  timeoutSeconds: 60,
+  timeoutSeconds: 540,
   memory: "1GiB"
 }, async (req, res) => {
   const startTime = Date.now();
@@ -1002,6 +1002,7 @@ exports.searchJobs = onRequest({
       pageUrls.map(async url => {
         try {
           const payload = PayloadBuilders.createSearchPayload(url);
+          await delay(2000 * pageUrls.indexOf(url));
           return await ApiService.submitSearchJob(payload);
         } catch (error) {
           functions.logger.error("Failed to submit search job:", {
