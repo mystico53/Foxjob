@@ -482,9 +482,9 @@ const PollingService = {
     let originalConfig = config || { 
       url: null,
       indeedJobId: null,
-      isSearchJob: jobId.includes('/jobs?') // Track if this is a search job
+      isSearchJob: jobId.includes('/jobs?')
     };
-
+  
     // If we have a plain URL, set it as original
     if (typeof jobId === 'string' && (jobId.includes('/jobs?') || jobId.includes('/viewjob?'))) {
       originalConfig.url = jobId;
@@ -494,18 +494,14 @@ const PollingService = {
     while (retryCount < totalRetries) {
       let attempts = 0;
       let elapsedTime = 0;
-      let consecutiveErrors = 0;
-      let lastLoggedStatus = null;
-      const MAX_CONSECUTIVE_ERRORS = 3;
       
       functions.logger.debug(`Started polling job`, {
         oxylabsId: currentOxylabsId,
         indeedJobId: originalConfig.indeedJobId,
-        isSearchJob: originalConfig.isSearchJob,
         originalUrl: originalConfig.url,
         retry: `${retryCount + 1}/${totalRetries}`
       });
-
+  
       try {
         while (attempts < maxAttempts) {
           attempts++;
@@ -514,29 +510,16 @@ const PollingService = {
           try {
             const jobStatus = await ApiService.checkJobStatus(currentOxylabsId);
             
+            // If job faults, immediately try new submission
             if (jobStatus.status === 'faulted' || jobStatus.status === 'failed') {
-              functions.logger.error({
-                message: `Job entered terminal state: ${jobStatus.status}`,
+              functions.logger.warn({
+                message: `Job faulted - Initiating immediate retry`,
                 oxylabsId: currentOxylabsId,
                 indeedJobId: originalConfig.indeedJobId,
-                isSearchJob: originalConfig.isSearchJob,
                 attempts,
-                durationMs: elapsedTime,
-                url: jobStatus.url,
-                errorDetails: {
-                  status: jobStatus.status,
-                  updatedAt: jobStatus.updated_at,
-                  clientNotes: jobStatus.client_notes
-                }
+                durationMs: elapsedTime
               });
-              throw new Error(`Job ${jobStatus.status} - Triggering retry`);
-            }
-
-            consecutiveErrors = 0;
-            
-            if (jobStatus.status !== lastLoggedStatus) {
-              functions.logger.debug(`Job ${currentOxylabsId} transitioned to ${jobStatus.status}`);
-              lastLoggedStatus = jobStatus.status;
+              throw new Error('Job faulted - Immediate retry needed');
             }
             
             if (jobStatus.status === 'done') {
@@ -544,7 +527,6 @@ const PollingService = {
                 message: 'Job completed',
                 oxylabsId: currentOxylabsId,
                 indeedJobId: originalConfig.indeedJobId,
-                isSearchJob: originalConfig.isSearchJob,
                 totalAttempts: attempts,
                 durationMs: elapsedTime,
                 finalStatus: jobStatus.status,
@@ -552,109 +534,53 @@ const PollingService = {
               });
               return await ApiService.getJobResults(currentOxylabsId);
             }
-
+  
             if (!['pending', 'running'].includes(jobStatus.status)) {
               throw new Error(`Unknown status: ${jobStatus.status}`);
             }
-
+  
           } catch (error) {
-            consecutiveErrors++;
-            
-            if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-              functions.logger.error({
-                message: 'Polling aborted due to consecutive errors',
-                oxylabsId: currentOxylabsId,
-                indeedJobId: originalConfig.indeedJobId,
-                isSearchJob: originalConfig.isSearchJob,
-                attempts,
-                consecutiveErrors,
-                error: error.message
-              });
+            // If it's a fault, break immediately to retry
+            if (error.message.includes('faulted') || error.message.includes('Immediate retry needed')) {
               throw error;
             }
-
-            functions.logger.warn({
-              message: 'Retryable error encountered',
-              oxylabsId: currentOxylabsId,
-              indeedJobId: originalConfig.indeedJobId,
-              isSearchJob: originalConfig.isSearchJob,
-              attempt: attempts,
-              consecutiveErrors,
-              error: error.message
-            });
-
-            await new Promise(resolve => setTimeout(resolve, nextDelay * 1.5));
-            elapsedTime += nextDelay * 1.5;
+  
+            await new Promise(resolve => setTimeout(resolve, nextDelay));
+            elapsedTime += nextDelay;
             continue;
           }
-
+  
           await new Promise(resolve => setTimeout(resolve, nextDelay));
           elapsedTime += nextDelay;
         }
         
-        functions.logger.error({
-          message: 'Max polling attempts reached',
-          oxylabsId: currentOxylabsId,
-          indeedJobId: originalConfig.indeedJobId,
-          isSearchJob: originalConfig.isSearchJob,
-          attempts: maxAttempts,
-          totalDurationMs: elapsedTime
-        });
         throw new Error(`Max attempts (${maxAttempts}) reached after ${elapsedTime}ms`);
-
+  
       } catch (error) {
         retryCount++;
         
         if (retryCount >= totalRetries) {
-          functions.logger.error('Max retries reached for job', {
-            oxylabsId: currentOxylabsId,
-            indeedJobId: originalConfig.indeedJobId,
-            isSearchJob: originalConfig.isSearchJob,
-            retries: retryCount,
-            error: error.message
-          });
           throw error;
         }
-
-        functions.logger.info('Retrying job with new submission', {
-          oxylabsId: currentOxylabsId,
-          indeedJobId: originalConfig.indeedJobId,
-          isSearchJob: originalConfig.isSearchJob,
-          retryNumber: retryCount,
-          maxRetries: totalRetries
-        });
-
-        // Use the correct URL based on job type
+  
+        // Create new submission
         let jobUrl;
         if (originalConfig.url) {
-          // If we have the original URL, use it
           jobUrl = originalConfig.url;
         } else if (originalConfig.isSearchJob) {
-          // If it's a search job but we don't have URL (shouldn't happen), throw
           throw new Error('Search job retry attempted without original URL');
         } else {
-          // For job details, construct viewjob URL
           jobUrl = `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${originalConfig.indeedJobId}`;
         }
-
-        functions.logger.info('Creating new job submission with:', {
-          oxylabsId: currentOxylabsId,
-          indeedJobId: originalConfig.indeedJobId,
-          isSearchJob: originalConfig.isSearchJob,
-          jobUrl
-        });
         
-        // Use appropriate payload based on job type
         const payload = originalConfig.isSearchJob ? 
           PayloadBuilders.createSearchPayload(jobUrl) :
           PayloadBuilders.createBatchJobDetailsPayload([jobUrl]);
-
-        // Submit to appropriate endpoint
+  
         const submission = originalConfig.isSearchJob ?
           await ApiService.submitSearchJob(payload) :
           await ApiService.submitBatchJob(payload);
         
-        // Update Oxylabs ID while keeping original config
         currentOxylabsId = originalConfig.isSearchJob ? 
           submission.id :
           submission.ids[0];
@@ -823,7 +749,7 @@ const JobProcessor = {
     // Reset state for new processing run
     JobProcessor.state = {
       activeJobs: new Set(),
-      MAX_CONCURRENT_JOBS: 10,
+      MAX_CONCURRENT_JOBS: 13,
       rateLimit: {
         limit: null,
         remaining: null,
