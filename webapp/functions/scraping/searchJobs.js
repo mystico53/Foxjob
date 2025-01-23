@@ -322,26 +322,6 @@ const ApiService = {
             { headers: AuthHelpers.getAuthHeader() }
         );
 
-        functions.logger.info("Detailed API Response:", {
-          headers: response.headers,
-          rateLimits: {
-              remaining: response.headers['x-ratelimit-remaining'],
-              limit: response.headers['x-ratelimit-limit'],
-              reset: response.headers['x-ratelimit-reset']
-          },
-          quotaInfo: {
-              renderQuotaRemaining: response.headers['x-render-quota-remaining'],
-              renderQuotaLimit: response.headers['x-render-quota-limit'],
-              renderQuotaReset: response.headers['x-render-quota-reset']
-          },
-          responseData: {
-              status: response.status,
-              statusText: response.statusText,
-              dataSize: JSON.stringify(response.data).length,
-              queryCount: response.data.queries?.length
-          }
-      });
-
         const { queries } = response.data;
 
         if (!queries || !queries.length) {
