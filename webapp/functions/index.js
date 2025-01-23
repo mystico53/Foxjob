@@ -67,6 +67,8 @@ const { syncGoogleSubToUid } = require('./helpers/syncGoogleSubToUid');
 const { searchJobs } = require('./scraping/searchJobs');
 const { matchNewJob } = require('./scraping/matchNewJob');
 const { parseTest } = require('./scraping/parseTest');
+const { handleOxylabsCallback } = require('./scraping/handleOxylabsCallback');
+const { callbackTest } = require('./scraping/callbackTest');
 
 // Export all Cloud Functions
 
@@ -96,3 +98,5 @@ exports.syncGoogleSubToUid = syncGoogleSubToUid;
 exports.searchJobs = searchJobs;
 exports.matchNewJob = matchNewJob;
 exports.parseTest = parseTest;
+exports.handleOxylabsCallback = handleOxylabsCallback;
+exports.callbackTest = callbackTest;
