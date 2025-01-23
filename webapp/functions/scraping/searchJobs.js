@@ -64,6 +64,10 @@ const UrlBuilders = {
     if (location) {
       url.searchParams.set('l', location);
     }
+
+    if (params.start) {
+      url.searchParams.set('start', params.start);
+    }
     
     // Add job type (fulltime, parttime, contract, temporary, internship)
     if (params.jt) {
@@ -388,14 +392,19 @@ const ApiService = {
     }
   },
 
-  getAllBatchResults: async (jobIds) => {
+  getAllBatchResults: async (jobConfigs) => {
     functions.logger.info("Starting to fetch all batch results", {
-      totalJobs: jobIds.length
+      totalJobs: jobConfigs.length
     });
 
     // Use Promise.allSettled instead of Promise.all to handle partial failures
     const results = await Promise.allSettled(
-      jobIds.map(jobId => PollingService.pollForResults(jobId))
+      jobConfigs.map(config => 
+        PollingService.pollForResults(config.oxylabsId, CONFIG.POLLING_MAX_ATTEMPTS, 3, {
+          indeedJobId: config.indeedJobId,
+          url: config.url
+        })
+      )
     );
 
     // Process the results
@@ -405,19 +414,19 @@ const ApiService = {
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
         successfulResults.push({
-          jobId: jobIds[index],
+          jobId: jobConfigs[index].indeedJobId,  // Use Indeed ID
           data: result.value
         });
       } else {
         failedResults.push({
-          jobId: jobIds[index],
+          jobId: jobConfigs[index].indeedJobId,  // Use Indeed ID
           error: result.reason.message
         });
       }
     });
 
     functions.logger.info("Batch results processing complete", {
-      totalJobs: jobIds.length,
+      totalJobs: jobConfigs.length,
       successfulJobs: successfulResults.length,
       failedJobs: failedResults.length
     });
@@ -465,9 +474,22 @@ const PollingService = {
     return 30000;
   },
 
-  pollForResults: async (jobId, maxAttempts = CONFIG.POLLING_MAX_ATTEMPTS, totalRetries = 3) => {
+  pollForResults: async (jobId, maxAttempts = CONFIG.POLLING_MAX_ATTEMPTS, totalRetries = 3, config = null) => {
     let retryCount = 0;
-    let originalJobId = jobId; // Store the original URL/ID for retries
+    let currentOxylabsId = jobId;
+    
+    // Initialize config, preserving URL type
+    let originalConfig = config || { 
+      url: null,
+      indeedJobId: null,
+      isSearchJob: jobId.includes('/jobs?') // Track if this is a search job
+    };
+
+    // If we have a plain URL, set it as original
+    if (typeof jobId === 'string' && (jobId.includes('/jobs?') || jobId.includes('/viewjob?'))) {
+      originalConfig.url = jobId;
+      originalConfig.isSearchJob = jobId.includes('/jobs?');
+    }
     
     while (retryCount < totalRetries) {
       let attempts = 0;
@@ -476,7 +498,13 @@ const PollingService = {
       let lastLoggedStatus = null;
       const MAX_CONSECUTIVE_ERRORS = 3;
       
-      functions.logger.debug(`Started polling job ${jobId} (retry ${retryCount + 1}/${totalRetries})`);
+      functions.logger.debug(`Started polling job`, {
+        oxylabsId: currentOxylabsId,
+        indeedJobId: originalConfig.indeedJobId,
+        isSearchJob: originalConfig.isSearchJob,
+        originalUrl: originalConfig.url,
+        retry: `${retryCount + 1}/${totalRetries}`
+      });
 
       try {
         while (attempts < maxAttempts) {
@@ -484,13 +512,14 @@ const PollingService = {
           const nextDelay = PollingService.calculateNextDelay(elapsedTime);
           
           try {
-            const jobStatus = await ApiService.checkJobStatus(jobId);
+            const jobStatus = await ApiService.checkJobStatus(currentOxylabsId);
             
-            // First, check for terminal states before any other processing
             if (jobStatus.status === 'faulted' || jobStatus.status === 'failed') {
               functions.logger.error({
                 message: `Job entered terminal state: ${jobStatus.status}`,
-                jobId,
+                oxylabsId: currentOxylabsId,
+                indeedJobId: originalConfig.indeedJobId,
+                isSearchJob: originalConfig.isSearchJob,
                 attempts,
                 durationMs: elapsedTime,
                 url: jobStatus.url,
@@ -500,33 +529,30 @@ const PollingService = {
                   clientNotes: jobStatus.client_notes
                 }
               });
-              // Instead of rejecting, throw error to trigger retry
               throw new Error(`Job ${jobStatus.status} - Triggering retry`);
             }
 
-            // Reset error counter on successful response
             consecutiveErrors = 0;
             
-            // Log status transitions
             if (jobStatus.status !== lastLoggedStatus) {
-              functions.logger.debug(`Job ${jobId} transitioned to ${jobStatus.status}`);
+              functions.logger.debug(`Job ${currentOxylabsId} transitioned to ${jobStatus.status}`);
               lastLoggedStatus = jobStatus.status;
             }
             
-            // Handle successful completion
             if (jobStatus.status === 'done') {
               functions.logger.info({
                 message: 'Job completed',
-                jobId,
+                oxylabsId: currentOxylabsId,
+                indeedJobId: originalConfig.indeedJobId,
+                isSearchJob: originalConfig.isSearchJob,
                 totalAttempts: attempts,
                 durationMs: elapsedTime,
                 finalStatus: jobStatus.status,
                 retryCount
               });
-              return await ApiService.getJobResults(jobId);
+              return await ApiService.getJobResults(currentOxylabsId);
             }
 
-            // Validate status is one we expect
             if (!['pending', 'running'].includes(jobStatus.status)) {
               throw new Error(`Unknown status: ${jobStatus.status}`);
             }
@@ -537,7 +563,9 @@ const PollingService = {
             if (consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
               functions.logger.error({
                 message: 'Polling aborted due to consecutive errors',
-                jobId,
+                oxylabsId: currentOxylabsId,
+                indeedJobId: originalConfig.indeedJobId,
+                isSearchJob: originalConfig.isSearchJob,
                 attempts,
                 consecutiveErrors,
                 error: error.message
@@ -547,7 +575,9 @@ const PollingService = {
 
             functions.logger.warn({
               message: 'Retryable error encountered',
-              jobId,
+              oxylabsId: currentOxylabsId,
+              indeedJobId: originalConfig.indeedJobId,
+              isSearchJob: originalConfig.isSearchJob,
               attempt: attempts,
               consecutiveErrors,
               error: error.message
@@ -564,7 +594,9 @@ const PollingService = {
         
         functions.logger.error({
           message: 'Max polling attempts reached',
-          jobId,
+          oxylabsId: currentOxylabsId,
+          indeedJobId: originalConfig.indeedJobId,
+          isSearchJob: originalConfig.isSearchJob,
           attempts: maxAttempts,
           totalDurationMs: elapsedTime
         });
@@ -575,8 +607,9 @@ const PollingService = {
         
         if (retryCount >= totalRetries) {
           functions.logger.error('Max retries reached for job', {
-            originalJobId,
-            currentJobId: jobId,
+            oxylabsId: currentOxylabsId,
+            indeedJobId: originalConfig.indeedJobId,
+            isSearchJob: originalConfig.isSearchJob,
             retries: retryCount,
             error: error.message
           });
@@ -584,30 +617,48 @@ const PollingService = {
         }
 
         functions.logger.info('Retrying job with new submission', {
-          originalJobId,
-          currentJobId: jobId,
+          oxylabsId: currentOxylabsId,
+          indeedJobId: originalConfig.indeedJobId,
+          isSearchJob: originalConfig.isSearchJob,
           retryNumber: retryCount,
           maxRetries: totalRetries
         });
 
-        // Create new job submission
-        const indeedJobId = extractIndeedJobId(originalJobId);
-        const jobUrl = originalJobId.includes('http') ? 
-          originalJobId : 
-          `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${indeedJobId}`;
+        // Use the correct URL based on job type
+        let jobUrl;
+        if (originalConfig.url) {
+          // If we have the original URL, use it
+          jobUrl = originalConfig.url;
+        } else if (originalConfig.isSearchJob) {
+          // If it's a search job but we don't have URL (shouldn't happen), throw
+          throw new Error('Search job retry attempted without original URL');
+        } else {
+          // For job details, construct viewjob URL
+          jobUrl = `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${originalConfig.indeedJobId}`;
+        }
 
         functions.logger.info('Creating new job submission with:', {
-          originalJobId,
-          indeedJobId,
+          oxylabsId: currentOxylabsId,
+          indeedJobId: originalConfig.indeedJobId,
+          isSearchJob: originalConfig.isSearchJob,
           jobUrl
         });
-        const batchPayload = PayloadBuilders.createBatchJobDetailsPayload([jobUrl]);
-        const submission = await ApiService.submitBatchJob(batchPayload);
         
-        // Update jobId to new submission while keeping original for reference
-        jobId = submission.ids[0];
+        // Use appropriate payload based on job type
+        const payload = originalConfig.isSearchJob ? 
+          PayloadBuilders.createSearchPayload(jobUrl) :
+          PayloadBuilders.createBatchJobDetailsPayload([jobUrl]);
+
+        // Submit to appropriate endpoint
+        const submission = originalConfig.isSearchJob ?
+          await ApiService.submitSearchJob(payload) :
+          await ApiService.submitBatchJob(payload);
         
-        // Add delay before starting new retry
+        // Update Oxylabs ID while keeping original config
+        currentOxylabsId = originalConfig.isSearchJob ? 
+          submission.id :
+          submission.ids[0];
+        
         await new Promise(resolve => setTimeout(resolve, 5000));
       }
     }
@@ -701,7 +752,7 @@ const JobProcessor = {
   // Track state across all processing
   state: {
     activeJobs: new Set(),
-    MAX_CONCURRENT_JOBS: 10,
+    MAX_CONCURRENT_JOBS: 13,
     rateLimit: {
       limit: null,
       remaining: null,
@@ -799,15 +850,19 @@ const JobProcessor = {
       try {
         const jobUrl = `${CONFIG.BASE_URLS.INDEED_VIEW_JOB}?jk=${job.job_id}`;
         JobProcessor.state.activeJobs.add(job.job_id);
-
+    
         const batchPayload = PayloadBuilders.createBatchJobDetailsPayload([jobUrl]);
         const submission = await ApiService.submitBatchJob(batchPayload);
         
         if (submission.headers) {
           JobProcessor.updateRateLimits(submission.headers);
         }
-
-        const result = await ApiService.getAllBatchResults([submission.ids[0]]);
+    
+        const result = await ApiService.getAllBatchResults([{
+          oxylabsId: submission.ids[0],
+          indeedJobId: job.job_id,
+          url: jobUrl
+        }]);
         
         if (result.successful && result.successful.length > 0) {
           const jobDetails = await JobProcessor.processIndividualJob(
@@ -815,7 +870,7 @@ const JobProcessor = {
             job, 
             result.successful[0]
           );
-
+    
           if (jobDetails.verificationStatus === 'Success') {
             JobProcessor.state.processedJobs.successful.push(jobDetails);
           } else {
@@ -841,13 +896,13 @@ const JobProcessor = {
       } finally {
         JobProcessor.state.activeJobs.delete(job.job_id);
         JobProcessor.state.processedJobs.pending--;
-
+    
         // After this job completes, try to start a new one if there are jobs remaining
         if (currentIndex < jobs.length && JobProcessor.canStartNewJob()) {
           const nextJob = jobs[currentIndex++];
           processJob(nextJob);
         }
-
+    
         // Log progress
         functions.logger.info("Job progress:", {
           processedJobs: currentIndex,
@@ -978,7 +1033,7 @@ const JobProcessor = {
 
 // ============= MAIN FUNCTION =============
 exports.searchJobs = onRequest({ 
-  timeoutSeconds: 540,
+  timeoutSeconds: 60,
   memory: "1GiB"
 }, async (req, res) => {
   const startTime = Date.now();
@@ -999,45 +1054,85 @@ exports.searchJobs = onRequest({
   }
 
   try {
-    const searchUrl = UrlBuilders.buildSearchUrl(q, l, {
-      jt,
-      fromage,
-      radius,
-      salary,
-      experience: explvl,
-      remote
-    });
-    
-    functions.logger.info("Search URL:", { 
-      url: searchUrl,
-      params: {
-        keywords: q,
-        location: l,
-        jobType: jt,
-        datePosted: fromage,
-        radius,
+    // Create URLs for both pages
+    const pageUrls = [0, 10].map(start => 
+      UrlBuilders.buildSearchUrl(q, l, {
+        jt,
+        fromage,
+        radius: radius || "25", // Adding default radius as seen in URLs
         salary,
         experience: explvl,
-        remote
-      }
+        remote,
+        start
+      })
+    );
+    
+    functions.logger.info("Fetching multiple pages in parallel:", {
+      urls: pageUrls
     });
 
-    const searchPayload = PayloadBuilders.createSearchPayload(searchUrl);
-    const jobSubmission = await ApiService.submitSearchJob(searchPayload);
-    const results = await PollingService.pollForResults(jobSubmission.id);
+    // Submit search jobs with individual error handling
+    const pageSubmissionsResults = await Promise.allSettled(
+      pageUrls.map(async url => {
+        try {
+          const payload = PayloadBuilders.createSearchPayload(url);
+          return await ApiService.submitSearchJob(payload);
+        } catch (error) {
+          functions.logger.error("Failed to submit search job:", {
+            url,
+            error: error.message
+          });
+          throw error;
+        }
+      })
+    );
 
-    if (results.results?.[0]?.content?.job_listings) {
-      const jobs = results.results[0].content.job_listings;
-      const jobDetailsResults = await JobProcessor.processJobsInRollingBatches(userId, jobs, startTime);
+    // Filter out failed submissions
+    const successfulSubmissions = pageSubmissionsResults
+      .filter(result => result.status === 'fulfilled')
+      .map(result => result.value);
+
+    functions.logger.info("Search jobs submitted:", {
+      totalSubmissions: pageSubmissionsResults.length,
+      successfulSubmissions: successfulSubmissions.length,
+      submissionIds: successfulSubmissions.map(sub => sub.id)
+    });
+
+    // Poll for results using Promise.allSettled to handle partial failures
+    const allResults = await Promise.allSettled(
+      successfulSubmissions.map(submission => 
+        PollingService.pollForResults(submission.id)
+      )
+    );
+
+    // Extract and combine job listings from successful results only
+    const allJobs = allResults
+      .filter(result => result.status === 'fulfilled')
+      .flatMap(result => 
+        result.value.results?.[0]?.content?.job_listings || []
+      );
+
+    functions.logger.info("Combined results:", {
+      totalJobs: allJobs.length,
+      jobsPerPage: allResults.map(result => 
+        result.status === 'fulfilled' ? 
+          result.value.results?.[0]?.content?.job_listings?.length || 0 : 0
+      ),
+      successfulPages: allResults.filter(r => r.status === 'fulfilled').length,
+      failedPages: allResults.filter(r => r.status === 'rejected').length
+    });
+
+    if (allJobs.length > 0) {
+      const jobDetailsResults = await JobProcessor.processJobsInRollingBatches(userId, allJobs, startTime);
       
       return res.json({
         userId,
-        jobs: jobs,
-        count: jobs.length,
+        jobs: allJobs,
+        count: allJobs.length,
         successfulDetails: jobDetailsResults.successful,
         failedDetails: jobDetailsResults.failed,
         stats: {
-          totalJobs: jobs.length,
+          totalJobs: allJobs.length,
           successfulJobs: jobDetailsResults.successful.length,
           failedJobs: jobDetailsResults.failed.length,
           processingTimeMs: Date.now() - startTime
