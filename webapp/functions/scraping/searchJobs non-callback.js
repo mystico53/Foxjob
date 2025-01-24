@@ -21,7 +21,6 @@ const CONFIG = {
     OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries',
     OXYLABS_BATCH: 'https://data.oxylabs.io/v1/queries/batch',
   },
-  CALLBACK_URL: 'https://bf2b-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback',
   MAX_JOBS_TO_PROCESS: 5,
   POLLING_MAX_ATTEMPTS: 30,
   POLLING_INITIAL_DELAY: 1000,
@@ -166,7 +165,6 @@ const PayloadBuilders = {
     url: searchUrl,
     render: "html",
     parse: true,
-    callback_url: CONFIG.CALLBACK_URL,
     parsing_instructions: ParsingInstructions.searchResults
   }),
 
@@ -218,11 +216,12 @@ const extractIndeedJobId = (url) => {
 
 const ApiService = {
   submitSearchJob: async (payload) => {
-    await delay(2000 + Math.random() * 2000);
-    
+    // Add delay of 1-2 seconds before making request
+    await delay(2000 + Math.random() * 2000); // Random delay between 2-4 seconds
+    functions.logger.info("Delaying:", delay);
+
     functions.logger.info("Submitting search job to Oxylabs:", {
       url: payload.url,
-      callback_url: payload.callback_url, // Log callback URL
       source: payload.source,
       hasParsingInstructions: !!payload.parsing_instructions
     });
@@ -238,6 +237,15 @@ const ApiService = {
       status: response.data.status,
       timeMs: response.data.time_taken
     });
+
+    // functions.logger.info("Search job submission - FULL STRUCTURE:", {
+    //   type: "SEARCH_JOB",
+    //   response: {
+    //     id: response.data.id,
+    //     fullData: JSON.stringify(response.data, null, 2),
+    //     parsing_instructions: payload.parsing_instructions
+    //   }
+    // });
 
     return response.data;
   },
@@ -993,7 +1001,7 @@ exports.searchJobs = onRequest({
       UrlBuilders.buildSearchUrl(q, l, {
         jt,
         fromage,
-        radius: radius || "25",
+        radius: radius || "25", // Adding default radius as seen in URLs
         salary,
         experience: explvl,
         remote,
@@ -1001,50 +1009,81 @@ exports.searchJobs = onRequest({
       })
     );
     
-    // Create batch payload for search URLs
-    const batchPayload = {
-      url: pageUrls,
-      source: "universal",
-      render: "html",
-      parse: true,
-      callback_url: CONFIG.CALLBACK_URL,
-      parsing_instructions: ParsingInstructions.searchResults
-    };
-
-    // Submit batch job for searches
-    functions.logger.info("Submitting batch search job:", {
-      urls: pageUrls,
-      callback_url: CONFIG.CALLBACK_URL
+    functions.logger.info("Fetching multiple pages in parallel:", {
+      urls: pageUrls
     });
 
-    let batchSubmission;
-    try {
-      batchSubmission = await ApiService.submitBatchJob(batchPayload);
-    } catch (error) {
-      functions.logger.error("Failed to submit batch search job:", {
-        error: error.message,
-        urls: pageUrls
+    // Submit search jobs with individual error handling
+    const pageSubmissionsResults = await Promise.allSettled(
+      pageUrls.map(async url => {
+        try {
+          const payload = PayloadBuilders.createSearchPayload(url);
+          await delay(2000 * pageUrls.indexOf(url));
+          return await ApiService.submitSearchJob(payload);
+        } catch (error) {
+          functions.logger.error("Failed to submit search job:", {
+            url,
+            error: error.message
+          });
+          throw error;
+        }
+      })
+    );
+
+    // Filter out failed submissions
+    const successfulSubmissions = pageSubmissionsResults
+      .filter(result => result.status === 'fulfilled')
+      .map(result => result.value);
+
+    functions.logger.info("Search jobs submitted:", {
+      totalSubmissions: pageSubmissionsResults.length,
+      successfulSubmissions: successfulSubmissions.length,
+      submissionIds: successfulSubmissions.map(sub => sub.id)
+    });
+
+    // Poll for results using Promise.allSettled to handle partial failures
+    const allResults = await Promise.allSettled(
+      successfulSubmissions.map(submission => 
+        PollingService.pollForResults(submission.id)
+      )
+    );
+
+    // Extract and combine job listings from successful results only
+    const allJobs = allResults
+      .filter(result => result.status === 'fulfilled')
+      .flatMap(result => 
+        result.value.results?.[0]?.content?.job_listings || []
+      );
+
+    functions.logger.info("Combined results:", {
+      totalJobs: allJobs.length,
+      jobsPerPage: allResults.map(result => 
+        result.status === 'fulfilled' ? 
+          result.value.results?.[0]?.content?.job_listings?.length || 0 : 0
+      ),
+      successfulPages: allResults.filter(r => r.status === 'fulfilled').length,
+      failedPages: allResults.filter(r => r.status === 'rejected').length
+    });
+
+    if (allJobs.length > 0) {
+      const jobDetailsResults = await JobProcessor.processJobsInRollingBatches(userId, allJobs, startTime);
+      
+      return res.json({
+        userId,
+        jobs: allJobs,
+        count: allJobs.length,
+        successfulDetails: jobDetailsResults.successful,
+        failedDetails: jobDetailsResults.failed,
+        stats: {
+          totalJobs: allJobs.length,
+          successfulJobs: jobDetailsResults.successful.length,
+          failedJobs: jobDetailsResults.failed.length,
+          processingTimeMs: Date.now() - startTime
+        }
       });
-      throw error;
     }
 
-    functions.logger.info("Batch search job submitted:", {
-      totalQueries: batchSubmission.queries.length,
-      submissionIds: batchSubmission.ids,
-      callback_url: CONFIG.CALLBACK_URL
-    });
-
-    // Return immediately since results will come through callback
-    return res.json({
-      status: 'submitted',
-      userId,
-      searchIds: batchSubmission.ids,
-      stats: {
-        totalSubmissions: pageUrls.length,
-        successfulSubmissions: batchSubmission.queries.length,
-        submissionTimeMs: Date.now() - startTime
-      }
-    });
+    return res.json({ jobs: [], count: 0 });
 
   } catch (error) {
     functions.logger.error("searchJobs Error", {

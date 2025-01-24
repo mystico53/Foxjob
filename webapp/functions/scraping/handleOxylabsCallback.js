@@ -119,6 +119,31 @@ const OxylabsService = {
         error: error.message
       };
     }
+  },
+
+  fetchQueryResults: async (queryId) => {
+    try {
+      functions.logger.info("Fetching results for query:", { queryId });
+      
+      const response = await axios.get(
+        `${CONFIG.BASE_URL}/${queryId}/results`,
+        { headers: OxylabsService.getAuthHeader() }
+      );
+
+      functions.logger.info("Retrieved results for query:", { 
+        queryId,
+        status: response.status,
+        hasResults: Boolean(response.data?.results?.[0]?.content)
+      });
+
+      return response.data;
+    } catch (error) {
+      functions.logger.error("Failed to fetch query results:", {
+        queryId,
+        error: error.message
+      });
+      throw error;
+    }
   }
 };
 
@@ -171,32 +196,133 @@ exports.handleOxylabsCallback = onRequest({
       timestamp: new Date().toISOString()
     });
 
-    // Determine callback type based on the response structure
-    const callbackType = req.body.results?.[0]?.content?.job_listings ? 
-      'search' : 'job_detail';
+    const isSearchJob = req.body.url?.includes('/jobs?') || 
+                      (req.body.parsing_instructions && 'job_listings' in req.body.parsing_instructions);
+    const callbackType = isSearchJob ? 'search' : 'job_detail';
 
-    functions.logger.info("Detected callback type:", { callbackType });
+    functions.logger.info("Detected callback type:", { 
+      callbackType,
+      url: req.body.url,
+      status: req.body.status,
+      hasJobListingsInstructions: 'job_listings' in (req.body.parsing_instructions || {})
+    });
 
-    // Process based on type
-    if (callbackType === 'search') {
-      const jobListings = req.body.results?.[0]?.content?.job_listings || [];
-      
-      for (const job of jobListings) {
-        const cleanedDetails = sanitizeForFirestore({
-          basicInfo: {
-            job_id: job.job_id,
-            job_title: job.job_title,
-            company_name: job.company_name,
-            job_link: job.job_link
-          },
-          details: null,
-          status: 'pending_details'
+    // Handle faulted search jobs
+    if (callbackType === 'search' && req.body.status === 'faulted') {
+      functions.logger.warn("Search job faulted, initiating retry:", {
+        jobId: req.body.id,
+        url: req.body.url
+      });
+
+      try {
+        const retryPayload = {
+          source: "universal",
+          url: req.body.url,
+          render: "html",
+          parse: true,
+          callback_url: CONFIG.CALLBACK_URL,
+          parsing_instructions: req.body.parsing_instructions
+        };
+
+        const response = await axios.post(
+          CONFIG.BASE_URL,
+          retryPayload,
+          { headers: OxylabsService.getAuthHeader() }
+        );
+
+        functions.logger.info("Search retry job submitted successfully:", {
+          originalJobId: req.body.id,
+          newJobId: response.data.id,
+          url: req.body.url
         });
 
-        await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails);
+        return res.status(200).json({
+          success: true,
+          status: 'retrying',
+          type: 'search',
+          originalJobId: req.body.id,
+          newJobId: response.data.id
+        });
+      } catch (error) {
+        functions.logger.error("Failed to submit search retry:", {
+          originalJobId: req.body.id,
+          error: error.message
+        });
+        return res.status(200).json({
+          success: false,
+          error: 'Failed to submit search retry',
+          details: error.message
+        });
       }
-    } else {
-      // Process job detail response
+    }
+
+    // Process search jobs
+    if (callbackType === 'search' && req.body.status === 'done') {
+      try {
+        // First try to get results from the callback
+        let jobListings = req.body.results?.[0]?.content?.job_listings;
+
+        // If no results in callback, fetch them using the query ID
+        if (!jobListings || jobListings.length === 0) {
+          functions.logger.info("No results in callback, fetching from API:", { 
+            queryId: req.body.id 
+          });
+
+          try {
+            const queryResults = await OxylabsService.fetchQueryResults(req.body.id);
+            jobListings = queryResults.results?.[0]?.content?.job_listings || [];
+            
+            functions.logger.info("Retrieved results from API:", { 
+              queryId: req.body.id,
+              jobCount: jobListings.length
+            });
+          } catch (error) {
+            functions.logger.error("Failed to fetch results from API:", {
+              queryId: req.body.id,
+              error: error.message
+            });
+            throw error;
+          }
+        }
+
+        // Process job listings
+        for (const job of jobListings) {
+          const cleanedDetails = sanitizeForFirestore({
+            basicInfo: {
+              job_id: job.job_id,
+              job_title: job.job_title,
+              company_name: job.company_name,
+              job_link: job.job_link
+            },
+            details: null,
+            status: 'pending_details',
+            queryId: req.body.id
+          });
+
+          await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails);
+        }
+
+        return res.status(200).json({
+          success: true,
+          type: 'search',
+          jobsProcessed: jobListings.length,
+          queryId: req.body.id
+        });
+
+      } catch (error) {
+        functions.logger.error("Failed to process search results:", {
+          queryId: req.body.id,
+          error: error.message
+        });
+        return res.status(200).json({
+          success: false,
+          error: 'Failed to process search results',
+          details: error.message
+        });
+      }
+    } 
+    // Process job detail callbacks
+    else if (callbackType === 'job_detail') {
       const result = req.body.results?.[0];
       
       // Extract job ID from URL
