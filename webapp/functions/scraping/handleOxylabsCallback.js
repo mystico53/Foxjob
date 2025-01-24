@@ -18,7 +18,7 @@ const CONFIG = {
   BASE_URL: 'https://data.oxylabs.io/v1/queries',
   MAX_RETRIES: 3,
   // Add webhook.site URL for testing callbacks
-  CALLBACK_URL: 'https://webhook.site/f287c202-52df-4258-982b-6ccdcc5ece42'
+  CALLBACK_URL: 'https://bf2b-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback'
 };
 
 // HTML Analyzer for cleaning content
