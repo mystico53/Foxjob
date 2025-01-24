@@ -1,28 +1,28 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const axios = require('axios');
 const { FieldValue } = require("firebase-admin/firestore");
 
-// Initialize Firebase (if not already initialized)
+// Initialize Firebase
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
 
-// ============= HTML ANALYZER =============
-const HtmlAnalyzer = {
-  analyzeContent: (htmlContent) => {
-    return {
-      hasJobTitle: htmlContent.includes('jobsearch-JobInfoHeader-title'),
-      hasLocation: htmlContent.includes('jobsearch-JobInfoHeader-companyLocation'),
-      hasCompany: htmlContent.includes('jobsearch-CompanyInfoContainer'),
-      hasDescription: htmlContent.includes('jobDescriptionText'),
-      dataTestIds: htmlContent.match(/data-testid="([^"]+)"/g)?.slice(0, 10),
-      jobsearchClasses: htmlContent.match(/class="[^"]*jobsearch[^"]*"/g)?.slice(0, 10)
-    };
-  },
+// Config
+const CONFIG = {
+  OXY_USERNAME: "mystico_FXPQA",
+  OXY_PASSWORD: "ti_QMg2h2WzZMp",
+  BASE_URL: 'https://data.oxylabs.io/v1/queries',
+  MAX_RETRIES: 3,
+  // Add webhook.site URL for testing callbacks
+  CALLBACK_URL: 'https://webhook.site/f287c202-52df-4258-982b-6ccdcc5ece42'
+};
 
+// HTML Analyzer for cleaning content
+const HtmlAnalyzer = {
   extractCleanContent: (content) => {
     if (!content) return "No description available.";
     if (Array.isArray(content)) {
@@ -34,7 +34,7 @@ const HtmlAnalyzer = {
   }
 };
 
-// Helper function to recursively remove undefined values
+// Helper function for Firestore
 const sanitizeForFirestore = (obj) => {
   if (obj === undefined) return null;
   if (obj === null) return null;
@@ -51,19 +51,80 @@ const sanitizeForFirestore = (obj) => {
   return obj;
 };
 
-// ============= FIRESTORE SERVICE =============
+// Oxylabs Service
+const OxylabsService = {
+  getAuthHeader: () => {
+    const authStr = Buffer.from(`${CONFIG.OXY_USERNAME}:${CONFIG.OXY_PASSWORD}`).toString('base64');
+    return {
+      "Content-Type": "application/json",
+      "Authorization": `Basic ${authStr}`
+    };
+  },
+
+  createJobDetailsPayload: (jobId) => ({
+    source: "universal",
+    url: `https://www.indeed.com/viewjob?jk=${jobId}`,
+    render: "html",
+    parse: true,
+    // Add callback URL to the payload
+    callback_url: CONFIG.CALLBACK_URL,
+    parsing_instructions: {
+      jobTitle: {
+        _fns: [{ _fn: "css", _args: ["[data-testid='jobsearch-JobInfoHeader-title']"] }]
+      },
+      location: {
+        _fns: [{ _fn: "css", _args: ["[data-testid='job-location'], [data-testid='jobsearch-JobInfoHeader-companyLocation'], [data-testid='inlineHeader-companyLocation']"] }]
+      },
+      description: {
+        _fns: [{ _fn: "css", _args: ["#jobDescriptionText.jobsearch-JobComponent-description"] }]
+      },
+      postingDate: {
+        _fns: [{ _fn: "css", _args: ["[data-testid='job-posting-date']"] }]
+      }
+    }
+  }),
+
+  submitNewJobRequest: async (jobId) => {
+    try {
+      const payload = OxylabsService.createJobDetailsPayload(jobId);
+      
+      functions.logger.info("Submitting new job request to Oxylabs:", {
+        jobId,
+        url: payload.url,
+        callback_url: payload.callback_url // Log the callback URL
+      });
+
+      const response = await axios.post(
+        CONFIG.BASE_URL,
+        payload,
+        { headers: OxylabsService.getAuthHeader() }
+      );
+
+      functions.logger.info("New job request submitted:", {
+        oxylabsId: response.data.id,
+        status: response.data.status
+      });
+
+      return {
+        success: true,
+        oxylabsId: response.data.id
+      };
+    } catch (error) {
+      functions.logger.error("Failed to submit new job request:", {
+        jobId,
+        error: error.message
+      });
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+};
+
+// Firestore Service
 const FirestoreService = {
   saveJobToUserCollection: async (userId, jobDetail, jobId = null) => {
-    // Add debug logging to see what we're trying to save
-    functions.logger.debug("Attempting to save job with details:", {
-      userId,
-      jobId: jobId || jobDetail?.basicInfo?.job_id,
-      basicInfo: jobDetail?.basicInfo,
-      isUpdate: !!jobId
-    });
-
-    // For updates (details), we use the passed jobId
-    // For new documents (search results), we use the job_id from basicInfo
     const documentId = jobId || jobDetail?.basicInfo?.job_id;
 
     if (!userId || !documentId) {
@@ -75,41 +136,30 @@ const FirestoreService = {
                 .collection('scrapedcallback')
                 .doc(documentId);
     
-    functions.logger.info("Saving job to Firestore:", {
-      userId,
-      jobId: documentId,
-      hasDetails: !!jobDetail.details
+    const cleanedDetails = sanitizeForFirestore({
+      ...jobDetail,
+      lastUpdated: FieldValue.serverTimestamp()
     });
 
-    // First check if the document exists
     const doc = await docRef.get();
     if (!doc.exists) {
-      // Only create if it doesn't exist
-      await docRef.set(jobDetail);
+      await docRef.set({
+        ...cleanedDetails,
+        createdAt: FieldValue.serverTimestamp(),
+        retryCount: 0
+      });
     } else {
-      // Update if it exists, merging with existing data
-      await docRef.update(jobDetail);
+      await docRef.update({
+        ...cleanedDetails,
+        retryCount: FieldValue.increment(1)
+      });
     }
 
-    try {
-      functions.logger.info("Successfully saved job to Firestore:", {
-        userId,
-        jobId: documentId,
-        timeMs: Date.now()
-      });
-    } catch (error) {
-      functions.logger.error("Error saving job to Firestore:", {
-        userId,
-        jobId: documentId,
-        error: error.message,
-        stack: error.stack
-      });
-      throw error;
-    }
+    return doc.exists;
   }
 };
 
-// ============= MAIN HANDLER =============
+// Main webhook handler
 exports.handleOxylabsCallback = onRequest({
   timeoutSeconds: 540,
   memory: "1GiB"
@@ -117,9 +167,7 @@ exports.handleOxylabsCallback = onRequest({
   try {
     functions.logger.info('Received webhook:', {
       method: req.method,
-      headers: req.headers,
       body: req.body,
-      query: req.query,
       timestamp: new Date().toISOString()
     });
 
@@ -132,12 +180,7 @@ exports.handleOxylabsCallback = onRequest({
     // Process based on type
     if (callbackType === 'search') {
       const jobListings = req.body.results?.[0]?.content?.job_listings || [];
-      functions.logger.info("Search results:", {
-        count: jobListings.length,
-        jobs: jobListings
-      });
-
-      // Create initial documents for each job listing
+      
       for (const job of jobListings) {
         const cleanedDetails = sanitizeForFirestore({
           basicInfo: {
@@ -146,41 +189,71 @@ exports.handleOxylabsCallback = onRequest({
             company_name: job.company_name,
             job_link: job.job_link
           },
-          details: null, // Will be populated by subsequent detail callback
-          status: 'pending_details',
-          lastUpdated: FieldValue.serverTimestamp(),
-          createdAt: FieldValue.serverTimestamp()
+          details: null,
+          status: 'pending_details'
         });
 
         await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails);
       }
     } else {
-      // Process job detail
+      // Process job detail response
       const result = req.body.results?.[0];
-      const content = result?.content;
       
-      // Extract job ID from the URL
+      // Extract job ID from URL
       let jobId;
       if (result?.url) {
         const match = result.url.match(/jk=([^&]+)/);
         jobId = match ? match[1] : null;
       }
-      
+
       if (!jobId) {
-        functions.logger.error("Could not determine job ID from response:", {
-          url: result?.url,
-          jobId: result?.job_id,
-          content
-        });
         return res.status(200).json({ success: false, error: "Could not determine job ID" });
       }
 
-      functions.logger.info("Processing job details:", { 
-        jobId,
-        oxylabsJobId: result?.job_id,
-        url: result?.url
-      });
+      // Check if response was successful
+      if (result.status === 'faulted' || result.status === 'failed') {
+        // Get current retry count
+        const docRef = db.collection('users')
+                    .doc('test_user')
+                    .collection('scrapedcallback')
+                    .doc(jobId);
+        
+        const doc = await docRef.get();
+        const retryCount = doc.exists ? (doc.data().retryCount || 0) : 0;
 
+        if (retryCount >= CONFIG.MAX_RETRIES) {
+          await FirestoreService.saveJobToUserCollection('test_user', {
+            status: 'failed',
+            error: 'Max retries exceeded',
+            lastError: result.status
+          }, jobId);
+          return res.status(200).json({ success: false, error: 'Max retries exceeded' });
+        }
+
+        // Submit new job request to Oxylabs
+        const newSubmission = await OxylabsService.submitNewJobRequest(jobId);
+        
+        if (!newSubmission.success) {
+          await FirestoreService.saveJobToUserCollection('test_user', {
+            status: 'failed',
+            error: 'Failed to create new job request',
+            lastError: newSubmission.error
+          }, jobId);
+          return res.status(200).json({ success: false, error: 'Retry submission failed' });
+        }
+
+        // Update document with retry status
+        await FirestoreService.saveJobToUserCollection('test_user', {
+          status: 'retrying',
+          oxylabsId: newSubmission.oxylabsId,
+          lastError: result.status
+        }, jobId);
+
+        return res.status(200).json({ success: true, status: 'retrying' });
+      }
+
+      // Process successful response
+      const content = result.content;
       const cleanedDetails = sanitizeForFirestore({
         details: {
           title: HtmlAnalyzer.extractCleanContent(content?.jobTitle?.[0] || ""),
@@ -189,11 +262,9 @@ exports.handleOxylabsCallback = onRequest({
           postingDate: content?.postingDate?.[0],
           parseStatusCode: content?.parse_status_code
         },
-        status: 'complete',
-        lastUpdated: FieldValue.serverTimestamp()
+        status: 'complete'
       });
 
-      // Update existing document with job details
       await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails, jobId);
     }
 
@@ -209,7 +280,6 @@ exports.handleOxylabsCallback = onRequest({
       stack: error.stack
     });
 
-    // Always return 200 to prevent Oxylabs from retrying
     return res.status(200).json({
       received: false,
       error: error.message
