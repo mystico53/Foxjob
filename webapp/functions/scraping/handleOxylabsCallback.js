@@ -18,7 +18,7 @@ const CONFIG = {
   BASE_URL: 'https://data.oxylabs.io/v1/queries',
   MAX_RETRIES: 3,
   // Add webhook.site URL for testing callbacks
-  CALLBACK_URL: 'https://bf2b-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback'
+  CALLBACK_URL: 'https://e02f-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback'
 };
 
 // HTML Analyzer for cleaning content
@@ -31,6 +31,61 @@ const HtmlAnalyzer = {
         .filter(Boolean);
     }
     return content.replace(/<[^>]*>/g, '').trim();
+  }
+};
+
+const ActiveJobsService = {
+  // Collection references
+  activeJobsRef: db.collection('activeJobs'),
+  counterRef: db.collection('activeJobs').doc('counter'),
+
+  // Initialize counter if it doesn't exist
+  async initializeCounter() {
+    const doc = await this.counterRef.get();
+    if (!doc.exists) {
+      await this.counterRef.set({ count: 0 });
+    }
+  },
+
+  // Add a new active job with transaction
+  async addActiveJob(oxylabsId, jobType, metadata = {}) {
+    return db.runTransaction(async (transaction) => {
+      const counterDoc = await transaction.get(this.counterRef);
+      const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
+
+      if (currentCount >= 13) {
+        throw new Error('Max concurrent jobs reached');
+      }
+
+      // Increment counter and add job
+      transaction.set(this.counterRef, { count: currentCount + 1 }, { merge: true });
+      transaction.set(this.activeJobsRef.doc(oxylabsId), {
+        startedAt: FieldValue.serverTimestamp(),
+        type: jobType,
+        status: 'running',
+        ...metadata
+      });
+
+      return { success: true, currentCount: currentCount + 1 };
+    });
+  },
+
+  // Remove an active job with transaction
+  async removeActiveJob(oxylabsId) {
+    return db.runTransaction(async (transaction) => {
+      const jobDoc = await transaction.get(this.activeJobsRef.doc(oxylabsId));
+      
+      if (!jobDoc.exists) {
+        return { success: false, error: 'Job not found' };
+      }
+
+      transaction.delete(this.activeJobsRef.doc(oxylabsId));
+      transaction.update(this.counterRef, {
+        count: FieldValue.increment(-1)
+      });
+
+      return { success: true };
+    });
   }
 };
 
@@ -88,21 +143,15 @@ const OxylabsService = {
     try {
       const payload = OxylabsService.createJobDetailsPayload(jobId);
       
-      functions.logger.info("Submitting new job request to Oxylabs:", {
-        jobId,
-        url: payload.url,
-        callback_url: payload.callback_url // Log the callback URL
-      });
-
       const response = await axios.post(
         CONFIG.BASE_URL,
         payload,
         { headers: OxylabsService.getAuthHeader() }
       );
 
-      functions.logger.info("New job request submitted:", {
-        oxylabsId: response.data.id,
-        status: response.data.status
+      // Add to active jobs tracking
+      await ActiveJobsService.addActiveJob(response.data.id, 'job_detail', {
+        originalJobId: jobId
       });
 
       return {
@@ -214,6 +263,8 @@ exports.handleOxylabsCallback = onRequest({
         url: req.body.url
       });
 
+      await ActiveJobsService.removeActiveJob(req.body.id);
+
       try {
         const retryPayload = {
           source: "universal",
@@ -229,6 +280,11 @@ exports.handleOxylabsCallback = onRequest({
           retryPayload,
           { headers: OxylabsService.getAuthHeader() }
         );
+
+        await ActiveJobsService.addActiveJob(response.data.id, 'search', {
+          isRetry: true,
+          originalJobId: req.body.id
+        });
 
         functions.logger.info("Search retry job submitted successfully:", {
           originalJobId: req.body.id,
@@ -259,7 +315,8 @@ exports.handleOxylabsCallback = onRequest({
     // Process search jobs
     if (callbackType === 'search' && req.body.status === 'done') {
       try {
-        // First try to get results from the callback
+        
+        await ActiveJobsService.removeActiveJob(req.body.id);
         let jobListings = req.body.results?.[0]?.content?.job_listings;
 
         // If no results in callback, fetch them using the query ID
@@ -323,6 +380,7 @@ exports.handleOxylabsCallback = onRequest({
     } 
     // Process job detail callbacks
     else if (callbackType === 'job_detail') {
+      await ActiveJobsService.removeActiveJob(req.body.id);
       const result = req.body.results?.[0];
       
       // Extract job ID from URL

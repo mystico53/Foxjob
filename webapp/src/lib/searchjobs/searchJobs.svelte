@@ -228,9 +228,7 @@
   <div class="card p-4 space-y-6">
     <header class="space-y-2">
       <h1 class="h2">Job Search</h1>
-      <p class="text-sm opacity-75">Search millions of jobs from Indeed</p>
     </header>
-    
     <!-- Search Form -->
     <form on:submit|preventDefault={searchJobs} class="space-y-6">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
