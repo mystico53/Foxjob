@@ -34,6 +34,84 @@ const HtmlAnalyzer = {
   }
 };
 
+const JobQueueService = {
+  // Collection reference
+  queueRef: db.collection('jobQueue'),
+
+  async addToQueue(jobId, metadata = {}) {
+    try {
+      await this.queueRef.add({
+        jobId,
+        status: 'pending',
+        createdAt: FieldValue.serverTimestamp(),
+        priority: 1,
+        retryCount: 0,
+        ...metadata
+      });
+      return true;
+    } catch (error) {
+      functions.logger.error('Failed to add job to queue:', {
+        jobId,
+        error: error.message
+      });
+      return false;
+    }
+  },
+
+  async processQueue() {
+    try {
+      // Get count of current active jobs
+      const counterDoc = await ActiveJobsService.counterRef.get();
+      const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
+      
+      // Calculate how many jobs we can process (leave 1 slot for search)
+      const availableSlots = 12 - currentCount;
+      
+      if (availableSlots <= 0) {
+        return { processed: 0 };
+      }
+
+      // Get jobs from queue
+      const queueSnapshot = await this.queueRef
+        .where('status', '==', 'pending')
+        .orderBy('createdAt')
+        .limit(availableSlots)
+        .get();
+
+      let processedCount = 0;
+
+      for (const doc of queueSnapshot.docs) {
+        try {
+          const jobData = doc.data();
+          const result = await OxylabsService.submitNewJobRequest(jobData.jobId);
+          
+          if (result.success) {
+            await this.queueRef.doc(doc.id).delete();
+            processedCount++;
+          } else {
+            await this.queueRef.doc(doc.id).update({
+              status: 'error',
+              lastError: result.error,
+              retryCount: FieldValue.increment(1),
+              lastAttempt: FieldValue.serverTimestamp()
+            });
+          }
+        } catch (error) {
+          functions.logger.error('Failed to process queued job:', {
+            jobId: doc.id,
+            error: error.message
+          });
+        }
+      }
+
+      return { processed: processedCount };
+    } catch (error) {
+      functions.logger.error('Failed to process job queue:', error);
+      return { processed: 0, error: error.message };
+    }
+  }
+};
+
 const ActiveJobsService = {
   // Collection references
   activeJobsRef: db.collection('activeJobs'),
@@ -49,43 +127,71 @@ const ActiveJobsService = {
 
   // Add a new active job with transaction
   async addActiveJob(oxylabsId, jobType, metadata = {}) {
-    return db.runTransaction(async (transaction) => {
-      const counterDoc = await transaction.get(this.counterRef);
-      const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
+    if (!oxylabsId) {
+      throw new Error('oxylabsId is required');
+    }
 
-      if (currentCount >= 13) {
-        throw new Error('Max concurrent jobs reached');
-      }
+    try {
+      return await db.runTransaction(async (transaction) => {
+        const counterDoc = await transaction.get(this.counterRef);
+        const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
 
-      // Increment counter and add job
-      transaction.set(this.counterRef, { count: currentCount + 1 }, { merge: true });
-      transaction.set(this.activeJobsRef.doc(oxylabsId), {
-        startedAt: FieldValue.serverTimestamp(),
-        type: jobType,
-        status: 'running',
-        ...metadata
+        // Reserve 1 slot for search jobs
+        const maxJobs = jobType === 'search' ? 13 : 12;
+
+        if (currentCount >= maxJobs) {
+          throw new Error('Max concurrent jobs reached');
+        }
+
+        // Increment counter and add job
+        transaction.set(this.counterRef, { count: currentCount + 1 }, { merge: true });
+        transaction.set(this.activeJobsRef.doc(oxylabsId), {
+          startedAt: FieldValue.serverTimestamp(),
+          type: jobType,
+          status: 'running',
+          ...metadata,
+          lastUpdated: FieldValue.serverTimestamp()
+        });
+
+        return { success: true, currentCount: currentCount + 1 };
       });
-
-      return { success: true, currentCount: currentCount + 1 };
-    });
+    } catch (error) {
+      functions.logger.error('Failed to add active job:', {
+        oxylabsId,
+        jobType,
+        error: error.message
+      });
+      throw error;
+    }
   },
 
-  // Remove an active job with transaction
   async removeActiveJob(oxylabsId) {
-    return db.runTransaction(async (transaction) => {
-      const jobDoc = await transaction.get(this.activeJobsRef.doc(oxylabsId));
-      
-      if (!jobDoc.exists) {
-        return { success: false, error: 'Job not found' };
-      }
+    if (!oxylabsId) {
+      throw new Error('oxylabsId is required');
+    }
 
-      transaction.delete(this.activeJobsRef.doc(oxylabsId));
-      transaction.update(this.counterRef, {
-        count: FieldValue.increment(-1)
+    try {
+      return await db.runTransaction(async (transaction) => {
+        const jobDoc = await transaction.get(this.activeJobsRef.doc(oxylabsId));
+        
+        if (!jobDoc.exists) {
+          return { success: false, error: 'Job not found' };
+        }
+
+        transaction.delete(this.activeJobsRef.doc(oxylabsId));
+        transaction.update(this.counterRef, {
+          count: FieldValue.increment(-1)
+        });
+
+        return { success: true };
       });
-
-      return { success: true };
-    });
+    } catch (error) {
+      functions.logger.error('Failed to remove active job:', {
+        oxylabsId,
+        error: error.message
+      });
+      throw error;
+    }
   }
 };
 
@@ -239,6 +345,7 @@ exports.handleOxylabsCallback = onRequest({
   memory: "1GiB"
 }, async (req, res) => {
   try {
+    await ActiveJobsService.initializeCounter();
     functions.logger.info('Received webhook:', {
       method: req.method,
       body: req.body,
@@ -315,16 +422,14 @@ exports.handleOxylabsCallback = onRequest({
     // Process search jobs
     if (callbackType === 'search' && req.body.status === 'done') {
       try {
-        
-        await ActiveJobsService.removeActiveJob(req.body.id);
         let jobListings = req.body.results?.[0]?.content?.job_listings;
-
+    
         // If no results in callback, fetch them using the query ID
         if (!jobListings || jobListings.length === 0) {
           functions.logger.info("No results in callback, fetching from API:", { 
             queryId: req.body.id 
           });
-
+    
           try {
             const queryResults = await OxylabsService.fetchQueryResults(req.body.id);
             jobListings = queryResults.results?.[0]?.content?.job_listings || [];
@@ -341,31 +446,50 @@ exports.handleOxylabsCallback = onRequest({
             throw error;
           }
         }
-
+    
         // Process job listings
         for (const job of jobListings) {
-          const cleanedDetails = sanitizeForFirestore({
-            basicInfo: {
-              job_id: job.job_id,
-              job_title: job.job_title,
-              company_name: job.company_name,
-              job_link: job.job_link
-            },
-            details: null,
-            status: 'pending_details',
-            queryId: req.body.id
-          });
-
-          await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails);
+          try {
+            const cleanedDetails = sanitizeForFirestore({
+              basicInfo: {
+                job_id: job.job_id,
+                job_title: job.job_title,
+                company_name: job.company_name,
+                job_link: job.job_link
+              },
+              details: null,
+              status: 'pending_details',
+              queryId: req.body.id
+            });
+    
+            // Save basic job info
+            await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails);
+            
+            // Add to queue instead of immediate processing
+            await JobQueueService.addToQueue(job.job_id, {
+              searchQueryId: req.body.id,
+              jobTitle: job.job_title
+            });
+          } catch (error) {
+            functions.logger.error("Failed to process individual job:", {
+              jobId: job.job_id,
+              error: error.message
+            });
+          }
         }
 
+        await JobQueueService.processQueue();
+    
+        // Remove the search job only after processing all listings
+        await ActiveJobsService.removeActiveJob(req.body.id);
+    
         return res.status(200).json({
           success: true,
           type: 'search',
           jobsProcessed: jobListings.length,
           queryId: req.body.id
         });
-
+    
       } catch (error) {
         functions.logger.error("Failed to process search results:", {
           queryId: req.body.id,
@@ -377,7 +501,7 @@ exports.handleOxylabsCallback = onRequest({
           details: error.message
         });
       }
-    } 
+    }
     // Process job detail callbacks
     else if (callbackType === 'job_detail') {
       await ActiveJobsService.removeActiveJob(req.body.id);
