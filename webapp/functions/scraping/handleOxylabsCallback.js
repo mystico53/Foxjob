@@ -369,12 +369,7 @@ exports.handleOxylabsCallback = onRequest({
 }, async (req, res) => {
   try {
     await ActiveJobsService.initializeCounter();
-    functions.logger.info('Received webhook:', {
-      method: req.method,
-      body: req.body,
-      timestamp: new Date().toISOString()
-    });
-
+    
     const isSearchJob = req.body.url?.includes('/jobs?') || 
                       (req.body.parsing_instructions && 'job_listings' in req.body.parsing_instructions);
     const callbackType = isSearchJob ? 'search' : 'job_detail';
