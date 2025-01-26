@@ -590,17 +590,30 @@ else if (callbackType === 'job_detail') {
       hasLocation: !!content?.location?.[0]
     });
 
+    // First get the existing document
+    const docRef = db.collection('users')
+                    .doc('test_user')
+                    .collection('scrapedcallback')
+                    .doc(jobId);
+    const existingDoc = await docRef.get();
+    const existingData = existingDoc.data();
+
     const cleanedDetails = sanitizeForFirestore({
+      // Preserve existing basicInfo and add/update new fields
       basicInfo: {
+        ...existingData?.basicInfo,
         job_id: jobId,
         job_link: req.body.url
       },
+      // Preserve existing details and add/update new fields
       details: {
-        title: HtmlAnalyzer.extractCleanContent(content?.jobTitle?.[0] || ""),
-        location: HtmlAnalyzer.extractCleanContent(content?.location?.[0] || ""),
-        description: HtmlAnalyzer.extractCleanContent(content?.description?.[0] || ""),
-        postingDate: content?.postingDate?.[0],
-        parseStatusCode: content?.parse_status_code
+        ...existingData?.details,
+        // Only update these fields if they contain new data
+        ...(content?.jobTitle?.[0] ? { title: HtmlAnalyzer.extractCleanContent(content.jobTitle[0]) } : {}),
+        ...(content?.location?.[0] ? { location: HtmlAnalyzer.extractCleanContent(content.location[0]) } : {}),
+        ...(content?.description?.[0] ? { description: HtmlAnalyzer.extractCleanContent(content.description[0]) } : {}),
+        ...(content?.postingDate?.[0] ? { postingDate: content.postingDate[0] } : {}),
+        ...(content?.parse_status_code ? { parseStatusCode: content.parse_status_code } : {})
       },
       status: 'complete',
       lastUpdated: FieldValue.serverTimestamp()
@@ -610,7 +623,9 @@ else if (callbackType === 'job_detail') {
       jobId,
       hasTitle: !!cleanedDetails.details.title,
       hasDescription: !!cleanedDetails.details.description,
-      contentLength: cleanedDetails.details.description?.length || 0
+      contentLength: cleanedDetails.details.description?.length || 0,
+      preservedCompanyName: !!existingData?.basicInfo?.company_name,
+      preservedJobTitle: !!existingData?.basicInfo?.job_title
     });
 
     await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails, jobId);
