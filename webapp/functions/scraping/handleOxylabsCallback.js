@@ -504,8 +504,48 @@ exports.handleOxylabsCallback = onRequest({
     }
     // Process job detail callbacks
     else if (callbackType === 'job_detail') {
+      functions.logger.info('Processing job detail:', {
+        jobId: req.body.id,
+        url: req.body.url,
+        resultsPresent: !!req.body.results,
+        resultsCount: req.body.results?.length
+      });
+    
       await ActiveJobsService.removeActiveJob(req.body.id);
       const result = req.body.results?.[0];
+
+      if (!result || !result.content) {
+        functions.logger.info("No results in callback, fetching from API:", { 
+          queryId: req.body.id 
+        });
+    
+        try {
+          const queryResults = await OxylabsService.fetchQueryResults(req.body.id);
+          result = queryResults.results?.[0];
+          
+          functions.logger.info("Retrieved results from API:", { 
+            queryId: req.body.id,
+            hasResult: !!result,
+            hasContent: !!result?.content
+          });
+        } catch (error) {
+          functions.logger.error("Failed to fetch results from API:", {
+            queryId: req.body.id,
+            error: error.message
+          });
+          throw error;
+        }
+      }
+      
+      // Add debug log for result content
+      functions.logger.info('Job detail result:', {
+        hasResult: !!result,
+        resultStatus: result?.status,
+        hasUrl: !!result?.url,
+        contentFields: result?.content ? Object.keys(result.content) : []
+      });
+
+
       
       // Extract job ID from URL
       let jobId;
@@ -513,13 +553,23 @@ exports.handleOxylabsCallback = onRequest({
         const match = result.url.match(/jk=([^&]+)/);
         jobId = match ? match[1] : null;
       }
-
+    
       if (!jobId) {
+        functions.logger.error('Could not determine job ID from URL:', { url: result?.url });
         return res.status(200).json({ success: false, error: "Could not determine job ID" });
       }
-
+    
+      // Get the content from result
+      const content = result?.content;
+      functions.logger.info('Content details:', {
+        jobId,
+        hasTitle: !!content?.jobTitle,
+        hasLocation: !!content?.location,
+        hasDescription: !!content?.description
+      });
+    
       // Check if response was successful
-      if (result.status === 'faulted' || result.status === 'failed') {
+      if (result?.status === 'faulted' || result?.status === 'failed') {
         // Get current retry count
         const docRef = db.collection('users')
                     .doc('test_user')
@@ -528,7 +578,7 @@ exports.handleOxylabsCallback = onRequest({
         
         const doc = await docRef.get();
         const retryCount = doc.exists ? (doc.data().retryCount || 0) : 0;
-
+    
         if (retryCount >= CONFIG.MAX_RETRIES) {
           await FirestoreService.saveJobToUserCollection('test_user', {
             status: 'failed',
@@ -537,7 +587,7 @@ exports.handleOxylabsCallback = onRequest({
           }, jobId);
           return res.status(200).json({ success: false, error: 'Max retries exceeded' });
         }
-
+    
         // Submit new job request to Oxylabs
         const newSubmission = await OxylabsService.submitNewJobRequest(jobId);
         
@@ -549,31 +599,64 @@ exports.handleOxylabsCallback = onRequest({
           }, jobId);
           return res.status(200).json({ success: false, error: 'Retry submission failed' });
         }
-
+    
         // Update document with retry status
         await FirestoreService.saveJobToUserCollection('test_user', {
           status: 'retrying',
           oxylabsId: newSubmission.oxylabsId,
           lastError: result.status
         }, jobId);
-
+    
         return res.status(200).json({ success: true, status: 'retrying' });
       }
-
-      // Process successful response
-      const content = result.content;
-      const cleanedDetails = sanitizeForFirestore({
-        details: {
-          title: HtmlAnalyzer.extractCleanContent(content?.jobTitle?.[0] || ""),
-          location: HtmlAnalyzer.extractCleanContent(content?.location?.[0] || ""),
-          description: HtmlAnalyzer.extractCleanContent(content?.description?.[0] || ""),
-          postingDate: content?.postingDate?.[0],
-          parseStatusCode: content?.parse_status_code
-        },
-        status: 'complete'
-      });
-
-      await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails, jobId);
+    
+      try {
+        // Process successful response
+        const cleanedDetails = sanitizeForFirestore({
+          basicInfo: {
+            job_id: jobId,
+            job_link: result.url
+          },
+          details: {
+            title: HtmlAnalyzer.extractCleanContent(content?.jobTitle?.[0] || ""),
+            location: HtmlAnalyzer.extractCleanContent(content?.location?.[0] || ""),
+            description: HtmlAnalyzer.extractCleanContent(content?.description?.[0] || ""),
+            postingDate: content?.postingDate?.[0],
+            parseStatusCode: content?.parse_status_code
+          },
+          status: 'complete',
+          lastUpdated: FieldValue.serverTimestamp()
+        });
+    
+        functions.logger.info("Saving job details to Firestore:", {
+          jobId,
+          hasTitle: !!cleanedDetails.details.title,
+          hasDescription: !!cleanedDetails.details.description,
+          hasLocation: !!cleanedDetails.details.location
+        });
+    
+        await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails, jobId);
+        functions.logger.info('Successfully saved job details:', { jobId });
+    
+        return res.status(200).json({
+          success: true,
+          jobId,
+          message: 'Job details processed and saved'
+        });
+      } catch (error) {
+        functions.logger.error('Failed to process job details:', {
+          jobId,
+          error: error.message,
+          stack: error.stack
+        });
+    
+        return res.status(200).json({
+          success: false,
+          jobId,
+          error: 'Failed to process job details',
+          details: error.message
+        });
+      }
     }
 
     return res.status(200).json({
