@@ -64,12 +64,41 @@ const JobQueueService = {
       const counterDoc = await ActiveJobsService.counterRef.get();
       const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
       
-      // Calculate how many jobs we can process (leave 1 slot for search)
-      const availableSlots = 12 - currentCount;
+      // Leave more room for concurrent jobs
+      const availableSlots = 10 - currentCount;  // Increased from 12
       
       if (availableSlots <= 0) {
-        return { processed: 0 };
+        return { processed: 0, status: 'no_slots_available' };
       }
+
+      // Add delay between job submissions
+      const processWithDelay = async (doc) => {
+        await new Promise(resolve => setTimeout(resolve, 1000)); // 1 second delay
+        
+        try {
+          const jobData = doc.data();
+          const result = await OxylabsService.submitNewJobRequest(jobData.jobId);
+          
+          if (result.success) {
+            await this.queueRef.doc(doc.id).delete();
+            return true;
+          } else {
+            await this.queueRef.doc(doc.id).update({
+              status: 'error',
+              lastError: result.error,
+              retryCount: FieldValue.increment(1),
+              lastAttempt: FieldValue.serverTimestamp()
+            });
+            return false;
+          }
+        } catch (error) {
+          functions.logger.error('Failed to process queued job:', {
+            jobId: doc.id,
+            error: error.message
+          });
+          return false;
+        }
+      };
 
       // Get jobs from queue
       const queueSnapshot = await this.queueRef
@@ -78,36 +107,17 @@ const JobQueueService = {
         .limit(availableSlots)
         .get();
 
-      let processedCount = 0;
+      const results = await Promise.all(
+        queueSnapshot.docs.map(processWithDelay)
+      );
 
-      for (const doc of queueSnapshot.docs) {
-        try {
-          const jobData = doc.data();
-          const result = await OxylabsService.submitNewJobRequest(jobData.jobId);
-          
-          if (result.success) {
-            await this.queueRef.doc(doc.id).delete();
-            processedCount++;
-          } else {
-            await this.queueRef.doc(doc.id).update({
-              status: 'error',
-              lastError: result.error,
-              retryCount: FieldValue.increment(1),
-              lastAttempt: FieldValue.serverTimestamp()
-            });
-          }
-        } catch (error) {
-          functions.logger.error('Failed to process queued job:', {
-            jobId: doc.id,
-            error: error.message
-          });
-        }
-      }
-
-      return { processed: processedCount };
+      return { 
+        processed: results.filter(Boolean).length,
+        status: 'completed'
+      };
     } catch (error) {
       functions.logger.error('Failed to process job queue:', error);
-      return { processed: 0, error: error.message };
+      return { processed: 0, status: 'error', error: error.message };
     }
   }
 };
@@ -132,18 +142,18 @@ const ActiveJobsService = {
     }
 
     try {
-      return await db.runTransaction(async (transaction) => {
-        const counterDoc = await transaction.get(this.counterRef);
-        const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
+      const counterDoc = await this.counterRef.get();
+      const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
 
-        // Reserve 1 slot for search jobs
-        const maxJobs = jobType === 'search' ? 13 : 12;
+      // Increase limit for search jobs
+      const maxJobs = jobType === 'search' ? 3 : 12;  // Increased from 2
 
-        if (currentCount >= maxJobs) {
-          throw new Error('Max concurrent jobs reached');
-        }
+      if (currentCount >= maxJobs) {
+        throw new Error('Max concurrent jobs reached');
+      }
 
-        // Increment counter and add job
+      // Use transaction for atomic update
+      await db.runTransaction(async (transaction) => {
         transaction.set(this.counterRef, { count: currentCount + 1 }, { merge: true });
         transaction.set(this.activeJobsRef.doc(oxylabsId), {
           startedAt: FieldValue.serverTimestamp(),
@@ -152,9 +162,9 @@ const ActiveJobsService = {
           ...metadata,
           lastUpdated: FieldValue.serverTimestamp()
         });
-
-        return { success: true, currentCount: currentCount + 1 };
       });
+
+      return { success: true, currentCount: currentCount + 1 };
     } catch (error) {
       functions.logger.error('Failed to add active job:', {
         oxylabsId,
@@ -313,29 +323,42 @@ const FirestoreService = {
 
     const docRef = db.collection('users')
                 .doc(userId)
-                .collection('scrapedcallback')
+                .collection('scrapedcallback')  // Using scrapedcallback collection
                 .doc(documentId);
     
-    const cleanedDetails = sanitizeForFirestore({
-      ...jobDetail,
-      lastUpdated: FieldValue.serverTimestamp()
-    });
+    try {
+      functions.logger.info("Saving job to Firestore:", {
+        userId,
+        jobId: documentId,
+        hasDetails: !!jobDetail.details
+      });
 
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      await docRef.set({
-        ...cleanedDetails,
-        createdAt: FieldValue.serverTimestamp(),
-        retryCount: 0
+      const cleanedDetails = sanitizeForFirestore({
+        ...jobDetail,
+        lastUpdated: FieldValue.serverTimestamp()
       });
-    } else {
-      await docRef.update({
-        ...cleanedDetails,
-        retryCount: FieldValue.increment(1)
+
+      // Check if document exists first
+      const doc = await docRef.get();
+      if (!doc.exists) {
+        await docRef.set({
+          ...cleanedDetails,
+          createdAt: FieldValue.serverTimestamp()
+        });
+      } else {
+        await docRef.update(cleanedDetails);
+      }
+
+      return true;
+    } catch (error) {
+      functions.logger.error("Error saving job to Firestore:", {
+        userId,
+        jobId: documentId,
+        error: error.message,
+        stack: error.stack
       });
+      throw error;
     }
-
-    return doc.exists;
   }
 };
 
@@ -503,161 +526,121 @@ exports.handleOxylabsCallback = onRequest({
       }
     }
     // Process job detail callbacks
-    else if (callbackType === 'job_detail') {
-      functions.logger.info('Processing job detail:', {
-        jobId: req.body.id,
-        url: req.body.url,
-        resultsPresent: !!req.body.results,
-        resultsCount: req.body.results?.length
-      });
-    
-      await ActiveJobsService.removeActiveJob(req.body.id);
-      const result = req.body.results?.[0];
+    // Process job detail callbacks
+else if (callbackType === 'job_detail') {
+  functions.logger.info('Processing job detail:', {
+    jobId: req.body.id,
+    url: req.body.url,
+    resultsPresent: !!req.body.results,
+  });
 
-      if (!result || !result.content) {
-        functions.logger.info("No results in callback, fetching from API:", { 
-          queryId: req.body.id 
-        });
-    
-        try {
-          const queryResults = await OxylabsService.fetchQueryResults(req.body.id);
-          result = queryResults.results?.[0];
-          
-          functions.logger.info("Retrieved results from API:", { 
-            queryId: req.body.id,
-            hasResult: !!result,
-            hasContent: !!result?.content
-          });
-        } catch (error) {
-          functions.logger.error("Failed to fetch results from API:", {
-            queryId: req.body.id,
-            error: error.message
-          });
-          throw error;
-        }
-      }
+  await ActiveJobsService.removeActiveJob(req.body.id);
+  let jobResult = req.body.results?.[0];
+
+  // Extract job ID from URL
+  const jobId = (() => {
+    const match = req.body.url.match(/jk=([^&]+)/);
+    return match ? match[1] : null;
+  })();
+
+  if (!jobId) {
+    functions.logger.error('Could not determine job ID from URL:', { url: req.body.url });
+    return res.status(200).json({ success: false, error: "Could not determine job ID" });
+  }
+
+  // If no results in callback, fetch them
+  if (!jobResult?.content) {
+    try {
+      const queryResults = await OxylabsService.fetchQueryResults(req.body.id);
+      jobResult = queryResults.results?.[0];
       
-      // Add debug log for result content
-      functions.logger.info('Job detail result:', {
-        hasResult: !!result,
-        resultStatus: result?.status,
-        hasUrl: !!result?.url,
-        contentFields: result?.content ? Object.keys(result.content) : []
-      });
-
-
-      
-      // Extract job ID from URL
-      let jobId;
-      if (result?.url) {
-        const match = result.url.match(/jk=([^&]+)/);
-        jobId = match ? match[1] : null;
-      }
-    
-      if (!jobId) {
-        functions.logger.error('Could not determine job ID from URL:', { url: result?.url });
-        return res.status(200).json({ success: false, error: "Could not determine job ID" });
-      }
-    
-      // Get the content from result
-      const content = result?.content;
-      functions.logger.info('Content details:', {
+      functions.logger.debug("Job details from API:", {
         jobId,
-        hasTitle: !!content?.jobTitle,
-        hasLocation: !!content?.location,
-        hasDescription: !!content?.description
+        hasContent: !!jobResult?.content,
+        contentKeys: jobResult?.content ? Object.keys(jobResult.content) : []
       });
-    
-      // Check if response was successful
-      if (result?.status === 'faulted' || result?.status === 'failed') {
-        // Get current retry count
-        const docRef = db.collection('users')
-                    .doc('test_user')
-                    .collection('scrapedcallback')
-                    .doc(jobId);
-        
-        const doc = await docRef.get();
-        const retryCount = doc.exists ? (doc.data().retryCount || 0) : 0;
-    
-        if (retryCount >= CONFIG.MAX_RETRIES) {
-          await FirestoreService.saveJobToUserCollection('test_user', {
-            status: 'failed',
-            error: 'Max retries exceeded',
-            lastError: result.status
-          }, jobId);
-          return res.status(200).json({ success: false, error: 'Max retries exceeded' });
-        }
-    
-        // Submit new job request to Oxylabs
-        const newSubmission = await OxylabsService.submitNewJobRequest(jobId);
-        
-        if (!newSubmission.success) {
-          await FirestoreService.saveJobToUserCollection('test_user', {
-            status: 'failed',
-            error: 'Failed to create new job request',
-            lastError: newSubmission.error
-          }, jobId);
-          return res.status(200).json({ success: false, error: 'Retry submission failed' });
-        }
-    
-        // Update document with retry status
-        await FirestoreService.saveJobToUserCollection('test_user', {
-          status: 'retrying',
-          oxylabsId: newSubmission.oxylabsId,
-          lastError: result.status
-        }, jobId);
-    
-        return res.status(200).json({ success: true, status: 'retrying' });
-      }
-    
-      try {
-        // Process successful response
-        const cleanedDetails = sanitizeForFirestore({
-          basicInfo: {
-            job_id: jobId,
-            job_link: result.url
-          },
-          details: {
-            title: HtmlAnalyzer.extractCleanContent(content?.jobTitle?.[0] || ""),
-            location: HtmlAnalyzer.extractCleanContent(content?.location?.[0] || ""),
-            description: HtmlAnalyzer.extractCleanContent(content?.description?.[0] || ""),
-            postingDate: content?.postingDate?.[0],
-            parseStatusCode: content?.parse_status_code
-          },
-          status: 'complete',
-          lastUpdated: FieldValue.serverTimestamp()
-        });
-    
-        functions.logger.info("Saving job details to Firestore:", {
-          jobId,
-          hasTitle: !!cleanedDetails.details.title,
-          hasDescription: !!cleanedDetails.details.description,
-          hasLocation: !!cleanedDetails.details.location
-        });
-    
-        await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails, jobId);
-        functions.logger.info('Successfully saved job details:', { jobId });
-    
-        return res.status(200).json({
-          success: true,
-          jobId,
-          message: 'Job details processed and saved'
-        });
-      } catch (error) {
-        functions.logger.error('Failed to process job details:', {
-          jobId,
-          error: error.message,
-          stack: error.stack
-        });
-    
-        return res.status(200).json({
-          success: false,
-          jobId,
-          error: 'Failed to process job details',
-          details: error.message
-        });
-      }
+    } catch (error) {
+      functions.logger.error("Failed to fetch job details:", {
+        jobId,
+        error: error.message
+      });
+      
+      // If failure, add back to queue with increased retry count
+      await JobQueueService.addToQueue(jobId, {
+        retryCount: FieldValue.increment(1),
+        lastError: error.message,
+        lastAttempt: FieldValue.serverTimestamp()
+      });
+      
+      return res.status(200).json({
+        success: false,
+        error: error.message
+      });
     }
+  }
+
+  // Process and save job details
+  try {
+    const content = jobResult?.content;
+    
+    functions.logger.debug("Processing content:", {
+      jobId,
+      hasTitle: !!content?.jobTitle?.[0],
+      hasDescription: !!content?.description?.[0],
+      hasLocation: !!content?.location?.[0]
+    });
+
+    const cleanedDetails = sanitizeForFirestore({
+      basicInfo: {
+        job_id: jobId,
+        job_link: req.body.url
+      },
+      details: {
+        title: HtmlAnalyzer.extractCleanContent(content?.jobTitle?.[0] || ""),
+        location: HtmlAnalyzer.extractCleanContent(content?.location?.[0] || ""),
+        description: HtmlAnalyzer.extractCleanContent(content?.description?.[0] || ""),
+        postingDate: content?.postingDate?.[0],
+        parseStatusCode: content?.parse_status_code
+      },
+      status: 'complete',
+      lastUpdated: FieldValue.serverTimestamp()
+    });
+
+    functions.logger.info("Saving job details:", {
+      jobId,
+      hasTitle: !!cleanedDetails.details.title,
+      hasDescription: !!cleanedDetails.details.description,
+      contentLength: cleanedDetails.details.description?.length || 0
+    });
+
+    await FirestoreService.saveJobToUserCollection('test_user', cleanedDetails, jobId);
+    
+    return res.status(200).json({
+      success: true,
+      jobId,
+      message: 'Job details processed and saved'
+    });
+
+  } catch (error) {
+    functions.logger.error("Failed to process job details:", {
+      jobId,
+      error: error.message,
+      stack: error.stack
+    });
+
+    // Add back to queue on processing failure
+    await JobQueueService.addToQueue(jobId, {
+      retryCount: FieldValue.increment(1),
+      lastError: error.message,
+      lastAttempt: FieldValue.serverTimestamp()
+    });
+
+    return res.status(200).json({
+      success: false,
+      error: error.message
+    });
+  }
+}
 
     return res.status(200).json({
       received: true,

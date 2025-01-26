@@ -989,7 +989,7 @@ exports.searchJobs = onRequest({
 
   try {
     // Create URLs for both pages
-    const pageUrls = [0, 10].map(start => 
+    const pageUrls = [0].map(start => 
       UrlBuilders.buildSearchUrl(q, l, {
         jt,
         fromage,
