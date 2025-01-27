@@ -43,20 +43,17 @@ const ActiveJobsService = {
     if (!oxylabsId) {
       throw new Error('oxylabsId is required');
     }
-
+  
     try {
-      const counterDoc = await this.counterRef.get();
-      const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
-
-      // Increase limit for search jobs
-      const maxJobs = jobType === 'search' ? 13 : 12;  // Increased from 2
-
-      if (currentCount >= maxJobs) {
-        throw new Error('Max concurrent jobs reached');
-      }
-
-      // Use transaction for atomic update
-      await db.runTransaction(async (transaction) => {
+      return await db.runTransaction(async (transaction) => {
+        const counterDoc = await transaction.get(this.counterRef);
+        const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
+        const maxJobs = jobType === 'search' ? 13 : 12;
+  
+        if (currentCount >= maxJobs) {
+          return { success: false, shouldRequeue: true };
+        }
+  
         transaction.set(this.counterRef, { count: currentCount + 1 }, { merge: true });
         transaction.set(this.activeJobsRef.doc(oxylabsId), {
           startedAt: FieldValue.serverTimestamp(),
@@ -65,9 +62,9 @@ const ActiveJobsService = {
           ...metadata,
           lastUpdated: FieldValue.serverTimestamp()
         });
+  
+        return { success: true, currentCount: currentCount + 1 };
       });
-
-      return { success: true, currentCount: currentCount + 1 };
     } catch (error) {
       functions.logger.error('Failed to add active job:', {
         oxylabsId,
