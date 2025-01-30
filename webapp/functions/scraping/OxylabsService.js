@@ -8,7 +8,7 @@ const CONFIG = {
   OXY_USERNAME: "mystico_FXPQA",
   OXY_PASSWORD: "ti_QMg2h2WzZMp",
   BASE_URL: 'https://data.oxylabs.io/v1/queries',
-  CALLBACK_URL: 'https://e02f-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback'
+  CALLBACK_URL: 'https://6ae3-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback'
 };
 
 const OxylabsService = {

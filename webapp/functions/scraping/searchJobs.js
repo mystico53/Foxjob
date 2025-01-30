@@ -21,7 +21,7 @@ const CONFIG = {
     OXYLABS_RESULTS: 'https://data.oxylabs.io/v1/queries',
     OXYLABS_BATCH: 'https://data.oxylabs.io/v1/queries/batch',
   },
-  CALLBACK_URL: 'https://e02f-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback',
+  CALLBACK_URL: 'https://6ae3-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback',
   MAX_JOBS_TO_PROCESS: 5,
   POLLING_MAX_ATTEMPTS: 30,
   POLLING_INITIAL_DELAY: 1000,

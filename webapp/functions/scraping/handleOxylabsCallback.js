@@ -5,6 +5,10 @@ const axios = require('axios');
 const { FieldValue } = require("firebase-admin/firestore");
 const { JobQueueService, ActiveJobsService } = require('./jobQueueService'); 
 const OxylabsService = require('./OxylabsService');
+console.log('OxylabsService loaded:', {
+  hasService: !!OxylabsService,
+  methods: Object.keys(OxylabsService)
+});
 
 // Initialize Firebase
 if (!admin.apps.length) {
@@ -19,7 +23,7 @@ const CONFIG = {
   OXY_PASSWORD: "ti_QMg2h2WzZMp",
   BASE_URL: 'https://data.oxylabs.io/v1/queries',
   // Add webhook.site URL for testing callbacks
-  CALLBACK_URL: 'https://e02f-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback'
+  CALLBACK_URL: 'https://6ae3-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback'
 };
 
 // HTML Analyzer for cleaning content
@@ -143,9 +147,8 @@ const handleOxylabsCallback = onRequest({
   timeoutSeconds: 540,
   memory: "1GiB"
 }, async (req, res) => {
-  try {
-    await ActiveJobsService.initializeCounter();
-    
+  try {    
+    await ActiveJobsService.ensureCounterExists();
     const isSearchJob = req.body.url?.includes('/jobs?') || 
                       (req.body.parsing_instructions && 'job_listings' in req.body.parsing_instructions);
     const callbackType = isSearchJob ? 'search' : 'job_detail';
