@@ -23,7 +23,7 @@ const CONFIG = {
   OXY_PASSWORD: "ti_QMg2h2WzZMp",
   BASE_URL: 'https://data.oxylabs.io/v1/queries',
   // Add webhook.site URL for testing callbacks
-  CALLBACK_URL: 'https://6ae3-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback'
+  CALLBACK_URL: 'https://7f88-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleOxylabsCallback'
 };
 
 // HTML Analyzer for cleaning content
@@ -303,25 +303,44 @@ const handleOxylabsCallback = onRequest({
     }
     // Process job detail callbacks
     // Process job detail callbacks
-else if (callbackType === 'job_detail') {
-  functions.logger.info('Processing job detail:', {
-    jobId: req.body.id,
-    url: req.body.url,
-    resultsPresent: !!req.body.results,
-  });
-
-  const result = await ActiveJobsService.removeActiveJob(req.body.id);
-  if (result.success && result.originalJobId) {
-    await JobQueueService.deleteQueueJob(result.originalJobId);
-  }
-
-  let jobResult = req.body.results?.[0];
-
-  // Extract job ID from URL
-  const jobId = (() => {
-    const match = req.body.url.match(/jk=([^&]+)/);
-    return match ? match[1] : null;
-  })();
+    else if (callbackType === 'job_detail') {
+      // Extract job ID from URL FIRST, before any other processing
+      const jobId = (() => {
+        const match = req.body.url.match(/jk=([^&]+)/);
+        return match ? match[1] : null;
+      })();
+    
+      if (!jobId) {
+        functions.logger.error('Could not determine job ID from URL:', { url: req.body.url });
+        return res.status(200).json({ success: false, error: "Could not determine job ID" });
+      }
+    
+      functions.logger.info('Processing job detail:', {
+        jobId: req.body.id,
+        url: req.body.url,
+        resultsPresent: !!req.body.results,
+      });
+    
+      // Handle faulted status immediately after jobId extraction
+      if (req.body.status === 'faulted') {
+        functions.logger.warn("Job detail faulted, requeueing:", {
+          jobId,
+          url: req.body.url
+        });
+        
+        await JobQueueService.requeueJob(jobId, 'Faulted response from Oxylabs');
+        return res.status(200).json({
+          success: false,
+          error: 'Job faulted, requeued'
+        });
+      }
+    
+      const result = await ActiveJobsService.removeActiveJob(req.body.id);
+      if (result.success && result.originalJobId) {
+        await JobQueueService.deleteQueueJob(result.originalJobId);
+      }
+    
+      let jobResult = req.body.results?.[0];
 
   if (!jobId) {
     functions.logger.error('Could not determine job ID from URL:', { url: req.body.url });
@@ -357,6 +376,21 @@ else if (callbackType === 'job_detail') {
         error: error.message
       });
     }
+  }
+
+  const content = jobResult?.content;
+  if (!content || (!content?.jobTitle?.[0] && !content?.description?.[0])) {
+    functions.logger.warn("Insufficient job details received:", {
+      jobId,
+      content: !!content
+    });
+    
+    // Requeue instead of saving empty details
+    await JobQueueService.requeueJob(jobId, 'Insufficient job details received');
+    return res.status(200).json({
+      success: false,
+      error: 'Insufficient details'
+    });
   }
 
   // Process and save job details

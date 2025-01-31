@@ -48,33 +48,6 @@ const ActiveJobsService = {
       }
   },
   
-    async decrementCounter() {
-      await logCounterState('Before decrement');
-      
-      return await db.runTransaction(async (transaction) => {
-        const counterDoc = await transaction.get(this.counterRef);
-        const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
-        
-        functions.logger.info('[DECREMENT] Transaction read counter:', {
-          currentCount,
-          exists: counterDoc.exists
-        });
-        
-        if (currentCount > 0) {
-          transaction.update(this.counterRef, {
-            count: currentCount - 1
-          });
-          
-          functions.logger.info('[DECREMENT] Updating counter:', {
-            from: currentCount,
-            to: currentCount - 1
-          });
-        }
-        
-        return { success: true, newCount: Math.max(0, currentCount - 1) };
-      });
-    },
-  
     async addActiveJob(oxylabsId, jobType, metadata = {}) {
       if (!oxylabsId) {
         throw new Error('oxylabsId is required');
@@ -93,6 +66,11 @@ const ActiveJobsService = {
   
           const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
           const maxJobs = jobType === 'search' ? 13 : 12;
+          if (currentCount >= maxJobs) {
+            return { success: false, shouldRequeue: true };
+          }
+          // Only increment if we're under the limit
+          transaction.set(this.counterRef, { count: FieldValue.increment(1) }, { merge: true });
   
           functions.logger.info('[ADD JOB] Transaction state:', {
             currentCount,
@@ -119,8 +97,6 @@ const ActiveJobsService = {
             });
             return { success: false, shouldRequeue: false, error: 'Duplicate job' };
           }
-    
-          transaction.set(this.counterRef, { count: currentCount + 1 }, { merge: true });
           transaction.set(this.activeJobsRef.doc(oxylabsId), {
             startedAt: FieldValue.serverTimestamp(),
             type: jobType,
@@ -176,9 +152,9 @@ const ActiveJobsService = {
   
           // Delete active job and update counter atomically
           transaction.delete(this.activeJobsRef.doc(oxylabsId));
-          transaction.update(this.counterRef, {
-            count: FieldValue.increment(-1)
-          });
+          transaction.set(ActiveJobsService.counterRef, { 
+            count: FieldValue.increment(-1) 
+          }, { merge: true });
   
           functions.logger.info('[REMOVE JOB] Job removed successfully:', {
             oxylabsId,
@@ -224,6 +200,16 @@ const ActiveJobsService = {
               exists: existingJob.exists,
               existingData: existingJob.exists ? existingJob.data() : null
             });
+
+            if (existingJob.exists) {
+              const lastAttempt = existingJob.data().lastAttempt?.toDate();
+              const tooRecent = lastAttempt && 
+                (Date.now() - lastAttempt.getTime() < 1 * 30 * 1000); // 5 min cooldown
+              
+              if (tooRecent) {
+                return { success: false, error: 'Job attempted too recently' };
+              }
+            }
     
             // If job exists and is not in error/failed state, don't re-add
             if (existingJob.exists) {
@@ -265,157 +251,174 @@ const ActiveJobsService = {
         }
       },
     
-    async processQueue() {
-      try {
-        await ActiveJobsService.ensureCounterExists();
-
-        await logCounterState('Before processing queue');
-        
-        // Stage 1: Get jobs to process
-        const getJobsResult = await db.runTransaction(async (transaction) => {
-          // READS FIRST
-          const [counterDoc, queueSnapshot] = await Promise.all([
-            transaction.get(ActiveJobsService.counterRef),
-            transaction.get(
-              this.queueRef
-                .where('status', '==', 'pending')
-                .orderBy('createdAt')
-                .limit(13)
-            )
-          ]);
-  
-          const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
-          const availableSlots = 13 - currentCount;
-  
-          functions.logger.info('[PROCESS QUEUE] Transaction read state:', {
-            currentCount,
-            availableSlots,
-            pendingJobs: queueSnapshot.size
-          });
-  
-          if (availableSlots <= 0) {
-            return { processed: 0, status: 'no_slots_available' };
-          }
-  
-          if (queueSnapshot.empty) {
-            return { processed: 0, status: 'no_pending_jobs' };
-          }
-  
-          const jobsToProcess = queueSnapshot.docs
-            .slice(0, availableSlots)
-            .map(doc => ({
-              id: doc.id,
-              data: doc.data()
-            }));
-  
-          functions.logger.info('[PROCESS QUEUE] Processing jobs:', {
-            jobCount: jobsToProcess.length,
-            jobs: jobsToProcess.map(j => j.id)
-          });
-  
-          // Update counter and mark jobs as processing
-          transaction.update(ActiveJobsService.counterRef, {
-            count: currentCount + jobsToProcess.length
-          });
-  
-          jobsToProcess.forEach(job => {
-            transaction.update(this.queueRef.doc(job.id), {
-              status: 'processing',
-              processingStartedAt: FieldValue.serverTimestamp(),
-              processingAttempts: FieldValue.increment(1)
-            });
-          });
-  
-          return {
-            jobsToProcess,
-            newCount: currentCount + jobsToProcess.length
-          };
-        });
-  
-        // Log after transaction
-        await logCounterState('After queue processing transaction', {
-          jobsProcessed: getJobsResult.jobsToProcess?.length || 0
-        });
-
-      // Early return if no jobs to process
-      if (!getJobsResult.jobsToProcess?.length) {
-        return getJobsResult;
-      }
-
-      functions.logger.debug('[PROCESS QUEUE] Starting Stage 2 processing', {
-        jobCount: getJobsResult.jobsToProcess.length,
-        hasOxylabs: !!OxylabsService,
-        oxylabsMethods: OxylabsService ? Object.keys(OxylabsService) : []
-      });
-
-      // Stage 2: Process jobs sequentially with retries
-      const processResults = [];
-      for (const job of getJobsResult.jobsToProcess) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
+      async processQueue() {
         try {
-          let retryCount = 0;
-          let success = false;
-          let lastError = null;
-          let oxylabsId = null;
-
-          functions.logger.debug('[PROCESS QUEUE] Attempting job submission', {
-            jobId: job.id,
-            retryCount,
-            hasOxylabs: !!OxylabsService,
-            submitMethod: !!OxylabsService?.submitNewJobRequest
-          });
-
-          // Retry loop for network issues
-          while (retryCount < 3 && !success) {
-            try {
-              functions.logger.debug('[PROCESS QUEUE] Calling submitNewJobRequest', {
-                jobId: job.id,
-                attempt: retryCount + 1
-              });
-              
-              const result = await OxylabsService.submitNewJobRequest(job.id);
-              
-              if (result.success) {
-                success = true;
-                oxylabsId = result.oxylabsId;
-              } else {
-                lastError = result.error;
-                retryCount++;
-                if (retryCount < 3) await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
-              }
-            } catch (error) {
-              functions.logger.error('[PROCESS QUEUE] Submit failed', {
-                jobId: job.id,
-                attempt: retryCount + 1,
-                error: error.message,
-                stack: error.stack
-              });
-              lastError = error.message;
-              retryCount++;
-              if (retryCount < 3) await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+          await ActiveJobsService.ensureCounterExists();
+          await logCounterState('Before processing queue');
+          
+          // Stage 1: Get jobs to process
+          const getJobsResult = await db.runTransaction(async (transaction) => {
+            // READS FIRST
+            const [counterDoc, queueSnapshot] = await Promise.all([
+              transaction.get(ActiveJobsService.counterRef),
+              transaction.get(
+                this.queueRef
+                  .where('status', '==', 'pending')
+                  .orderBy('createdAt')
+                  .limit(13)
+              )
+            ]);
+      
+            const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
+            const availableSlots = 13 - currentCount;
+      
+            functions.logger.info('[PROCESS QUEUE] Transaction read state:', {
+              currentCount,
+              availableSlots,
+              pendingJobs: queueSnapshot.size
+            });
+      
+            if (availableSlots <= 0) {
+              return { processed: 0, status: 'no_slots_available' };
             }
-          }
-
-          if (success && oxylabsId) {
-            try {
-              // Add to active jobs with retry
-              const activeJobResult = await ActiveJobsService.addActiveJob(oxylabsId, 'job_detail', {
-                originalJobId: job.id,
-                status: 'submitted'
+      
+            if (queueSnapshot.empty) {
+              return { processed: 0, status: 'no_pending_jobs' };
+            }
+      
+            const jobsToProcess = queueSnapshot.docs
+              .slice(0, availableSlots)
+              .map(doc => ({
+                id: doc.id,
+                data: doc.data()
+              }));
+      
+            functions.logger.info('[PROCESS QUEUE] Processing jobs:', {
+              jobCount: jobsToProcess.length,
+              jobs: jobsToProcess.map(j => j.id)
+            });
+      
+            // Use FieldValue.increment for counter update
+            transaction.set(ActiveJobsService.counterRef, {
+              count: FieldValue.increment(jobsToProcess.length)
+            }, { merge: true });
+      
+            // Mark jobs as processing
+            jobsToProcess.forEach(job => {
+              transaction.update(this.queueRef.doc(job.id), {
+                status: 'processing',
+                processingStartedAt: FieldValue.serverTimestamp(),
+                processingAttempts: FieldValue.increment(1)
               });
-
-              if (activeJobResult.success) {
-                // Remove from queue on success
-                await this.queueRef.doc(job.id).delete();
-                processResults.push({ success: true, jobId: job.id, oxylabsId });
-              } else if (activeJobResult.shouldRequeue) {
-                // Requeue if hit concurrent limit
-                await this.requeueJob(job.id, 'Hit concurrent limit - will retry');
+            });
+      
+            return {
+              jobsToProcess,
+              newCount: currentCount + jobsToProcess.length
+            };
+          });
+      
+          // Log after transaction
+          await logCounterState('After queue processing transaction', {
+            jobsProcessed: getJobsResult.jobsToProcess?.length || 0
+          });
+      
+          // Early return if no jobs to process
+          if (!getJobsResult.jobsToProcess?.length) {
+            return getJobsResult;
+          }
+      
+          functions.logger.debug('[PROCESS QUEUE] Starting Stage 2 processing', {
+            jobCount: getJobsResult.jobsToProcess.length,
+            hasOxylabs: !!OxylabsService,
+            oxylabsMethods: OxylabsService ? Object.keys(OxylabsService) : []
+          });
+      
+          // Stage 2: Process jobs sequentially with retries
+          const processResults = [];
+          for (const job of getJobsResult.jobsToProcess) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            try {
+              let retryCount = 0;
+              let success = false;
+              let lastError = null;
+              let oxylabsId = null;
+      
+              functions.logger.debug('[PROCESS QUEUE] Attempting job submission', {
+                jobId: job.id,
+                retryCount,
+                hasOxylabs: !!OxylabsService,
+                submitMethod: !!OxylabsService?.submitNewJobRequest
+              });
+      
+              // Retry loop for network issues
+              while (retryCount < 3 && !success) {
+                try {
+                  functions.logger.debug('[PROCESS QUEUE] Calling submitNewJobRequest', {
+                    jobId: job.id,
+                    attempt: retryCount + 1
+                  });
+                  
+                  const result = await OxylabsService.submitNewJobRequest(job.id);
+                  
+                  if (result.success) {
+                    success = true;
+                    oxylabsId = result.oxylabsId;
+                  } else {
+                    lastError = result.error;
+                    retryCount++;
+                    if (retryCount < 3) await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+                  }
+                } catch (error) {
+                  functions.logger.error('[PROCESS QUEUE] Submit failed', {
+                    jobId: job.id,
+                    attempt: retryCount + 1,
+                    error: error.message,
+                    stack: error.stack
+                  });
+                  lastError = error.message;
+                  retryCount++;
+                  if (retryCount < 3) await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+                }
+              }
+      
+              if (success && oxylabsId) {
+                try {
+                  // Add to active jobs with retry
+                  const activeJobResult = await ActiveJobsService.addActiveJob(oxylabsId, 'job_detail', {
+                    originalJobId: job.id,
+                    status: 'submitted'
+                  });
+      
+                  if (activeJobResult.success) {
+                    // Remove from queue on success
+                    await this.queueRef.doc(job.id).delete();
+                    processResults.push({ success: true, jobId: job.id, oxylabsId });
+                  } else if (activeJobResult.shouldRequeue) {
+                    // Requeue if hit concurrent limit
+                    await this.requeueJob(job.id, 'Hit concurrent limit - will retry');
+                    processResults.push({ 
+                      success: false, 
+                      jobId: job.id, 
+                      error: 'Hit concurrent limit - requeued' 
+                    });
+                  }
+                } catch (error) {
+                  await this.handleJobFailure(job.id, error.message, true);
+                  processResults.push({ 
+                    success: false, 
+                    jobId: job.id, 
+                    error: error.message 
+                  });
+                }
+              } else {
+                // Handle final failure after retries
+                await this.handleJobFailure(job.id, lastError || 'Failed after retries', true);
                 processResults.push({ 
                   success: false, 
                   jobId: job.id, 
-                  error: 'Hit concurrent limit - requeued' 
+                  error: lastError || 'Failed after retries' 
                 });
               }
             } catch (error) {
@@ -426,66 +429,64 @@ const ActiveJobsService = {
                 error: error.message 
               });
             }
+          }
+      
+          return {
+            processed: processResults.filter(r => r.success).length,
+            failed: processResults.filter(r => !r.success).length,
+            status: 'completed',
+            details: processResults
+          };
+      
+        } catch (error) {
+          functions.logger.error('Failed to process job queue:', error);
+          return { processed: 0, status: 'error', error: error.message };
+        }
+      },
+
+      async requeueJob(jobId, reason) {
+        await db.runTransaction(async (transaction) => {
+          const jobDoc = await transaction.get(this.queueRef.doc(jobId));
+          if (!jobDoc.exists) return;
+          
+          const retryCount = (jobDoc.data().retryCount || 0) + 1;
+          
+          // If we've tried too many times, mark as failed instead of pending
+          if (retryCount > 3) {
+            transaction.update(this.queueRef.doc(jobId), {
+              status: 'failed',
+              retryCount: retryCount,
+              lastError: `Max retries exceeded: ${reason}`,
+              lastAttempt: FieldValue.serverTimestamp()
+            });
+            
+            // Update the scraped job status
+            const userDoc = db.collection('users')
+                            .doc('test_user')
+                            .collection('scrapedcallback')
+                            .doc(jobId);
+            
+            transaction.update(userDoc, {
+              status: 'failed',
+              lastError: `Max retries exceeded: ${reason}`,
+              lastUpdated: FieldValue.serverTimestamp()
+            });
           } else {
-            // Handle final failure after retries
-            await this.handleJobFailure(job.id, lastError || 'Failed after retries', true);
-            processResults.push({ 
-              success: false, 
-              jobId: job.id, 
-              error: lastError || 'Failed after retries' 
+            transaction.update(this.queueRef.doc(jobId), {
+              status: 'pending',
+              retryCount: retryCount,
+              lastError: reason,
+              lastAttempt: FieldValue.serverTimestamp(),
+              nextRetryAt: new Date(Date.now() + (retryCount * 60000)) // Exponential backoff
             });
           }
-        } catch (error) {
-          await this.handleJobFailure(job.id, error.message, true);
-          processResults.push({ 
-            success: false, 
-            jobId: job.id, 
-            error: error.message 
-          });
-        }
-      }
-
-      return {
-        processed: processResults.filter(r => r.success).length,
-        failed: processResults.filter(r => !r.success).length,
-        status: 'completed',
-        details: processResults
-      };
-
-    } catch (error) {
-      functions.logger.error('Failed to process job queue:', error);
-      return { processed: 0, status: 'error', error: error.message };
-    }
-  },
-
-  async requeueJob(jobId, reason) {
-    await db.runTransaction(async (transaction) => {
-      // READS FIRST
-      const jobDoc = await transaction.get(this.queueRef.doc(jobId));
-      const counterDoc = await transaction.get(ActiveJobsService.counterRef);
       
-      if (!jobDoc.exists) return;
-      
-      // Get current values from reads
-      const currentRetries = jobDoc.data().retryCount || 0;
-      const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
-      
-      // WRITES AFTER ALL READS
-      transaction.update(this.queueRef.doc(jobId), {
-        status: 'pending',
-        retryCount: FieldValue.increment(1),
-        lastError: reason,
-        lastAttempt: FieldValue.serverTimestamp(),
-        nextRetryAt: FieldValue.serverTimestamp()
-      });
-  
-      if (currentCount > 0) {
-        transaction.update(ActiveJobsService.counterRef, {
-          count: currentCount - 1
+          // Ensure counter is decremented
+          transaction.set(ActiveJobsService.counterRef, { 
+            count: FieldValue.increment(-1) 
+          }, { merge: true });
         });
-      }
-    });
-  },
+      },
 
   async deleteQueueJob(jobId) {
     if (!jobId) return;
@@ -506,19 +507,19 @@ const ActiveJobsService = {
       } else {
         await db.runTransaction(async (transaction) => {
           // READS FIRST
-          const jobDoc = await transaction.get(this.queueRef.doc(jobId));
-          const counterDoc = await transaction.get(ActiveJobsService.counterRef);
+          const [jobDoc, counterDoc] = await Promise.all([
+            transaction.get(this.queueRef.doc(jobId)),
+            transaction.get(ActiveJobsService.counterRef)
+          ]);
           
           if (!jobDoc.exists) return;
   
-          // Get current values from reads
           const currentCount = counterDoc.exists ? counterDoc.data().count : 0;
   
           // Log current state
           functions.logger.info('Handling job failure - current counter:', {
             jobId,
             currentCount,
-            willDecrement: currentCount > 0,
             errorMessage
           });
   
@@ -530,17 +531,16 @@ const ActiveJobsService = {
             lastAttempt: FieldValue.serverTimestamp()
           });
   
-          if (currentCount > 0) {
-            transaction.update(ActiveJobsService.counterRef, {
-              count: currentCount - 1
-            });
-            
-            functions.logger.info('Decremented counter for failed job:', {
-              jobId,
-              oldCount: currentCount,
-              newCount: currentCount - 1
-            });
-          }
+          // Decrement counter atomically
+          transaction.set(ActiveJobsService.counterRef, {
+            count: FieldValue.increment(-1)
+          }, { merge: true });
+  
+          functions.logger.info('Decremented counter for failed job:', {
+            jobId,
+            oldCount: currentCount,
+            newCount: currentCount - 1
+          });
         });
       }
     } catch (error) {
