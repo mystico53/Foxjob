@@ -1,6 +1,8 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
   import { scrapeStore, isLoading, totalJobs } from '$lib/stores/scrapeStore';
+  import { authStore } from '$lib/stores/authStore';
+ 
   
   let keywords = '';
   let location = '';
@@ -10,6 +12,7 @@
   let datePosted = '';
   let limit = 2; // Default limit
   let error = null;
+  export let uid; 
   
   const jobTypes = [
     { value: 'Full-time', label: 'Full-time' },
@@ -67,7 +70,7 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            userId: 'test_user', // Replace with actual user ID
+            userId: uid,
             searchParams: searchPayload,
             limit: parseInt(limit) || 2
           })

@@ -5,6 +5,7 @@ export const scrapeStore = writable([])
 export const isLoading = writable(false)
 export const totalJobs = writable(0)
 export const currentBatch = writable(0)
+export let uid; 
 
 function cleanDescription(text) {
   if (!text) return '';
