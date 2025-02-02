@@ -64,14 +64,15 @@ const { compareQualities } = require('./pubsub/v2compare10Qualities.js');
 const { structureResume } = require('./assessments/structureResume');
 const { embeddingQualRes } = require('./assessments/embeddingQualRes');
 const { syncGoogleSubToUid } = require('./helpers/syncGoogleSubToUid');
-const { searchJobs } = require('./scraping/searchJobs');
-const { matchNewJob } = require('./scraping/matchNewJob');
-const { parseTest } = require('./scraping/parseTest');
-const { handleOxylabsCallback } = require('./scraping/handleOxylabsCallback');
-const { callbackTest } = require('./scraping/callbackTest');
+// const { searchJobs } = require('./oxylabs_scraping/searchJobs');
+// const { matchNewJob } = require('./oxylabs_scraping/matchNewJob');
+// const { parseTest } = require('./oxylabs_scraping/parseTest');
+// const { handleOxylabsCallback } = require('./oxylabs_scraping/handleOxylabsCallback');
+// const { callbackTest } = require('./oxylabs_scraping/callbackTest');
+const { searchBright } = require('./brightdata_scraping/searchBright.js');
+const { handleBrightdataWebhook } = require('./brightdata_scraping/handleBrightdataWebhook.js');
 
 // Export all Cloud Functions
-
 exports.publishJobText = publishJobText;
 //exports.processText = processPubSubText;
 exports.saveRawMessage = saveRawPubSubMessage;
@@ -95,8 +96,10 @@ exports.compareQualities = compareQualities;
 exports.structureResume = structureResume;
 exports.embeddingQualRes = embeddingQualRes;
 exports.syncGoogleSubToUid = syncGoogleSubToUid;
-exports.searchJobs = searchJobs;
-exports.matchNewJob = matchNewJob;
-exports.parseTest = parseTest;
-exports.handleOxylabsCallback = handleOxylabsCallback;
-exports.callbackTest = callbackTest;
+// exports.searchJobs = searchJobs;
+// exports.matchNewJob = matchNewJob;
+// exports.parseTest = parseTest;
+// exports.handleOxylabsCallback = handleOxylabsCallback;
+// exports.callbackTest = callbackTest;
+exports.searchBright = searchBright;
+exports.handleBrightdataWebhook = handleBrightdataWebhook;

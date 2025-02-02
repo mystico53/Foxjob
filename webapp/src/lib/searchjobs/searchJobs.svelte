@@ -1,481 +1,245 @@
 <script>
   import { onMount, onDestroy } from 'svelte';
-  import { getCloudFunctionUrl } from '$lib/config/environment.config';
-  import { scrapeStore, isLoading, totalJobs, initJobListener, clearScrapeStore } from '$lib/stores/scrapeStore';
-
-  export let searchStartTime = null;
-
-  import { auth } from '$lib/firebase';
-  import { db } from '$lib/firebase'; 
-  import SearchStatus from '$lib/searchJobs/SearchStatus.svelte';
-
+  import { scrapeStore, isLoading, totalJobs } from '$lib/stores/scrapeStore';
+  
   let keywords = '';
   let location = '';
   let jobType = '';
-  let datePosted = '';
-  let radius = '';
-  let salary = '';
   let experience = '';
-  let remote = false;
+  let workplaceType = '';
+  let datePosted = '';
+  let limit = 2; // Default limit
   let error = null;
-  let unsubscribe; 
-
-  // Add this to initialize the listener when component mounts
-  onMount(() => {
-    console.log('🔄 Component mounted');
-    console.log('👤 Auth current user:', auth.currentUser?.uid);
-    
-    if (auth.currentUser) {
-      console.log('🎯 Initializing listener for user:', auth.currentUser.uid);
-      unsubscribe = initJobListener(db, auth.currentUser.uid);
-    } else {
-      console.log('⚠️ No user found on mount');
-      const unsubAuth = auth.onAuthStateChanged(user => {
-        console.log('🔐 Auth state changed:', user?.uid);
-        if (user) {
-          console.log('✅ User logged in, initializing listener');
-          unsubscribe = initJobListener(db, user.uid);
-        }
-      });
-      
-      return () => {
-        console.log('🧹 Cleaning up auth listener');
-        unsubAuth();
-        if (unsubscribe) unsubscribe();
-      };
-    }
-  });
-
-  onDestroy(() => {
-    console.log('Component destroying')
-    if (unsubscribe) {
-      console.log('Unsubscribing from listener')
-      unsubscribe()
-    }
-  })
-
-  function handleClearResults() {
-    clearScrapeStore();
-    error = null;
-  }
-
+  
   const jobTypes = [
-    { value: 'fulltime', label: 'Full-time' },
-    { value: 'parttime', label: 'Part-time' },
-    { value: 'contract', label: 'Contract' },
-    { value: 'temporary', label: 'Temporary' },
-    { value: 'internship', label: 'Internship' }
+    { value: 'Full-time', label: 'Full-time' },
+    { value: 'Part-time', label: 'Part-time' },
+    { value: 'Contract', label: 'Contract' },
+    { value: 'Internship', label: 'Internship' }
   ];
 
   const dateOptions = [
-    { value: '1', label: 'Last 24 hours' },
-    { value: '3', label: 'Last 3 days' },
-    { value: '7', label: 'Last 7 days' },
-    { value: '14', label: 'Last 14 days' }
-  ];
-
-  const radiusOptions = [
-    { value: '5', label: 'Within 5 miles' },
-    { value: '10', label: 'Within 10 miles' },
-    { value: '25', label: 'Within 25 miles' },
-    { value: '50', label: 'Within 50 miles' }
-  ];
-
-  const salaryOptions = [
-    { value: '30000', label: '$30,000+' },
-    { value: '50000', label: '$50,000+' },
-    { value: '75000', label: '$75,000+' },
-    { value: '100000', label: '$100,000+' },
-    { value: '125000', label: '$125,000+' },
-    { value: '150000', label: '$150,000+' }
+    { value: 'Past 24 hours', label: 'Last 24 hours' },
+    { value: 'Past week', label: 'Last 7 days' },
+    { value: 'Past month', label: 'Last 30 days' },
+    { value: 'Any time', label: 'Any time' }
   ];
 
   const experienceLevels = [
-    { value: 'entry_level', label: 'Entry Level' },
-    { value: 'mid_level', label: 'Mid Level' },
-    { value: 'senior_level', label: 'Senior Level' }
+    { value: 'Entry level', label: 'Entry Level' },
+    { value: 'Mid-Senior level', label: 'Mid-Senior Level' },
+    { value: 'Director', label: 'Director' }
   ];
 
-  async function testParse() {
-  try {
-    if (!auth.currentUser) {
-      error = 'You must be logged in to test parsing';
+  const workplaceTypes = [
+    { value: 'On-site', label: 'On-site' },
+    { value: 'Remote', label: 'Remote' },
+    { value: 'Hybrid', label: 'Hybrid' }
+  ];
+
+  async function searchJobs() {
+    isLoading.set(true);
+    error = null;
+
+    if (!keywords) {
+      error = 'Please enter keywords to search';
+      isLoading.set(false);
       return;
     }
 
-    const response = await fetch(
-      `http://127.0.0.1:5001/jobille-45494/us-central1/parseTest?userId=${auth.currentUser.uid}`
-    );
+    try {
+      const searchPayload = [{
+        keyword: keywords.trim(),
+        location: location?.trim() || '',
+        country: 'US', // Default to US
+        time_range: datePosted || 'Any time',
+        job_type: jobType || '',
+        experience_level: experience || '',
+        remote: workplaceType || '',
+        company: ''
+      }];
 
-    if (!response.ok) {
-      throw new Error(`Parse test failed: ${response.status} ${response.statusText}`);
-    }
-
-    const data = await response.json();
-    console.log('Parse test results:', data);
-
-  } catch (err) {
-    console.error('Error during parse test:', err);
-    error = err.message || 'An error occurred while testing parse';
-  }
-}
-
-  async function searchJobs() {
-  // Debug log all parameters being sent
-  console.log('Search Parameters:', {
-    keywords,            // Looking specifically at what keywords contains
-    location,
-    jobType,
-    datePosted,
-    radius,
-    salary,
-    experience,
-    remote,
-    userId: auth.currentUser?.uid
-  });
-
-  searchStartTime = Date.now();
-  isLoading.set(true);
-  error = null;
-
-  if (!keywords) {
-    error = 'Please enter keywords to search';
-    isLoading.set(false);
-    return;
-  }
-
-  if (!auth.currentUser) {
-    error = 'You must be logged in to search jobs';
-    isLoading.set(false);
-    return;
-  }
-
-  try {
-    // Construct the search URL with explicit params
-    const params = new URLSearchParams({
-    q: keywords.trim(),           // 'q' instead of 'keywords'
-    l: location?.trim() || '',    // 'l' instead of 'location'
-    userId: auth.currentUser.uid
-  });
-
-    if (location?.trim()) {
-      params.append('location', location.trim());
-    }
-
-    // Add optional parameters only if they have values
-    if (jobType) {
-      params.append('jt', jobType); // Using 'jt' for job type
-    }
-    
-    if (datePosted) {
-      params.append('fromage', datePosted); // Common parameter name for date posted
-    }
-    
-    if (radius) {
-      params.append('radius', radius);
-    }
-    
-    if (salary) {
-      params.append('salary', salary);
-    }
-    
-    if (experience) {
-      params.append('exp_level', experience);
-    }
-    
-    if (remote) {
-      params.append('remote', 'true');
-    }
-
-    // Log the complete params for debugging
-    console.log('Search parameters:', Object.fromEntries(params));
-
-    // Log the exact URL being called
-    const baseUrl = getCloudFunctionUrl('searchJobs');
-    const searchUrl = `${baseUrl}?${params.toString()}`;
-    console.log('Making request to:', searchUrl);
-
-    const response = await fetch(searchUrl);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      throw new Error(
-        errorData?.message || 
-        `Failed to fetch jobs: ${response.status} ${response.statusText}`
+      const response = await fetch(
+        'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright',
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: 'test_user', // Replace with actual user ID
+            searchParams: searchPayload,
+            limit: parseInt(limit) || 2
+          })
+        }
       );
-    }
 
-    const data = await response.json();
-    console.log('Response data:', data);
+      if (!response.ok) {
+        throw new Error('Failed to fetch jobs');
+      }
 
-    if (data.jobs && data.jobs.length > 0) {
-      totalJobs.set(data.count);
-      console.log('Found', data.count, 'jobs. Firestore listener will update UI');
-    } else {
-      console.warn('No jobs found in response');
-      totalJobs.set(0);
+      const data = await response.json();
+      if (data.response?.results?.length > 0) {
+        scrapeStore.set(data.response.results);
+        totalJobs.set(data.response.results.length);
+      } else {
+        scrapeStore.set([]);
+        totalJobs.set(0);
+      }
+    } catch (err) {
+      error = err.message || 'An error occurred while searching for jobs';
+    } finally {
+      isLoading.set(false);
     }
-  } catch (err) {
-    console.error('Error during job search:', err);
-    error = err.message || 'An error occurred while searching for jobs';
-  } finally {
-    isLoading.set(false);
   }
-}
 </script>
 
 <div class="container mx-auto p-4">
-  <div class="card p-4 space-y-6">
-    <header class="space-y-2">
-      <h1 class="h2">Job Search</h1>
-    </header>
-    <!-- Search Form -->
-    <form on:submit|preventDefault={searchJobs} class="space-y-6">
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <!-- Required Fields -->
-        <div class="space-y-2">
-          <label for="keywords" class="label">
-            <span class="label-text font-bold">Keywords</span>
-            <span class="text-error-500">*</span>
-          </label>
-          <input
-            id="keywords"
-            type="text"
-            class="input"
-            bind:value={keywords}
-            placeholder="Job title, keywords, or company"
-            required
-          />
-        </div>
+  <form on:submit|preventDefault={searchJobs} class="space-y-4">
+    <!-- Keywords -->
+    <div>
+      <label for="keywords">Keywords *</label>
+      <input
+        id="keywords"
+        type="text"
+        bind:value={keywords}
+        placeholder="Job title, keywords, or company"
+        required
+        class="w-full p-2 border rounded"
+      />
+    </div>
 
-        <div class="space-y-2">
-          <label for="location" class="label">
-            <span class="label-text font-bold">Location</span>
-          </label>
-          <input
-            id="location"
-            type="text"
-            class="input"
-            bind:value={location}
-            placeholder="City, state, or zip code (optional)"
-          />
-        </div>
-        
-        <!-- Job Type -->
-        <div class="space-y-2">
-          <label for="jobType" class="label">
-            <span class="label-text font-bold">Job Type</span>
-          </label>
-          <select id="jobType" class="select" bind:value={jobType}>
-            <option value="">Any Job Type</option>
-            {#each jobTypes as type}
-              <option value={type.value}>{type.label}</option>
-            {/each}
-          </select>
-        </div>
+    <!-- Location -->
+    <div>
+      <label for="location">Location</label>
+      <input
+        id="location"
+        type="text"
+        bind:value={location}
+        placeholder="City or region"
+        class="w-full p-2 border rounded"
+      />
+    </div>
 
-        <!-- Date Posted -->
-        <div class="space-y-2">
-          <label for="datePosted" class="label">
-            <span class="label-text font-bold">Date Posted</span>
-          </label>
-          <select id="datePosted" class="select" bind:value={datePosted}>
-            <option value="">Any Time</option>
-            {#each dateOptions as option}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-        </div>
+    <!-- Job Type -->
+    <div>
+      <label for="jobType">Job Type</label>
+      <select 
+        id="jobType" 
+        bind:value={jobType}
+        class="w-full p-2 border rounded"
+      >
+        <option value="">Any Job Type</option>
+        {#each jobTypes as type}
+          <option value={type.value}>{type.label}</option>
+        {/each}
+      </select>
+    </div>
 
-        <!-- Search Radius -->
-        <div class="space-y-2">
-          <label for="radius" class="label">
-            <span class="label-text font-bold">Search Radius</span>
-          </label>
-          <select id="radius" class="select" bind:value={radius}>
-            <option value="">Any Distance</option>
-            {#each radiusOptions as option}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-        </div>
+    <!-- Experience Level -->
+    <div>
+      <label for="experience">Experience Level</label>
+      <select 
+        id="experience" 
+        bind:value={experience}
+        class="w-full p-2 border rounded"
+      >
+        <option value="">Any Experience</option>
+        {#each experienceLevels as level}
+          <option value={level.value}>{level.label}</option>
+        {/each}
+      </select>
+    </div>
 
-        <!-- Salary -->
-        <div class="space-y-2">
-          <label for="salary" class="label">
-            <span class="label-text font-bold">Minimum Salary</span>
-          </label>
-          <select id="salary" class="select" bind:value={salary}>
-            <option value="">Any Salary</option>
-            {#each salaryOptions as option}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-        </div>
+    <!-- Workplace Type -->
+    <div>
+      <label for="workplaceType">Workplace Type</label>
+      <select 
+        id="workplaceType" 
+        bind:value={workplaceType}
+        class="w-full p-2 border rounded"
+      >
+        <option value="">Any Workplace</option>
+        {#each workplaceTypes as type}
+          <option value={type.value}>{type.label}</option>
+        {/each}
+      </select>
+    </div>
 
-        <!-- Experience -->
-        <div class="space-y-2">
-          <label for="experience" class="label">
-            <span class="label-text font-bold">Experience Level</span>
-          </label>
-          <select id="experience" class="select" bind:value={experience}>
-            <option value="">Any Experience</option>
-            {#each experienceLevels as level}
-              <option value={level.value}>{level.label}</option>
-            {/each}
-          </select>
-        </div>
+    <!-- Date Posted -->
+    <div>
+      <label for="datePosted">Date Posted</label>
+      <select 
+        id="datePosted" 
+        bind:value={datePosted}
+        class="w-full p-2 border rounded"
+      >
+        <option value="">Any Time</option>
+        {#each dateOptions as option}
+          <option value={option.value}>{option.label}</option>
+        {/each}
+      </select>
+    </div>
 
-        <!-- Remote -->
-        <div class="flex items-center space-x-2">
-          <label for="remote" class="flex items-center space-x-2 cursor-pointer">
-            <input
-              id="remote"
-              type="checkbox"
-              bind:checked={remote}
-              class="checkbox"
-            />
-            <span class="font-bold">Remote jobs only</span>
-          </label>
-        </div>
-      </div>
-      
-      <div class="flex gap-4">
-        <button
-          type="submit"
-          class="btn variant-filled-primary flex-1"
-          disabled={$isLoading}
-        >
-          {$isLoading ? 'Searching...' : 'Search Jobs'}
-        </button>
-        
-        <button
-          type="button"
-          class="btn variant-filled-secondary"
-          on:click={testParse}
-        >
-          Test Parse
-        </button>
-        
-        {#if $scrapeStore.length > 0}
-          <button
-            type="button"
-            class="btn variant-ghost-error"
-            on:click={handleClearResults}
-          >
-            Clear Results
-          </button>
-        {/if}
-      </div>
-    </form>
+    <!-- Results Limit -->
+    <div>
+      <label for="limit">Maximum Results</label>
+      <input
+        id="limit"
+        type="number"
+        bind:value={limit}
+        min="1"
+        max="100"
+        class="w-full p-2 border rounded"
+      />
+      <span class="text-sm text-gray-500">Number of jobs to fetch per search (max 100)</span>
+    </div>
 
-    <SearchStatus
-      {searchStartTime}
-      searchParams={{
-        keywords,
-        location,
-        jobType,
-        datePosted,
-        radius,
-        salary,
-        experience,
-        remote
-      }}
-    />
+    <!-- Search Button -->
+    <button
+      type="submit"
+      disabled={$isLoading}
+      class="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50"
+    >
+      {$isLoading ? 'Searching...' : 'Search Jobs'}
+    </button>
+  </form>
 
-    {#if error}
-      <div class="alert variant-filled-error" role="alert">
-        <span>{error}</span>
-      </div>
-    {/if}
-
-    <!-- Results Header -->
-    {#if $totalJobs > 0}
-      <div class="pt-4 pb-2">
-        <h2 class="h3">Found {$totalJobs} jobs</h2>
-      </div>
-    {/if}
-
-    <!-- Results -->
-    {#if $scrapeStore.length > 0}
-<div class="space-y-4">
-  {#each $scrapeStore as job}
-    <article class="card variant-filled-surface p-4">
-      <!-- Match Score Display -->
-      {#if job.matchScore?.score !== undefined}
-        <div class="mb-4">
-          <div class="text-4xl font-bold text-success-500 flex items-center gap-2">
-            {job.matchScore.score}%
-            <span class="text-base opacity-75">match</span>
-          </div>
-        </div>
-      {/if}
-
-      <header class="mb-4">
-        <h3 class="h3">{job.title || 'Untitled Position'}</h3>
-        <p class="font-bold">{job.company || 'Company Not Listed'}</p>
-        
-        <div class="flex flex-wrap gap-2 text-sm opacity-75">
-          {#if job.location}
-            <span>{job.location}</span>
-          {/if}
-          {#if job.datePosted}
-            <span>•</span>
-            <span>{new Date(job.datePosted).toLocaleDateString()}</span>
-          {/if}
-          {#if job.id}
-            <span>•</span>
-            <span class="font-mono">ID: {job.id}</span>
-          {/if}
-        </div>
-      </header>
-      
-      <!-- Salary Information -->
-      {#if job.salary?.displayText}
-        <div class="text-success-500 font-semibold">
-          {job.salary.displayText}
-        </div>
-      {/if}
-      
-      <!-- Schedule Information -->
-      {#if job.schedule}
-        <div class="text-sm opacity-75">
-          {job.schedule}
-        </div>
-      {/if}
-      
-      <!-- Description Section -->
-      {#if job.description}
-        <div class="prose max-w-none">
-          {#each job.description.split('\n\n') as paragraph}
-            {#if paragraph.trim()}
-              <p class="whitespace-pre-line mb-4">{paragraph}</p>
-            {/if}
-          {/each}
-        </div>
-      {/if}
-
-      <div class="mt-6">
-        {#if job.jobUrl}
-          <a 
-            href={job.jobUrl} 
-            target="_blank" 
-            rel="noopener noreferrer"
-            class="btn variant-ghost-primary"
-          >
-            View Full Job Details
-          </a>
-        {/if}
-      </div>
-    </article>
-  {/each}
-</div>
-{:else}
-  {#if $totalJobs > 0}
-    <div class="alert variant-ghost-warning">
-      <p>Loading job details...</p>
+  {#if error}
+    <div class="mt-4 p-4 bg-red-100 text-red-700 rounded">
+      {error}
     </div>
   {/if}
-{/if}
-  </div>
+
+  <!-- Results -->
+  {#if $scrapeStore.length > 0}
+    <div class="mt-6 space-y-4">
+      {#each $scrapeStore as job}
+        <div class="p-4 border rounded">
+          <h3 class="text-xl font-bold">{job.title || 'Untitled Position'}</h3>
+          <p class="font-semibold">{job.company || 'Company Not Listed'}</p>
+          <p class="text-gray-600">{job.location}</p>
+          
+          {#if job.description}
+            <p class="mt-2">{job.description}</p>
+          {/if}
+
+          {#if job.jobUrl}
+            <a 
+              href={job.jobUrl} 
+              target="_blank" 
+              rel="noopener noreferrer"
+              class="mt-2 inline-block text-blue-500 hover:underline"
+            >
+              View Job
+            </a>
+          {/if}
+        </div>
+      {/each}
+    </div>
+  {:else if $totalJobs > 0}
+    <div class="mt-4 text-center">
+      Loading jobs...
+    </div>
+  {/if}
 </div>

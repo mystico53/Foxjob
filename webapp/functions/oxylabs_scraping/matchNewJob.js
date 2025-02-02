@@ -279,7 +279,7 @@ const matchingService = {
 
 // ===== Main Function =====
 exports.matchNewJob = onDocumentCreated(
-    'users/{userId}/scrapedjobsDEBUG/{jobId}',
+    'users/test_user/scrapedjobs/{jobId}',
     async (event) => {
         logger.debug('Trigger received event:', {
             path: event.data.ref.path,
