@@ -31,9 +31,10 @@ service cloud.firestore {
         allow read, write, list: if isOwner(userId);
       }
       
-      // Rules for scrapedjobs subcollection - MOVED INSIDE users/{userId}
-      match /scrapedjobs/{jobId} {
+      // Rules for scrapedJobs subcollection - MOVED INSIDE users/{userId}
+      match /scrapedJobs/{jobId} {
         allow read, write, list: if isOwner(userId);
+        allow read, write, list: if true;
       }
     }
 
