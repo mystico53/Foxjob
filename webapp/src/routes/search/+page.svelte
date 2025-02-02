@@ -4,5 +4,5 @@
 	import SearchResults from '$lib/searchJobs/searchResults.svelte';
   </script>
   
-
+  <SearchBox/>
   <SearchResults/>
