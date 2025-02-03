@@ -71,6 +71,9 @@ const { syncGoogleSubToUid } = require('./helpers/syncGoogleSubToUid');
 // const { callbackTest } = require('./oxylabs_scraping/callbackTest');
 const { searchBright } = require('./brightdata_scraping/searchBright.js');
 const { handleBrightdataWebhook } = require('./brightdata_scraping/handleBrightdataWebhook.js');
+const { getBrightdataSnapshots } = require('./brightdata_scraping/getBrightdataSnapshots.js');
+
+
 
 // Export all Cloud Functions
 exports.publishJobText = publishJobText;
@@ -103,3 +106,4 @@ exports.syncGoogleSubToUid = syncGoogleSubToUid;
 // exports.callbackTest = callbackTest;
 exports.searchBright = searchBright;
 exports.handleBrightdataWebhook = handleBrightdataWebhook;
+exports.getBrightdataSnapshots = getBrightdataSnapshots;

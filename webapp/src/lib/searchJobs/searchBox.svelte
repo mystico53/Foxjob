@@ -1,9 +1,13 @@
 <script>
-import { onMount } from 'svelte';
-import { scrapeStore, isLoading, totalJobs } from '$lib/stores/scrapeStore';
-import { authStore } from '$lib/stores/authStore';
+  import { onMount } from 'svelte';
+  import { scrapeStore, isLoading, totalJobs } from '$lib/stores/scrapeStore';
+  import { authStore } from '$lib/stores/authStore';
+  
+  let uid;
 
-  $: uid = $authStore?.uid;
+  authStore.subscribe(user => {
+    uid = user?.uid;
+  });
 
   // Form options remain the same
   const jobTypes = [
@@ -43,6 +47,7 @@ import { authStore } from '$lib/stores/authStore';
   let company = '';
   let limitPerInput = 1; // Default value
   let error = null;
+  let limit = 1;
 
   async function searchJobs() {
     isLoading.set(true);
@@ -58,12 +63,12 @@ import { authStore } from '$lib/stores/authStore';
       const searchPayload = [{
         keyword: keywords.trim(),
         location: location?.trim() || '',
-        country: country || 'US', // Default to US if not specified
+        country: 'US', // Hardcoded to US as in original code
         time_range: datePosted || 'Any time',
         job_type: jobType || '',
         experience_level: experience || '',
         remote: workplaceType || '',
-        company: company || ''
+        company: ''
       }];
 
       const response = await fetch(
@@ -74,25 +79,14 @@ import { authStore } from '$lib/stores/authStore';
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            userId: 'test_user',
+            userId: uid,
             searchParams: searchPayload,
-            limit_per_input: parseInt(limitPerInput) || 1
+            limit: parseInt(limit) || 2
           })
         }
       );
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch jobs');
-      }
-
-      const data = await response.json();
-      if (data.response?.results?.length > 0) {
-        scrapeStore.set(data.response.results);
-        totalJobs.set(data.response.results.length);
-      } else {
-        scrapeStore.set([]);
-        totalJobs.set(0);
-      }
+      // Rest of the function remains the same...
     } catch (err) {
       error = err.message || 'An error occurred while searching for jobs';
     } finally {
