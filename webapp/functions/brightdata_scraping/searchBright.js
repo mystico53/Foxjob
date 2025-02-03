@@ -69,9 +69,8 @@ exports.searchBright = onRequest({
       url.searchParams.append('webhook_headers.Authorization', `Bearer ${webhookSecret}`);
       url.searchParams.append('notify_headers.Authorization', `Bearer ${webhookSecret}`);
 
-      if (limit) {
-        url.searchParams.append('limit_per_input', limit.toString());
-      }
+      const enforced_limit = Math.min(limit || 101, 101);
+      url.searchParams.append('limit_per_input', enforced_limit.toString());
 
       console.log("Final Brightdata URL:", url.toString());
       console.log("Request headers:", {
