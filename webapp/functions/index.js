@@ -72,6 +72,7 @@ const { syncGoogleSubToUid } = require('./helpers/syncGoogleSubToUid');
 const { searchBright } = require('./brightdata_scraping/searchBright.js');
 const { handleBrightdataWebhook } = require('./brightdata_scraping/handleBrightdataWebhook.js');
 const { getBrightdataSnapshots } = require('./brightdata_scraping/getBrightdataSnapshots.js');
+const { downloadAndProcessSnapshot } = require('./brightdata_scraping/downloadAndProcessSnapshot.js');
 
 
 
@@ -107,3 +108,4 @@ exports.syncGoogleSubToUid = syncGoogleSubToUid;
 exports.searchBright = searchBright;
 exports.handleBrightdataWebhook = handleBrightdataWebhook;
 exports.getBrightdataSnapshots = getBrightdataSnapshots;
+exports.downloadAndProcessSnapshot = downloadAndProcessSnapshot;
