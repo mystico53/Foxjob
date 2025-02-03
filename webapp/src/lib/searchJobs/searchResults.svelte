@@ -3,6 +3,8 @@
     import { scrapeStore, isLoading, totalJobs, currentBatch, initJobListener } from '$lib/stores/scrapeStore'
     
     let jobs = []
+    let currentPage = 1;
+    const rowsPerPage = 10;
     
     scrapeStore.subscribe(value => {
       jobs = value;
@@ -11,124 +13,158 @@
     
     onMount(() => {
       console.log('🏁 Component mounted, initializing listener');
+      initJobListener('test_user');
       const unsubscribe = initJobListener('test_user');
       return unsubscribe;
     });
     
-    function handleClick() {
-      console.log('🔄 Reload button clicked');
-      isLoading.set(true);
-      initJobListener('test_user');
+    $: totalPages = Math.ceil(jobs.length / rowsPerPage);
+    $: paginatedJobs = jobs.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+    
+    function nextPage() {
+      if (currentPage < totalPages) currentPage++;
+    }
+    
+    function previousPage() {
+      if (currentPage > 1) currentPage--;
+    }
+    
+    function formatDate(date) {
+      if (!date) return 'N/A';
+      return new Date(date).toLocaleDateString();
     }
 </script>
 
 <div class="container">
-    <button 
-      on:click={handleClick}
-      class="load-button" 
-      disabled={$isLoading}
-    >
-      {$isLoading ? 'Loading...' : 'Load Jobs'}
-    </button>
-
-    {#if $isLoading}
-      <p>Loading data...</p>
-    {:else if jobs.length === 0}
-      <p>No jobs found</p>
-    {:else}
-      <div class="stats">
+    <div class="stats">
         <p>Total Jobs: {$totalJobs}</p>
         <p>Current Batch: {$currentBatch}</p>
-      </div>
-      
-      <div class="jobs-list">
-        {#each jobs as job (job.id)}
-          <div class="job-card">
-            <h3>{job.basicInfo?.title || 'No Title'}</h3>
-            <p class="company">{job.basicInfo?.company || 'Unknown Company'}</p>
-            <p class="location">{job.basicInfo?.location || 'Location not specified'}</p>
-            <p class="posted">Posted: {new Date(job.searchMetadata?.processingDate).toLocaleDateString()}</p>
-            {#if job.details?.employmentType}
-              <p class="employment-type">{job.details.employmentType}</p>
-            {/if}
-            {#if job.details?.numApplicants}
-              <p class="applicants">{job.details.numApplicants} applicants</p>
-            {/if}
-          </div>
-        {/each}
-      </div>
-    {/if}
+    </div>
+    
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Title</th>
+                    <th>Company</th>
+                    <th>Location</th>
+                    <th>Posted Date</th>
+                    <th>Type</th>
+                    <th>Applicants</th>
+                </tr>
+            </thead>
+            <tbody>
+                {#each paginatedJobs as job (job.id)}
+                    <tr>
+                        <td>{job.basicInfo?.title || 'No Title'}</td>
+                        <td>{job.basicInfo?.company || 'Unknown Company'}</td>
+                        <td>{job.basicInfo?.location || 'Location not specified'}</td>
+                        <td>{formatDate(job.searchMetadata?.processingDate)}</td>
+                        <td>{job.details?.employmentType || 'N/A'}</td>
+                        <td>{job.details?.numApplicants || 'N/A'}</td>
+                    </tr>
+                {/each}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="6">
+                        <div class="pagination">
+                            <span class="pagination-info">
+                                Showing {Math.min((currentPage - 1) * rowsPerPage + 1, jobs.length)} - {Math.min(currentPage * rowsPerPage, jobs.length)} of {jobs.length} entries
+                            </span>
+                            <div class="pagination-controls">
+                                <button 
+                                    on:click={previousPage} 
+                                    disabled={currentPage === 1}
+                                >
+                                    Previous
+                                </button>
+                                <span>Page {currentPage} of {totalPages}</span>
+                                <button 
+                                    on:click={nextPage} 
+                                    disabled={currentPage === totalPages}
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
 </div>
 
 <style>
     .container {
-      padding: 1rem;
-    }
-    
-    .load-button {
-      padding: 0.5rem 1rem;
-      margin-bottom: 1rem;
-      background-color: #4CAF50;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    
-    .load-button:disabled {
-      background-color: #cccccc;
-      cursor: not-allowed;
+        padding: 1rem;
     }
     
     .stats {
-      margin-bottom: 1rem;
+        margin-bottom: 1rem;
+        display: flex;
+        gap: 1rem;
     }
     
-    .jobs-list {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1rem;
+    .table-container {
+        overflow-x: auto;
+        background: white;
+        border-radius: 4px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
     
-    .job-card {
-      padding: 1rem;
-      border: 1px solid #ddd;
-      border-radius: 4px;
-      background-color: #fff;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    table {
+        width: 100%;
+        border-collapse: collapse;
     }
     
-    .job-card h3 {
-      margin: 0 0 0.5rem 0;
-      color: #2c3e50;
+    th, td {
+        padding: 1rem;
+        text-align: left;
+        border-bottom: 1px solid #eee;
     }
     
-    .job-card p {
-      margin: 0.25rem 0;
-      color: #666;
+    th {
+        background-color: #f8f9fa;
+        font-weight: 600;
+        color: #2c3e50;
     }
-
-    .company {
-      font-weight: 500;
-      color: #34495e;
+    
+    tr:hover {
+        background-color: #f8f9fa;
     }
-
-    .location {
-      color: #7f8c8d;
+    
+    .pagination {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
     }
-
-    .employment-type {
-      display: inline-block;
-      background-color: #e8f5e9;
-      color: #2e7d32;
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      font-size: 0.875rem;
-      margin-top: 0.5rem;
+    
+    .pagination-controls {
+        display: flex;
+        gap: 1rem;
+        align-items: center;
     }
-
-    .applicants {
-      font-size: 0.875rem;
-      color: #95a5a6;
+    
+    button {
+        padding: 0.5rem 1rem;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: white;
+        cursor: pointer;
+    }
+    
+    button:hover:not(:disabled) {
+        background: #f8f9fa;
+    }
+    
+    button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    .pagination-info {
+        color: #666;
     }
 </style>

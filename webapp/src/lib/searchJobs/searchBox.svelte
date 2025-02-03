@@ -1,7 +1,7 @@
 <script>
-  import { onMount } from 'svelte';
-  import { isLoading } from '$lib/stores/scrapeStore';
-  import { authStore } from '$lib/stores/authStore';
+import { onMount } from 'svelte';
+import { scrapeStore, isLoading, totalJobs } from '$lib/stores/scrapeStore';
+import { authStore } from '$lib/stores/authStore';
 
   $: uid = $authStore?.uid;
 
@@ -32,7 +32,7 @@
     { value: 'Hybrid', label: 'Hybrid' }
   ];
 
-  // Form state remains the same
+  // Form state with added limitPerInput
   let keywords = '';
   let location = '';
   let jobType = '';
@@ -41,15 +41,16 @@
   let datePosted = '';
   let country = '';
   let company = '';
+  let limitPerInput = 1; // Default value
   let error = null;
 
   async function searchJobs() {
-    isLoading = true;
+    isLoading.set(true);
     error = null;
 
     if (!keywords) {
       error = 'Please enter keywords to search';
-      isLoading = false;
+      isLoading.set(false);
       return;
     }
 
@@ -57,7 +58,7 @@
       const searchPayload = [{
         keyword: keywords.trim(),
         location: location?.trim() || '',
-        country: country || 'US',
+        country: country || 'US', // Default to US if not specified
         time_range: datePosted || 'Any time',
         job_type: jobType || '',
         experience_level: experience || '',
@@ -66,14 +67,17 @@
       }];
 
       const response = await fetch(
-        'https://api.brightdata.com/datasets/v3/trigger',
+        'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright',
         {
           method: 'POST',
           headers: {
-            'Authorization': 'Bearer API_TOKEN',
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify(searchPayload)
+          body: JSON.stringify({
+            userId: 'test_user',
+            searchParams: searchPayload,
+            limit_per_input: parseInt(limitPerInput) || 1
+          })
         }
       );
 
@@ -82,12 +86,17 @@
       }
 
       const data = await response.json();
-      dispatch('searchComplete', data);
-      
+      if (data.response?.results?.length > 0) {
+        scrapeStore.set(data.response.results);
+        totalJobs.set(data.response.results.length);
+      } else {
+        scrapeStore.set([]);
+        totalJobs.set(0);
+      }
     } catch (err) {
       error = err.message || 'An error occurred while searching for jobs';
     } finally {
-      isLoading = false;
+      isLoading.set(false);
     }
   }
 </script>
@@ -186,6 +195,20 @@
           bind:value={company}
           placeholder="Company name"
           class="input"
+        />
+      </div>
+
+      <!-- Limit Per Input -->
+      <div class="form-field">
+        <label for="limitPerInput" class="label font-bold">Results Per Search</label>
+        <input
+          id="limitPerInput"
+          type="number"
+          bind:value={limitPerInput}
+          min="1"
+          max="100"
+          class="input"
+          placeholder="Number of results per search"
         />
       </div>
     </div>
