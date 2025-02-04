@@ -69,7 +69,18 @@
                     <tr>
                         <td>{job.embeddingMatch?.score ?? 'N/A'}</td>
                         <td>{job.basicInfo?.title || 'No Title'}</td>
-                        <td>{job.basicInfo?.company || 'Unknown Company'}</td>
+                        <td>
+                            <div class="company-cell">
+                                {#if job.basicInfo?.companyLogo}
+                                    <img 
+                                        src={job.basicInfo.companyLogo} 
+                                        alt="{job.basicInfo?.company} logo"
+                                        class="company-logo"
+                                    />
+                                {/if}
+                                <span>{job.basicInfo?.company || 'Unknown Company'}</span>
+                            </div>
+                        </td>
                         <td>{job.basicInfo?.location || 'Location not specified'}</td>
                         <td>{formatDate(job.searchMetadata?.processingDate)}</td>
                         <td>{job.details?.employmentType || 'N/A'}</td>
@@ -123,6 +134,19 @@
         background: white;
         border-radius: 4px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .company-cell {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .company-logo {
+        width: 24px;
+        height: 24px;
+        border-radius: 4px;
+        object-fit: contain;
     }
     
     table {
