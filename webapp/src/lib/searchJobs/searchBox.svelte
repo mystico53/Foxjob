@@ -47,7 +47,6 @@
   let company = '';
   let limitPerInput = 1; // Default value
   let error = null;
-  let limit = 1;
 
   async function searchJobs() {
     isLoading.set(true);
@@ -81,7 +80,7 @@
           body: JSON.stringify({
             userId: uid,
             searchParams: searchPayload,
-            limit: parseInt(limit) || 2
+            limit: parseInt(limitPerInput) || 2
           })
         }
       );

@@ -5,7 +5,7 @@
     let error = null;
     let result = null;
 
-    const FUNCTION_URL = 'https://8147-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot';
+    const FUNCTION_URL = 'https://0df9-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot';
 
     async function handleDownload() {
         if (!snapshotId.trim()) {

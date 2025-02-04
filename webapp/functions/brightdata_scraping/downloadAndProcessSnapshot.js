@@ -57,6 +57,9 @@ const transformJobData = (job) => {
   const jobId = job?.job_posting_id || `generated_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 
   return {
+    processing: {
+      status: 'raw'
+    },
     basicInfo: {
       jobId: jobId,
       title: safeGet(job, 'job_title'),
