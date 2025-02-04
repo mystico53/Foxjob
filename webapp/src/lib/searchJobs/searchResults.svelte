@@ -1,10 +1,20 @@
 <script>
     import { onMount } from 'svelte';
     import { scrapeStore, isLoading, totalJobs, currentBatch, initJobListener } from '$lib/stores/scrapeStore'
+    import { authStore } from '$lib/stores/authStore';
     
     let jobs = []
     let currentPage = 1;
     const rowsPerPage = 10;
+    let uid;
+
+    authStore.subscribe(user => {
+        uid = user?.uid;
+        if (uid) {
+            console.log('🔑 User authenticated, initializing listener with uid:', uid);
+            initJobListener(uid);
+        }
+    });
     
     scrapeStore.subscribe(value => {
       jobs = value;
@@ -45,6 +55,7 @@
         <table>
             <thead>
                 <tr>
+                    <th>Match</th>
                     <th>Title</th>
                     <th>Company</th>
                     <th>Location</th>
@@ -56,6 +67,7 @@
             <tbody>
                 {#each paginatedJobs as job (job.id)}
                     <tr>
+                        <td>{job.embeddingMatch?.score ?? 'N/A'}</td>
                         <td>{job.basicInfo?.title || 'No Title'}</td>
                         <td>{job.basicInfo?.company || 'Unknown Company'}</td>
                         <td>{job.basicInfo?.location || 'Location not specified'}</td>
@@ -67,7 +79,7 @@
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="6">
+                    <td colspan="7">
                         <div class="pagination">
                             <span class="pagination-info">
                                 Showing {Math.min((currentPage - 1) * rowsPerPage + 1, jobs.length)} - {Math.min(currentPage * rowsPerPage, jobs.length)} of {jobs.length} entries
