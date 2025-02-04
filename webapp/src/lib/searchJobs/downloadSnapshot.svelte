@@ -1,9 +1,17 @@
 <!-- +page.svelte -->
 <script>
+    import { authStore } from '$lib/stores/authStore';
+    
     let snapshotId = '';
     let processing = false;
     let error = null;
     let result = null;
+    let uid;
+
+    authStore.subscribe(user => {
+        uid = user?.uid;
+    });
+
 
     const FUNCTION_URL = 'https://0df9-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot';
 
@@ -18,7 +26,7 @@
         result = null;
 
         try {
-            const url = `${FUNCTION_URL}?snapshotId=${encodeURIComponent(snapshotId.trim())}`;
+            const url = `${FUNCTION_URL}?snapshotId=${encodeURIComponent(snapshotId.trim())}&userId=${encodeURIComponent(uid)}`;
             console.log('Fetching:', url);
             
             const response = await fetch(url, {
@@ -26,10 +34,8 @@
                 headers: {
                     'Accept': 'application/json',
                     'Content-Type': 'application/json',
-                    // Add ngrok-skip-browser-warning header
                     'ngrok-skip-browser-warning': 'true'
                 },
-                // Disable CORS check during development
                 mode: 'cors'
             });
 
