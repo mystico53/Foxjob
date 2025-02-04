@@ -19,6 +19,7 @@ exports.retryProcessing = onRequest((req, res) => {
         firebaseUid,
       });
 
+      // Validate required parameters
       if (!docId || !firebaseUid) {
         const errorMsg = 'Missing required parameters: docId or firebaseUid';
         logger.error(errorMsg);
@@ -26,7 +27,7 @@ exports.retryProcessing = onRequest((req, res) => {
         return;
       }
 
-      // Create a new topic name (same as in original function)
+      // Create a new topic name
       const topicName = 'raw-text-stored';
       
       // Ensure the topic exists
@@ -38,7 +39,7 @@ exports.retryProcessing = onRequest((req, res) => {
         }
       });
 
-      // Prepare the message (same format as original function)
+      // Prepare the message
       const message = {
         firebaseUid,
         docId

@@ -29,6 +29,13 @@ export const cloudFunctions = {
             staging: import.meta.env.VITE_STRUCTURE_RESUME_URL_STAGING,
             production: import.meta.env.VITE_STRUCTURE_RESUME_URL_PROD
         }
+    },
+    searchJobs: {
+        path: '/searchJobs',
+        urls: {
+            staging: import.meta.env.VITE_SEARCH_JOBS_URL_STAGING,
+            production: import.meta.env.VITE_SEARCH_JOBS_URL_PROD
+        }
     }
 };
 

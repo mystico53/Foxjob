@@ -64,9 +64,15 @@ const { compareQualities } = require('./pubsub/v2compare10Qualities.js');
 const { structureResume } = require('./assessments/structureResume');
 const { embeddingQualRes } = require('./assessments/embeddingQualRes');
 const { syncGoogleSubToUid } = require('./helpers/syncGoogleSubToUid');
+const { searchBright } = require('./brightdata_scraping/searchBright.js');
+const { handleBrightdataWebhook } = require('./brightdata_scraping/handleBrightdataWebhook.js');
+const { getBrightdataSnapshots } = require('./brightdata_scraping/getBrightdataSnapshots.js');
+const { downloadAndProcessSnapshot } = require('./brightdata_scraping/downloadAndProcessSnapshot.js');
+const { matchNewJob } = require('./brightdata_scraping/matchNewJob');
+
+
 
 // Export all Cloud Functions
-
 exports.publishJobText = publishJobText;
 //exports.processText = processPubSubText;
 exports.saveRawMessage = saveRawPubSubMessage;
@@ -90,3 +96,8 @@ exports.compareQualities = compareQualities;
 exports.structureResume = structureResume;
 exports.embeddingQualRes = embeddingQualRes;
 exports.syncGoogleSubToUid = syncGoogleSubToUid;
+exports.searchBright = searchBright;
+exports.handleBrightdataWebhook = handleBrightdataWebhook;
+exports.getBrightdataSnapshots = getBrightdataSnapshots;
+exports.downloadAndProcessSnapshot = downloadAndProcessSnapshot;
+exports.matchNewJob = matchNewJob;
