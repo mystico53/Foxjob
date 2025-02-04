@@ -79,6 +79,7 @@
                         <span class="location">{job.basicInfo?.location || 'Location not specified'}</span>
                         <span class="posted-date">Posted: {formatDate(job.searchMetadata?.processingDate)}</span>
                         <span class="match-score">Match: {job.embeddingMatch?.score ?? 'N/A'}</span>
+                        <span class="job-id">ID: {job.basicInfo?.jobId || 'N/A'}</span>
                     </div>
                 </div>
 
@@ -227,9 +228,19 @@
         font-size: 0.9rem;
     }
 
+    .job-id {
+        font-family: monospace;
+        background: #f5f5f5;
+        padding: 0.2rem 0.4rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+    }
+
     .card-content {
         padding: 1rem;
         border-top: 1px solid #eee;
+        width: 100%;
+        box-sizing: border-box;
     }
 
     .job-details {
@@ -315,6 +326,8 @@
         display: flex;
         flex-direction: column;
         gap: 0.5rem;
+        width: 100%;
+        padding-right: 1rem;
     }
 
     .content-line {
@@ -337,4 +350,4 @@
             margin-top: 0.5rem;
         }
     }
-</style> 
+</style>

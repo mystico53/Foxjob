@@ -1,11 +1,11 @@
 export function formatJobDescription(text) {
     if (!text || typeof text !== 'string') return { sections: [] };
     
-    // Helper function to identify sentences
-    const isSentenceEnd = (str, pos) => {
-        if (str[pos] !== '.') return false;
-        if (pos + 2 >= str.length) return true;
-        return /[A-Z]/.test(str[pos + 2]) && str[pos + 1] === ' ';
+    // Helper function to ensure proper spacing after periods
+    const fixPeriodSpacing = (str) => {
+        return str.replace(/\.(?=[A-Z])/g, '. ')  // Add space after period if followed by capital letter
+                 .replace(/\.\s{2,}/g, '. ')      // Replace multiple spaces after period with single space
+                 .replace(/\.\s*(?=[a-z])/g, '. ');// Add space after period if followed by lowercase letter
     };
 
     // Clean and decode HTML entities
@@ -19,6 +19,9 @@ export function formatJobDescription(text) {
         .replace(/:\s*(?=[a-zA-Z0-9])/g, ': ')
         .replace(/\s+/g, ' ')
         .trim();
+
+    // Apply period spacing fix to the cleaned text
+    cleanText = fixPeriodSpacing(cleanText);
 
     // Identify main sections
     const sectionMarkers = [
@@ -36,12 +39,15 @@ export function formatJobDescription(text) {
     let currentSection = { header: 'About', content: '' };
     let inBulletList = false;
 
-    // Split into paragraphs while preserving bullet points
+    // Split into paragraphs while preserving bullet points and proper spacing
     const paragraphs = cleanText.split(/(?:(?<=\.)\s+(?=[A-Z])|(?=•))/);
 
     for (let i = 0; i < paragraphs.length; i++) {
-        const para = paragraphs[i].trim();
+        let para = paragraphs[i].trim();
         if (!para) continue;
+
+        // Apply period spacing fix to each paragraph
+        para = fixPeriodSpacing(para);
 
         // Check for section headers
         const markerMatch = sectionMarkers.find(marker => 
@@ -57,8 +63,8 @@ export function formatJobDescription(text) {
             // Start new section
             currentSection = {
                 header: markerMatch,
-                content: para.substring(para.indexOf(markerMatch) + markerMatch.length)
-                    .replace(/^[:]\s*/, '').trim()
+                content: fixPeriodSpacing(para.substring(para.indexOf(markerMatch) + markerMatch.length)
+                    .replace(/^[:]\s*/, '').trim())
             };
             inBulletList = false;
         } else {
@@ -91,11 +97,11 @@ export function formatJobDescription(text) {
     return {
         sections: sections.map(section => ({
             header: section.header,
-            content: section.content
+            content: fixPeriodSpacing(section.content
                 .replace(/\n{3,}/g, '\n\n')  // Remove extra newlines
                 .replace(/•\s*/g, '• ')      // Normalize bullet point spacing
                 .replace(/\s+$/gm, '')       // Remove trailing spaces
-                .trim()
+                .trim())
         }))
     };
 }
