@@ -165,7 +165,7 @@ const firestoreService = {
         try {
             await db.collection('users')
                 .doc(userId)
-                .collection('scrapedjobs')
+                .collection('scrapedJobs')
                 .doc(jobId)
                 .update({
                     embeddingMatch: {
@@ -278,44 +278,37 @@ const matchingService = {
 };
 
 // ===== Main Function =====
+// In your matching function file, update this part:
 exports.matchNewJob = onDocumentCreated(
-    'users/test_user/scrapedjobs/{jobId}',
+    'users/{userId}/scrapedJobs/{jobId}',
     async (event) => {
-        logger.debug('Trigger received event:', {
-            path: event.data.ref.path,
-            exists: event.data.exists,
-            data: JSON.stringify(event.data.data())
-        });
-
         try {
             const { userId, jobId } = event.params;
             const jobData = event.data.data();
             
             logger.info('Starting job matching process', { userId, jobId });
 
-            // Extract job description from the document and handle array format
+            // Extract job description and handle it as a string
             const jobDescription = jobData.details?.description;
-            if (!jobDescription || !Array.isArray(jobDescription)) {
+            if (!jobDescription || typeof jobDescription !== 'string') {
                 throw new Error('Job description not found or in invalid format');
             }
-            
-            // Join array elements into a single string
-            const jobDescriptionText = jobDescription.join('\n');
 
-            // Get resume text
+            // Use the description directly - no need to join array
+            const jobDescriptionText = jobDescription;
+
+            // Rest of the code remains the same...
             const resumeText = await firestoreService.getResumeText(userId);
             if (!resumeText) {
                 logger.warn('No resume text found for user', { userId });
                 return;
             }
 
-            // Process the match
             const { score: matchScore, parsedJob } = await matchingService.processMatch(
                 jobDescriptionText, 
                 resumeText
             );
 
-            // Update the job document with the match score and parsed details
             await firestoreService.updateJobMatchScore(userId, jobId, matchScore, parsedJob);
 
             logger.info('Job matching completed', { userId, jobId, matchScore });
