@@ -14,7 +14,7 @@ const pubSubClient = new PubSub();
 const CONFIG = {
   topics: {
     rawTextStored: 'raw-text-stored',
-    jobDescriptionExtracted: 'job-description-extracted'
+    jobDescriptionExtracted: 'job-description-extracted-v2'
   },
   collections: {
     users: 'users',

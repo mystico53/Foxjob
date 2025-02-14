@@ -6,7 +6,7 @@ const CONFIG = {
   BRIGHTDATA_DATASET_ID: 'gd_lpfll7v5hcqtkxl6l',
   BASE_URL: 'https://api.brightdata.com/datasets/v3/trigger',
   // Add webhook base URL - update this with your ngrok URL
-  WEBHOOK_BASE_URL: 'https://4aab-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleBrightdataWebhook'
+  WEBHOOK_BASE_URL: 'https://058b-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/handleBrightdataWebhook'
 };
 
 exports.searchBright = onRequest({ 
