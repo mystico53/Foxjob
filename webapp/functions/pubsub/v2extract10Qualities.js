@@ -2,6 +2,7 @@ const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
+const { FieldValue } = require("firebase-admin/firestore");
 
 // Initialize
 const db = admin.firestore();
@@ -10,12 +11,12 @@ const pubSubClient = new PubSub();
 // ===== Config =====
 const CONFIG = {
   topics: {
-    jobDescriptionExtracted: 'job-description-extracted-v2',
+    qualityExtractionRequests: 'quality-extraction-requests',
     qualitiesGathered: 'ten-qualities-gathered'
   },
   collections: {
     users: 'users',
-    jobs: 'jobs'
+    scrapedJobs: 'scrapedJobs'
   },
   defaultValues: {
     naText: 'na'
@@ -44,13 +45,11 @@ Present the analysis as 7 consecutive quality fields, each containing the comple
 
 // ===== Firestore Service =====
 const firestoreService = {
-  getDocRef(firebaseUid, docId) {
-    const path = `users/${firebaseUid}/jobs/${docId}`;
-    
+  getDocRef(userId, jobId) {
     return db.collection('users')
-      .doc(firebaseUid)
-      .collection('jobs')
-      .doc(docId);
+      .doc(userId)
+      .collection('scrapedJobs')
+      .doc(jobId);
   },
 
   async getJobDocument(docRef) {
@@ -65,9 +64,10 @@ const firestoreService = {
   },
 
   async updateJobQualities(docRef, qualities) {
-
     await docRef.update({
-      qualities: qualities  // Now qualities will be saved as Q1, Q2, etc. with nested fields
+      qualities: qualities,
+      'processing.status': 'analyzed',
+      lastProcessed: FieldValue.serverTimestamp(),
     });
   }
 };
@@ -86,11 +86,11 @@ const pubSubService = {
   },
 
   validateMessageData(data) {
-    const { firebaseUid, docId } = data;
-    if (!firebaseUid || !docId) {
+    const { userId, jobId } = data;
+    if (!userId || !jobId) {
       throw new Error('Missing required fields in message data');
     }
-    return { firebaseUid, docId };
+    return { userId, jobId };
   },
 
   async ensureTopicExists(topicName) {
@@ -119,7 +119,6 @@ const pubSubService = {
 const { callAnthropicAPI } = require('../services/anthropicService');
 
 // ===== Qualities Parser =====
-
 const qualitiesParser = {
   parseQualities(text) {
     const lines = text.split('\n').filter(line => line.trim());
@@ -128,10 +127,8 @@ const qualitiesParser = {
     lines.forEach((line, index) => {
       const qualityNumber = `Q${index + 1}`;
       
-      // Split by pipe to get different components
       const components = line.split('|').map(s => s.trim());
       
-      // Parse each component
       let primarySkill = '';
       let criticality = '';
       let evidence = '';
@@ -148,7 +145,6 @@ const qualitiesParser = {
         }
       });
 
-      // Create structured quality object
       qualities[qualityNumber] = {
         primarySkill,
         criticality,
@@ -160,7 +156,6 @@ const qualitiesParser = {
       throw new Error('No valid qualities extracted from the response');
     }
 
-    // Log parsed qualities for debugging
     logger.info('Parsed qualities:', qualities);
 
     return qualities;
@@ -183,7 +178,7 @@ const errorHandlers = {
 // ===== Main Function =====
 exports.extractJobQualities = onMessagePublished(
   {
-    topic: CONFIG.topics.jobDescriptionExtracted,
+    topic: CONFIG.topics.qualityExtractionRequests,
   },
   async (event) => {
     let docRef;
@@ -202,21 +197,22 @@ exports.extractJobQualities = onMessagePublished(
           throw error;
         }
       })();
-      const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing qualities for firebaseUid: ${firebaseUid}, docId: ${docId}`);
+      
+      const { userId, jobId } = pubSubService.validateMessageData(messageData);
+      logger.info(`Processing qualities for userId: ${userId}, jobId: ${jobId}`);
 
       // Get Firestore document
-      docRef = firestoreService.getDocRef(firebaseUid, docId);
+      docRef = firestoreService.getDocRef(userId, jobId);
       const jobData = await firestoreService.getJobDocument(docRef);
       
       // Process job qualities
-      const extractedText = jobData.texts?.extractedText;
-      if (!extractedText || extractedText === CONFIG.defaultValues.naText) {
-        throw new Error('Invalid extracted text for processing');
+      const jobDescription = jobData.details?.description;
+      if (!jobDescription) {
+        throw new Error('Invalid job description for processing');
       }
 
       const apiResponse = await callAnthropicAPI(
-        extractedText,
+        jobDescription,
         CONFIG.instructions.qualitiesExtraction
       );
       
@@ -225,7 +221,6 @@ exports.extractJobQualities = onMessagePublished(
       }
 
       const qualitiesText = apiResponse.extractedText;
-
       logger.info('Raw qualities text:', { qualitiesText });
       
       // Parse and validate qualities
@@ -237,7 +232,7 @@ exports.extractJobQualities = onMessagePublished(
       // Publish next message
       await pubSubService.publishMessage(
         CONFIG.topics.qualitiesGathered,
-        { firebaseUid, docId }
+        { userId, jobId }
       );
 
     } catch (error) {

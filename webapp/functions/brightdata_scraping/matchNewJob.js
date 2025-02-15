@@ -4,12 +4,14 @@ const { OpenAI } = require('openai');
 const { initializeApp } = require('firebase-admin/app');
 const { FieldValue } = require("firebase-admin/firestore");
 const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { PubSub } = require('@google-cloud/pubsub');
 
 if (!admin.apps.length) {
     initializeApp();
 }
 
 const db = admin.firestore();
+const pubSubClient = new PubSub();
 
 // ===== Config =====
 const CONFIG = {
@@ -18,6 +20,9 @@ const CONFIG = {
     },
     function: {
         timeoutSeconds: 120
+    },
+    pubsub: {
+        qualityExtractionTopic: 'quality-extraction-requests'
     }
 };
 
@@ -64,7 +69,7 @@ const firestoreService = {
                         score: matchScore,
                         timestamp: FieldValue.serverTimestamp(),
                     },
-                    'processing.status': 'embedded',  // Added this line
+                    'processing.status': 'embedded',
                     lastProcessed: FieldValue.serverTimestamp()
                 });
             logger.info('Updated job match score and status:', { userId, jobId, matchScore });
@@ -218,6 +223,35 @@ exports.matchNewJob = onMessagePublished(
             );
 
             await firestoreService.updateJobMatchScore(userId, jobId, matchScore);
+
+            // Only trigger quality extraction for jobs with match score >= 50
+            if (matchScore >= 50) {
+                try {
+                    const topicName = CONFIG.pubsub.qualityExtractionTopic;
+                    const message = {
+                        data: Buffer.from(JSON.stringify({
+                            userId,
+                            jobId
+                        })),
+                    };
+                    
+                    const messageId = await pubSubClient.topic(topicName).publishMessage(message);
+                    logger.info('Published quality extraction request:', {
+                        messageId,
+                        userId,
+                        jobId,
+                        topic: topicName
+                    });
+                } catch (pubError) {
+                    logger.error('Failed to publish quality extraction request:', {
+                        error: pubError,
+                        userId,
+                        jobId
+                    });
+                    // Note: We don't throw here to avoid failing the whole function
+                    // if just the publish fails
+                }
+            }
 
             logger.info('Job matching completed', { userId, jobId, matchScore });
 
