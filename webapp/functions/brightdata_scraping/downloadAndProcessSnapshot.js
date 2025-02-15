@@ -133,6 +133,7 @@ const publishJobMessage = async (topic, userId, jobId) => {
   }
 };
 
+
 async function downloadSnapshot(snapshotId, authToken) {
   try {
     const response = await axios.get(
@@ -176,78 +177,68 @@ exports.downloadAndProcessSnapshot = onRequest({
     const jobs = Array.isArray(snapshotData) ? snapshotData : [snapshotData];
     const MAX_BATCH_SIZE = 500;
     const batches = [];
-    let currentBatch = db.batch();
-    let operationCount = 0;
     
     const results = {
       successful: [],
       failed: []
     };
     
+    // Initialize Pub/Sub topic once
     const topicName = 'job-embedding-requests';
-    let topic;
-    try {
-      topic = pubsub.topic(topicName);
-      const [exists] = await topic.exists();
-      if (!exists) {
-        [topic] = await pubsub.createTopic(topicName);
-        console.log(`Topic ${topicName} created.`);
-      }
-    } catch (error) {
-      console.error(`Error ensuring topic exists: ${error}`);
-      throw error;
-    }
+    const topic = await initializePubSub(topicName);
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-    for (const job of jobs) {
-      try {
+    // Process jobs in batches
+    for (let i = 0; i < jobs.length; i += MAX_BATCH_SIZE) {
+      const batchJobs = jobs.slice(i, i + MAX_BATCH_SIZE);
+      const batch = db.batch();
+      const pubsubPromises = [];
+
+      for (const job of batchJobs) {
+        try {
           const transformedJob = transformJobData(job);
           const docRef = db.collection('users')
-                      .doc(userId)
-                      .collection('scrapedJobs')
-                      .doc(transformedJob.basicInfo.jobId);
-                      
-          currentBatch.set(docRef, transformedJob, { merge: true });
-          operationCount++;
-  
-          // Publish to pub/sub after saving to Firestore
-          try {
-              await pubsub.topic(topicName).publishMessage({
-                  json: {
-                      userId: userId,
-                      jobId: transformedJob.basicInfo.jobId
-                  }
-              });
-          } catch (pubError) {
-              console.error('Failed to publish message:', pubError);
-              // Continue processing other jobs even if pub/sub fails
-          }
-  
-          if (operationCount === MAX_BATCH_SIZE) {
-              batches.push(currentBatch.commit());
-              currentBatch = db.batch();
-              operationCount = 0;
-          }
-  
-          results.successful.push({
-              jobId: transformedJob.basicInfo.jobId,
-              title: job.job_title
-          });
-      } catch (error) {
-          console.error('Error processing job:', error);
+            .doc(userId)
+            .collection('scrapedJobs')
+            .doc(transformedJob.basicInfo.jobId);
+            
+          batch.set(docRef, transformedJob, { merge: true });
+
+          await sleep(200);
+          
+          pubsubPromises.push(
+            publishJobMessage(topic, userId, transformedJob.basicInfo.jobId)
+              .then(() => {
+                results.successful.push({
+                  jobId: transformedJob.basicInfo.jobId,
+                  title: job.job_title
+                });
+              })
+              .catch(error => {
+                results.failed.push({
+                  jobId: transformedJob.basicInfo.jobId,
+                  error: error.message
+                });
+              })
+          );
+        } catch (error) {
+          logger.error('Error processing job:', error);
           results.failed.push({
-              jobId: job.job_posting_id,
-              error: error.message
+            jobId: job.job_posting_id,
+            error: error.message
           });
+        }
       }
-  }
 
-    // Commit any remaining operations
-    if (operationCount > 0) {
-      batches.push(currentBatch.commit());
+      // Commit batch and wait for pub/sub operations
+      try {
+        await batch.commit();
+        await Promise.all(pubsubPromises);
+      } catch (error) {
+        logger.error('Error in batch operation:', error);
+        throw error;
+      }
     }
-
-    // Wait for all batches to complete
-    await Promise.all(batches);
 
     res.json({
       success: true,
@@ -264,7 +255,7 @@ exports.downloadAndProcessSnapshot = onRequest({
     });
 
   } catch (error) {
-    console.error('Function error:', error);
+    logger.error('Function error:', error);
     res.status(500).json({
       success: false,
       error: error.message,
