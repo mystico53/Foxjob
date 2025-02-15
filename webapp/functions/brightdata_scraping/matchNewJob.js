@@ -1,9 +1,9 @@
-const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { OpenAI } = require('openai');
 const { initializeApp } = require('firebase-admin/app');
 const { FieldValue } = require("firebase-admin/firestore");
+const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 
 if (!admin.apps.length) {
     initializeApp();
@@ -153,16 +153,55 @@ const matchingService = {
 };
 
 // ===== Main Function =====
-exports.matchNewJob = onDocumentCreated(
-    'users/{userId}/scrapedJobs/{jobId}',
+exports.matchNewJob = onMessagePublished(
+    {
+        topic: 'job-embedding-requests',
+    },
     async (event) => {
         try {
-            const { userId, jobId } = event.params;
-            const jobData = event.data.data();
+            logger.info('matchNewJob function called', { event: JSON.stringify(event) });
+            
+            if (!event.data?.message?.data) {
+                logger.error('Invalid event structure:', { event: JSON.stringify(event) });
+                return;
+            }
+
+            let messageData;
+            try {
+                messageData = JSON.parse(Buffer.from(event.data.message.data, 'base64').toString());
+                logger.info('Parsed message data:', messageData);
+            } catch (parseError) {
+                logger.error('Failed to parse message data:', { 
+                    error: parseError,
+                    rawData: event.data.message.data 
+                });
+                return;
+            }
+
+            if (!messageData?.userId || !messageData?.jobId) {
+                logger.error('Missing required fields in message:', messageData);
+                return;
+            }
+
+            const { userId, jobId } = messageData;
             
             logger.info('Starting job matching process', { userId, jobId });
 
+            // Get the job data from Firestore
+            const jobDoc = await admin.firestore()
+                .collection('users')
+                .doc(userId)
+                .collection('scrapedJobs')
+                .doc(jobId)
+                .get();
+
+            if (!jobDoc.exists) {
+                throw new Error('Job document not found');
+            }
+
+            const jobData = jobDoc.data();
             const jobDescription = jobData.details?.description;
+            
             if (!jobDescription || typeof jobDescription !== 'string') {
                 throw new Error('Job description not found or in invalid format');
             }
@@ -186,4 +225,5 @@ exports.matchNewJob = onDocumentCreated(
             logger.error('Error in job matching process:', error);
             throw error;
         }
-    });
+    }
+);

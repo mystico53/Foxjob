@@ -4,6 +4,9 @@ const cors = require('cors')({ origin: true });
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const axios = require('axios');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
+const { PubSub } = require('@google-cloud/pubsub');
+const pubsub = new PubSub();
+const { logger } = require('firebase-functions');
 
 // Initialize Firebase
 if (!admin.apps.length) {
@@ -100,6 +103,36 @@ const transformJobData = (job) => {
   };
 };
 
+const initializePubSub = async (topicName) => {
+  const topic = pubsub.topic(topicName);
+  const [exists] = await topic.exists();
+  if (!exists) {
+    [topic] = await pubsub.createTopic(topicName);
+    logger.info(`Topic ${topicName} created.`);
+  }
+  return topic;
+};
+
+const publishJobMessage = async (topic, userId, jobId) => {
+  try {
+    const messageId = await topic.publishMessage({
+      json: {
+        userId,
+        jobId,
+        timestamp: new Date().toISOString()
+      },
+      attributes: {
+        source: 'downloadAndProcessSnapshot'
+      }
+    });
+    logger.info(`Published message ${messageId} for job ${jobId}`);
+    return messageId;
+  } catch (error) {
+    logger.error(`Failed to publish message for job ${jobId}:`, error);
+    throw error;
+  }
+};
+
 async function downloadSnapshot(snapshotId, authToken) {
   try {
     const response = await axios.get(
@@ -151,35 +184,62 @@ exports.downloadAndProcessSnapshot = onRequest({
       failed: []
     };
     
+    const topicName = 'job-embedding-requests';
+    let topic;
+    try {
+      topic = pubsub.topic(topicName);
+      const [exists] = await topic.exists();
+      if (!exists) {
+        [topic] = await pubsub.createTopic(topicName);
+        console.log(`Topic ${topicName} created.`);
+      }
+    } catch (error) {
+      console.error(`Error ensuring topic exists: ${error}`);
+      throw error;
+    }
+
     for (const job of jobs) {
       try {
-        const transformedJob = transformJobData(job);
-        const docRef = db.collection('users')
+          const transformedJob = transformJobData(job);
+          const docRef = db.collection('users')
                       .doc(userId)
                       .collection('scrapedJobs')
                       .doc(transformedJob.basicInfo.jobId);
                       
-        currentBatch.set(docRef, transformedJob, { merge: true });
-        operationCount++;
-
-        if (operationCount === MAX_BATCH_SIZE) {
-          batches.push(currentBatch.commit());
-          currentBatch = db.batch();
-          operationCount = 0;
-        }
-
-        results.successful.push({
-          jobId: transformedJob.basicInfo.jobId,
-          title: job.job_title
-        });
+          currentBatch.set(docRef, transformedJob, { merge: true });
+          operationCount++;
+  
+          // Publish to pub/sub after saving to Firestore
+          try {
+              await pubsub.topic(topicName).publishMessage({
+                  json: {
+                      userId: userId,
+                      jobId: transformedJob.basicInfo.jobId
+                  }
+              });
+          } catch (pubError) {
+              console.error('Failed to publish message:', pubError);
+              // Continue processing other jobs even if pub/sub fails
+          }
+  
+          if (operationCount === MAX_BATCH_SIZE) {
+              batches.push(currentBatch.commit());
+              currentBatch = db.batch();
+              operationCount = 0;
+          }
+  
+          results.successful.push({
+              jobId: transformedJob.basicInfo.jobId,
+              title: job.job_title
+          });
       } catch (error) {
-        console.error('Error processing job:', error);
-        results.failed.push({
-          jobId: job.job_posting_id,
-          error: error.message
-        });
+          console.error('Error processing job:', error);
+          results.failed.push({
+              jobId: job.job_posting_id,
+              error: error.message
+          });
       }
-    }
+  }
 
     // Commit any remaining operations
     if (operationCount > 0) {
