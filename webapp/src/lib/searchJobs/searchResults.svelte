@@ -61,6 +61,8 @@
         {#each paginatedJobs as job (job.id)}
             <div class="card" class:expanded={expandedJobId === job.id}>
                 <!-- Card Header - Always visible -->
+                <!-- svelte-ignore a11y-no-static-element-interactions -->
+                <!-- svelte-ignore a11y-click-events-have-key-events -->
                 <div class="card-header" on:click={() => toggleJobExpansion(job.id)}>
                     <div class="company-info">
                         {#if job.basicInfo?.companyLogo}
@@ -79,6 +81,10 @@
                         <span class="location">{job.basicInfo?.location || 'Location not specified'}</span>
                         <span class="posted-date">Posted: {formatDate(job.searchMetadata?.processingDate)}</span>
                         <span class="match-score">Match: {job.embeddingMatch?.score ?? 'N/A'}</span>
+                        <span class="status" class:status-raw={job.processing?.status === 'raw'} 
+                            class:status-embedded={job.processing?.status === 'embedded'}>
+                            Status: {job.processing?.status || 'N/A'}
+                        </span>
                         <span class="job-id">ID: {job.basicInfo?.jobId || 'N/A'}</span>
                     </div>
                 </div>

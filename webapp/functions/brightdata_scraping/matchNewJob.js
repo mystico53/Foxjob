@@ -64,9 +64,10 @@ const firestoreService = {
                         score: matchScore,
                         timestamp: FieldValue.serverTimestamp(),
                     },
+                    'processing.status': 'embedded',  // Added this line
                     lastProcessed: FieldValue.serverTimestamp()
                 });
-            logger.info('Updated job match score:', { userId, jobId, matchScore });
+            logger.info('Updated job match score and status:', { userId, jobId, matchScore });
         } catch (error) {
             logger.error('Error updating job match score:', error);
             throw error;
