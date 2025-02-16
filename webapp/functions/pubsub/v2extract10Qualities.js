@@ -116,7 +116,7 @@ const pubSubService = {
 };
 
 // ===== Anthropic Service =====
-const { callAnthropicAPI } = require('../services/anthropicService');
+const { callGeminiAPI } = require('../services/geminiService');
 
 // ===== Qualities Parser =====
 const qualitiesParser = {
@@ -211,9 +211,14 @@ exports.extractJobQualities = onMessagePublished(
         throw new Error('Invalid job description for processing');
       }
 
-      const apiResponse = await callAnthropicAPI(
+      const apiResponse = await callGeminiAPI(
         jobDescription,
-        CONFIG.instructions.qualitiesExtraction
+        CONFIG.instructions.qualitiesExtraction,
+        {
+          model: 'gemini-1.5-pro', // Using pro for more structured output
+          //temperature: 0.3,  // Lower temperature for consistent formatting
+          //maxOutputTokens: 2048
+        }
       );
       
       if (apiResponse.error) {
