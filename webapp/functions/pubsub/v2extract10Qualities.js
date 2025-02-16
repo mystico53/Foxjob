@@ -22,24 +22,56 @@ const CONFIG = {
     naText: 'na'
   },
   instructions: {
-    qualitiesExtraction: `Using the 'Count, Context, and Criticality' method, analyze the job description to identify exactly 7 crucial qualities. For each quality, combine all information into a single, comprehensive description using this exact format:
+    qualitiesExtraction: `Using the 'Count, Context, and Criticality' method, analyze the job description to identify exactly 7 crucial qualities, distributed across Required Categories below.
 
-Quality X: [Primary Skill/Requirement] | Criticality: [X/10] | Evidence: [Key quotes from text, can be more than one]
+Required Categories (must include at least 1 from each, maximum 3 from any single category):
+A. Technical/Domain Expertise (hard skills, technical knowledge, tools)
+B. Experience/Background (years, industry knowledge, achievements)
+C. Core Responsibilities (primary job functions, key deliverables)
+D. Work Approach (must include both D1 and D2):
+   D1. Professional Skills (communication, organization, leadership)
+   D2. Work Style (collaboration, autonomy, adaptability)
 
-Rules:
-1. Provide EXACTLY 7 qualities
-2. Each quality must be in a single line/field
-3. Include all components (Criticality, Evidence) for each quality
-4. Number qualities from 1-7 based on importance
-5. Use the pipe symbol (|) to separate different components
-6. Ensure each quality description is complete in a single field
+Format:
+Quality X: [Primary Skill/Requirement] | Criticality: [X/10] | Category: [A/B/C/D] | Evidence: [2-3 supporting quotes, separated by ';']
 
-Evaluation weights:
-- Criticality (40%): Must-have vs nice-to-have language
-- Frequency (30%): Number of mentions and references
-- Evidence (30%): Placement and emphasis in description
+Criticality Scoring (use exact numbers, no decimals):
+10: Explicit requirements in title/first paragraph OR multiple must-have mentions
+9: Key responsibilities mentioned multiple times across different contexts
+8: Explicitly stated requirements OR skills central to multiple responsibilities
+7: Important supporting skills mentioned in multiple contexts
+6: Clearly stated but supporting requirements
+5 or lower: Implied or nice-to-have skills
 
-Present the analysis as 7 consecutive quality fields, each containing the complete information about one quality. No additional text or explanations should be included.`
+Quality Selection Rules:
+1. If two qualities share more than 50% of their evidence quotes, combine them and add a new distinct quality
+2. When the same skill appears in general and specific contexts, use the specific application
+3. Prioritize qualities that combine what (responsibilities) with how (approach)
+4. Must include at least one quality that reflects work environment fit
+5. Skills appearing across multiple categories should be evaluated based on their most critical application
+
+Evidence Selection Priority:
+1. Quotes showing both requirement and application context
+2. Quotes demonstrating skill impact or importance
+3. Quotes showing relationship to other role aspects
+4. Maximum 3 most relevant quotes per quality
+5. When combining quotes, ensure they demonstrate different aspects
+
+Evaluation Matrix:
+- Criticality (30%): Requirement language and placement
+- Context Diversity (30%): Appearance in different role aspects
+- Application Specificity (20%): How clearly usage is defined
+- Work Style Fit (20%): Alignment with environment/culture
+
+Output Requirements:
+1. Exactly 7 qualities
+2. At least 1 quality from each main category (A,B,C,D)
+3. Both D1 and D2 subcategories must be represented
+4. Maximum 3 qualities from any category
+5. Order by criticality score (highest to lowest)
+6. Present as 7 consecutive fields only
+7. Complete information in single lines using pipe separators
+8. No additional text or explanations`
   }
 };
 
@@ -215,7 +247,7 @@ exports.extractJobQualities = onMessagePublished(
         jobDescription,
         CONFIG.instructions.qualitiesExtraction,
         {
-          model: 'gemini-1.5-pro', // Using pro for more structured output
+          model: 'gemini-2.0-flash', // Using pro for more structured output
           //temperature: 0.3,  // Lower temperature for consistent formatting
           //maxOutputTokens: 2048
         }

@@ -98,6 +98,30 @@
                                 <p><strong>Employment Type:</strong> {job.details?.employmentType || 'N/A'}</p>
                                 <p><strong>Applicants:</strong> {job.details?.numApplicants || 'N/A'}</p>
                             </div>
+                            
+                            <!-- New Qualities Section -->
+                            <div class="qualities-section">
+                                <h4>Key Requirements</h4>
+                                <div class="qualities-grid">
+                                    {#if job.qualities}
+                                        {#each Object.entries(job.qualities) as [key, quality]}
+                                            {#if quality.primarySkill}
+                                                <div class="quality-card">
+                                                    <div class="quality-header">
+                                                        <span class="quality-key">{key}</span>
+                                                        <span class="quality-criticality">{quality.criticality}</span>
+                                                    </div>
+                                                    <p class="quality-skill">{quality.primarySkill}</p>
+                                                    {#if quality.evidence}
+                                                        <p class="quality-evidence">{quality.evidence}</p>
+                                                    {/if}
+                                                </div>
+                                            {/if}
+                                        {/each}
+                                    {/if}
+                                </div>
+                            </div>
+
                             <div class="description-section">
                                 <h4>Job Description</h4>
                                 {#if job.details?.description}
@@ -354,6 +378,63 @@
         .job-meta {
             align-items: flex-start;
             margin-top: 0.5rem;
+        }
+    }
+
+    .qualities-section {
+        margin: 1rem 0;
+    }
+
+    .qualities-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .quality-card {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 1rem;
+        border: 1px solid #e9ecef;
+    }
+
+    .quality-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .quality-key {
+        font-weight: 600;
+        color: #495057;
+    }
+
+    .quality-criticality {
+        background: #e9ecef;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        color: #495057;
+    }
+
+    .quality-skill {
+        font-weight: 500;
+        color: #2c3e50;
+        margin: 0.5rem 0;
+    }
+
+    .quality-evidence {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin: 0;
+        font-style: italic;
+    }
+
+    @media (max-width: 768px) {
+        .qualities-grid {
+            grid-template-columns: 1fr;
         }
     }
 </style>
