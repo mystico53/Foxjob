@@ -66,7 +66,7 @@ const firestoreService = {
   async updateJobQualities(docRef, qualities) {
     await docRef.update({
       qualities: qualities,
-      'processing.status': 'analyzed',
+      'processing.status': 'qualities extracted',
       lastProcessed: FieldValue.serverTimestamp(),
     });
   }
