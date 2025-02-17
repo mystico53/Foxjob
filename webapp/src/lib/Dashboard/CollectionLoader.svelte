@@ -11,7 +11,8 @@
 		getDocs,
 		deleteDoc,
 		orderBy,
-		limit
+		limit,
+		onSnapshot
 	} from 'firebase/firestore';
 	import ExtensionChecker from '$lib/Dashboard/ExtensionChecker.svelte';
 	import { setResumeStatus } from '$lib/stores/userStateStore.js';
@@ -28,6 +29,7 @@
 	let extractedText = '';
 	let currentFileName = '';
 	let resumeStatus = '';
+	let unsubscribeResumeListener = null;
 
 	onMount(async () => {
 		const script = document.createElement('script');
@@ -45,13 +47,76 @@
 			user = currentUser;
 			if (user) {
 				checkExistingResume();
+				setupResumeListener(); // Move this here
+			} else {
+				// Cleanup if user logs out
+				if (unsubscribeResumeListener) {
+					unsubscribeResumeListener();
+					unsubscribeResumeListener = null;
+				}
 			}
 		});
-
-		return () => unsubscribe();
+		
+		// Combine both cleanup functions into a single return
+		return () => {
+			unsubscribe();
+			if (unsubscribeResumeListener) unsubscribeResumeListener();
+		};
 	});
 
-	async function checkExistingResume() {
+	async function setupResumeListener() {
+		if (!user) {
+			console.log('No user, not setting up listener');
+			return;
+		}
+		
+		console.log('Setting up resume listener for user:', user.uid);
+		
+		const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
+		const q = query(
+			userCollectionsRef,
+			where('type', '==', 'Resume'),
+			orderBy('timestamp', 'desc'),
+			limit(1)
+		);
+		
+		unsubscribeResumeListener = onSnapshot(q, (snapshot) => {
+			console.log('Resume snapshot received:', snapshot.docs.length, 'docs');
+			if (!snapshot.empty) {
+				const doc = snapshot.docs[0];
+				const data = doc.data();
+				console.log('Resume data updated:', data.status);
+				const timestamp = data.timestamp.toDate();
+				updateUIFromData(data, timestamp);
+			}
+		});
+	}
+
+	function updateUIFromData(data, timestamp) {
+		currentFileName = data.fileName || 'Unknown';
+		
+		if (data.status === 'processed' && data.structuredData) {
+			resumeUploaded = true;
+			resumeStatus = 'processed';  // Add this line
+			uploadFeedback = `"${currentFileName}" processed successfully`;
+			uploadFeedbackColor = 'variant-filled-surface';
+			setResumeStatus(true, currentFileName, timestamp);
+		} else if (data.status === 'error') {
+			resumeUploaded = false;
+			resumeStatus = 'error';  // Add this line
+			uploadFeedback = `Error processing "${currentFileName}". Please try again.`;
+			uploadFeedbackColor = 'variant-filled-error';
+			setResumeStatus(false);
+		} else {
+			resumeUploaded = true;
+			resumeStatus = 'processing';  // Add this line
+			uploadFeedback = `"${currentFileName}" is being processed...`;
+			uploadFeedbackColor = 'variant-filled-warning';
+			setResumeStatus(true, currentFileName, timestamp);
+		}
+	}
+
+async function checkExistingResume() {
     try {
         const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
         const q = query(
@@ -67,27 +132,11 @@
             const data = doc.data();
             const timestamp = data.timestamp.toDate();
             currentFileName = data.fileName || 'Unknown';
-            resumeUploaded = true;
             
-            // Check processing status
-            if (data.status === 'processed') {
-                resumeStatus = 'processed';
-                uploadFeedback = `"${currentFileName}" processed successfully`;
-            } else if (data.status === 'error') {
-                resumeStatus = 'error';
-                uploadFeedback = `Error processing "${currentFileName}". Please try again.`;
-                uploadFeedbackColor = 'variant-filled-error';
-            } else {
-                resumeStatus = 'processing';
-                uploadFeedback = `"${currentFileName}" is being processed...`;
-                uploadFeedbackColor = 'variant-filled-warning';
-            }
-            
-            setResumeStatus(true, currentFileName, timestamp);
+            updateUIFromData(data, timestamp);
         } else {
             uploadFeedback = 'Add your resume to match it with job descriptions';
             resumeUploaded = false;
-            resumeStatus = '';
             setResumeStatus(false);
         }
     } catch (error) {
@@ -95,7 +144,6 @@
         uploadFeedback = 'Error checking resume status. Please try again.';
         uploadFeedbackColor = 'variant-filled-error';
         resumeUploaded = false;
-        resumeStatus = 'error';
     }
 }
 
@@ -207,6 +255,7 @@
 				uploadFeedback = 'Add your resume to match it with job descriptions';
 
 				resumeUploaded = false;
+				resumeStatus = '';  // Add this line
 				extractedText = '';
 				currentFileName = '';
 			} else {
