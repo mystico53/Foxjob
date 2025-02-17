@@ -2,22 +2,27 @@
 <script>
     import { authStore } from '$lib/stores/authStore';
     
-    let snapshotId = '';
+    let snapshotId = 's_m6pr496127ywsdwurh';
     let processing = false;
     let error = null;
     let result = null;
-    let uid;
+    let firebaseUid;
 
     authStore.subscribe(user => {
-        uid = user?.uid;
+      firebaseUid = user?.uid;
     });
 
 
-    const FUNCTION_URL = 'https://0be1-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot';
+    const FUNCTION_URL = 'https://eb81-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot';
 
     async function handleDownload() {
         if (!snapshotId.trim()) {
             error = 'Please enter a snapshot ID';
+            return;
+        }
+
+        if (!firebaseUid) {  // Added check for firebaseUid
+            error = 'User authentication required';
             return;
         }
 
@@ -26,7 +31,7 @@
         result = null;
 
         try {
-            const url = `${FUNCTION_URL}?snapshotId=${encodeURIComponent(snapshotId.trim())}&userId=${encodeURIComponent(uid)}`;
+            const url = `${FUNCTION_URL}?snapshotId=${encodeURIComponent(snapshotId.trim())}&firebaseUid=${encodeURIComponent(firebaseUid)}`;
             console.log('Fetching:', url);
             
             const response = await fetch(url, {
@@ -72,7 +77,7 @@
       />
       <button 
         on:click={handleDownload} 
-        disabled={!snapshotId || processing}
+        disabled={!snapshotId || processing || !firebaseUid}
         class="button"
       >
         {processing ? 'Processing...' : 'Download Snapshot'}

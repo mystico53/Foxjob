@@ -100,8 +100,9 @@
                             </div>
                             
                             <!-- New Qualities Section -->
+                            <!-- Updated Qualities Section -->
                             <div class="qualities-section">
-                                <h4>Key Requirements</h4>
+                                <h4>Key Requirements & Matches</h4>
                                 <div class="qualities-grid">
                                     {#if job.qualities}
                                         {#each Object.entries(job.qualities) as [key, quality]}
@@ -109,11 +110,20 @@
                                                 <div class="quality-card">
                                                     <div class="quality-header">
                                                         <span class="quality-key">{key}</span>
-                                                        <span class="quality-criticality">{quality.criticality}</span>
+                                                        <span class="quality-criticality">Criticality: {quality.criticality}</span>
                                                     </div>
                                                     <p class="quality-skill">{quality.primarySkill}</p>
                                                     {#if quality.evidence}
-                                                        <p class="quality-evidence">{quality.evidence}</p>
+                                                        <div class="quality-evidence-section">
+                                                            <span class="evidence-label">Evidence:</span>
+                                                            <p class="quality-evidence">{quality.evidence}</p>
+                                                        </div>
+                                                    {/if}
+                                                    {#if quality.resumeText}
+                                                        <div class="quality-resume-section">
+                                                            <span class="resume-label">Resume Match:</span>
+                                                            <p class="quality-resume">{quality.resumeText}</p>
+                                                        </div>
                                                     {/if}
                                                 </div>
                                             {/if}
@@ -121,6 +131,8 @@
                                     {/if}
                                 </div>
                             </div>
+
+
 
                             <div class="description-section">
                                 <h4>Job Description</h4>

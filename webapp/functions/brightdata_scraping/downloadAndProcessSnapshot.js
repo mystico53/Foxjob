@@ -113,11 +113,11 @@ const initializePubSub = async (topicName) => {
   return topic;
 };
 
-const publishJobMessage = async (topic, userId, jobId) => {
+const publishJobMessage = async (topic, firebaseUid, jobId) => {
   try {
     const messageId = await topic.publishMessage({
       json: {
-        userId,
+        firebaseUid,
         jobId,
         timestamp: new Date().toISOString()
       },
@@ -166,7 +166,7 @@ exports.downloadAndProcessSnapshot = onRequest({
       throw new Error('Snapshot ID is required');
     }
 
-    const userId = req.query.userId || 'test_user';
+    const firebaseUid = req.query.firebaseUid || 'test_user';
 
     const brightdataTokenName = 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest';
     const [brightdataVersion] = await secretManager.accessSecretVersion({ name: brightdataTokenName });
@@ -198,7 +198,7 @@ exports.downloadAndProcessSnapshot = onRequest({
         try {
           const transformedJob = transformJobData(job);
           const docRef = db.collection('users')
-            .doc(userId)
+            .doc(firebaseUid)
             .collection('scrapedJobs')
             .doc(transformedJob.basicInfo.jobId);
             
@@ -207,7 +207,7 @@ exports.downloadAndProcessSnapshot = onRequest({
           await sleep(200);
           
           pubsubPromises.push(
-            publishJobMessage(topic, userId, transformedJob.basicInfo.jobId)
+            publishJobMessage(topic, firebaseUid, transformedJob.basicInfo.jobId)
               .then(() => {
                 results.successful.push({
                   jobId: transformedJob.basicInfo.jobId,
@@ -250,7 +250,7 @@ exports.downloadAndProcessSnapshot = onRequest({
         errors: results.failed
       },
       snapshotId,
-      userId,
+      firebaseUid,
       timestamp: new Date().toISOString()
     });
 

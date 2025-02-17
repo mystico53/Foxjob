@@ -70,6 +70,7 @@ const { getBrightdataSnapshots } = require('./brightdata_scraping/getBrightdataS
 const { downloadAndProcessSnapshot } = require('./brightdata_scraping/downloadAndProcessSnapshot.js');
 const { matchNewJob } = require('./brightdata_scraping/matchNewJob');
 const { matchJobQualities } = require('./matchpipeline/matchJobQualities');
+const { testPubSub } = require('./helpers/testPubSub');
 
 
 
@@ -103,3 +104,4 @@ exports.getBrightdataSnapshots = getBrightdataSnapshots;
 exports.downloadAndProcessSnapshot = downloadAndProcessSnapshot;
 exports.matchNewJob = matchNewJob;
 exports.matchJobQualities = matchJobQualities;
+exports.testPubSub = testPubSub;

@@ -1,346 +1,503 @@
 const { onMessagePublished } = require("firebase-functions/v2/pubsub");
 const admin = require('firebase-admin');
-const { logger } = require('firebase-functions');
-const { OpenAI } = require('openai');
-const { FieldValue } = require("firebase-admin/firestore");
+const { logger } = require("firebase-functions");
+const { PubSub } = require('@google-cloud/pubsub');
+const { callAnthropicAPI } = require('../services/anthropicService');
 
+// Initialize
 if (!admin.apps.length) {
     admin.initializeApp();
 }
 
 const db = admin.firestore();
+const pubSubClient = new PubSub();
 
-// ===== Config =====
+// Config
 const CONFIG = {
-    matching: {
-        embeddingModel: 'text-embedding-ada-002',
-        qualityWeightMultiplier: 1.5 // Adjust if you want to weight qualities differently
-    },
     topics: {
-        qualityMatchingRequests: 'ten-qualities-gathered',
-        matchingComplete: 'matching-complete'
+        qualitiesGathered: 'ten-qualities-gathered',
+        qualitiesMatched: 'qualities-resumetext-added'
+    },
+    collections: {
+        users: 'users'
+    },
+    instructions: {
+        qualityMatching: `
+    You are tasked with finding VERBATIM QUOTES from a candidate's resume that best demonstrate each required quality.
+
+CRITICAL PROCESS - Follow these steps IN ORDER:
+
+1. First scan the resume:
+   - Confirm you see the resume text by showing the first 100 characters
+   - Make a first pass to identify ALL potential quotes that could match ANY of the qualities
+   - For each quote you find, note which qualities it could demonstrate
+
+2. For each quality requirement:
+   - Start with quotes that UNIQUELY demonstrate this quality
+   - If a quote could match multiple qualities, explicitly decide which ONE quality it best demonstrates
+   - Once you assign a quote to a quality, it CANNOT be used for any other quality
+   - For each match you find, verify it appears EXACTLY in the resume text - copy/paste only
+   - If no unused relevant quotes remain for a quality, return empty resumeText with explanation
+
+3. For each quality, your response must be EXACTLY ONE of these:
+   A) A verbatim quote that appears in the resume text, OR
+   B) Empty resumeText ("") with explanation if no suitable unused quote exists
+
+4. Double-check before responding:
+   - Verify every quote appears WORD FOR WORD in the resume
+   - Verify no quote is used more than once
+   - Verify you never return requirement text as a quote
+   - Verify each location field accurately describes where the quote was found
+
+5. Never:
+   - Return multiple matches for the same quality ID
+   - Use the same quote for different qualities
+   - Return text from the requirements as if it were a quote
+   - Modify, rephrase, or clean up the resume text
+   - Combine multiple parts of the resume into one quote
+   - Standardize formatting or punctuation
+   - Make up or generate text that isn't in the resume
+
+Your response must follow this EXACT structure:
+{
+  "confirmation": "First 100 chars of resume I'm searching: [insert first 100 chars here]",
+  "qualityMatches": {
+    "Q1": {
+      "resumeText": "EXACT quote from resume, preserving all formatting, spacing, and punctuation",
+      "location": "Found in [specific section/line number]"
+    }
+  }
+}
+
+If you cannot find an unused quote for a quality:
+{
+  "qualityMatches": {
+    "Q1": {
+      "resumeText": "",
+      "location": "No suitable match found because [specific reason - e.g. 'while the resume shows product management skills in educational software, it lacks specific ecommerce experience' or 'the strongest demonstration of agile methodology was already assigned to Q2']"
+    }
+  }
+}
+
+The resume text to search through is:
+"""
+{resumeText}
+"""
+        `
     }
 };
 
-// ===== Firestore Service =====
+const normalizeSpaces = (text) => {
+    return text.replace(/\s+/g, ' ').trim();
+};
+
+// Firestore Service
+// Firestore Service
 const firestoreService = {
-    async getJobDocument(userId, jobId) {
-        try {
-            const docRef = db.collection('users')
-                .doc(userId)
-                .collection('scrapedJobs')
-                .doc(jobId);
-            
-            const doc = await docRef.get();
-            if (!doc.exists) {
-                throw new Error('Job document not found');
-            }
-            
-            return {
-                docRef,
-                data: doc.data()
-            };
-        } catch (error) {
-            logger.error('Error getting job document:', error);
-            throw error;
-        }
-    },
-
-    async getResumeText(userId) {
-        try {
-            const userCollectionsRef = db.collection('users')
-                .doc(userId)
-                .collection('UserCollections');
-            
-            const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
-            const resumeSnapshot = await resumeQuery.get();
-    
-            if (resumeSnapshot.empty) {
-                throw new Error(`No resume found for user ID: ${userId}`);
-            }
-    
-            const resumeDoc = resumeSnapshot.docs[0];
-            const structuredData = resumeDoc.data().structuredData;  // Changed this line
-    
-            if (!structuredData) {
-                throw new Error('No structured data found in resume');
-            }
-    
-            return structuredData;
-        } catch (error) {
-            logger.error('Error getting resume data:', error);
-            throw error;
-        }
-    },
-
-    async updateQualityMatchScores(docRef, qualityScores, finalScore) {
-        try {
-            // Clean the quality scores to remove undefined values
-            const cleanedScores = {};
-            for (const [key, score] of Object.entries(qualityScores)) {
-                cleanedScores[key] = {
-                    similarity: score.similarity,
-                    criticality: score.criticality,
-                    weightedScore: score.weightedScore,
-                    bestMatchingChunk: score.bestMatchingChunk,
-                    matchType: score.matchType || 'unknown'
-                };
-                
-                // Only add company/position if they exist
-                if (score.company) {
-                    cleanedScores[key].company = score.company;
-                }
-                if (score.position) {
-                    cleanedScores[key].position = score.position;
-                }
-            }
-    
-            await docRef.update({
-                qualityMatches: cleanedScores,
-                qualityMatchScore: finalScore,
-                'processing.status': 'quality matched',
-                lastProcessed: FieldValue.serverTimestamp()
-            });
-            
-            logger.info('Updated quality match scores:', { 
-                scores: Object.entries(cleanedScores).map(([key, value]) => ({
-                    quality: key,
-                    similarity: value.similarity,
-                    criticality: value.criticality,
-                    bestMatch: value.bestMatchingChunk
-                })),
-                finalScore 
-            });
-        } catch (error) {
-            logger.error('Error updating quality match scores:', error);
-            throw error;
-        }
-    }
-};
-
-// ===== Embedding Service =====
-const embeddingService = {
-    openai: null,
-
-    initialize() {
-        const apiKey = process.env.OPENAI_API_KEY;
-        if (!apiKey) {
-            throw new Error('OpenAI API key not configured');
-        }
-        this.openai = new OpenAI({ apiKey });
-    },
-
-    async getEmbeddings(texts) {
-        if (!this.openai) this.initialize();
+    async getResumeText(firebaseUid) {
+        logger.info(`Starting getResumeText for firebaseUid: ${firebaseUid}`);
         
-        const preprocessedTexts = Array.isArray(texts) ? texts.map(this.preprocessText) : [this.preprocessText(texts)];
+        const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
+        logger.info(`Created reference to UserCollections: ${userCollectionsRef.path}`);
         
-        try {
-            const response = await this.openai.embeddings.create({
-                model: CONFIG.matching.embeddingModel,
-                input: preprocessedTexts,
-            });
-
-            return response.data.map(item => item.embedding);
-        } catch (error) {
-            logger.error('Error getting embeddings:', error);
-            throw error;
-        }
-    },
-
-    preprocessText(text) {
-        return text
-            .toLowerCase()
-            .replace(/\s+/g, ' ')
-            .trim();
-    },
-
-    calculateSimilarity(vecA, vecB) {
-        const dotProduct = vecA.reduce((sum, a, i) => sum + a * vecB[i], 0);
-        const magnitudeA = Math.sqrt(vecA.reduce((sum, a) => sum + a * a, 0));
-        const magnitudeB = Math.sqrt(vecB.reduce((sum, b) => sum + b * b, 0));
-        return dotProduct / (magnitudeA * magnitudeB);
-    }
-};
-
-// ===== Matching Service =====
-const matchingService = {
-    // Extract all sections from structured resume
-    getResumeSections(structuredData) {
-        const sections = [];
+        const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
+        logger.info('Executing resume query with type=="Resume"');
         
-        // Add summary
-        if (structuredData.summary) {
-            sections.push({
-                text: structuredData.summary,
-                type: 'summary'
-            });
+        const resumeSnapshot = await resumeQuery.get();
+        logger.info(`Resume query completed. Empty? ${resumeSnapshot.empty}. Size: ${resumeSnapshot.size}`);
+
+        if (resumeSnapshot.empty) {
+            logger.error(`No resume found for user ID: ${firebaseUid}. Collection path: ${userCollectionsRef.path}`);
+            throw new Error(`No resume found for user ID: ${firebaseUid}`);
         }
 
-        // Add all position titles and bullets
-        structuredData.companies.forEach(company => {
-            company.positions.forEach(position => {
-                // Add position title
-                sections.push({
-                    text: `${position.title} at ${company.name}`,
-                    type: 'title'
-                });
-
-                // Add each bullet point
-                position.bullets.forEach(bullet => {
-                    sections.push({
-                        text: bullet,
-                        type: 'bullet',
-                        position: position.title,
-                        company: company.name
-                    });
-                });
-            });
+        const resumeDoc = resumeSnapshot.docs[0];
+        const resumeData = resumeDoc.data();
+        
+        logger.info('Resume document data:', {
+            id: resumeDoc.id,
+            path: resumeDoc.ref.path,
+            hasExtractedText: Boolean(resumeData.extractedText),
+            extractedTextLength: resumeData.extractedText ? resumeData.extractedText.length : 0,
+            documentFields: Object.keys(resumeData)
         });
 
-        // Add education
-        if (structuredData.education) {
-            sections.push({
-                text: structuredData.education,
-                type: 'education'
+        if (!resumeData.extractedText) {
+            logger.error('Resume document found but extractedText is missing or empty', {
+                documentId: resumeDoc.id,
+                availableFields: Object.keys(resumeData)
             });
+            throw new Error('Resume document found but extractedText is missing');
         }
-
-        return sections;
+        return normalizeSpaces(resumeData.extractedText);
     },
 
-    async processQualityMatches(qualities, structuredResumeData) {
-        try {
-            // Get all resume sections
-            const resumeSections = this.getResumeSections(structuredResumeData);
-            
-            logger.info('Processing resume sections:', {
-                numberOfSections: resumeSections.length,
-                sectionTypes: resumeSections.map(s => s.type)
-            });
+    getJobDocRef(firebaseUid, jobId) {
+        // Updated to use scrapedJobs collection instead of jobs
+        const docRef = db.collection('users')
+            .doc(firebaseUid)
+            .collection('scrapedJobs')  // Changed from 'jobs' to 'scrapedJobs'
+            .doc(jobId);
+        
+        logger.info(`Created job document reference: ${docRef.path}`);
+        return docRef;
+    },
 
-            // Get embeddings for all sections at once
-            const sectionEmbeddings = await embeddingService.getEmbeddings(
-                resumeSections.map(section => section.text)
-            );
-
-            const qualityScores = {};
-            let totalWeightedScore = 0;
-            let totalWeight = 0;
-
-            for (const [qualityKey, quality] of Object.entries(qualities)) {
-                logger.info(`Processing ${qualityKey}:`, {
-                    primarySkill: quality.primarySkill,
-                    criticality: quality.criticality
-                });
-
-                // Create focused quality text
-                const qualityText = `${quality.primarySkill}. ${quality.evidence}`;
-                const [qualityEmbedding] = await embeddingService.getEmbeddings(qualityText);
-                
-                // Find best matching section
-                const sectionSimilarities = sectionEmbeddings.map((sectionEmb, index) => ({
-                    similarity: embeddingService.calculateSimilarity(qualityEmbedding, sectionEmb),
-                    section: resumeSections[index]
-                }));
-
-                // Sort by similarity to find best match
-                const sortedSimilarities = [...sectionSimilarities]
-                    .sort((a, b) => b.similarity - a.similarity);
-
-                const bestMatch = sortedSimilarities[0];
-                
-                logger.info(`Best match for ${qualityKey}:`, {
-                    matchType: bestMatch.section.type,
-                    similarity: bestMatch.similarity,
-                    text: bestMatch.section.text.substring(0, 100)
-                });
-
-                // Calculate weighted score
-                const weight = parseFloat(quality.criticality) / 10;
-                const weightedScore = bestMatch.similarity * weight;
-                
-                qualityScores[qualityKey] = {
-                    similarity: Math.round(bestMatch.similarity * 100),
-                    criticality: quality.criticality,
-                    weightedScore: Math.round(weightedScore * 100),
-                    bestMatchingChunk: bestMatch.section.text,
-                    matchType: bestMatch.section.type,
-                    company: bestMatch.section.company,
-                    position: bestMatch.section.position
-                };
-
-                totalWeightedScore += weightedScore;
-                totalWeight += weight;
-            }
-
-            // Calculate final score (0-100)
-            const finalScore = Math.min(100, Math.round((totalWeightedScore / totalWeight) * 100));
-            
-            logger.info('Final calculation details:', {
-                totalWeightedScore,
-                totalWeight,
-                finalScore
-            });
-
-            return {
-                qualityScores,
-                finalScore
-            };
-        } catch (error) {
-            logger.error('Error processing quality matches:', error);
-            throw error;
+    async getJobDocument(docRef) {
+        logger.info(`Fetching job document from: ${docRef.path}`);
+        
+        const snapshot = await docRef.get();
+        logger.info(`Job document fetch completed. Exists? ${snapshot.exists}`);
+        
+        if (!snapshot.exists) {
+            logger.error(`Document not found at path: ${docRef.path}`);
+            throw new Error(`Document not found at path: ${docRef.path}`);
         }
+
+        const data = snapshot.data();
+        logger.info('Job document data retrieved:', {
+            hasQualities: Boolean(data.qualities),
+            qualityCount: data.qualities ? Object.keys(data.qualities).length : 0,
+            documentFields: Object.keys(data)
+        });
+
+        return data;
+    },
+
+    async updateQualityMatches(docRef, qualityMatches, resumeText) {
+        logger.info(`Starting quality matches update for doc: ${docRef.path}`, {
+            numberOfMatches: Object.keys(qualityMatches).length,
+            resumeTextLength: resumeText.length
+        });
+        
+        const batch = db.batch();
+        const usedQuotes = new Set();
+        
+        // First, update the full resume text
+        batch.update(docRef, {
+            'qualities.resumeText': resumeText
+        });
+        
+        // Then update individual quality matches
+        Object.entries(qualityMatches).forEach(([qualityId, matchData]) => {
+            logger.info(`Processing quality ${qualityId}:`, matchData);
+            
+            let resumeText = matchData?.resumeText || '';
+            
+            // Check for duplicates
+            if (resumeText && usedQuotes.has(resumeText)) {
+                logger.warn(`Duplicate quote found for quality ${qualityId}, setting to empty string`, {
+                    duplicateText: resumeText
+                });
+                resumeText = '';
+            } else if (resumeText) {
+                usedQuotes.add(resumeText);
+            }
+            
+            const updateData = {};
+            updateData[`qualities.${qualityId}.resumeText`] = resumeText;
+            
+            logger.info(`Adding batch update for quality ${qualityId}:`, {
+                updatePath: `qualities.${qualityId}.resumeText`,
+                resumeText: resumeText,
+                textLength: resumeText.length
+            });
+            
+            batch.update(docRef, updateData);
+        });
+    
+        await batch.commit();
+        logger.info('Quality matches batch update completed successfully');
     }
 };
 
-// ===== Main Function =====
-exports.matchJobQualities = onMessagePublished(
-    {
-        topic: CONFIG.topics.qualityMatchingRequests,
+// PubSub Service
+const pubSubService = {
+    parseMessage(message) {
+        if (!message.data) {
+            throw new Error('No message data received');
+        }
+        return message.json;
     },
-    async (event) => {
+
+    async ensureTopicExists(topicName) {
         try {
-            // Parse message data
-            const messageData = JSON.parse(
-                Buffer.from(event.data.message.data, 'base64').toString()
-            );
+            await pubSubClient.createTopic(topicName);
+        } catch (err) {
+            if (err.code !== 6) { // 6 = already exists
+                throw err;
+            }
+        }
+    },
+
+    async publishMessage(topicName, message) {
+        await this.ensureTopicExists(topicName);
+        const messageId = await pubSubClient
+            .topic(topicName)
+            .publishMessage({
+                data: Buffer.from(JSON.stringify(message)),
+            });
+        logger.info(`Message ${messageId} published to ${topicName}`);
+        return messageId;
+    }
+};
+
+const parseAnthropicResponse = (extractedText) => {
+    try {
+        // Find the first '{' and last '}'
+        const start = extractedText.indexOf('{');
+        const end = extractedText.lastIndexOf('}') + 1;
+        if (start === -1 || end === 0) {
+            throw new Error('No JSON object found in response');
+        }
+        
+        // Extract just the JSON portion
+        const jsonStr = extractedText.slice(start, end);
+        return JSON.parse(jsonStr);
+    } catch (error) {
+        logger.error('JSON parse error:', {
+            error: error.message,
+            extractedText: extractedText
+        });
+        throw error;
+    }
+};
+
+// Quality Processing Service
+const qualityComparingService = {
+    async compareQualities(resumeText, qualities) {
+        const MAX_RETRIES = 3;
+        const RETRY_DELAY = 1000;
+        
+        // Split qualities into two batches
+        const qualityIds = Object.keys(qualities);
+        const midpoint = Math.ceil(qualityIds.length / 2);
+        
+        const firstHalf = {};
+        const secondHalf = {};
+        
+        qualityIds.forEach((id, index) => {
+            if (index < midpoint) {
+                firstHalf[id] = qualities[id];
+            } else {
+                secondHalf[id] = qualities[id];
+            }
+        });
+
+        logger.info('Split qualities into two batches', {
+            firstHalfIds: Object.keys(firstHalf),
+            secondHalfIds: Object.keys(secondHalf)
+        });
+
+        let allMatches = {};
+
+        const formatQualities = (qualityBatch) => {
+            return Object.entries(qualityBatch)
+                .map(([id, quality]) => {
+                    const formatted = `
+                    ${id}:
+                    Primary Skill: ${quality.primarySkill}
+                    Required Experience: ${quality.evidence}
+                    ---`;
+                    logger.info(`Formatting quality ${id}:`, formatted);
+                    return formatted;
+                }).join('\n');
+        };
+
+        const usedQuotes = new Set();
+
+        const firstHalfString = formatQualities(firstHalf);
+        logger.info('First half qualities being sent:', firstHalfString);
+
+        const firstInstruction = `
+            ${CONFIG.instructions.qualityMatching.replace('{resumeText}', resumeText)}
             
-            const { userId, jobId } = messageData;
-            if (!userId || !jobId) {
-                throw new Error('Missing required fields in message data');
+            Here are the first set of qualities to match against the resume:
+            ${firstHalfString}
+        `;
+
+        let lastError;
+        for (let i = 0; i < MAX_RETRIES; i++) {
+            try {
+                logger.info('Making first API call for qualities:', {
+                    qualities: Object.keys(firstHalf)
+                });
+                
+                const result = await callAnthropicAPI(resumeText, firstInstruction);
+                if (!result || result.error) {
+                    throw new Error(result?.message || 'Error calling Anthropic API');
+                }
+                
+                logger.info('First batch raw response:', {
+                    attempt: i + 1,
+                    response: result.extractedText
+                });
+
+                try {
+                    const parsedResponse = parseAnthropicResponse(result.extractedText);
+                    logger.info('First batch parsed response:', {
+                        attempt: i + 1,
+                        parsedResponse
+                    });
+
+                    Object.values(parsedResponse.qualityMatches).forEach(match => {
+                        if (match.resumeText) {
+                            usedQuotes.add(match.resumeText);
+                        }
+                    });
+
+                    allMatches = { ...allMatches, ...parsedResponse.qualityMatches };
+                    break;
+                } catch (parseError) {
+                    logger.error('First batch parse error:', {
+                        attempt: i + 1,
+                        error: parseError.message,
+                        rawResponse: result.extractedText
+                    });
+                    throw parseError;
+                }
+            } catch (error) {
+                lastError = error;
+                logger.error('First batch API error:', {
+                    attempt: i + 1,
+                    error: error.message
+                });
+                if (i < MAX_RETRIES - 1) {
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (i + 1)));
+                }
             }
+        }
+        
+        if (lastError) {
+            throw lastError;
+        }
 
-            logger.info('Starting quality matching process', { userId, jobId });
+        // Second API call (Q6-Q10)
+        const secondHalfString = formatQualities(secondHalf);
 
-            // Get job document and resume
-            const { docRef, data: jobData } = await firestoreService.getJobDocument(userId, jobId);
-            const structuredResumeData = await firestoreService.getResumeText(userId);
+        const secondInstruction = `
+            ${CONFIG.instructions.qualityMatching.replace('{resumeText}', resumeText)}
 
-            // Validate qualities exist
-            if (!jobData.qualities || Object.keys(jobData.qualities).length === 0) {
-                throw new Error('No qualities found for matching');
+            IMPORTANT: These quotes have already been used and cannot be reused:
+            ${Array.from(usedQuotes).join('\n')}
+            
+            Here are the second set of qualities to match against the resume:
+            ${secondHalfString}
+        `;
+
+        lastError = null;
+        for (let i = 0; i < MAX_RETRIES; i++) {
+            try {
+                logger.info('Making second API call for qualities:', {
+                    qualities: Object.keys(secondHalf)
+                });
+                
+                const result = await callAnthropicAPI(resumeText, secondInstruction);
+                if (!result || result.error) {
+                    throw new Error(result?.message || 'Error calling Anthropic API');
+                }
+                
+                logger.info('Second batch raw response:', {
+                    attempt: i + 1,
+                    response: result.extractedText
+                });
+
+                try {
+                    const parsedResponse = parseAnthropicResponse(result.extractedText);
+                    logger.info('Second batch parsed response:', {
+                        attempt: i + 1,
+                        parsedResponse
+                    });
+                    allMatches = { ...allMatches, ...parsedResponse.qualityMatches };
+                    break;
+                } catch (parseError) {
+                    logger.error('Second batch parse error:', {
+                        attempt: i + 1,
+                        error: parseError.message,
+                        rawResponse: result.extractedText
+                    });
+                    throw parseError;
+                }
+            } catch (error) {
+                lastError = error;
+                logger.error('Second batch API error:', {
+                    attempt: i + 1,
+                    error: error.message
+                });
+                if (i < MAX_RETRIES - 1) {
+                    await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * (i + 1)));
+                }
             }
+        }
+        
+        if (lastError) {
+            throw lastError;
+        }
 
-            // Process matches
-            const { qualityScores, finalScore } = await matchingService.processQualityMatches(
-                jobData.qualities,
-                structuredResumeData  // Pass the structured data
-            );
+        logger.info('Both batches completed successfully', {
+            totalMatches: Object.keys(allMatches).length,
+            matchedQualities: Object.keys(allMatches)
+        });
+        
+        return allMatches;
+    }
+};
 
-            // Update Firestore
-            await firestoreService.updateQualityMatchScores(docRef, qualityScores, finalScore);
+// Main Function
+exports.matchJobQualities = onMessagePublished(
+    { topic: CONFIG.topics.qualitiesGathered },
+    async (event) => {
+        let messageData; // Moved declaration outside try block
+        try {
+            logger.info('Starting matchJobQualities function');
+            
+            // Parse message
+            const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+            messageData = JSON.parse(decodedData);
+            const { firebaseUid, jobId } = messageData;
+            
+            logger.info('Parsed message data:', { firebaseUid, jobId });
 
-            logger.info('Quality matching completed', {
-                userId,
-                jobId,
-                finalScore,
-                qualityScores
+            // Get resume and job data
+            logger.info('Fetching resume text');
+            const resumeText = await firestoreService.getResumeText(firebaseUid);
+            logger.info('Resume text retrieved', {
+                length: resumeText.length,
+                preview: resumeText.substring(0, 100) // First 100 chars for verification
             });
 
+            const docRef = firestoreService.getJobDocRef(firebaseUid, jobId);
+            const jobData = await firestoreService.getJobDocument(docRef);
+
+            // Process qualities
+            const qualities = jobData.qualities;
+            logger.info('Processing qualities', {
+                numberOfQualities: Object.keys(qualities).length
+            });
+            
+            const qualityMatches = await qualityComparingService.compareQualities(resumeText, qualities);
+            logger.info('Quality comparison completed', {
+                numberOfMatches: Object.keys(qualityMatches).length
+            });
+
+            // Update results
+            await firestoreService.updateQualityMatches(docRef, qualityMatches, resumeText);
+
+            // Publish to next topic
+            await pubSubService.publishMessage(
+                CONFIG.topics.qualitiesMatched,
+                { firebaseUid, jobId }
+            );
+
+            logger.info(`Successfully completed quality comparison for jobId: ${jobId}`);
+
         } catch (error) {
-            logger.error('Error in quality matching process:', error);
+            logger.error('Processing Error:', {
+                error: error.message,
+                stack: error.stack,
+                firebaseUid: messageData?.firebaseUid,
+                jobId: messageData?.jobId
+            });
             throw error;
         }
-    }
-);
+    });

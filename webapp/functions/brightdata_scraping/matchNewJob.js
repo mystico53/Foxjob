@@ -28,17 +28,17 @@ const CONFIG = {
 
 // ===== Firestore Service =====
 const firestoreService = {
-    async getResumeText(userId) {
+    async getResumeText(firebaseUid) {
         try {
             const userCollectionsRef = db.collection('users')
-                .doc(userId)
+                .doc(firebaseUid)
                 .collection('UserCollections');
             
             const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
             const resumeSnapshot = await resumeQuery.get();
 
             if (resumeSnapshot.empty) {
-                logger.warn(`No resume found for user ID: ${userId}`);
+                logger.warn(`No resume found for user ID: ${firebaseUid}`);
                 return null;
             }
 
@@ -46,7 +46,7 @@ const firestoreService = {
             const resumeText = resumeDoc.data().extractedText;
 
             if (!resumeText) {
-                logger.warn(`No extracted text found in resume for user ID: ${userId}`);
+                logger.warn(`No extracted text found in resume for user ID: ${firebaseUid}`);
                 return null;
             }
 
@@ -58,10 +58,10 @@ const firestoreService = {
         }
     },
 
-    async updateJobMatchScore(userId, jobId, matchScore) {
+    async updateJobMatchScore(firebaseUid, jobId, matchScore) {
         try {
             await db.collection('users')
-                .doc(userId)
+                .doc(firebaseUid)
                 .collection('scrapedJobs')
                 .doc(jobId)
                 .update({
@@ -72,7 +72,7 @@ const firestoreService = {
                     'processing.status': 'embedded',
                     lastProcessed: FieldValue.serverTimestamp()
                 });
-            logger.info('Updated job match score and status:', { userId, jobId, matchScore });
+            logger.info('Updated job match score and status:', { firebaseUid, jobId, matchScore });
         } catch (error) {
             logger.error('Error updating job match score:', error);
             throw error;
@@ -183,19 +183,19 @@ exports.matchNewJob = onMessagePublished(
                 return;
             }
 
-            if (!messageData?.userId || !messageData?.jobId) {
+            if (!messageData?.firebaseUid || !messageData?.jobId) {
                 logger.error('Missing required fields in message:', messageData);
                 return;
             }
 
-            const { userId, jobId } = messageData;
+            const { firebaseUid, jobId } = messageData;
             
-            logger.info('Starting job matching process', { userId, jobId });
+            logger.info('Starting job matching process', { firebaseUid, jobId });
 
             // Get the job data from Firestore
             const jobDoc = await admin.firestore()
                 .collection('users')
-                .doc(userId)
+                .doc(firebaseUid)
                 .collection('scrapedJobs')
                 .doc(jobId)
                 .get();
@@ -211,9 +211,9 @@ exports.matchNewJob = onMessagePublished(
                 throw new Error('Job description not found or in invalid format');
             }
 
-            const resumeText = await firestoreService.getResumeText(userId);
+            const resumeText = await firestoreService.getResumeText(firebaseUid);
             if (!resumeText) {
-                logger.warn('No resume text found for user', { userId });
+                logger.warn('No resume text found for user', { firebaseUid });
                 return;
             }
 
@@ -222,7 +222,7 @@ exports.matchNewJob = onMessagePublished(
                 resumeText
             );
 
-            await firestoreService.updateJobMatchScore(userId, jobId, matchScore);
+            await firestoreService.updateJobMatchScore(firebaseUid, jobId, matchScore);
 
             // Only trigger quality extraction for jobs with match score >= 50
             if (matchScore >= 50) {
@@ -230,7 +230,7 @@ exports.matchNewJob = onMessagePublished(
                     const topicName = CONFIG.pubsub.qualityExtractionTopic;
                     const message = {
                         data: Buffer.from(JSON.stringify({
-                            userId,
+                            firebaseUid,
                             jobId
                         })),
                     };
@@ -238,14 +238,14 @@ exports.matchNewJob = onMessagePublished(
                     const messageId = await pubSubClient.topic(topicName).publishMessage(message);
                     logger.info('Published quality extraction request:', {
                         messageId,
-                        userId,
+                        firebaseUid,
                         jobId,
                         topic: topicName
                     });
                 } catch (pubError) {
                     logger.error('Failed to publish quality extraction request:', {
                         error: pubError,
-                        userId,
+                        firebaseUid,
                         jobId
                     });
                     // Note: We don't throw here to avoid failing the whole function
@@ -253,7 +253,7 @@ exports.matchNewJob = onMessagePublished(
                 }
             }
 
-            logger.info('Job matching completed', { userId, jobId, matchScore });
+            logger.info('Job matching completed', { firebaseUid, jobId, matchScore });
 
         } catch (error) {
             logger.error('Error in job matching process:', error);

@@ -77,9 +77,9 @@ Output Requirements:
 
 // ===== Firestore Service =====
 const firestoreService = {
-  getDocRef(userId, jobId) {
+  getDocRef(firebaseUid, jobId) {  // Changed from firebaseUid to firebaseUid
     return db.collection('users')
-      .doc(userId)
+      .doc(firebaseUid)
       .collection('scrapedJobs')
       .doc(jobId);
   },
@@ -118,11 +118,11 @@ const pubSubService = {
   },
 
   validateMessageData(data) {
-    const { userId, jobId } = data;
-    if (!userId || !jobId) {
-      throw new Error('Missing required fields in message data');
+    const { firebaseUid, jobId } = data;  // Changed from firebaseUid to firebaseUid
+    if (!firebaseUid || !jobId) {
+      throw new Error(`Missing required fields in message data. Received: ${JSON.stringify(data)}`);
     }
-    return { userId, jobId };
+    return { firebaseUid, jobId };
   },
 
   async ensureTopicExists(topicName) {
@@ -230,11 +230,11 @@ exports.extractJobQualities = onMessagePublished(
         }
       })();
       
-      const { userId, jobId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing qualities for userId: ${userId}, jobId: ${jobId}`);
+      const { firebaseUid, jobId } = pubSubService.validateMessageData(messageData);
+      logger.info(`Processing qualities for firebaseUid: ${firebaseUid}, jobId: ${jobId}`);
 
       // Get Firestore document
-      docRef = firestoreService.getDocRef(userId, jobId);
+      docRef = firestoreService.getDocRef(firebaseUid, jobId);
       const jobData = await firestoreService.getJobDocument(docRef);
       
       // Process job qualities
@@ -269,7 +269,7 @@ exports.extractJobQualities = onMessagePublished(
       // Publish next message
       await pubSubService.publishMessage(
         CONFIG.topics.qualitiesGathered,
-        { userId, jobId }
+        { firebaseUid, jobId }
       );
 
     } catch (error) {
