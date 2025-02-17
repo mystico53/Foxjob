@@ -69,6 +69,7 @@ const { handleBrightdataWebhook } = require('./brightdata_scraping/handleBrightd
 const { getBrightdataSnapshots } = require('./brightdata_scraping/getBrightdataSnapshots.js');
 const { downloadAndProcessSnapshot } = require('./brightdata_scraping/downloadAndProcessSnapshot.js');
 const { matchNewJob } = require('./brightdata_scraping/matchNewJob');
+const { matchJobQualities } = require('./matchpipeline/matchJobQualities');
 
 
 
@@ -101,3 +102,4 @@ exports.handleBrightdataWebhook = handleBrightdataWebhook;
 exports.getBrightdataSnapshots = getBrightdataSnapshots;
 exports.downloadAndProcessSnapshot = downloadAndProcessSnapshot;
 exports.matchNewJob = matchNewJob;
+exports.matchJobQualities = matchJobQualities;
