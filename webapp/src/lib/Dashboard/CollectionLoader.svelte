@@ -97,21 +97,21 @@
 		
 		if (data.status === 'processed' && data.structuredData) {
 			resumeUploaded = true;
-			resumeStatus = 'processed';  // Add this line
+			resumeStatus = 'processed';
 			uploadFeedback = `"${currentFileName}" processed successfully`;
 			uploadFeedbackColor = 'variant-filled-surface';
 			setResumeStatus(true, currentFileName, timestamp);
 		} else if (data.status === 'error') {
 			resumeUploaded = false;
-			resumeStatus = 'error';  // Add this line
+			resumeStatus = 'error';
 			uploadFeedback = `Error processing "${currentFileName}". Please try again.`;
 			uploadFeedbackColor = 'variant-filled-error';
 			setResumeStatus(false);
 		} else {
 			resumeUploaded = true;
-			resumeStatus = 'processing';  // Add this line
-			uploadFeedback = `"${currentFileName}" is being processed...`;
-			uploadFeedbackColor = 'variant-filled-warning';
+			resumeStatus = 'processing';
+			uploadFeedback = currentFileName;  // Only change: simplified feedback to just filename
+			uploadFeedbackColor = 'variant-filled-surface';  // Changed from warning to surface
 			setResumeStatus(true, currentFileName, timestamp);
 		}
 	}
