@@ -1,9 +1,9 @@
-const { onRequest } = require('firebase-functions/v2/https');
-const cors = require('cors')({ origin: true });
+const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const logger = require('firebase-functions/logger');
 const admin = require('firebase-admin');
 const { Firestore } = require("firebase-admin/firestore");
 const { callAnthropicAPI } = require('../services/anthropicService');
+const FieldValue = Firestore.FieldValue;
 
 // Initialize Firestore
 const db = admin.firestore();
@@ -43,23 +43,6 @@ const CONFIG = {
     6. Do not fabricate or assume information
     7. If a section is not present, use an empty string or empty array as appropriate
     `
-  }
-};
-
-const firestoreService = {
-  async getResumeText(userId) {
-    logger.info('Getting resume for user:', userId);
-    
-    const userCollectionsRef = db.collection('users').doc(userId).collection('UserCollections');
-    const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
-    const resumeSnapshot = await resumeQuery.get();
-
-    if (resumeSnapshot.empty) {
-      throw new Error(`No resume found for user ID: ${userId}`);
-    }
-
-    const resumeDoc = resumeSnapshot.docs[0];
-    return resumeDoc.data().extractedText;
   }
 };
 
@@ -136,65 +119,54 @@ const resumeProcessor = {
   }
 };
 
-exports.structureResume = onRequest((req, res) => {
-    return cors(req, res, async () => {
-      try {
-        // Log the incoming request
-        logger.info('Structure resume function called', req.body);
-  
-        const { userId } = req.body;
-  
-        // Validate required fields
-        if (!userId) {
-          logger.error('Missing required parameters');
-          return res.status(400).json({ 
-            error: 'Missing required parameters',
-            received: { userId }
-          });
-        }
-  
-        // Reference to UserCollections
-        const userCollectionsRef = db.collection('users').doc(userId).collection('UserCollections');
-  
-        // Get resume document
-        const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
-        const resumeSnapshot = await resumeQuery.get();
-  
-        if (resumeSnapshot.empty) {
-          throw new Error(`No resume found for user ID: ${userId}`);
-        }
-  
-        const resumeDoc = resumeSnapshot.docs[0];
-        const resumeData = resumeDoc.data();
-        const resumeText = resumeData.extractedText;
-  
-        // Process the resume
-        const structuredResume = await resumeProcessor.structureResume(resumeText);
-  
-        // Update the same resume document with structuredData
-        await resumeDoc.ref.update({
-          structuredData: structuredResume,
-          status: 'processed',
-          createdAt: Firestore.FieldValue.serverTimestamp()
-        });
-  
-        console.log('Structured Resume:', JSON.stringify(structuredResume, null, 2));
-  
-        // Return success response
-        res.status(200).json({
-          message: 'Resume structured and updated successfully',
-          structuredResume,
-          documentId: resumeDoc.id,
-          timestamp: new Date().toISOString()
-        });
-  
-      } catch (error) {
-        logger.error('Error processing resume:', error);
-        res.status(500).json({ 
-          error: 'Internal server error',
-          message: error.message,
-          received: req.body
-        });
-      }
+exports.structureResumeOnUpload = onDocumentCreated('users/{userId}/UserCollections/{docId}', async (event) => {
+  const snapshot = event.data;
+  if (!snapshot) {
+    logger.error('No data associated with the event');
+    return;
+  }
+
+  const data = snapshot.data();
+  // Only process if it's a resume document
+  if (data.type !== 'Resume') {
+    logger.info('Document is not a resume, skipping processing');
+    return;
+  }
+
+  const userId = event.params.userId;
+  logger.info('Processing resume for user:', userId);
+
+  try {
+    // Process the resume using existing resumeProcessor
+    const structuredResume = await resumeProcessor.structureResume(data.extractedText);
+
+    // Log the structured resume for debugging
+    logger.info('Structured Resume:', JSON.stringify(structuredResume, null, 2));
+
+    // Update the same document with structured data
+    await snapshot.ref.update({
+      structuredData: structuredResume,
+      status: 'processed',
+      processedAt: FieldValue.serverTimestamp()
     });
-  });
+
+    logger.info('Successfully processed resume for user:', userId);
+
+  } catch (error) {
+    logger.error('Error processing resume:', {
+      error: 'Internal server error',
+      message: error.message,
+      userId: userId
+    });
+    
+    // Update document with error status
+    await snapshot.ref.update({
+      status: 'error',
+      error: {
+        message: error.message,
+        timestamp: FieldValue.serverTimestamp()
+      },
+      processedAt: FieldValue.serverTimestamp()
+    });
+  }
+});
