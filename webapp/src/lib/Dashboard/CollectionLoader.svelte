@@ -27,6 +27,7 @@
 	let resumeUploaded = false;
 	let extractedText = '';
 	let currentFileName = '';
+	let resumeStatus = '';
 
 	onMount(async () => {
 		const script = document.createElement('script');
@@ -51,39 +52,52 @@
 	});
 
 	async function checkExistingResume() {
-		try {
-			const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
-			const q = query(
-				userCollectionsRef,
-				where('type', '==', 'Resume'),
-				orderBy('timestamp', 'desc'),
-				limit(1)
-			);
-			const querySnapshot = await getDocs(q);
+    try {
+        const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
+        const q = query(
+            userCollectionsRef,
+            where('type', '==', 'Resume'),
+            orderBy('timestamp', 'desc'),
+            limit(1)
+        );
+        const querySnapshot = await getDocs(q);
 
-			if (!querySnapshot.empty) {
-				const doc = querySnapshot.docs[0];
-				const data = doc.data();
-				const timestamp = data.timestamp.toDate();
-				currentFileName = data.fileName || 'Unknown';
-				uploadFeedback = `"${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
-				uploadFeedbackColor = 'variant-filled-surface';
-				resumeUploaded = true;
-				// Add this line:
-				setResumeStatus(true, currentFileName, timestamp);
-			} else {
-				uploadFeedback = 'Add your resume to match it with job descriptions';
-				resumeUploaded = false;
-				// Add this line:
-				setResumeStatus(false);
-			}
-		} catch (error) {
-			console.error('Error checking existing resume:', error);
-			uploadFeedback = 'Error checking resume status. Please try again.';
-			uploadFeedbackColor = 'variant-filled-error';
-			resumeUploaded = false;
-		}
-	}
+        if (!querySnapshot.empty) {
+            const doc = querySnapshot.docs[0];
+            const data = doc.data();
+            const timestamp = data.timestamp.toDate();
+            currentFileName = data.fileName || 'Unknown';
+            resumeUploaded = true;
+            
+            // Check processing status
+            if (data.status === 'processed') {
+                resumeStatus = 'processed';
+                uploadFeedback = `"${currentFileName}" processed successfully`;
+            } else if (data.status === 'error') {
+                resumeStatus = 'error';
+                uploadFeedback = `Error processing "${currentFileName}". Please try again.`;
+                uploadFeedbackColor = 'variant-filled-error';
+            } else {
+                resumeStatus = 'processing';
+                uploadFeedback = `"${currentFileName}" is being processed...`;
+                uploadFeedbackColor = 'variant-filled-warning';
+            }
+            
+            setResumeStatus(true, currentFileName, timestamp);
+        } else {
+            uploadFeedback = 'Add your resume to match it with job descriptions';
+            resumeUploaded = false;
+            resumeStatus = '';
+            setResumeStatus(false);
+        }
+    } catch (error) {
+        console.error('Error checking existing resume:', error);
+        uploadFeedback = 'Error checking resume status. Please try again.';
+        uploadFeedbackColor = 'variant-filled-error';
+        resumeUploaded = false;
+        resumeStatus = 'error';
+    }
+}
 
 	async function handleFiles(event) {
 		const fileInput = event.target;
@@ -211,13 +225,19 @@
 	<div class="flex items-center justify-between py-2">
 		<h2 class="m-0 text-xl font-bold">Your resume</h2>
 		{#if resumeUploaded}
-			<div>
+		<div>
+			{#if resumeStatus === 'processed'}
 				<iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
-				<button on:click={deleteResume}>
-					<iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-2xl"></iconify-icon>
-				</button>
-			</div>
-		{/if}
+			{:else if resumeStatus === 'processing'}
+				<iconify-icon icon="line-md:loading-twotone-loop" class="text-2xl"></iconify-icon>
+			{:else if resumeStatus === 'error'}
+				<iconify-icon icon="fluent:error-circle-12-filled" class="text-2xl text-error-500"></iconify-icon>
+			{/if}
+			<button on:click={deleteResume}>
+				<iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-2xl"></iconify-icon>
+			</button>
+		</div>
+{/if}
 	</div>
 	<div class="flex flex-1 flex-col items-center justify-center">
 		{#if !$userStateStore.resume.isUploaded}
