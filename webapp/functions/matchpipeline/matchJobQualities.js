@@ -32,7 +32,7 @@ const CONFIG = {
   3. When selecting text:
      - Use EXACT QUOTES from the resume that specifically demonstrate the required skill
      - Each significant quote can only be used for ONE quality - choose the best fit
-     - If truly no match exists, leave resumeText empty
+     - you can assume certain skills (e.g. if someone has managed 30 product launches, they will also have presentation or communication skills, etc.)
      - SELECT TEXT THAT SPECIFICALLY DEMONSTRATES THE QUALITY, not just impressive achievements
   
   Your response must be valid JSON matching this exact format:
