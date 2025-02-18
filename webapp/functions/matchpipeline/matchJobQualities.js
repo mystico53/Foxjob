@@ -11,41 +11,51 @@ const pubSubClient = new PubSub();
 
 // Config - with simplified prompt that preserves format
 const CONFIG = {
-  topics: {
-    qualitiesGathered: 'ten-qualities-gathered',
-    qualitiesMatched: 'qualities-resumetext-added'
-  },
-  instructions: `
-    Find the STRONGEST examples from the candidate's resume that demonstrate each required quality.
-
-GUIDELINES:
-1. Focus on substantial experiences that showcase depth, impact, and expertise
-2. Use exact quotes from the resume - copy and paste the text verbatim
-3. Each quote can only be used for ONE quality - choose the best match
-4. If no strong match exists for a quality, leave resumeText empty
-5. Make sure your response maintains the exact format of the existing qualities structure
-
-Your response must be valid JSON matching this exact format:
-{
-  "qualityMatches": {
-    "Q1": {
-      "resumeText": "EXACT QUOTE from resume showing significant relevant experience"
+    topics: {
+      qualitiesGathered: 'ten-qualities-gathered',
+      qualitiesMatched: 'qualities-resumetext-added'
     },
-    "Q2": {
-      "resumeText": ""
+    instructions: `
+      Act as an expert technical recruiter evaluating how well a candidate's resume matches specific job requirements.
+  
+  GUIDELINES:
+  1. Match resume experiences to qualities based on RELEVANCE FIRST, then experience significance:
+     - The experience must actually demonstrate the specific quality being matched
+     - Don't match general achievements to specific qualities unless they clearly demonstrate the skill
+     - Read the "Evidence" text carefully to understand what each quality actually requires
+  
+  2. Prioritize qualities by criticality score:
+     - Assign your strongest, most relevant matches to the highest criticality qualities first
+     - Only after high-criticality qualities have strong matches, move to lower criticality ones
+     - A high-criticality quality with a weak match is better than leaving it empty
+  
+  3. When selecting text:
+     - Use EXACT QUOTES from the resume that specifically demonstrate the required skill
+     - Each significant quote can only be used for ONE quality - choose the best fit
+     - If truly no match exists, leave resumeText empty
+     - SELECT TEXT THAT SPECIFICALLY DEMONSTRATES THE QUALITY, not just impressive achievements
+  
+  Your response must be valid JSON matching this exact format:
+  {
+    "qualityMatches": {
+      "Q1": {
+        "resumeText": "EXACT QUOTE from resume that specifically demonstrates this quality"
+      },
+      "Q2": {
+        "resumeText": ""
+      }
     }
   }
-}
-
-The resume text:
-"""
-{resumeText}
-"""
-
-Qualities to match:
-{formattedQualities}
-  `
-};
+  
+  The resume text:
+  """
+  {resumeText}
+  """
+  
+  Qualities to match:
+  {formattedQualities}
+    `
+  };
 
 // Helper functions
 const normalizeSpaces = text => text.replace(/\s+/g, ' ').trim();
