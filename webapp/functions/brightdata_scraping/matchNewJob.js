@@ -160,7 +160,7 @@ const matchingService = {
 // ===== Main Function =====
 exports.matchNewJob = onMessagePublished(
     {
-        topic: 'job-embedding-requests',
+        topic: 'job-embedding-requests_DISABLED',
     },
     async (event) => {
         try {

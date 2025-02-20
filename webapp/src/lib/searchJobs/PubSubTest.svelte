@@ -5,7 +5,7 @@
   
     const jobId = "4072233330";
     const userId = "VCvUK0pLeDVXJ0JHJsNBwxLgvdO2";
-    const topicName = "ten-qualities-gathered";
+    const topicName = "job-embedding-requests";
   
     async function triggerPubSub() {
       loading = true;
