@@ -126,7 +126,8 @@ async function publishMessage(topicName, message) {
 
 // Main function
 exports.matchBasics = onMessagePublished(
-    { topic: 'job-embedding-requests' },
+    { topic: 'job-embedding-requests', timeoutSeconds: 540 },
+    
     async (event) => {
         try {
             // Parse message

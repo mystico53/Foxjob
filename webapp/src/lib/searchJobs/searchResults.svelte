@@ -7,7 +7,7 @@
     
     let jobs = [];
     let currentPage = 1;
-    const rowsPerPage = 5; // Reduced for better card viewing
+    const rowsPerPage = 30; // Reduced for better card viewing
     let uid;
     let expandedJobId = null;
 
@@ -20,7 +20,12 @@
     });
     
     scrapeStore.subscribe(value => {
-      jobs = value;
+      // Sort jobs by final score in descending order
+      jobs = value.sort((a, b) => {
+        const scoreA = a.match?.finalScore ?? -1;  // Use -1 for jobs without scores
+        const scoreB = b.match?.finalScore ?? -1;
+        return scoreB - scoreA;  // Descending order
+      });
       console.log('💫 Component received jobs update:', value.length);
     });
     
@@ -93,6 +98,10 @@
                         </span>
                         <span class="job-id">ID: {job.basicInfo?.jobId || 'N/A'}</span>
                     </div>
+                    <div class="final-score">
+                        <span>Final Score</span>
+                        <span class="score-value">{job.match?.finalScore?.toFixed(1) ?? 'N/A'}</span>
+                    </div>
                 </div>
 
                 <!-- Expandable Content -->
@@ -103,6 +112,32 @@
                                 <h4>Job Details</h4>
                                 <p><strong>Employment Type:</strong> {job.details?.employmentType || 'N/A'}</p>
                                 <p><strong>Applicants:</strong> {job.details?.numApplicants || 'N/A'}</p>
+                            </div>
+
+                            <div class="match-evaluation">
+                                <h4>Match Evaluation</h4>
+                                <div class="evaluation-content">
+                                    <div class="evaluator-scores">
+                                        <div class="evaluators-grid">
+                                            {#each Array.from({length: 10}, (_, i) => i + 1) as evaluatorNum}
+                                                <div class="evaluator-box">
+                                                    <span class="evaluator-label">Evaluator {evaluatorNum}</span>
+                                                    <span class="evaluator-score">{job.match?.evaluators?.[evaluatorNum] ?? 'N/A'}</span>
+                                                </div>
+                                            {/each}
+                                        </div>
+                                    </div>
+                                    <div class="final-evaluation">
+                                        <div class="final-score">
+                                            <span>Final Score</span>
+                                            <span class="score-value">{job.match?.finalScore?.toFixed(1) ?? 'N/A'}</span>
+                                        </div>
+                                        <div class="verdict">
+                                            <span>Verdict</span>
+                                            <p>{job.match?.verdict ?? 'No verdict available'}</p>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                             
                             <!-- New Qualities Section -->
@@ -692,5 +727,104 @@
         background-color: #fff5f5;
         color: #fa5252;
         border: 1px solid #ffc9c9;
+    }
+
+    .match-evaluation {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 1rem 0;
+    }
+
+    .match-evaluation h4 {
+        margin: 0 0 1rem 0;
+        color: #2c3e50;
+    }
+
+    .evaluation-content {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .evaluators-grid {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 0.75rem;
+    }
+
+    .evaluator-box {
+        background: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+        border: 1px solid #e9ecef;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .evaluator-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+
+    .evaluator-score {
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #2c3e50;
+    }
+
+    .final-evaluation {
+        display: flex;
+        gap: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .final-score {
+        background: white;
+        padding: 1rem;
+        border-radius: 6px;
+        border: 1px solid #e9ecef;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        min-width: 150px;
+    }
+
+    .final-score .score-value {
+        font-size: 2rem;
+        font-weight: bold;
+        color: #2c3e50;
+    }
+
+    .verdict {
+        background: white;
+        padding: 1rem;
+        border-radius: 6px;
+        border: 1px solid #e9ecef;
+        flex: 1;
+    }
+
+    .verdict span {
+        font-weight: 500;
+        color: #495057;
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    .verdict p {
+        margin: 0;
+        color: #2c3e50;
+    }
+
+    @media (max-width: 768px) {
+        .evaluators-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .final-evaluation {
+            flex-direction: column;
+        }
     }
 </style>
