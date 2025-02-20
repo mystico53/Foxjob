@@ -119,10 +119,23 @@
                                 <div class="evaluation-content">
                                     <div class="evaluator-scores">
                                         <div class="evaluators-grid">
-                                            {#each Array.from({length: 10}, (_, i) => i + 1) as evaluatorNum}
+                                            {#each Array.from({length: 5}, (_, i) => i + 1) as evaluatorNum}
                                                 <div class="evaluator-box">
-                                                    <span class="evaluator-label">Evaluator {evaluatorNum}</span>
-                                                    <span class="evaluator-score">{job.match?.evaluators?.[evaluatorNum] ?? 'N/A'}</span>
+                                                    <span class="evaluator-label">
+                                                        {#if evaluatorNum === 1}
+                                                            Industry & Experience
+                                                        {:else if evaluatorNum === 2}
+                                                            Technical Skills
+                                                        {:else if evaluatorNum === 3}
+                                                            Role Requirements
+                                                        {:else if evaluatorNum === 4}
+                                                            Career Progression
+                                                        {:else}
+                                                            Overall Potential
+                                                        {/if}
+                                                    </span>
+                                                    <span class="evaluator-score">{job.match?.evaluators?.[evaluatorNum]?.score ?? 'N/A'}</span>
+                                                    <p class="evaluator-reasoning">{job.match?.evaluators?.[evaluatorNum]?.reasoning ?? 'No reasoning provided'}</p>
                                                 </div>
                                             {/each}
                                         </div>
@@ -132,9 +145,9 @@
                                             <span>Final Score</span>
                                             <span class="score-value">{job.match?.finalScore?.toFixed(1) ?? 'N/A'}</span>
                                         </div>
-                                        <div class="verdict">
-                                            <span>Verdict</span>
-                                            <p>{job.match?.verdict ?? 'No verdict available'}</p>
+                                        <div class="summary">
+                                            <span>Summary</span>
+                                            <p>{job.match?.summary ?? 'No summary available'}</p>
                                         </div>
                                     </div>
                                 </div>
@@ -748,32 +761,68 @@
     }
 
     .evaluators-grid {
-        display: grid;
-        grid-template-columns: repeat(5, 1fr);
-        gap: 0.75rem;
-    }
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+}
 
-    .evaluator-box {
-        background: white;
-        padding: 0.75rem;
-        border-radius: 6px;
-        border: 1px solid #e9ecef;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-    }
+.evaluator-box {
+    background: white;
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    display: flex;
+    flex-direction: column;
+}
 
-    .evaluator-label {
-        font-size: 0.8rem;
-        color: #6c757d;
-        margin-bottom: 0.25rem;
-    }
+.evaluator-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
 
-    .evaluator-score {
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: #2c3e50;
+.evaluator-score {
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #2c3e50;
+    margin-bottom: 0.5rem;
+}
+
+.evaluator-reasoning {
+    font-size: 0.85rem;
+    color: #6c757d;
+    margin: 0;
+    font-style: italic;
+    line-height: 1.4;
+}
+
+.summary {
+    background: white;
+    padding: 1rem;
+    border-radius: 6px;
+    border: 1px solid #e9ecef;
+    flex: 1;
+}
+
+.summary span {
+    font-weight: 500;
+    color: #495057;
+    display: block;
+    margin-bottom: 0.5rem;
+}
+
+.summary p {
+    margin: 0;
+    color: #2c3e50;
+    line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+    .evaluators-grid {
+        grid-template-columns: 1fr;
     }
+}
 
     .final-evaluation {
         display: flex;
