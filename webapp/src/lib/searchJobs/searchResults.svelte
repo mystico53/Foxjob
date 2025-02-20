@@ -49,6 +49,12 @@
     function toggleJobExpansion(jobId) {
         expandedJobId = expandedJobId === jobId ? null : jobId;
     }
+    
+    function getScoreColor(score) {
+        if (score >= 8) return 'high-score';
+        if (score >= 5) return 'medium-score';
+        return 'low-score';
+    }
 </script>
 
 <div class="container">
@@ -100,32 +106,104 @@
                             </div>
                             
                             <!-- New Qualities Section -->
-                            <!-- Updated Qualities Section -->
                             <div class="qualities-section">
                                 <h4>Key Requirements & Matches</h4>
                                 <div class="qualities-grid">
                                     {#if job.qualities}
                                         {#each Object.entries(job.qualities) as [key, quality]}
                                             {#if quality.primarySkill}
-                                                <div class="quality-card">
-                                                    <div class="quality-header">
-                                                        <span class="quality-key">{key}</span>
-                                                        <span class="quality-criticality">Criticality: {quality.criticality}</span>
-                                                    </div>
-                                                    <p class="quality-skill">{quality.primarySkill}</p>
-                                                    {#if quality.evidence}
-                                                        <div class="quality-evidence-section">
-                                                            <span class="evidence-label">Evidence:</span>
-                                                            <p class="quality-evidence">{quality.evidence}</p>
-                                                        </div>
-                                                    {/if}
-                                                    {#if quality.resumeText}
-                                                        <div class="quality-resume-section">
-                                                            <span class="resume-label">Resume Match:</span>
-                                                            <p class="quality-resume">{quality.resumeText}</p>
-                                                        </div>
-                                                    {/if}
+                                            <div class="quality-card">
+                                                <div class="quality-header">
+                                                    <span class="quality-key">{key}</span>
+                                                    <span class="quality-criticality">Criticality: {quality.criticality}</span>
                                                 </div>
+                                                <p class="quality-skill">{quality.primarySkill}</p>
+                                                
+                                                {#if quality.evidence}
+                                                    <div class="quality-evidence-section">
+                                                        <span class="evidence-label">Evidence:</span>
+                                                        <p class="quality-evidence">{quality.evidence}</p>
+                                                    </div>
+                                                {/if}
+                                                
+                                                {#if quality.resumeText}
+                                                    <div class="quality-resume-section">
+                                                        <div class="resume-match-header">
+                                                            <span class="resume-match-label">Resume Match:</span>
+                                                            {#if quality.finalMatchScore !== undefined}
+                                                                <span class="match-score-badge {getScoreColor(quality.finalMatchScore)}">
+                                                                    {quality.finalMatchScore}/10
+                                                                </span>
+                                                            {/if}
+                                                        </div>
+                                                        <p class="quality-resume">{quality.resumeText}</p>
+                                                        
+                                                        {#if quality.finalDecision}
+                                                            <span class="final-decision {quality.finalDecision}">
+                                                                Selected: {quality.finalDecision === 'junior' ? 'Junior\'s match' : 
+                                                                           quality.finalDecision === 'senior' ? 'Senior\'s match' : 'No match'}
+                                                            </span>
+                                                        {/if}
+                                                    </div>
+                                                {/if}
+                                                
+                                                {#if quality.juniorRecruiterNotes || quality.seniorRecruiterNotes || quality.headOfRecruitingNotes}
+                                                    <div class="recruiter-notes-section">
+                                                        <span class="recruiter-notes-label">Recruiter Analysis:</span>
+                                                        {#if quality.juniorRecruiterNotes}
+                                                            <div class="recruiter-note junior">
+                                                                <div class="recruiter-header">
+                                                                    <span class="recruiter-title">Junior Recruiter:</span>
+                                                                    {#if quality.juniorMatchScore !== undefined}
+                                                                        <span class="recruiter-score {getScoreColor(quality.juniorMatchScore)}">
+                                                                            Score: {quality.juniorMatchScore}/10
+                                                                        </span>
+                                                                    {/if}
+                                                                </div>
+                                                                <p class="note-content">{quality.juniorRecruiterNotes}</p>
+                                                                {#if quality.juniorSelection}
+                                                                    <div class="selection-text">
+                                                                        <span class="selection-label">Selected text:</span>
+                                                                        <p class="selection-quote">"{quality.juniorSelection}"</p>
+                                                                    </div>
+                                                                {/if}
+                                                            </div>
+                                                        {/if}
+                                                        {#if quality.seniorRecruiterNotes}
+                                                            <div class="recruiter-note senior">
+                                                                <div class="recruiter-header">
+                                                                    <span class="recruiter-title">Senior Recruiter:</span>
+                                                                    {#if quality.seniorMatchScore !== undefined}
+                                                                        <span class="recruiter-score {getScoreColor(quality.seniorMatchScore)}">
+                                                                            Score: {quality.seniorMatchScore}/10
+                                                                        </span>
+                                                                    {/if}
+                                                                </div>
+                                                                <p class="note-content">{quality.seniorRecruiterNotes}</p>
+                                                                {#if quality.seniorSelection}
+                                                                    <div class="selection-text">
+                                                                        <span class="selection-label">Selected text:</span>
+                                                                        <p class="selection-quote">"{quality.seniorSelection}"</p>
+                                                                    </div>
+                                                                {/if}
+                                                            </div>
+                                                        {/if}
+                                                        {#if quality.headOfRecruitingNotes}
+                                                            <div class="recruiter-note head">
+                                                                <div class="recruiter-header">
+                                                                    <span class="recruiter-title">Head of Recruiting:</span>
+                                                                    {#if quality.finalMatchScore !== undefined}
+                                                                        <span class="recruiter-score {getScoreColor(quality.finalMatchScore)}">
+                                                                            Final Score: {quality.finalMatchScore}/10
+                                                                        </span>
+                                                                    {/if}
+                                                                </div>
+                                                                <p class="note-content">{quality.headOfRecruitingNotes}</p>
+                                                            </div>
+                                                        {/if}
+                                                    </div>
+                                                {/if}
+                                            </div>
                                             {/if}
                                         {/each}
                                     {/if}
@@ -448,5 +526,171 @@
         .qualities-grid {
             grid-template-columns: 1fr;
         }
+    }
+
+    .quality-evidence-section,
+    .quality-resume-section,
+    .recruiter-notes-section {
+        margin-top: 0.75rem;
+        padding-top: 0.75rem;
+        border-top: 1px dashed #e9ecef;
+    }
+
+    .evidence-label,
+    .resume-match-label,
+    .recruiter-notes-label {
+        display: block;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #495057;
+        margin-bottom: 0.5rem;
+    }
+
+    .recruiter-note {
+        margin-bottom: 0.75rem;
+        background: #f1f3f5;
+        border-radius: 4px;
+        padding: 0.75rem;
+    }
+
+    .recruiter-note:last-child {
+        margin-bottom: 0;
+    }
+
+    .recruiter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .recruiter-title {
+        font-weight: 500;
+        font-size: 0.8rem;
+        color: #495057;
+    }
+
+    .note-content {
+        margin: 0;
+        font-size: 0.85rem;
+        color: #495057;
+        line-height: 1.4;
+    }
+
+    /* Different colors for different recruiters */
+    .recruiter-note.junior {
+        border-left: 3px solid #74c0fc; /* Junior - Light blue */
+    }
+
+    .recruiter-note.senior {
+        border-left: 3px solid #4dabf7; /* Senior - Medium blue */
+    }
+
+    .recruiter-note.head {
+        border-left: 3px solid #228be6; /* Head - Darker blue */
+    }
+
+    .final-decision {
+        display: inline-block;
+        margin-top: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+
+    .final-decision.junior {
+        background-color: #e3f2fd;
+        color: #0d47a1;
+        border: 1px solid #bbdefb;
+    }
+
+    .final-decision.senior {
+        background-color: #e8f5e9;
+        color: #1b5e20;
+        border: 1px solid #c8e6c9;
+    }
+
+    .final-decision.none {
+        background-color: #ffebee;
+        color: #b71c1c;
+        border: 1px solid #ffcdd2;
+    }
+
+    .resume-match-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    .resume-match-label {
+        display: inline-block;
+        margin-bottom: 0;
+    }
+
+    .selection-text {
+        margin-top: 0.5rem;
+        background-color: rgba(0,0,0,0.03);
+        padding: 0.5rem;
+        border-radius: 4px;
+    }
+
+    .selection-label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        display: block;
+        margin-bottom: 0.25rem;
+    }
+
+    .selection-quote {
+        margin: 0;
+        font-style: italic;
+        font-size: 0.85rem;
+        color: #495057;
+    }
+
+    /* Updated styles for better recruiter note visualization */
+    .recruiter-note.junior {
+        border-left: 3px solid #74c0fc; /* Junior - Light blue */
+        background-color: #f8fbff;
+    }
+
+    .recruiter-note.senior {
+        border-left: 3px solid #4dabf7; /* Senior - Medium blue */
+        background-color: #f5f9fc;
+    }
+
+    .recruiter-note.head {
+        border-left: 3px solid #228be6; /* Head - Darker blue */
+        background-color: #f0f7ff;
+    }
+
+    /* Match score styling */
+    .match-score-badge,
+    .recruiter-score {
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .high-score {
+        background-color: #e6fcf5;
+        color: #0ca678;
+        border: 1px solid #96f2d7;
+    }
+
+    .medium-score {
+        background-color: #fff9db;
+        color: #f59f00;
+        border: 1px solid #ffe066;
+    }
+
+    .low-score {
+        background-color: #fff5f5;
+        color: #fa5252;
+        border: 1px solid #ffc9c9;
     }
 </style>
