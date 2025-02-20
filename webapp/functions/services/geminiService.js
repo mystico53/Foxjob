@@ -61,11 +61,9 @@ async function callGeminiAPI(rawText, instruction, options = {}) {
       // Initialize Gemini with configurable options
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ 
-        model: options.model || "gemini-1.5-flash",
+        model: options.model || "gemini-2.0-flash",
         generationConfig: {
           temperature: options.temperature || 0.7,
-          topK: options.topK || 40,
-          topP: options.topP || 0.95,
           maxOutputTokens: options.maxOutputTokens || 2048,
           ...options.generationConfig
         }
@@ -73,7 +71,7 @@ async function callGeminiAPI(rawText, instruction, options = {}) {
 
       logger.info('Sending request to Gemini API', { 
         promptLength: prompt.length,
-        model: options.model || "gemini-1.5-flash"
+        model: options.model || "gemini-2.0-flash"
       });
       
       const result = await model.generateContent(prompt);

@@ -15,16 +15,63 @@ const CONFIG = {
         outputTopic: 'basics-matched'
     },
     instructions: `
-    You are a job matching expert. Given a job description and resume, provide:
-    1. A match score from 0-100
-    2. A brief explanation of the score
+    You are Elite Recruiting Corp, known for maintaining extremely high standards in candidate evaluation. 
 
-    Format your response as valid JSON like this:
-    {
-        "score": 75,
-        "explanation": "Good match because..."
+First, confirm the inputs by echoing:
+- First 50 chars of Job Description: [extract first 50 chars]
+- First 50 chars of Resume: [extract first 50 chars]
+
+Key Disqualifying Factors:
+- Wrong industry experience
+- Missing specific technical skills
+- Insufficient relevant years of experience  
+- Missing role-specific expertise
+
+SCORING GUIDELINES (0-100):
+- 90-100: Perfect match (exact industry + years + all requirements)
+- 70-89: Strong match (right industry + most requirements)
+- 50-69: Partial match (transferable skills but wrong industry)
+- 30-49: Weak match (some transferable skills, missing key requirements)
+- 0-29: Poor match (significant misalignment)
+
+Each recruiter independently evaluates:
+- Industry experience alignment
+- Technical requirements match  
+- Years of experience fit
+- Required skills coverage
+- Role-specific achievements
+- Position level match
+
+EVALUATION TEAM:
+- Ten independent senior recruiters
+- Each conducts their own thorough assessment
+- All evaluators have equal weight and authority
+- No hierarchical review structure  
+- Final score is a simple average of all evaluations
+
+Format response as JSON:
+{
+    "verification": {
+        "job_preview": "...[first 50 chars]...",
+        "resume_preview": "...[first 50 chars]..."
+    },
+    "verdict": "Candidate is disqualified due to: [list key missing qualifications]",
+    "evaluators": {
+        "1": [score],
+        "2": [score],
+        "3": [score],
+        "4": [score],
+        "5": [score],
+        "6": [score],
+        "7": [score],
+        "8": [score],
+        "9": [score],
+        "10": [score]
+    },
+    "final": {
+        "score": [score]
     }
-    `
+}`
 };
 
 // Helper to get resume text
@@ -114,8 +161,8 @@ exports.matchBasics = onMessagePublished(
                 `Job Description: ${jobDescription}\n\nResume: ${resumeText}`,
                 CONFIG.instructions,
                 {
-                    temperature: 0.1,
-                    maxOutputTokens: 1024
+                    temperature: 0.7
+                    
                 }
             );
 
@@ -138,16 +185,18 @@ exports.matchBasics = onMessagePublished(
 
             // Store results
             await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .set({
-                    match: {
-                        explanation: response.explanation,
-                        matchScore: response.score,
-                        timestamp: FieldValue.serverTimestamp()
-                    }
-                }, { merge: true });
+            .doc(firebaseUid)
+            .collection('scrapedJobs')
+            .doc(jobId)
+            .set({
+                match: {
+                    verification: response.verification,
+                    verdict: response.verdict,
+                    evaluators: response.evaluators,
+                    finalScore: response.final.score,
+                    timestamp: FieldValue.serverTimestamp()
+                }
+            }, { merge: true });
 
             // Publish next message
             await publishMessage(CONFIG.topics.outputTopic, {
@@ -158,7 +207,12 @@ exports.matchBasics = onMessagePublished(
             logger.info('Basic match completed', {
                 firebaseUid,
                 jobId,
-                score: response.score
+                scores: {
+                    verification: response.verification,
+                    verdict: response.verdict,
+                    evaluators: response.evaluators,
+                    final: response.final.score
+                }
             });
 
         } catch (error) {

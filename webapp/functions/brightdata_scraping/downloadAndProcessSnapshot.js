@@ -154,6 +154,8 @@ async function downloadSnapshot(snapshotId, authToken) {
   }
 }
 
+
+
 exports.downloadAndProcessSnapshot = onRequest({
   timeoutSeconds: 540,
   memory: '1GiB',
@@ -192,8 +194,8 @@ exports.downloadAndProcessSnapshot = onRequest({
     for (let i = 0; i < jobs.length; i += MAX_BATCH_SIZE) {
       const batchJobs = jobs.slice(i, i + MAX_BATCH_SIZE);
       const batch = db.batch();
-      const pubsubPromises = [];
-
+      const batchJobIds = [];  // Track jobs in this batch
+    
       for (const job of batchJobs) {
         try {
           const transformedJob = transformJobData(job);
@@ -203,24 +205,7 @@ exports.downloadAndProcessSnapshot = onRequest({
             .doc(transformedJob.basicInfo.jobId);
             
           batch.set(docRef, transformedJob, { merge: true });
-
-          await sleep(200);
-          
-          pubsubPromises.push(
-            publishJobMessage(topic, firebaseUid, transformedJob.basicInfo.jobId)
-              .then(() => {
-                results.successful.push({
-                  jobId: transformedJob.basicInfo.jobId,
-                  title: job.job_title
-                });
-              })
-              .catch(error => {
-                results.failed.push({
-                  jobId: transformedJob.basicInfo.jobId,
-                  error: error.message
-                });
-              })
-          );
+          batchJobIds.push(transformedJob.basicInfo.jobId);
         } catch (error) {
           logger.error('Error processing job:', error);
           results.failed.push({
@@ -229,14 +214,38 @@ exports.downloadAndProcessSnapshot = onRequest({
           });
         }
       }
-
-      // Commit batch and wait for pub/sub operations
+    
+      // Commit batch first
       try {
         await batch.commit();
+        logger.info(`Batch committed successfully for ${batchJobIds.length} jobs`);
+        
+        // Wait a bit longer after commit
+        await sleep(1000);
+    
+        // Now publish messages for the committed batch
+        const pubsubPromises = batchJobIds.map(jobId =>
+          publishJobMessage(topic, firebaseUid, jobId)
+            .then(() => {
+              results.successful.push({ jobId });
+            })
+            .catch(error => {
+              results.failed.push({
+                jobId,
+                error: error.message
+              });
+            })
+        );
+    
         await Promise.all(pubsubPromises);
       } catch (error) {
         logger.error('Error in batch operation:', error);
-        throw error;
+        batchJobIds.forEach(jobId => {
+          results.failed.push({
+            jobId,
+            error: error.message
+          });
+        });
       }
     }
 
