@@ -1,5 +1,5 @@
 <script>
-	import { page } from '$app/stores';
+	// import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { sortedJobs } from '$lib/stores/jobStore';
 	import { getContext } from 'svelte';

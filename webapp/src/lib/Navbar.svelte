@@ -18,8 +18,8 @@
 		{ href: '/list', label: 'Home' },
 		{ href: '/workflow', label: 'Jobs' },
 		{ href: '/search', label: 'Search' },
-		{ href: '/assessments', label: 'Assesments' },
-		{ href: '/resume', label: 'My resume' },
+		// { href: '/assessments', label: 'Assesments' },
+		// { href: '/resume', label: 'My resume' },
 	];
 
 	async function handleLogout() {
