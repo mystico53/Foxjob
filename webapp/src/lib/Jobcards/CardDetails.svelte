@@ -27,7 +27,7 @@
 		event: 'hover',
 		target: 'popupHover',
 		placement: 'left',
-		duration: 200 // Added a small duration to smooth the transition
+		duration: 200
 	};
 
 	$: score = job?.AccumulatedScores?.accumulatedScore;
@@ -36,7 +36,6 @@
 	let popupInstance;
 
 	onMount(() => {
-		// Give the DOM a moment to fully render
 		setTimeout(() => {
 			const trigger = document.querySelector('[data-popup="popupHover"]');
 			if (trigger) {
@@ -59,9 +58,11 @@
 		currentStatus = job.generalData.status.toLowerCase();
 	}
 
-	function formatDate(timestamp) {
-		if (timestamp && timestamp.toDate) {
-			const date = timestamp.toDate();
+	// Updated formatDate function to handle ISO date strings
+	function formatDate(dateValue) {
+		// Handle Firebase Timestamp objects (for backward compatibility)
+		if (dateValue && dateValue.toDate) {
+			const date = dateValue.toDate();
 			return date.toLocaleString(undefined, {
 				year: 'numeric',
 				month: 'numeric',
@@ -69,6 +70,19 @@
 				hour: 'numeric',
 				minute: 'numeric'
 			});
+		}
+		// Handle ISO date strings
+		else if (dateValue && typeof dateValue === 'string') {
+			const date = new Date(dateValue);
+			if (!isNaN(date)) {
+				return date.toLocaleString(undefined, {
+					year: 'numeric',
+					month: 'numeric',
+					day: 'numeric',
+					hour: 'numeric',
+					minute: 'numeric'
+				});
+			}
 		}
 		return 'N/A';
 	}
@@ -99,7 +113,14 @@
 	}
 
 	async function handleVisitJob() {
-		if (job.generalData?.url) {
+		// Updated to use the apply link from the new structure
+		if (job.jobInfo?.applyUrl) {
+			openJobLink(job.jobInfo.applyUrl);
+		} else if (job.basicInfo?.applyLink) {
+			// Fallback to direct access of applyLink
+			openJobLink(job.basicInfo.applyLink);
+		} else if (job.generalData?.url) {
+			// Legacy fallback
 			openJobLink(job.generalData.url);
 		}
 	}
@@ -145,7 +166,6 @@
             const docSnap = await getDoc(jobRef);
             const status = docSnap.data()?.generalData?.processingStatus;
 
-            // Check for both 'completed' and 'processed' status
             if (status === 'completed' || status === 'processed') {
                 return true;
             }
@@ -187,25 +207,34 @@
 				<!-- Company and Title -->
 				<div>
 					<h5 class="h5 m-0 flex items-center pb-4">{job.jobInfo?.jobTitle || 'N/A'}</h5>
-					<h1 class="h1 pb-2 font-bold">{job.companyInfo?.name || 'N/A'}</h1>
+					<div class="pb-2 flex items-center gap-3">
+						{#if job.companyInfo?.logoUrl}
+							<img 
+								src={job.companyInfo.logoUrl} 
+								alt="{job.companyInfo?.name || 'Company'} logo" 
+								class="h-8 w-8 rounded-full object-cover"
+							/>
+						{/if}
+						<h1 class="h1 font-bold">{job.companyInfo?.name || 'N/A'}</h1>
+					</div>
 				</div>
 
 				<!-- Meta Information -->
 				<div class="flex max-w-2xl flex-row flex-wrap">
 					<span
 						class="chip variant-ghost-surface text-base"
-						title={job.companyInfo?.industry || 'N/A'}
+						title={job.companyInfo?.industry || job.details?.jobFunction || 'N/A'}
 					>
 						<iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
-						<span>{truncateText(job.companyInfo?.industry)}</span>
+						<span>{truncateText(job.companyInfo?.industry || job.details?.jobFunction)}</span>
 					</span>
 
 					<span
 						class="chip variant-ghost-surface text-base"
-						title={job.jobInfo?.remoteType || 'N/A'}
+						title={job.jobInfo?.location || job.basicInfo?.location || 'N/A'}
 					>
 						<iconify-icon icon="solar:pin-bold"></iconify-icon>
-						<span>{truncateText(job.jobInfo?.remoteType)}</span>
+						<span>{truncateText(job.jobInfo?.location || job.basicInfo?.location)}</span>
 					</span>
 
 					<span class="chip variant-ghost-surface text-base" title={job.compensation || 'N/A'}>
@@ -215,10 +244,10 @@
 
 					<span
 						class="chip variant-ghost-surface text-base"
-						title={formatDate(job.generalData?.timestamp)}
+						title={formatDate(job.jobInfo?.postedDate || job.details?.postedDate || job.generalData?.timestamp)}
 					>
 						<iconify-icon icon="solar:calendar-minimalistic-bold"></iconify-icon>
-						<span>{truncateText(formatDate(job.generalData?.timestamp))}</span>
+						<span>{truncateText(formatDate(job.jobInfo?.postedDate || job.details?.postedDate || job.generalData?.timestamp))}</span>
 					</span>
 				</div>
 			</div>
@@ -310,11 +339,12 @@
 			</p>
 			<p class="mb-4 text-base">
 				<span class="font-bold">Job Description: </span>
-				{job?.jobInfo?.jobSummary || 'No job summary available'}
+				{job?.jobInfo?.jobSummary || job?.details?.description || 'No job summary available'}
 			</p>
 		</div>
 	</div>
 
+	<!-- Rest of component remains mostly the same -->
 	<!-- Final Verdict Section -->
 	<div class="card w-full p-4">
 		<!-- Headers with icons -->
