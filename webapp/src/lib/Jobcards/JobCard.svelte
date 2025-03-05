@@ -3,10 +3,11 @@
 	import { fade, slide } from 'svelte/transition';
 
 	export let companyName;
+	export let companyLogo; // Add this to support company logo
 	export let jobTitle;
 	export let score;
 	export let status;
-	export let timestamp;
+	export let postedDate; // Change from timestamp to postedDate
 	export let isSelected;
 	export let handleClick = () => {};
 	export let jobId;
@@ -14,22 +15,28 @@
 	export let remoteType;
 	export let compensation;
 
-	$: formattedDate = timestamp
-		? new Intl.DateTimeFormat('en-US', {
-				month: '2-digit',
-				day: '2-digit',
-				year: '2-digit',
-				hour: '2-digit',
-				minute: '2-digit',
-				hour12: false
-			})
-				.format(timestamp)
-				.replace(',', ' -')
+	// Update date formatting to handle ISO string dates
+	$: formattedDate = postedDate
+		? (() => {
+				const date = new Date(postedDate);
+				if (!isNaN(date)) {
+					return new Intl.DateTimeFormat('en-US', {
+						month: '2-digit',
+						day: '2-digit',
+						year: '2-digit',
+						hour: '2-digit',
+						minute: '2-digit',
+						hour12: false
+					})
+						.format(date)
+						.replace(',', ' -');
+				}
+				return 'No date';
+			})()
 		: 'No date';
 		
-
-		$: if (score !== null) {
-    }		
+	$: if (score !== null) {
+	}		
 
 	function getStatusDisplay(status) {
 		if (!status) return '';
@@ -40,6 +47,8 @@
 				return 'New';
 			case 'read':
 				return 'Read';
+			case 'basics_matched': // Add this status from new data structure
+				return 'Basics Matched';
 			default:
 				return status;
 		}
@@ -49,8 +58,6 @@
 		event.stopPropagation();
 		await toggleBookmark(jobId);
 	}
-
-	// Remove truncate function since we'll handle it with CSS
 </script>
 
 <button
@@ -87,7 +94,12 @@
 
 		<!-- Column for Main Content -->
 		<div class="content-column space-y-2">
-			<h3 class="h6 font-bold">{companyName}</h3>
+			<div class="flex items-center gap-2">
+				{#if companyLogo}
+					<img src={companyLogo} alt="{companyName} logo" class="h-6 w-6 rounded-full object-cover" />
+				{/if}
+				<h3 class="h6 font-bold">{companyName}</h3>
+			</div>
 			<div class="text-base">{jobTitle}</div>
 			<div class="flex flex-col gap-3 text-xs">
 				<div class="flex items-center justify-between">
@@ -108,7 +120,6 @@
 					<div class="group relative flex items-center">
 						<div class="inline-flex items-center gap-1">
 							<iconify-icon icon="solar:dollar-minimalistic-linear"></iconify-icon>
-							<!-- Added wider max-width and tooltip -->
 							<span
 								class="hover:bg-surface-100 max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap hover:rounded"
 								title={compensation}

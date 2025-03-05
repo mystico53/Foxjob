@@ -65,12 +65,13 @@
 						<div>
 							<JobCard
 								companyName={job.companyInfo?.name || 'no info'}
+								companyLogo={job.companyInfo?.logoUrl || null}
 								jobTitle={job.jobInfo?.jobTitle || 'no info'}
-								score={job.AccumulatedScores.accumulatedScore}
+								score={job.AccumulatedScores?.accumulatedScore}
 								status={job.generalData?.status}
-								remoteType={job.jobInfo?.remoteType || 'no info'}
-								compensation={job.compensation || 'no info'}
-								timestamp={job.generalData?.timestamp?.toDate()}
+								remoteType={job.jobInfo?.remoteType || job.jobInfo?.location || 'no info'}
+								compensation={job.compensation || 'no info'} 
+								postedDate={job.jobInfo?.postedDate || null}
 								handleClick={() => handleJobClick(job)}
 								jobId={job.id}
 								isSelected={job.id === $page.params.jobId}

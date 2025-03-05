@@ -52,18 +52,31 @@
 		if (currentPage > 1) currentPage--;
 	}
 
-	function formatDate(timestamp) {
-		if (timestamp && timestamp.toDate) {
-			const date = timestamp.toDate();
-			const day = String(date.getDate()).padStart(2, '0');
-			const month = String(date.getMonth() + 1).padStart(2, '0');
-			const year = String(date.getFullYear()).slice(-2);
-			const hours = String(date.getHours()).padStart(2, '0');
-			const minutes = String(date.getMinutes()).padStart(2, '0');
-			return `${day}.${month}.${year}, ${hours}:${minutes}`;
-		}
-		return 'N/A';
-	}
+	function formatDate(dateValue) {
+    // Handle Firebase Timestamp objects
+    if (dateValue && dateValue.toDate) {
+        const date = dateValue.toDate();
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = String(date.getFullYear()).slice(-2);
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+        return `${day}.${month}.${year}, ${hours}:${minutes}`;
+    }
+    // Handle ISO date strings
+    else if (dateValue && typeof dateValue === 'string') {
+        const date = new Date(dateValue);
+        if (!isNaN(date)) {
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = String(date.getFullYear()).slice(-2);
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day}.${month}.${year}, ${hours}:${minutes}`;
+        }
+    }
+    return 'N/A';
+}
 
 	function truncateText(text, maxLength = 30) {
 		if (!text || text === 'N/A') return text;
@@ -192,7 +205,7 @@
 										? Math.round(job.AccumulatedScores.accumulatedScore)
 										: 'N/A'}</td
 								>
-								<td>{formatDate(job.generalData?.timestamp)}</td>
+								<td>{job.jobInfo?.postedDate ? formatDate(job.jobInfo.postedDate) : (job.jobInfo?.postedTimeAgo || 'N/A')}</td>
 								<td>{job.generalData?.status || ''}</td>
 							</tr>
 						{/each}

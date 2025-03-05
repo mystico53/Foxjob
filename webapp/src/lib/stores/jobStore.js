@@ -100,7 +100,9 @@ function createJobStore() {
                                     jobTitle: jobDataRaw.title || jobDataRaw.basicInfo?.title || 'Not found',
                                     description: jobDataRaw.details?.description || 'Not found',
                                     location: jobDataRaw.basicInfo?.location || 'Not found',
-                                    applyUrl: jobDataRaw.basicInfo?.applyLink || ''
+                                    applyUrl: jobDataRaw.basicInfo?.applyLink || '',
+                                    postedDate: jobDataRaw.details?.postedDate || null,  // Corrected path
+                                    postedTimeAgo: jobDataRaw.details?.postedTimeAgo || null
                                 },
                                 generalData: {
                                     status: jobDataRaw.processing?.status || 'Not processed',
