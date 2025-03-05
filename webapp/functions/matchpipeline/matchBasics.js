@@ -190,10 +190,13 @@ exports.matchBasics = onMessagePublished(
             .set({
                 match: {
                     verification: response.verification,
-                    evaluators: response.evaluators,  // Now includes score and reasoning for each
+                    evaluators: response.evaluators,  
                     finalScore: response.final.score,
-                    summary: response.final.summary,  // New field storing collective findings
+                    summary: response.final.summary,  
                     timestamp: FieldValue.serverTimestamp()
+                },
+                processing: {
+                    status: 'basics_matched' 
                 }
             }, { merge: true });
 
