@@ -167,9 +167,20 @@
 								on:click={() => handleRowClick(job)}
 								class="hover:bg-tertiary-100 cursor-pointer transition-colors duration-200"
 							>
-								<td title={job.companyInfo?.name || 'N/A'}
-									>{truncateText(job.companyInfo?.name || 'N/A')}</td
-								>
+							<td title={job.companyInfo?.name || 'N/A'}>
+								<div class="flex items-center gap-2">
+								  {#if job.companyInfo?.logoUrl}
+									<span class="flex-shrink-0">
+									  <img 
+										src={job.companyInfo.logoUrl} 
+										alt={job.companyInfo.name || 'Company logo'} 
+										class="h-6 w-6 rounded-full object-cover"
+									  />
+									</span>
+								  {/if}
+								  <span>{truncateText(job.companyInfo?.name || 'N/A')}</span>
+								</div>
+							  </td>
 								<td title={job.jobInfo?.jobTitle || 'N/A'}
 									>{truncateText(job.jobInfo?.jobTitle || 'N/A')}</td
 								>
