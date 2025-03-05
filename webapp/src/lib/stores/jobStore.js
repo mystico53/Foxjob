@@ -7,7 +7,7 @@ const jobs = writable([]);
 const loading = writable(true);
 const error = writable(null);
 const sortConfig = writable({
-    column: 'generalData.timestamp',
+    column: 'generalData.status', // Changed default sort from timestamp to status
     direction: 'desc'
 });
 const searchText = writable('');
@@ -36,15 +36,14 @@ const sortedJobs = derived(
 
         // Sorting
         return [...filteredJobs].sort((a, b) => {
+            // Skip timestamp sorting entirely
+            if ($sortConfig.column === 'generalData.timestamp') {
+                // Return 0 to maintain original order when sorting by timestamp
+                return 0;
+            }
+
             const aValue = getNestedValue(a, $sortConfig.column);
             const bValue = getNestedValue(b, $sortConfig.column);
-
-            // Handle timestamp sorting
-            if ($sortConfig.column === 'generalData.timestamp') {
-                const aDate = aValue?.toDate?.() || new Date(0);
-                const bDate = bValue?.toDate?.() || new Date(0);
-                return $sortConfig.direction === 'desc' ? bDate - aDate : aDate - bDate;
-            }
 
             // Handle numeric sorting (scores)
             if ($sortConfig.column === 'AccumulatedScores.accumulatedScore') {
@@ -81,51 +80,61 @@ function createJobStore() {
             error.set(null);
             
             try {
-                const jobsRef = collection(db, 'users', userId, 'jobs');
-                const jobsQuery = query(jobsRef, where('generalData.hidden', '==', false));
-
+                const jobsRef = collection(db, 'users', userId, 'scrapedJobs');
+                
                 unsubscribeJobs = onSnapshot(
-                    jobsQuery,
+                    jobsRef,
                     async (jobsSnapshot) => {
                         const jobPromises = jobsSnapshot.docs.map(async (jobDoc) => {
                             const jobDataRaw = jobDoc.data() || {};
-
-                            // Create the job object with all fields optional
+                            
+                            // Create the job object without timestamp
                             return {
                                 id: jobDoc.id,
-                                ...jobDataRaw.summarized,
-                                generalData: {
-                                    ...jobDataRaw.generalData,
-                                    status: jobDataRaw.generalData?.status,
-                                    processingStatus: jobDataRaw.generalData?.processingStatus,
-                                    hidden: jobDataRaw.generalData?.hidden,
-                                    timestamp: jobDataRaw.generalData?.timestamp
+                                companyInfo: {
+                                    name: jobDataRaw.basicInfo?.company || 'Not found',
+                                    logoUrl: jobDataRaw.basicInfo?.companyLogo || '',
+                                    companyUrl: jobDataRaw.basicInfo?.companyUrl || ''
                                 },
-                                Score: jobDataRaw.Score || {},
+                                jobInfo: {
+                                    jobTitle: jobDataRaw.title || jobDataRaw.basicInfo?.title || 'Not found',
+                                    description: jobDataRaw.details?.description || 'Not found',
+                                    location: jobDataRaw.basicInfo?.location || 'Not found',
+                                    applyUrl: jobDataRaw.basicInfo?.applyLink || ''
+                                },
+                                generalData: {
+                                    status: jobDataRaw.processing?.status || 'Not processed',
+                                    processingStatus: jobDataRaw.processing?.status || 'unknown',
+                                    hidden: false
+                                    // Removed timestamp completely
+                                },
+                                Score: {
+                                    totalScore: jobDataRaw.match?.finalScore || 0,
+                                    summary: jobDataRaw.match?.summary || 'No summary available'
+                                },
                                 matchResult: {
-                                    keySkills: jobDataRaw.Score ? 
-                                        Object.keys(jobDataRaw.Score)
-                                            .filter(key => key.startsWith('Requirement'))
-                                            .map(key => ({
-                                                skill: jobDataRaw.Score[key]?.requirement,
-                                                score: jobDataRaw.Score[key]?.score,
-                                                assessment: jobDataRaw.Score[key]?.assessment
-                                            })) : [],
-                                    totalScore: jobDataRaw.Score?.totalScore,
-                                    summary: jobDataRaw.Score?.summary
+                                    keySkills: jobDataRaw.match?.evaluators ? 
+                                        Object.values(jobDataRaw.match.evaluators).map((evaluator, index) => ({
+                                            skill: `Skill ${index + 1}`,
+                                            score: evaluator.score || 0,
+                                            assessment: evaluator.reasoning || 'No assessment'
+                                        })) : [],
+                                    totalScore: jobDataRaw.match?.finalScore || 0,
+                                    summary: jobDataRaw.match?.summary || 'No summary available'
                                 },
                                 SkillAssessment: {
-                                    DomainExpertise: jobDataRaw.SkillAssessment?.DomainExpertise || {},
-                                    Hardskills: jobDataRaw.SkillAssessment?.Hardskills || {},
-                                    Softskills: jobDataRaw.SkillAssessment?.Softskills || {}
+                                    DomainExpertise: {},
+                                    Hardskills: {},
+                                    Softskills: {}
                                 },
-                                verdict: jobDataRaw.verdict,
-                                AccumulatedScores: jobDataRaw.AccumulatedScores || {}
+                                verdict: null,
+                                AccumulatedScores: {
+                                    accumulatedScore: jobDataRaw.match?.finalScore || 0
+                                }
                             };
                         });
 
                         const jobResults = await Promise.all(jobPromises);
-                        // Remove the filter that was excluding null jobs
                         set(jobResults);
                         loading.set(false);
                     },
@@ -144,9 +153,10 @@ function createJobStore() {
 
         updateStatus: async (userId, jobId, newStatus) => {
             try {
-                const jobRef = doc(db, 'users', userId, 'jobs', jobId);
-                await updateDoc(jobRef, { 'generalData.status': newStatus });
+                const jobRef = doc(db, 'users', userId, 'scrapedJobs', jobId);
+                await updateDoc(jobRef, { 'processing.status': newStatus });
             } catch (err) {
+                console.error('Error updating job status:', err);
                 error.set('Failed to update job status');
                 throw err;
             }
@@ -154,9 +164,10 @@ function createJobStore() {
 
         hideJob: async (userId, jobId) => {
             try {
-                const jobRef = doc(db, 'users', userId, 'jobs', jobId);
-                await updateDoc(jobRef, { 'generalData.hidden': true });
+                const jobRef = doc(db, 'users', userId, 'scrapedJobs', jobId);
+                await updateDoc(jobRef, { 'hidden': true });
             } catch (err) {
+                console.error('Error hiding job:', err);
                 error.set('Failed to hide job');
                 throw err;
             }
@@ -174,5 +185,6 @@ function createJobStore() {
     };
 }
 
+// Create and export the job store
 export const jobStore = createJobStore();
 export { sortedJobs, loading, error, sortConfig, searchText };

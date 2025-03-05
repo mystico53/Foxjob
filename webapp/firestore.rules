@@ -11,6 +11,11 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Add rule for top-level scrapedJobs collection
+    match /scrapedJobs/{jobId} {
+      allow read, write, list: if isAuthenticated();
+    }
+
     // Rules for the users collection and subcollections
     match /users/{userId} {
       // Allow users to read/write their own documents
@@ -36,6 +41,11 @@ service cloud.firestore {
         allow read, write, list: if isOwner(userId);
         allow read, write, list: if true;
       }
+    }
+
+    // Add rule for UserCollections at the top level
+    match /UserCollections/{collectionId} {
+      allow read, write, list: if isAuthenticated();
     }
 
     // Rest of your rules remain the same
