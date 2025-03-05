@@ -13,7 +13,7 @@
     });
 
 
-    const FUNCTION_URL = 'https://d255-71-146-184-34.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot';
+    const FUNCTION_URL = 'https://efb3-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot';
 
     async function handleDownload() {
         if (!snapshotId.trim()) {
