@@ -2,6 +2,7 @@ const { onRequest } = require('firebase-functions/v2/https');
 const axios = require('axios');
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -50,7 +51,7 @@ exports.searchBright = onRequest({
           limit: limit || 100,
           frequency,
           isActive: isActive ?? true,
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           lastRun: null,
           nextRun: calculateNextRunTime(frequency)
         });
@@ -71,10 +72,15 @@ exports.searchBright = onRequest({
         }
         // Otherwise, continue with executing the search
       } catch (error) {
-        functions.logger.error("Error saving scheduled search", { error });
-        return res.status(500).json({ 
+        functions.logger.error("Error saving scheduled search", { 
+          errorMessage: error.message,
+          errorStack: error.stack,
+          userId: userId,
+          searchParams: JSON.stringify(searchParams)
+        });
+        return res.status(500).json({
           error: "Failed to save scheduled search",
-          details: error.message 
+          details: error.message
         });
       }
     }
@@ -165,7 +171,7 @@ exports.searchBright = onRequest({
           .collection('searchQueries')
           .doc(schedule.searchId)
           .update({
-            lastRun: admin.firestore.FieldValue.serverTimestamp(),
+            lastRun: FieldValue.serverTimestamp(),
             lastRunStatus: 'success',
             lastRunResult: response.data
           });
@@ -223,5 +229,5 @@ function calculateNextRunTime(frequency) {
       now.setDate(now.getDate() + 1);
   }
   
-  return admin.firestore.Timestamp.fromDate(now);
+  return Timestamp.fromDate(now);
 }
