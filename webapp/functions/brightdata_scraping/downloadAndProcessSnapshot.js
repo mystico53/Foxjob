@@ -82,7 +82,7 @@ const transformJobData = (job) => {
     },
     details: {
       summary: cleanHtml(job.job_summary),
-      description: cleanHtml(job.job_description_formatted),
+      description: safeGet(job, 'job_description_formatted'),
       employmentType: safeGet(job, 'job_employment_type'),
       seniorityLevel: safeGet(job, 'job_seniority_level'),
       jobFunction: safeGet(job, 'job_function'),

@@ -346,8 +346,13 @@
 				{job?.matchResult?.summary || job?.Score?.summary || 'No match summary available'}
 			</p>
 			<p class="mb-4 text-base">
-				<span class="font-bold">Details Summary: </span>
-				{job?.jobInfo?.description || 'No details summary available'}
+				<span class="font-bold">Job Description formatted: </span>
+				{#if job?.jobInfo?.descriptionHtml}
+					<!-- Render HTML content safely -->
+					<span class="description-html">{@html job.jobInfo.descriptionHtml}</span>
+				{:else}
+					{job?.jobInfo?.description || job?.jobInfo?.summary || 'No job description available'}
+				{/if}
 			</p>
 			<details>
 				<summary>Debug Information</summary>
@@ -532,3 +537,47 @@
 		</button>
 	</div>
 </div>
+
+<style>
+
+/* Add these styles to your component's <style> section */
+
+/* General styles for HTML content */
+:global(.description-html) {
+  display: block;
+  line-height: 1.6;
+  white-space: pre-line !important; /* This helps preserve line breaks */
+}
+
+/* Fix for bullet points */
+:global(.description-html ul) {
+  display: block;
+  padding-left: 24px;
+  margin: 12px 0;
+  list-style-type: disc !important;
+}
+
+:global(.description-html li) {
+  display: list-item !important;
+  margin-bottom: 8px;
+}
+
+/* Special fix for line breaks inside <strong> tags */
+:global(.description-html strong) {
+  font-weight: bold;
+  display: block; /* Make it a block element so line breaks work */
+  margin-bottom: 16px; /* Add space after the title */
+}
+
+/* Make br tags render properly */
+:global(.description-html br) {
+  content: "";
+  display: block;
+  margin-top: 0.5em;
+}
+
+/* Additional paragraph spacing */
+:global(.description-html p) {
+  margin-bottom: 16px;
+}
+</style>
