@@ -73,6 +73,7 @@ const { matchJobQualities } = require('./matchpipeline/matchJobQualities');
 const { testPubSub } = require('./helpers/testPubSub');
 const { matchBasics } = require('./matchpipeline/matchBasics');
 const { runScheduledSearches } = require('./brightdata_scraping/runScheduledSearches.js');
+const { testRunScheduledSearches } = require('./brightdata_scraping/testRunScheduledSearches.js');
 
 
 
@@ -109,3 +110,4 @@ exports.matchJobQualities = matchJobQualities;
 exports.testPubSub = testPubSub;
 exports.matchBasics = matchBasics;
 exports.runScheduledSearches = runScheduledSearches;
+exports.TestRunScheduledSearches = testRunScheduledSearches;

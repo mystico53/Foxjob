@@ -2,14 +2,19 @@ const { onRequest } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { getFirestore, FieldValue } = require('firebase-admin/firestore');
 const axios = require('axios');
+const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
+const { PubSub } = require('@google-cloud/pubsub');
+const pubsub = new PubSub();
+const { logger } = require('firebase-functions');
 
 // Initialize Firebase
 if (!admin.apps.length) {
   admin.initializeApp();
 }
 const db = getFirestore();
+const secretManager = new SecretManagerServiceClient();
 
-// Helper to safely get value or null
+// Helper functions
 const safeGet = (obj, key) => {
   const value = obj?.[key];
   if (value === undefined || value === '') return null;
@@ -17,26 +22,20 @@ const safeGet = (obj, key) => {
   return value;
 };
 
-// Helper to safely get array or null
 const safeGetArray = (value) => {
   if (!Array.isArray(value)) return null;
   if (value.length === 0) return null;
   return value;
 };
 
-// Helper to clean HTML content
 const cleanHtml = (text) => {
   if (!text) return null;
   const cleaned = text.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   return cleaned || null;
 };
 
-// Helper to handle salary data
 const transformSalary = (baseSalary, payRange) => {
-  const salary = {
-    base: null,
-    range: null
-  };
+  const salary = { base: null, range: null };
 
   if (baseSalary) {
     salary.base = {
@@ -48,22 +47,19 @@ const transformSalary = (baseSalary, payRange) => {
   }
 
   if (payRange) {
-    salary.range = payRange;  // Store the original pay range if different format
+    salary.range = payRange;
   }
 
   return salary;
 };
 
-// Transform job data
 const transformJobData = (job) => {
-  // Validate required field
-  if (!job?.job_posting_id) {
-    throw new Error('Job posting ID is required');
-  }
+  const jobId = job?.job_posting_id || `generated_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 
   return {
+    processing: { status: 'raw' },
     basicInfo: {
-      jobId: safeGet(job, 'job_posting_id'),
+      jobId,
       title: safeGet(job, 'job_title'),
       company: safeGet(job, 'company_name'),
       companyId: safeGet(job, 'company_id'),
@@ -81,7 +77,7 @@ const transformJobData = (job) => {
     },
     details: {
       summary: cleanHtml(job.job_summary),
-      description: cleanHtml(job.job_description_formatted),
+      description: safeGet(job, 'job_description_formatted'),
       employmentType: safeGet(job, 'job_employment_type'),
       seniorityLevel: safeGet(job, 'job_seniority_level'),
       jobFunction: safeGet(job, 'job_function'),
@@ -102,28 +98,80 @@ const transformJobData = (job) => {
   };
 };
 
-const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
-
-// Initialize Secret Manager client
-const secretManager = new SecretManagerServiceClient();
-
 async function downloadSnapshot(snapshotId, authToken) {
   try {
     const response = await axios.get(
-      `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}`, 
+      `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}`,
       {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-        },
-        params: {
-          format: 'json'
-        }
+        headers: { 'Authorization': `Bearer ${authToken}` },
+        params: { format: 'json' }
       }
     );
     return response.data;
   } catch (error) {
-    console.error('Error downloading snapshot:', error);
+    logger.error('Error downloading snapshot:', error);
     throw new Error(`Failed to download snapshot: ${error.message}`);
+  }
+}
+
+async function processJobsAndPublish(jobs, userId) {
+  const topic = pubsub.topic('job-embedding-requests');
+  const batch = db.batch();
+  const results = { successful: [], failed: [], processed: 0 };
+  
+  // Process all jobs for Firestore batch
+  for (const job of jobs) {
+    try {
+      const transformedJob = transformJobData(job);
+      const jobId = transformedJob.basicInfo.jobId;
+      
+      // Add to batch
+      const docRef = db.collection('users').doc(userId).collection('scrapedJobs').doc(jobId);
+      batch.set(docRef, transformedJob, { merge: true });
+      
+      // Track for PubSub
+      results.successful.push({
+        jobId,
+        title: job.job_title
+      });
+    } catch (error) {
+      logger.error('Error transforming job:', error);
+      results.failed.push({
+        jobId: job?.job_posting_id || 'unknown',
+        error: error.message
+      });
+    }
+  }
+  
+  // Commit batch to Firestore
+  try {
+    await batch.commit();
+    results.processed = results.successful.length;
+    
+    // Publish messages to PubSub
+    const pubsubPromises = results.successful.map(job => 
+      topic.publishMessage({
+        json: {
+          firebaseUid: userId,
+          jobId: job.jobId,
+          timestamp: new Date().toISOString()
+        },
+        attributes: { source: 'handleBrightdataWebhook' }
+      }).catch(error => {
+        logger.error(`PubSub error for job ${job.jobId}:`, error);
+        results.failed.push({
+          jobId: job.jobId,
+          error: `PubSub error: ${error.message}`
+        });
+        results.successful = results.successful.filter(j => j.jobId !== job.jobId);
+      })
+    );
+    
+    await Promise.all(pubsubPromises);
+    return results;
+  } catch (error) {
+    logger.error('Batch commit error:', error);
+    throw error;
   }
 }
 
@@ -134,158 +182,61 @@ exports.handleBrightdataWebhook = onRequest({
   region: 'us-central1'
 }, async (req, res) => {
   try {
-    // Add the new logging here
+    const userId = req.query.userId || 'test_user';
+    logger.info('Webhook received', { bodyType: typeof req.body, isArray: Array.isArray(req.body) });
+    
+    // Case 1: Status update from Brightdata
     if (req.body?.snapshot_id && req.body?.status === "ready") {
-      console.log('[Webhook] Received status update:', {
-        snapshot_id: req.body.snapshot_id,
-        status: req.body.status,
-        headers: req.headers
-      });
-    } else {
-      console.log('[Webhook] Received data webhook:', {
-        bodyLength: JSON.stringify(req.body).length,
-        headers: req.headers
-      });
-    }
-
-    // Get the webhook secret
-    const name = 'projects/656035288386/secrets/WEBHOOK_SECRET/versions/latest';
-    const [version] = await secretManager.accessSecretVersion({ name });
-    const webhookSecret = version.payload.data.toString();
-
-    // Get Brightdata API token
-    const brightdataTokenName = 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest';
-    const [brightdataVersion] = await secretManager.accessSecretVersion({ name: brightdataTokenName });
-    const brightdataToken = brightdataVersion.payload.data.toString();
-
-    // First check if this is a status update
-    if (req.body?.snapshot_id && req.body?.status === "ready") {
-      console.log('Received ready status for snapshot:', req.body.snapshot_id);
+      logger.info('Processing snapshot ready status', { snapshotId: req.body.snapshot_id });
       
-      try {
-        // Download the snapshot
-        const snapshotData = await downloadSnapshot(req.body.snapshot_id, brightdataToken);
-        
-        // Process the downloaded data using existing job processing logic
-        const userId = req.query.userId || 'test_user';
-        const jobs = Array.isArray(snapshotData) ? snapshotData : [snapshotData];
-        const batch = db.batch();
-        
-        const results = {
-          successful: [],
-          failed: []
-        };
-        
-        // Transform and prepare batch writes
-        for (const job of jobs) {
-          try {
-            const transformedJob = transformJobData(job);
-            const docRef = db.collection('users')
-                          .doc(userId)
-                          .collection('scrapedJobs')
-                          .doc(job.job_posting_id);
-                          
-            batch.set(docRef, transformedJob, { merge: true });
-            results.successful.push({
-              jobId: job.job_posting_id,
-              title: job.job_title
-            });
-          } catch (error) {
-            console.error('Error processing job from snapshot:', error);
-            results.failed.push({
-              jobId: job.job_posting_id,
-              error: error.message
-            });
-          }
-        }
-
-        // Commit the batch
-        await batch.commit();
-
-        return res.json({
-          success: true,
-          message: 'Snapshot downloaded and processed',
-          snapshot_id: req.body.snapshot_id,
-          processed: {
-            total: jobs.length,
-            successful: results.successful.length,
-            failed: results.failed.length,
-            jobs: results.successful,
-            errors: results.failed
-          },
-          userId,
-          timestamp: new Date().toISOString()
-        });
-      } catch (error) {
-        console.error('Error processing snapshot:', error);
-        return res.status(500).json({
-          success: false,
-          error: `Failed to process snapshot: ${error.message}`,
-          snapshot_id: req.body.snapshot_id,
-          timestamp: new Date().toISOString()
-        });
-      }
+      // Get Brightdata token and download snapshot
+      const [secretVersion] = await secretManager.accessSecretVersion({
+        name: 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest'
+      });
+      const brightdataToken = secretVersion.payload.data.toString();
+      const snapshotData = await downloadSnapshot(req.body.snapshot_id, brightdataToken);
+      
+      // Process jobs from snapshot
+      const jobs = Array.isArray(snapshotData) ? snapshotData : [snapshotData];
+      const results = await processJobsAndPublish(jobs, userId);
+      
+      return res.json({
+        success: true,
+        message: 'Snapshot processed successfully',
+        snapshot_id: req.body.snapshot_id,
+        processed: {
+          total: jobs.length,
+          successful: results.successful.length,
+          failed: results.failed.length,
+          jobs: results.successful,
+          errors: results.failed
+        },
+        userId,
+        timestamp: new Date().toISOString()
+      });
     }
-
-    // Auth check only for job data webhooks
+    
+    // Case 2: Direct job data webhook - verify auth token
+    const [webhookSecret] = await secretManager.accessSecretVersion({
+      name: 'projects/656035288386/secrets/WEBHOOK_SECRET/versions/latest'
+    }).then(([version]) => version.payload.data.toString());
+    
     const authHeader = req.headers.authorization;
     if (!authHeader) {
-        console.log('No auth header received');
-        throw new Error('Invalid authorization');
+      throw new Error('Missing authorization header');
     }
-
+    
     const receivedToken = authHeader.startsWith('Bearer ') ? authHeader.split('Bearer ')[1] : authHeader;
-    console.log('Cleaned tokens for comparison:');
-    console.log('Received:', receivedToken);
-    console.log('Expected:', webhookSecret);
-
     if (receivedToken !== webhookSecret) {
-        console.log('Token mismatch');
-        throw new Error('Invalid authorization');
+      logger.warn('Invalid authorization token');
+      throw new Error('Invalid authorization');
     }
-    // Get userId from query params or use default
-    const userId = req.query.userId || 'test_user';
     
-    // Process jobs array
+    // Process jobs from webhook body
     const jobs = Array.isArray(req.body) ? req.body : [req.body];
-    const batch = db.batch();
+    const results = await processJobsAndPublish(jobs, userId);
     
-    const results = {
-      successful: [],
-      failed: []
-    };
-    
-    // Transform and prepare batch writes
-    for (const job of jobs) {
-      try {
-        const transformedJob = transformJobData(job);
-        const docRef = db.collection('users')
-                        .doc(userId)
-                        .collection('scrapedJobs')
-                        .doc(job.job_posting_id);
-                        
-        batch.set(docRef, transformedJob, { merge: true });
-        results.successful.push({
-          jobId: job.job_posting_id,
-          title: job.job_title
-        });
-      } catch (error) {
-        console.error('Error processing job:', {
-          jobId: job.job_posting_id,
-          error: error.message
-        });
-        results.failed.push({
-          jobId: job.job_posting_id,
-          error: error.message
-        });
-      }
-    }
-
-    // Commit the batch
-    await batch.commit();
-
-    // Return detailed success response
-    res.json({
+    return res.json({
       success: true,
       processed: {
         total: jobs.length,
@@ -297,9 +248,8 @@ exports.handleBrightdataWebhook = onRequest({
       userId,
       timestamp: new Date().toISOString()
     });
-
   } catch (error) {
-    console.error('Webhook error:', error);
+    logger.error('Webhook error:', error);
     res.status(500).json({
       success: false,
       error: error.message,

@@ -14,9 +14,9 @@ const db = admin.firestore();
 // Configuration
 const CONFIG = {
   // Use the deployed URL in production
-  SEARCH_FUNCTION_URL: 'https://us-central1-jobille-45494.cloudfunctions.net/searchBright',
+  //SEARCH_FUNCTION_URL: 'https://us-central1-jobille-45494.cloudfunctions.net/searchBright',
   // For local testing, uncomment this:
-  // SEARCH_FUNCTION_URL: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright'
+  SEARCH_FUNCTION_URL: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright'
 };
 
 // The core logic function - independent of the trigger
@@ -25,7 +25,7 @@ async function processScheduledSearches() {
     logger.info('Starting scheduled search run');
     
     // Calculate current time
-    const now = admin.firestore.Timestamp.now();
+    const now = Timestamp.now();
     
     // Query for searches due to run
     const searchesSnapshot = await db.collectionGroup('searchQueries')
@@ -58,19 +58,20 @@ async function processScheduledSearches() {
       };
       
       try {
-        logger.info(`Processing scheduled search for user ${userId}`, { 
-          searchId: searchDoc.id 
-        });
-        
-        // Call the searchBright function with the saved search parameters
-        const response = await axios.post(CONFIG.SEARCH_FUNCTION_URL, {
-          userId,
-          searchParams: searchData.searchParams,
-          limit: searchData.limit,
-          schedule: {
-            searchId: searchDoc.id
-          }
-        });
+        logger.info(`Executing search with params:`, {
+            userId,
+            searchParamsData: searchData.searchParams
+          });
+          
+          const response = await axios.post(CONFIG.SEARCH_FUNCTION_URL, {
+            userId,
+            searchParams: searchData.searchParams, // This should already be an array from Firestore
+            limit: searchData.limit || 1,
+            schedule: {
+              searchId: searchDoc.id,
+              frequency: searchData.frequency // Pass the frequency back
+            }
+          });
         
         // Calculate next run time based on frequency
         const nextRun = calculateNextRunTime(searchData.frequency);
@@ -129,7 +130,7 @@ async function processScheduledSearches() {
 }
 
 // The scheduled function just calls the core logic
-exports.testRunScheduledSearches = onSchedule({
+exports.runScheduledSearches = onSchedule({
   schedule: 'every day 03:00',
   timeZone: 'America/New_York',
   memory: '512MiB'
@@ -138,7 +139,7 @@ exports.testRunScheduledSearches = onSchedule({
 });
 
 // For testing or manual runs, expose an HTTP endpoint
-exports.manualRunScheduledSearches = onRequest({
+exports.testRunScheduledSearches = onRequest({
   timeoutSeconds: 540,
   memory: "512MiB"
 }, async (req, res) => {
