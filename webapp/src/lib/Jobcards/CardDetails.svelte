@@ -341,6 +341,18 @@
 				<span class="font-bold">Job Description: </span>
 				{job?.jobInfo?.jobSummary || job?.details?.description || 'No job summary available'}
 			</p>
+			<p class="mb-4 text-base">
+				<span class="font-bold">Match Summary: </span>
+				{job?.matchResult?.summary || job?.Score?.summary || 'No match summary available'}
+			</p>
+			<p class="mb-4 text-base">
+				<span class="font-bold">Details Summary: </span>
+				{job?.jobInfo?.description || 'No details summary available'}
+			</p>
+			<details>
+				<summary>Debug Information</summary>
+				<pre>{JSON.stringify(job, null, 2)}</pre>
+			</details>
 		</div>
 	</div>
 

@@ -98,7 +98,7 @@ function createJobStore() {
                                 },
                                 jobInfo: {
                                     jobTitle: jobDataRaw.title || jobDataRaw.basicInfo?.title || 'Not found',
-                                    description: jobDataRaw.details?.description || 'Not found',
+                                    description: jobDataRaw.details?.summary || 'Not found',
                                     location: jobDataRaw.basicInfo?.location || 'Not found',
                                     applyUrl: jobDataRaw.basicInfo?.applyLink || '',
                                     postedDate: jobDataRaw.details?.postedDate || null,  // Corrected path
@@ -122,7 +122,7 @@ function createJobStore() {
                                             assessment: evaluator.reasoning || 'No assessment'
                                         })) : [],
                                     totalScore: jobDataRaw.match?.finalScore || 0,
-                                    summary: jobDataRaw.match?.summary || 'No summary available'
+                                    summary: jobDataRaw.info?.summary || 'No summary available'
                                 },
                                 SkillAssessment: {
                                     DomainExpertise: {},
