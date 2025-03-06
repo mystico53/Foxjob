@@ -4,10 +4,11 @@
 	import GetSnapshots from '$lib/searchJobs/getSnapshots.svelte';
 	import DownloadSnapshot from '$lib/searchJobs/downloadSnapshot.svelte';
   import ScrapeJobsTable from '$lib/searchJobs/ScrapeJobsTable.svelte';
+  import TestEmailButton from '$lib/searchJobs/TestEmailButton.svelte';
 
 
   </script>
-  
+  <TestEmailButton/>
   <SearchBox/>
 
   <SearchResults/>

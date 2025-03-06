@@ -16,6 +16,7 @@
     "@google-cloud/pubsub": "^4.7.2",
     "@google-cloud/secret-manager": "^5.6.0",
     "@google/generative-ai": "^0.21.0",
+    "@sendgrid/mail": "^8.1.4",
     "axios": "^1.7.9",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

@@ -74,6 +74,7 @@ const { testPubSub } = require('./helpers/testPubSub');
 const { matchBasics } = require('./matchpipeline/matchBasics');
 const { runScheduledSearches } = require('./brightdata_scraping/runScheduledSearches.js');
 const { testRunScheduledSearches } = require('./brightdata_scraping/testRunScheduledSearches.js');
+const { sendEmail } = require('./brightdata_scraping/sendEmail.js');
 
 
 
@@ -111,3 +112,4 @@ exports.testPubSub = testPubSub;
 exports.matchBasics = matchBasics;
 exports.runScheduledSearches = runScheduledSearches;
 exports.TestRunScheduledSearches = testRunScheduledSearches;
+exports.sendEmail = sendEmail;
