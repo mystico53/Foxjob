@@ -31,6 +31,7 @@ webapp/firestore-debug.log
 webapp/pubsub-debug.log
 webapp/functions/ui-debug.log
 webapp/functions/firestore-debug.log
+webapp/.runtimeconfig.json
 
 # Firebase cache and debug
 /webapp/.firebase

@@ -4,6 +4,7 @@ webapp/firestore-debug.log
 webapp/functions/firestore-debug.log
 webapp/firebase-debug.log
 *firebase-debug*.log
+webapp/.runtimeconfig.json
 
 # Dependencies
 # Webapp specific
