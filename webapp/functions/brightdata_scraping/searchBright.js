@@ -1,12 +1,18 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const axios = require('axios');
 const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+
+if (!admin.apps.length) {
+    admin.initializeApp();
+}
+
+const db = admin.firestore();
 
 const CONFIG = {
   BRIGHTDATA_DATASET_ID: 'gd_lpfll7v5hcqtkxl6l',
   BASE_URL: 'https://api.brightdata.com/datasets/v3/trigger',
-  // Add webhook base URL - update this with your ngrok URL
-  WEBHOOK_BASE_URL: 'https://efb3-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/handleBrightdataWebhook'
+  WEBHOOK_BASE_URL: 'https://e1f9-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/handleBrightdataWebhook'
 };
 
 exports.searchBright = onRequest({ 
@@ -17,17 +23,67 @@ exports.searchBright = onRequest({
   const startTime = Date.now();  
   
   try {
-    const { userId, searchParams, limit } = req.body;
+    const { userId, searchParams, limit, schedule } = req.body;
     
     // Validate inputs
     if (!userId || !searchParams?.length) {
       return res.status(400).json({ error: "userId and searchParams are required" });
     }
 
-    const apiToken = process.env.BRIGHTDATA_API_TOKEN;
+    // Process scheduling if requested
+    if (schedule) {
+      const { frequency, isActive } = schedule;
+      
+      if (!frequency) {
+        return res.status(400).json({ error: "Frequency is required for scheduled searches" });
+      }
+      
+      try {
+        // Save search configuration to Firestore
+        const searchRef = db.collection('users')
+          .doc(userId)
+          .collection('searchQueries')
+          .doc();
+        
+        await searchRef.set({
+          searchParams,
+          limit: limit || 100,
+          frequency,
+          isActive: isActive ?? true,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          lastRun: null,
+          nextRun: calculateNextRunTime(frequency)
+        });
+        
+        functions.logger.info("Saved scheduled search", { 
+          userId, 
+          searchId: searchRef.id,
+          frequency
+        });
+        
+        // If the user doesn't want to run the search immediately, return success
+        if (schedule.runImmediately === false) {
+          return res.json({
+            status: 'success',
+            message: 'Scheduled search saved successfully',
+            searchId: searchRef.id
+          });
+        }
+        // Otherwise, continue with executing the search
+      } catch (error) {
+        functions.logger.error("Error saving scheduled search", { error });
+        return res.status(500).json({ 
+          error: "Failed to save scheduled search",
+          details: error.message 
+        });
+      }
+    }
+
+    // Continue with original search functionality
+    const apiKey = process.env.BRIGHTDATA_API_TOKEN;
     const webhookSecret = process.env.WEBHOOK_SECRET;
 
-    if (!apiToken || !webhookSecret) {
+    if (!apiKey || !webhookSecret) {
       functions.logger.error("Missing required secrets");
       return res.status(500).json({ error: "API configuration error" });
     }
@@ -36,7 +92,7 @@ exports.searchBright = onRequest({
     const search = searchParams[0];
     
     const requestData = {
-      keyword: `"${search.keyword}"`, // Single quotes around the whole keyword
+      keyword: `"${search.keyword}"`,
       location: search.location,
       country: search.country,
       time_range: search.time_range,
@@ -75,7 +131,7 @@ exports.searchBright = onRequest({
     // Add the detailed logging
     console.log("Final Brightdata URL:", url.toString());
     console.log("Request headers:", {
-      'Authorization': 'Bearer ' + apiToken.substring(0,5) + '...',
+      'Authorization': 'Bearer ' + apiKey.substring(0,5) + '...',
       'Content-Type': 'application/json'
     });
     console.log("Raw request data:", requestData);
@@ -86,7 +142,7 @@ exports.searchBright = onRequest({
       method: 'post',
       url: url.toString(),
       headers: {
-        'Authorization': `Bearer ${apiToken}`,
+        'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json'
       },
       data: requestData
@@ -100,6 +156,28 @@ exports.searchBright = onRequest({
       timeMs: Date.now() - startTime,
       webhookUrl: webhookUrl.replace(webhookSecret, '****')
     });
+
+    // If this was a scheduled search, update the lastRun timestamp
+    if (schedule && schedule.searchId) {
+      try {
+        await db.collection('users')
+          .doc(userId)
+          .collection('searchQueries')
+          .doc(schedule.searchId)
+          .update({
+            lastRun: admin.firestore.FieldValue.serverTimestamp(),
+            lastRunStatus: 'success',
+            lastRunResult: response.data
+          });
+      } catch (updateError) {
+        functions.logger.error("Failed to update scheduled search status", { 
+          error: updateError.message, 
+          userId, 
+          searchId: schedule.searchId 
+        });
+        // Don't fail the whole function for this update error
+      }
+    }
 
     return res.json({
       status: 'success',
@@ -122,4 +200,28 @@ exports.searchBright = onRequest({
       details: error.response?.data || error.message
     });
   }
-});;
+});
+
+// Helper function to calculate next run time based on frequency
+function calculateNextRunTime(frequency) {
+  const now = new Date();
+  
+  switch (frequency) {
+    case 'daily':
+      now.setDate(now.getDate() + 1);
+      break;
+    case 'weekly':
+      now.setDate(now.getDate() + 7);
+      break;
+    case 'biweekly':
+      now.setDate(now.getDate() + 14);
+      break;
+    case 'monthly':
+      now.setMonth(now.getMonth() + 1);
+      break;
+    default:
+      now.setDate(now.getDate() + 1);
+  }
+  
+  return admin.firestore.Timestamp.fromDate(now);
+}

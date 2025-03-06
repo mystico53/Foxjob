@@ -4,6 +4,7 @@
   import { authStore } from '$lib/stores/authStore';
   
   let uid;
+  let scheduleSearch = false;
 
   authStore.subscribe(user => {
     uid = user?.uid;
@@ -78,10 +79,14 @@
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            userId: uid,
-            searchParams: searchPayload,
-            limit: parseInt(limitPerInput) || 2
-          })
+          userId: uid,
+          searchParams: searchPayload,
+          limit: parseInt(limitPerInput) || 2,
+          schedule: scheduleSearch ? {
+            frequency: 'daily',
+            runImmediately: true
+          } : undefined
+        })
         }
       );
 
@@ -204,6 +209,17 @@
           placeholder="Number of results per search"
         />
       </div>
+    </div>
+
+    <div class="form-field col-span-full">
+      <label class="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          bind:checked={scheduleSearch}
+          class="checkbox"
+        />
+        <span>Automatically run this search daily</span>
+      </label>
     </div>
 
     <!-- Search Button - Full width -->
