@@ -132,9 +132,9 @@ exports.matchBasics = onMessagePublished(
             const messageData = JSON.parse(
                 Buffer.from(event.data.message.data, 'base64').toString()
             );
-            const { firebaseUid, jobId } = messageData;
+            const { firebaseUid, jobId, batchId } = messageData; // Extract batchId
             
-            logger.info('Starting basic match', { firebaseUid, jobId });
+            logger.info('Starting basic match', { firebaseUid, jobId, batchId });
 
             // Get job description
             const jobDoc = await db.collection('users')
@@ -196,9 +196,24 @@ exports.matchBasics = onMessagePublished(
                     timestamp: FieldValue.serverTimestamp()
                 },
                 processing: {
-                    status: 'basics_matched' 
+                    status: 'basics_matched',
+                    batchId: batchId // Store batchId in job document too
                 }
             }, { merge: true });
+
+            if (batchId) {
+                try {
+                    const batchRef = db.collection('jobBatches').doc(batchId);
+                    await batchRef.update({
+                        completedJobs: FieldValue.increment(1),
+                        [`jobStatus.${jobId}`]: 'completed'
+                    });
+                    logger.info('Updated batch progress', { batchId, jobId });
+                } catch (error) {
+                    logger.error('Failed to update batch', { batchId, error });
+                    // Continue even if batch update fails
+                }
+            }
 
             // Publish next message
             await publishMessage(CONFIG.topics.outputTopic, {

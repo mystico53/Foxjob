@@ -5,7 +5,7 @@ const sgMail = require('@sendgrid/mail');
 // Initialize Firebase if not already initialized
 if (!admin.apps.length) {
     admin.initializeApp();
-    console.log('Firebase initialized');
+    console.log('Firebase initialized')
 } else {
     console.log('Firebase already initialized');
 }

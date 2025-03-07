@@ -114,7 +114,7 @@ async function downloadSnapshot(snapshotId, authToken) {
   }
 }
 
-async function processJobsAndPublish(jobs, userId) {
+async function processJobsAndPublish(jobs, userId, batchId) {
   const topic = pubsub.topic('job-embedding-requests');
   const batch = db.batch();
   const results = { successful: [], failed: [], processed: 0 };
@@ -124,6 +124,9 @@ async function processJobsAndPublish(jobs, userId) {
     try {
       const transformedJob = transformJobData(job);
       const jobId = transformedJob.basicInfo.jobId;
+      
+      // Add batchId to the job's processing metadata
+      transformedJob.processing.batchId = batchId;
       
       // Add to batch
       const docRef = db.collection('users').doc(userId).collection('scrapedJobs').doc(jobId);
@@ -148,12 +151,13 @@ async function processJobsAndPublish(jobs, userId) {
     await batch.commit();
     results.processed = results.successful.length;
     
-    // Publish messages to PubSub
+    // Publish messages to PubSub - now including batchId
     const pubsubPromises = results.successful.map(job => 
       topic.publishMessage({
         json: {
           firebaseUid: userId,
           jobId: job.jobId,
+          batchId: batchId, // Include batchId in PubSub message
           timestamp: new Date().toISOString()
         },
         attributes: { source: 'handleBrightdataWebhook' }
@@ -189,6 +193,10 @@ exports.handleBrightdataWebhook = onRequest({
     if (req.body?.snapshot_id && req.body?.status === "ready") {
       logger.info('Processing snapshot ready status', { snapshotId: req.body.snapshot_id });
       
+      // Create batch tracking document
+      const batchId = req.body.snapshot_id;
+      const batchRef = db.collection('jobBatches').doc(batchId);
+      
       // Get Brightdata token and download snapshot
       const [secretVersion] = await secretManager.accessSecretVersion({
         name: 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest'
@@ -198,7 +206,33 @@ exports.handleBrightdataWebhook = onRequest({
       
       // Process jobs from snapshot
       const jobs = Array.isArray(snapshotData) ? snapshotData : [snapshotData];
-      const results = await processJobsAndPublish(jobs, userId);
+      
+      // Initialize batch document before processing
+      await batchRef.set({
+        userId,
+        snapshotId: batchId,
+        totalJobs: jobs.length,
+        completedJobs: 0,
+        status: 'processing',
+        startedAt: FieldValue.serverTimestamp(),
+        emailSent: false,
+        smallBatch: jobs.length === 1, // Flag for optimization
+        jobIds: [] // Will be populated after processing
+      });
+      
+      // Pass batchId to processing function
+      const results = await processJobsAndPublish(jobs, userId, batchId);
+      
+      // Update batch with job IDs after processing
+      await batchRef.update({
+        jobIds: results.successful.map(job => job.jobId)
+      });
+      
+      logger.info('Batch document created', { 
+        batchId, 
+        totalJobs: jobs.length,
+        successful: results.successful.length
+      });
       
       return res.json({
         success: true,
@@ -211,6 +245,7 @@ exports.handleBrightdataWebhook = onRequest({
           jobs: results.successful,
           errors: results.failed
         },
+        batchId: batchId, // Include batchId in response
         userId,
         timestamp: new Date().toISOString()
       });

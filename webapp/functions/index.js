@@ -75,6 +75,8 @@ const { matchBasics } = require('./matchpipeline/matchBasics');
 const { runScheduledSearches } = require('./brightdata_scraping/runScheduledSearches.js');
 const { testRunScheduledSearches } = require('./brightdata_scraping/testRunScheduledSearches.js');
 const { sendEmail } = require('./brightdata_scraping/sendEmail.js');
+const { onBatchUpdate, processStaleJobBatches } = require('./brightdata_scraping/batchProcessing.js');
+const { processEmailRequests } = require('./brightdata_scraping/emailProcessor.js');
 
 
 
@@ -113,3 +115,6 @@ exports.matchBasics = matchBasics;
 exports.runScheduledSearches = runScheduledSearches;
 exports.TestRunScheduledSearches = testRunScheduledSearches;
 exports.sendEmail = sendEmail;
+exports.onBatchUpdate = onBatchUpdate;
+exports.processStaleJobBatches = processStaleJobBatches;
+exports.processEmailRequests = processEmailRequests;
