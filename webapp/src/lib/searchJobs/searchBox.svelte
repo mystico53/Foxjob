@@ -129,7 +129,7 @@
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <!-- Location -->
       <div class="form-field">
-        <label for="location" class="label font-bold">Location</label>
+        <label for="location" class="label font-bold">Location *</label>
         <input
           id="location"
           type="text"
@@ -141,7 +141,7 @@
 
       <!-- Country -->
       <div class="form-field">
-        <label for="country" class="label font-bold">Country</label>
+        <label for="country" class="label font-bold">Country *</label>
         <input
           id="country"
           type="text"
