@@ -36,6 +36,14 @@ exports.sendEmail = onCall({
     
     // Set the SendGrid API Key - in v2, access secrets through process.env
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+
+    // Add these enhanced debugging lines:
+    const apiKey = process.env.SENDGRID_API_KEY || '';
+    console.log('SendGrid API key exists:', Boolean(apiKey));
+    console.log('SendGrid API key starts with correct format:', apiKey.startsWith('SG.'));
+    console.log('SendGrid API key length:', apiKey.length);
+    console.log('First 5 chars:', apiKey.substring(0, 5));
+    console.log('Last 5 chars:', apiKey.substring(apiKey.length - 5));
     
     let jobsHtml = '';
     let jobsText = '';
