@@ -1,6 +1,10 @@
-const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const sgMail = require('@sendgrid/mail');
+const { onCall } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
+
+// Define your secret
+const sendgridApiKey = defineSecret("SENDGRID_API_KEY");
 
 // Initialize Firebase if not already initialized
 if (!admin.apps.length) {
@@ -12,22 +16,25 @@ if (!admin.apps.length) {
 
 const db = admin.firestore();
 
-exports.sendEmail = functions.https.onCall(async (data, context) => {
+// Export the function with v2 syntax
+exports.sendEmail = onCall({
+  // Configure the function
+  secrets: [sendgridApiKey],
+  // Optional: set other configurations
+  // memory: '256MiB',
+  // timeoutSeconds: 60,
+}, async (request) => {
     console.log('SendEmail function called');
     
-    // Log the structure of data
-    console.log('Top level data keys:', Object.keys(data));
+    // Log the structure of data (v2 has a slightly different structure)
+    const data = request.data;
+    console.log('Email data from client:', data);
     
-    // The actual data sent from the client is in data.data
-    const emailData = data.data || {};
-    console.log('Email data from client:', emailData);
-    console.log('Email data keys:', Object.keys(emailData));
-    
-    // Get user ID from emailData directly
-    const uid = emailData.userId || null;
+    // Get user ID from data directly
+    const uid = data.userId || null;
     console.log('User ID from params:', uid);
     
-    // Set the SendGrid API Key
+    // Set the SendGrid API Key - in v2, access secrets through process.env
     sgMail.setApiKey(process.env.SENDGRID_API_KEY);
     
     let jobsHtml = '';
@@ -113,9 +120,9 @@ Summary: ${summary}
         console.log('No user ID available, skipping job data fetch');
     }
     
-    // Original HTML and text from the request are in emailData
-    const originalHtml = emailData.html || '<p>This is an email from Foxjob.</p>';
-    const originalText = emailData.text || 'This is an email from Foxjob.';
+    // Original HTML and text from the request are in data
+    const originalHtml = data.html || '<p>This is an email from Foxjob.</p>';
+    const originalText = data.text || 'This is an email from Foxjob.';
     
     // Construct the final email content
     const finalHtml = originalHtml + jobsHtml;
@@ -125,9 +132,9 @@ Summary: ${summary}
     
     // Construct the message with jobs appended
     const msg = {
-        to: emailData.to || 'konkaiser@gmail.com',
+        to: data.to || 'konkaiser@gmail.com',
         from: 'jobs@em6330.www.foxjob.io',
-        subject: emailData.subject || 'Email from Foxjob',
+        subject: data.subject || 'Email from Foxjob',
         text: finalText,
         html: finalHtml,
     };

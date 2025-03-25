@@ -45,3 +45,4 @@ dist-ssr/
 
 # API Secrets
 api-config-secrets.json
+functions/.env*

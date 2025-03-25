@@ -17,27 +17,35 @@ export const environmentUrls = {
 // Function-specific configurations with URLs from environment variables
 export const cloudFunctions = {
     retryProcessing: {
-        path: '/retryProcessing',
-        urls: {
-            staging: import.meta.env.VITE_RETRY_PROCESSING_URL_STAGING,
-            production: import.meta.env.VITE_RETRY_PROCESSING_URL_PROD
-        }
+      path: '/retryProcessing',
+      urls: {
+        staging: import.meta.env.VITE_RETRY_PROCESSING_URL_STAGING,
+        production: import.meta.env.VITE_RETRY_PROCESSING_URL_PROD
+      }
     },
     structureResume: {
-        path: '/structureResume',
-        urls: {
-            staging: import.meta.env.VITE_STRUCTURE_RESUME_URL_STAGING,
-            production: import.meta.env.VITE_STRUCTURE_RESUME_URL_PROD
-        }
+      path: '/structureResume',
+      urls: {
+        staging: import.meta.env.VITE_STRUCTURE_RESUME_URL_STAGING,
+        production: import.meta.env.VITE_STRUCTURE_RESUME_URL_PROD
+      }
     },
     searchJobs: {
-        path: '/searchJobs',
-        urls: {
-            staging: import.meta.env.VITE_SEARCH_JOBS_URL_STAGING,
-            production: import.meta.env.VITE_SEARCH_JOBS_URL_PROD
-        }
+      path: '/searchJobs',
+      urls: {
+        staging: import.meta.env.VITE_SEARCH_JOBS_URL_STAGING,
+        production: import.meta.env.VITE_SEARCH_JOBS_URL_PROD
+      }
+    },
+    // Add this new entry for searchBright
+    searchBright: {
+      path: '/searchBright',
+      urls: {
+        staging: import.meta.env.VITE_SEARCH_BRIGHT_URL_STAGING,
+        production: import.meta.env.VITE_SEARCH_BRIGHT_URL_PROD
+      }
     }
-};
+  };
 
 /**
  * Gets the complete URL for a cloud function based on the current environment

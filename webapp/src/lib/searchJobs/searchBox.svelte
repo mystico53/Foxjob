@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { scrapeStore, isLoading, totalJobs } from '$lib/stores/scrapeStore';
   import { authStore } from '$lib/stores/authStore';
+  import { getCloudFunctionUrl, environmentUrls } from '$lib/config/environment.config';
   
   let uid;
   let scheduleSearch = false;
@@ -50,53 +51,63 @@
   let error = null;
 
   async function searchJobs() {
-    isLoading.set(true);
-    error = null;
+  isLoading.set(true);
+  error = null;
 
-    if (!keywords) {
-      error = 'Please enter keywords to search';
-      isLoading.set(false);
-      return;
-    }
-
-    try {
-      const searchPayload = [{
-        keyword: keywords.trim(),
-        location: location?.trim() || '',
-        country: 'US', // Hardcoded to US as in original code
-        time_range: datePosted || 'Any time',
-        job_type: jobType || '',
-        experience_level: experience || '',
-        remote: workplaceType || '',
-        company: ''
-      }];
-
-      const response = await fetch(
-        'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-          userId: uid,
-          searchParams: searchPayload,
-          limit: parseInt(limitPerInput) || 2,
-          schedule: scheduleSearch ? {
-            frequency: 'daily',
-            runImmediately: true
-          } : undefined
-        })
-        }
-      );
-
-      // Rest of the function remains the same...
-    } catch (err) {
-      error = err.message || 'An error occurred while searching for jobs';
-    } finally {
-      isLoading.set(false);
-    }
+  if (!keywords) {
+    error = 'Please enter keywords to search';
+    isLoading.set(false);
+    return;
   }
+
+  try {
+    const searchPayload = [{
+      keyword: keywords.trim(),
+      location: location?.trim() || '',
+      country: 'US', // Hardcoded to US as in original code
+      time_range: datePosted || 'Any time',
+      job_type: jobType || '',
+      experience_level: experience || '',
+      remote: workplaceType || '',
+      company: company?.trim() || '' // Added company from form
+    }];
+
+    // Use the environment config to determine the correct URL
+    const searchUrl = getCloudFunctionUrl('searchBright');
+    
+    // Remove baseUrl declaration since we're using getCloudFunctionUrl directly
+    const response = await fetch(searchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId: uid,
+        searchParams: searchPayload,
+        limit: parseInt(limitPerInput) || 2,
+        schedule: scheduleSearch ? {
+          frequency: 'daily',
+          runImmediately: true
+        } : undefined
+      })
+    });
+
+    // Process the response
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    scrapeStore.set(data.jobs || []);
+    totalJobs.set(data.total || 0);
+    
+  } catch (err) {
+    error = err.message || 'An error occurred while searching for jobs';
+  } finally {
+    isLoading.set(false);
+  }
+}
 </script>
 
 <div class="container mx-auto p-4">

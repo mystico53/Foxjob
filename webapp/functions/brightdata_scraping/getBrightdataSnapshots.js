@@ -1,17 +1,22 @@
 const { onRequest } = require('firebase-functions/v2/https');
 const axios = require('axios');
 const functions = require('firebase-functions');
+const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
+const secretManager = new SecretManagerServiceClient();
 
 exports.getBrightdataSnapshots = onRequest({ 
   cors: true,
   maxInstances: 10,
-  secrets: ["BRIGHTDATA_API_TOKEN"]  // Define the secret we need
+  secrets: ["BRIGHTDATA_API_TOKEN"] 
 }, async (req, res) => {
   console.log('Starting getBrightdataSnapshots function');
   console.log('Dataset ID:', req.query.datasetId);
   
   try {
-    const apiToken = process.env.BRIGHTDATA_API_TOKEN;
+    const [apiTokenVersion] = await secretManager.accessSecretVersion({
+      name: 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest'
+    });
+    const apiToken = apiTokenVersion.payload.data.toString();
 
     if (!apiToken) {
       functions.logger.error("Missing required BRIGHTDATA_API_TOKEN secret");

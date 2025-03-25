@@ -3,6 +3,9 @@ const axios = require('axios');
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const { FieldValue, Timestamp } = require("firebase-admin/firestore");
+const config = require('../config');
+const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
+const secretManager = new SecretManagerServiceClient();
 
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -13,13 +16,13 @@ const db = admin.firestore();
 const CONFIG = {
   BRIGHTDATA_DATASET_ID: 'gd_lpfll7v5hcqtkxl6l',
   BASE_URL: 'https://api.brightdata.com/datasets/v3/trigger',
-  WEBHOOK_BASE_URL: 'https://e1f9-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/handleBrightdataWebhook'
+  WEBHOOK_BASE_URL: config.webhookBaseUrl
 };
 
 exports.searchBright = onRequest({ 
   timeoutSeconds: 540,
   memory: "1GiB",
-  secrets: ["BRIGHTDATA_API_TOKEN", "WEBHOOK_SECRET"]
+  secrets: ["BRIGHTDATA_API_TOKEN", "WEBHOOK_SECRET"],
 }, async (req, res) => {
   const startTime = Date.now();  
   
@@ -85,7 +88,6 @@ exports.searchBright = onRequest({
       }
     }
 
-    // Continue with original search functionality
     const apiKey = process.env.BRIGHTDATA_API_TOKEN;
     const webhookSecret = process.env.WEBHOOK_SECRET;
 

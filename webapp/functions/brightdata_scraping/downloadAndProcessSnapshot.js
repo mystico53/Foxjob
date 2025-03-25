@@ -159,7 +159,8 @@ async function downloadSnapshot(snapshotId, authToken) {
 exports.downloadAndProcessSnapshot = onRequest({
   timeoutSeconds: 540,
   memory: '1GiB',
-  region: 'us-central1'
+  region: 'us-central1',
+  secrets: ["BRIGHTDATA_API_TOKEN"],
 }, async (req, res) => {
   await new Promise((resolve) => cors(req, res, resolve));
   try {

@@ -183,7 +183,8 @@ async function processJobsAndPublish(jobs, userId, batchId) {
 exports.handleBrightdataWebhook = onRequest({
   timeoutSeconds: 540,
   memory: '1GiB',
-  region: 'us-central1'
+  region: 'us-central1',
+  secrets: ["BRIGHTDATA_API_TOKEN", "WEBHOOK_SECRET"]
 }, async (req, res) => {
   try {
     const userId = req.query.userId || 'test_user';
@@ -252,9 +253,10 @@ exports.handleBrightdataWebhook = onRequest({
     }
     
     // Case 2: Direct job data webhook - verify auth token
-    const [webhookSecret] = await secretManager.accessSecretVersion({
+    const [webhookSecretVersion] = await secretManager.accessSecretVersion({
       name: 'projects/656035288386/secrets/WEBHOOK_SECRET/versions/latest'
-    }).then(([version]) => version.payload.data.toString());
+    });
+    const webhookSecret = webhookSecretVersion.payload.data.toString();
     
     const authHeader = req.headers.authorization;
     if (!authHeader) {

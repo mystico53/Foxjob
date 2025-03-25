@@ -9,6 +9,8 @@ initializeApp();
 // Get Firestore instance
 const db = getFirestore();
 
+const config = require('./config');
+
 // Initialize feedback collection
 async function initializeFeedbackCollection() {
     try {
@@ -78,6 +80,14 @@ const { sendEmail } = require('./brightdata_scraping/sendEmail.js');
 const { onBatchUpdate, processStaleJobBatches } = require('./brightdata_scraping/batchProcessing.js');
 const { processEmailRequests } = require('./brightdata_scraping/emailProcessor.js');
 
+
+logger.info("Application configuration loaded:", { 
+    environment: config.environment,
+    // Only log a partial URL for security
+    webhookBaseUrl: config.webhookBaseUrl 
+      ? `${config.webhookBaseUrl.substring(0, 12)}...` 
+      : 'undefined'
+  });
 
 
 // Export all Cloud Functions
