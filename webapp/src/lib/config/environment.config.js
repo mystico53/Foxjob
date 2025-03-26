@@ -44,6 +44,14 @@ export const cloudFunctions = {
         staging: import.meta.env.VITE_SEARCH_BRIGHT_URL_STAGING,
         production: import.meta.env.VITE_SEARCH_BRIGHT_URL_PROD
       }
+    },
+    downloadAndProcessSnapshot: {
+      path: '/downloadAndProcessSnapshot',
+      urls: {
+        development: 'https://c2f2-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot',
+        staging: 'https://downloadandprocesssnapshot-kvshkfhmua-uc.a.run.app',
+        production: import.meta.env.VITE_DOWNLOAD_PROCESS_SNAPSHOT_URL_PROD || null // Set production URL when ready
+      }
     }
   };
 

@@ -1,6 +1,6 @@
 // $lib/stores/scrapeStore.js
 import { writable } from 'svelte/store'
-import { collection, query, orderBy, onSnapshot } from 'firebase/firestore'
+import { collection, query, orderBy, onSnapshot, doc, setDoc } from 'firebase/firestore'
 import { db } from '$lib/firebase'  // Import db from your firebase config
 
 export const scrapeStore = writable([])
@@ -13,63 +13,86 @@ scrapeStore.subscribe(value => {
   console.log('🔄 scrapeStore updated:', value.length, 'jobs')
 })
 
+// Helper function to ensure collection exists
+async function ensureCollectionExists(userId) {
+  try {
+    // Create a placeholder document to ensure the collection exists
+    const placeholderRef = doc(db, 'users', userId);
+    await setDoc(placeholderRef, { exists: true }, { merge: true });
+    console.log('✅ Ensured user document exists:', userId);
+  } catch (error) {
+    console.error('❌ Error ensuring user document exists:', error);
+  }
+}
+
 export function initJobListener(uid) {
   console.log('🎯 1. Initializing job listener for uid:', uid);
+  isLoading.set(true);
   
-  async function setupListener(userId) {
-    const scrapedjobsRef = collection(db, 'users', userId, 'scrapedJobs');  // Using imported db
+  // Handle missing UID
+  if (!uid) {
+    console.log('⚠️ No uid provided, showing empty state');
+    scrapeStore.set([]);
+    totalJobs.set(0);
+    currentBatch.set(0);
+    isLoading.set(false);
+    return () => {};
+  }
+  
+  try {
+    console.log(`📂 Attempting to access Firestore path: users/${uid}/scrapedJobs`);
+    // Ensure user document exists
+    ensureCollectionExists(uid);
+    
+    // Setup the listener
+    const scrapedjobsRef = collection(db, 'users', uid, 'scrapedJobs');
     const q = query(scrapedjobsRef, orderBy('searchMetadata.processingDate', 'desc'));
-
+    
     return onSnapshot(q, 
       (snapshot) => {
+        // Successfully connected to Firestore
         console.log('📥 Snapshot received:', {
           empty: snapshot.empty,
           size: snapshot.size
         });
-
+        
+        // Handle empty collection case
         if (snapshot.empty) {
-          if (userId !== 'test_user') {
-            console.log('No jobs found for user, trying test_user');
-            return setupListener('test_user');
-          }
+          console.log('📭 No jobs found, showing empty state');
           scrapeStore.set([]);
+          totalJobs.set(0);
           currentBatch.set(0);
+          isLoading.set(false);
           return;
         }
 
-        const jobs = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data // Start with all data
-          };
-        });
-
-        console.log('✨ Processed jobs:', jobs);
+        // Process jobs as before
+        const jobs = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
         
+        console.log('✨ Processed jobs:', jobs.length);
         scrapeStore.set(jobs);
         totalJobs.set(jobs.length);
         currentBatch.set(jobs.length);
-        isLoading.set(false);  // Don't forget to set loading to false when done!
+        isLoading.set(false);
       },
       (error) => {
         console.error('🚨 Firestore listener error:', error);
-        if (userId !== 'test_user') {
-          console.log('Error with user, trying test_user');
-          return setupListener('test_user');
-        }
+        // Handle error by showing empty state
+        scrapeStore.set([]);
+        totalJobs.set(0);
+        currentBatch.set(0);
+        isLoading.set(false);
       }
     );
-  }
-
-  try {
-    if (!uid) {
-      console.log('No uid provided, using test_user');
-      return setupListener('test_user');
-    }
-    return setupListener(uid);
   } catch (error) {
     console.error('💥 Error setting up Firestore listener:', error);
+    scrapeStore.set([]);
+    totalJobs.set(0);
+    currentBatch.set(0);
+    isLoading.set(false);
     return () => {};
   }
 }

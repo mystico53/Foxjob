@@ -4,6 +4,7 @@ const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const sgMail = require('@sendgrid/mail');
 const { FieldValue } = require('firebase-admin/firestore');
+const { defineSecret } = require("firebase-functions/params");
 
 // Initialize if needed
 if (!admin.apps.length) {
@@ -14,10 +15,13 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
+const sendgridApiKey = defineSecret("SENDGRID_API_KEY");
+
 // Process email requests
-exports.processEmailRequests = onDocumentCreated(
-  "emailRequests/{requestId}", 
-  async (event) => {
+exports.processEmailRequests = onDocumentCreated({
+  document: "emailRequests/{requestId}",
+  secrets: [sendgridApiKey]
+}, async (event) => {
     const emailData = event.data.data();
     
     // Skip if already processed

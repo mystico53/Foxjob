@@ -1,8 +1,9 @@
 <!-- +page.svelte -->
 <script>
     import { authStore } from '$lib/stores/authStore';
+    import { getCloudFunctionUrl } from '$lib/config/environment.config.js';
     
-    let snapshotId = 's_m6pr496127ywsdwurh';
+    let snapshotId = 's_m8p2xt0l8bvwlyt6';
     let processing = false;
     let error = null;
     let result = null;
@@ -13,57 +14,66 @@
     });
 
 
-    const FUNCTION_URL = 'https://a16b-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot';
+    const FUNCTION_URL = getCloudFunctionUrl('downloadAndProcessSnapshot');
+    console.log('Using function URL:', FUNCTION_URL);
 
     async function handleDownload() {
-        if (!snapshotId.trim()) {
-            error = 'Please enter a snapshot ID';
-            return;
-        }
-
-        if (!firebaseUid) {  // Added check for firebaseUid
-            error = 'User authentication required';
-            return;
-        }
-
-        processing = true;
-        error = null;
-        result = null;
-
-        try {
-            const url = `${FUNCTION_URL}?snapshotId=${encodeURIComponent(snapshotId.trim())}&firebaseUid=${encodeURIComponent(firebaseUid)}`;
-            console.log('Fetching:', url);
-            
-            const response = await fetch(url, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'ngrok-skip-browser-warning': 'true'
-                },
-                mode: 'cors'
-            });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`Failed to process snapshot: ${response.statusText}. Response: ${text}`);
-            }
-
-            const text = await response.text();
-            try {
-                result = JSON.parse(text);
-                console.log('Success:', result);
-            } catch (e) {
-                console.error('Failed to parse response:', text);
-                throw new Error('Invalid JSON response from server');
-            }
-        } catch (e) {
-            console.error('Error:', e);
-            error = e.message;
-        } finally {
-            processing = false;
-        }
+    if (!snapshotId.trim()) {
+        error = 'Please enter a snapshot ID';
+        return;
     }
+
+    if (!firebaseUid) {  // Added check for firebaseUid
+        error = 'User authentication required';
+        return;
+    }
+
+    processing = true;
+    error = null;
+    result = null;
+
+    try {
+        const url = `${FUNCTION_URL}?snapshotId=${encodeURIComponent(snapshotId.trim())}&firebaseUid=${encodeURIComponent(firebaseUid)}`;
+        console.log('Fetching:', url);
+        
+        // Set up headers based on environment
+        const headers = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+        };
+        
+        // Only add ngrok header if the URL contains 'ngrok'
+        if (FUNCTION_URL.includes('ngrok')) {
+            headers['ngrok-skip-browser-warning'] = 'true';
+        }
+        
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers,
+            mode: 'cors'
+        });
+
+        if (!response.ok) {
+            const text = await response.text();
+            throw new Error(`Failed to process snapshot: ${response.statusText}. Response: ${text}`);
+        }
+
+        const text = await response.text();
+        try {
+            result = JSON.parse(text);
+            console.log('Success:', result);
+        } catch (e) {
+            console.error('Failed to parse response:', text);
+            throw new Error('Invalid JSON response from server');
+        }
+    } catch (e) {
+        console.error('Error:', e);
+        error = e.message;
+    } finally {
+        processing = false;
+  }
+}
+  
 </script>
   
   <div class="container p-4">
