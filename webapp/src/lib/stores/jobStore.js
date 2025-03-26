@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { db } from '$lib/firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 // Create the main stores
 const jobs = writable([]);
@@ -169,7 +169,9 @@ function createJobStore() {
         hideJob: async (userId, jobId) => {
             try {
                 const jobRef = doc(db, 'users', userId, 'scrapedJobs', jobId);
-                await updateDoc(jobRef, { 'hidden': true });
+                // Import deleteDoc at the top of the file
+                await deleteDoc(jobRef); 
+                return true; // Return success
             } catch (err) {
                 console.error('Error hiding job:', err);
                 error.set('Failed to hide job');
