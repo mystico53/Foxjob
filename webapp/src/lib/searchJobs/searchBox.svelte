@@ -3,6 +3,7 @@
   import { scrapeStore, isLoading, totalJobs } from '$lib/stores/scrapeStore';
   import { authStore } from '$lib/stores/authStore';
   import { getCloudFunctionUrl, environmentUrls } from '$lib/config/environment.config';
+  import DailySearchRoutines from '$lib/searchJobs/DailySearchRoutines.svelte';
   
   let uid;
   let scheduleSearch = false;
@@ -248,4 +249,6 @@
       {error}
     </div>
   {/if}
+
+  <DailySearchRoutines />
 </div>
