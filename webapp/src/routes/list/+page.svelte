@@ -4,6 +4,7 @@
 	import JobCountGraph from '$lib/Dashboard/JobCountGraph.svelte';
 	import OnboardingProgress from '$lib/onboarding/OnboardingProgress.svelte';
 	import JobsProcessing from '$lib/utilities/JobsProcessing.svelte';
+	import SearchBox from '$lib/searchJobs/searchBox.svelte';
 </script>
 
 <!-- Parent container -->
@@ -20,6 +21,8 @@
 			<CollectionLoader />
 		</div>
 	</div>
+
+	<SearchBox/>
 
 	<!-- Datatable below the columns -->
 	<div class="card mt-4 pt-6">

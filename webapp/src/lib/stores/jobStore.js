@@ -7,7 +7,7 @@ const jobs = writable([]);
 const loading = writable(true);
 const error = writable(null);
 const sortConfig = writable({
-    column: 'generalData.status', // Changed default sort from timestamp to status
+    column: 'AccumulatedScores.accumulatedScore', // Changed default sort from timestamp to status
     direction: 'desc'
 });
 const searchText = writable('');
