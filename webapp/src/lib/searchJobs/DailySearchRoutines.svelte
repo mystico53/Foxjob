@@ -1,7 +1,8 @@
 <script>
-    import { onMount } from 'svelte';
+    import { onMount, onDestroy } from 'svelte';
     import { authStore } from '$lib/stores/authStore';
     import { isLoading } from '$lib/stores/scrapeStore';
+    import { fade, slide } from 'svelte/transition';
     
     // User data
     let uid;
@@ -15,16 +16,22 @@
     let editNextRun = '';
     let isUpdating = false;
     
+    // Track operations in progress
+    let operationsInProgress = new Set();
+    
+    // Store unsubscribe function for cleanup
+    let unsubscribeListener = null;
+    
     // Subscribe to auth store to get current user
     authStore.subscribe(user => {
       uid = user?.uid;
       if (uid) {
-        loadScheduledSearches();
+        setupRealtimeListener();
       }
     });
     
-    // Load all scheduled searches for the current user
-    async function loadScheduledSearches() {
+    // Set up real-time listener with efficient batching
+    async function setupRealtimeListener() {
       if (!uid) return;
       
       isLoadingSearches = true;
@@ -32,60 +39,83 @@
       
       try {
         // Import Firestore from firebase
-        const { getFirestore, collection, query, where, getDocs, orderBy } = await import('firebase/firestore');
+        const { getFirestore, collection, query, where, orderBy, onSnapshot, limit } = await import('firebase/firestore');
         const db = getFirestore();
         
-        // Query the user's scheduled searches
+        // Create query for active searches with limit for performance
         const searchesRef = collection(db, 'users', uid, 'searchQueries');
         const q = query(
           searchesRef,
           where('isActive', '==', true),
-          orderBy('createdAt', 'desc')
+          orderBy('createdAt', 'desc'),
+          limit(50) // Limit for better performance
         );
         
-        const querySnapshot = await getDocs(q);
+        // Set up real-time listener with efficient handling
+        unsubscribeListener = onSnapshot(q, (querySnapshot) => {
+          // Use requestAnimationFrame to move processing off the main thread
+          requestAnimationFrame(() => {
+            // Format the results
+            scheduledSearches = querySnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data(),
+              createdAt: doc.data().createdAt?.toDate() || new Date(),
+              lastRun: doc.data().lastRun?.toDate() || null,
+              nextRun: doc.data().nextRun?.toDate() || null
+            }));
+            
+            isLoadingSearches = false;
+          });
+        }, (err) => {
+          console.error('Error in Firestore listener:', err);
+          error = 'Failed to get real-time updates. Please refresh the page.';
+          isLoadingSearches = false;
+        });
         
-        // Format the results
-        scheduledSearches = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          createdAt: doc.data().createdAt?.toDate() || new Date(),
-          lastRun: doc.data().lastRun?.toDate() || null,
-          nextRun: doc.data().nextRun?.toDate() || null
-        }));
       } catch (err) {
-        console.error('Error loading scheduled searches:', err);
+        console.error('Error setting up real-time listener:', err);
         error = 'Failed to load your scheduled searches. Please try again later.';
-      } finally {
         isLoadingSearches = false;
       }
     }
     
-    // Delete a scheduled search
+    // Optimized delete operation with operation tracking
     async function deleteSearch(searchId) {
-      if (!uid || !searchId) return;
+      if (!uid || !searchId || operationsInProgress.has(`delete-${searchId}`)) return;
       
       if (!confirm('Are you sure you want to delete this scheduled search?')) {
         return;
       }
       
+      // Mark operation as in progress
+      operationsInProgress.add(`delete-${searchId}`);
+      
+      // Optimistic UI update - no need to wait for server
+      scheduledSearches = scheduledSearches.filter(search => search.id !== searchId);
+      
       try {
         const { getFirestore, doc, deleteDoc } = await import('firebase/firestore');
         const db = getFirestore();
         
+        // Run the delete operation
         await deleteDoc(doc(db, 'users', uid, 'searchQueries', searchId));
-        
-        // Remove from local array
-        scheduledSearches = scheduledSearches.filter(search => search.id !== searchId);
         
       } catch (err) {
         console.error('Error deleting search:', err);
         error = 'Failed to delete the search. Please try again.';
+        
+        // Restore the item if deletion failed
+        setupRealtimeListener();
+      } finally {
+        // Remove operation from tracking
+        operationsInProgress.delete(`delete-${searchId}`);
       }
     }
     
     // Start editing a search
     function startEdit(search) {
+      if (operationsInProgress.has(`edit-${search.id}`)) return;
+      
       editingSearch = search;
       editFrequency = search.frequency;
       
@@ -105,48 +135,67 @@
       editingSearch = null;
     }
     
-    // Save changes to a search
+    // Save changes to a search - optimized with debounce
     async function saveChanges() {
-      if (!uid || !editingSearch) return;
+      if (!uid || !editingSearch || isUpdating) return;
+      
+      const searchId = editingSearch.id;
+      if (operationsInProgress.has(`save-${searchId}`)) return;
       
       isUpdating = true;
+      operationsInProgress.add(`save-${searchId}`);
+      
+      // Update local state immediately (optimistic update)
+      const oldNextRun = editingSearch.nextRun;
+      const oldFrequency = editingSearch.frequency;
+      const nextRunDate = new Date(editNextRun);
+      
+      // Clone and update the local data first for a responsive UI
+      scheduledSearches = scheduledSearches.map(search => {
+        if (search.id === searchId) {
+          return {
+            ...search,
+            frequency: editFrequency,
+            nextRun: nextRunDate
+          };
+        }
+        return search;
+      });
+      
+      // Close the edit form
+      editingSearch = null;
       
       try {
         const { getFirestore, doc, updateDoc, Timestamp } = await import('firebase/firestore');
         const db = getFirestore();
         
-        // Parse the next run date
-        const nextRunDate = new Date(editNextRun);
-        
         // Update the document
         await updateDoc(
-          doc(db, 'users', uid, 'searchQueries', editingSearch.id), 
+          doc(db, 'users', uid, 'searchQueries', searchId), 
           {
             frequency: editFrequency,
             nextRun: Timestamp.fromDate(nextRunDate)
           }
         );
         
-        // Update local data
+      } catch (err) {
+        console.error('Error updating search:', err);
+        error = 'Failed to update the search. Please try again.';
+        
+        // Revert the optimistic update if there was an error
         scheduledSearches = scheduledSearches.map(search => {
-          if (search.id === editingSearch.id) {
+          if (search.id === searchId) {
             return {
               ...search,
-              frequency: editFrequency,
-              nextRun: nextRunDate
+              frequency: oldFrequency,
+              nextRun: oldNextRun
             };
           }
           return search;
         });
-        
-        // Close the edit form
-        editingSearch = null;
-        
-      } catch (err) {
-        console.error('Error updating search:', err);
-        error = 'Failed to update the search. Please try again.';
       } finally {
         isUpdating = false;
+        operationsInProgress.delete(`save-${searchId}`);
       }
     }
     
@@ -175,7 +224,14 @@
     
     onMount(() => {
       if (uid) {
-        loadScheduledSearches();
+        setupRealtimeListener();
+      }
+    });
+    
+    onDestroy(() => {
+      // Clean up the listener when component is destroyed
+      if (unsubscribeListener) {
+        unsubscribeListener();
       }
     });
   </script>
@@ -185,29 +241,32 @@
     
     <!-- Search status message -->
     {#if $isLoading}
-      <div class="alert variant-filled-primary mb-4">
-        <span>Searching... We'll email you when results are ready.</span>
+      <div class="alert variant-filled-primary mb-4" transition:fade={{duration: 200}}>
+        <span>Searching... We'll notify you when results are ready.</span>
       </div>
     {/if}
     
     <!-- Loading state for scheduled searches -->
     {#if isLoadingSearches}
-      <div class="flex justify-center py-8">
+      <div class="flex justify-center py-8" transition:fade={{duration: 200}}>
         <div class="loading loading-spinner loading-lg"></div>
       </div>
     {:else if error}
-      <div class="alert variant-filled-error mb-4">
-        {error}
+      <div class="alert variant-filled-error mb-4" transition:fade={{duration: 200}}>
+        <span>{error}</span>
+        <button class="btn btn-sm variant-filled" on:click={() => { error = null; setupRealtimeListener(); }}>
+          Try Again
+        </button>
       </div>
     {:else if scheduledSearches.length === 0}
-      <div class="alert variant-filled-surface mb-4">
+      <div class="alert variant-filled-surface mb-4" transition:fade={{duration: 200}}>
         <span>You don't have any scheduled searches yet. Toggle "Automatically run this search daily" when searching to create one.</span>
       </div>
     {:else}
       <!-- Scheduled searches list -->
       <div class="grid gap-4">
         {#each scheduledSearches as search (search.id)}
-          <div class="card p-4 variant-filled-surface">
+          <div class="card p-4 variant-filled-surface" transition:slide={{duration: 300}}>
             {#if editingSearch && editingSearch.id === search.id}
               <!-- Edit form -->
               <form on:submit|preventDefault={saveChanges} class="space-y-4">
@@ -249,16 +308,16 @@
                     type="button" 
                     class="btn variant-filled-surface" 
                     on:click={cancelEdit}
-                    disabled={isUpdating}
+                    disabled={isUpdating || operationsInProgress.has(`save-${search.id}`)}
                   >
                     Cancel
                   </button>
                   <button 
                     type="submit" 
                     class="btn variant-filled-primary" 
-                    disabled={isUpdating}
+                    disabled={isUpdating || operationsInProgress.has(`save-${search.id}`)}
                   >
-                    {isUpdating ? 'Saving...' : 'Save Changes'}
+                    {isUpdating || operationsInProgress.has(`save-${search.id}`) ? 'Saving...' : 'Save Changes'}
                   </button>
                 </div>
               </form>
@@ -277,14 +336,16 @@
                     <button 
                       class="btn btn-sm variant-filled-secondary"
                       on:click={() => startEdit(search)}
+                      disabled={operationsInProgress.has(`edit-${search.id}`) || operationsInProgress.has(`delete-${search.id}`)}
                     >
                       Edit
                     </button>
                     <button 
                       class="btn btn-sm variant-filled-error"
                       on:click={() => deleteSearch(search.id)}
+                      disabled={operationsInProgress.has(`delete-${search.id}`)}
                     >
-                      Delete
+                      {operationsInProgress.has(`delete-${search.id}`) ? 'Deleting...' : 'Delete'}
                     </button>
                   </div>
                 </div>
