@@ -14,9 +14,10 @@ const db = admin.firestore();
 // Configuration
 const CONFIG = {
   // Use the deployed URL in production
-  SEARCH_FUNCTION_URL: 'https://us-central1-jobille-45494.cloudfunctions.net/searchBright',
+  //SEARCH_FUNCTION_URL: 'https://us-central1-jobille-45494.cloudfunctions.net/searchBright',
   // For local testing, uncomment this:
-  // SEARCH_FUNCTION_URL: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright'
+  SEARCH_FUNCTION_URL: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright'
+  //SEARCH_FUNCTION_URL: 'https://bb95-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/searchBright'
 };
 
 // The core logic function - independent of the trigger
@@ -25,7 +26,7 @@ async function processScheduledSearches() {
     logger.info('Starting scheduled search run');
     
     // Calculate current time
-    const now = admin.firestore.Timestamp.now();
+    const now = Timestamp.now();
     
     // Query for searches due to run
     const searchesSnapshot = await db.collectionGroup('searchQueries')
@@ -129,8 +130,8 @@ async function processScheduledSearches() {
 }
 
 // The scheduled function just calls the core logic
-exports.testRunScheduledSearches = onSchedule({
-  schedule: 'every day 03:00',
+exports.runScheduledSearches = onSchedule({
+  schedule: 'every 1 minutes',
   timeZone: 'America/New_York',
   memory: '512MiB'
 }, async (event) => {
