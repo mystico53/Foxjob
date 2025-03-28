@@ -14,9 +14,9 @@ const db = admin.firestore();
 // Configuration
 const CONFIG = {
   // Use the deployed URL in production
-  //SEARCH_FUNCTION_URL: 'https://us-central1-jobille-45494.cloudfunctions.net/searchBright',
+  SEARCH_FUNCTION_URL: 'https://searchbright-kvshkfhmua-uc.a.run.app'
   // For local testing, uncomment this:
-  SEARCH_FUNCTION_URL: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright'
+  //SEARCH_FUNCTION_URL: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright'
   //SEARCH_FUNCTION_URL: 'https://bb95-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/searchBright'
 };
 
@@ -62,14 +62,45 @@ async function processScheduledSearches() {
         logger.info(`Processing scheduled search for user ${userId}`, { 
           searchId: searchDoc.id 
         });
+
+        // Parse searchParams to ensure it's an array
+        const searchParamsArray = typeof searchData.searchParams === 'string' 
+          ? JSON.parse(searchData.searchParams) 
+          : searchData.searchParams;
         
-        // Call the searchBright function with the saved search parameters
+        // Clean up empty strings from searchParams
+        if (searchParamsArray && searchParamsArray.length > 0) {
+          Object.keys(searchParamsArray[0]).forEach(key => {
+            if (searchParamsArray[0][key] === "") {
+              delete searchParamsArray[0][key]; // Remove empty string fields
+            }
+          });
+          
+          // Normalize time_range
+          if (searchParamsArray[0].time_range === "Any time") {
+            searchParamsArray[0].time_range = "Past 24 hours";
+          }
+        }
+        
+        logger.info(`Cleaned search parameters for BrightData:`, { 
+          userId,
+          searchParams: JSON.stringify(searchParamsArray),
+          limit: searchData.limit,
+          searchId: searchDoc.id
+        });
+        
+        // Call the searchBright function with the cleaned search parameters
         const response = await axios.post(CONFIG.SEARCH_FUNCTION_URL, {
           userId,
-          searchParams: searchData.searchParams,
+          searchParams: searchParamsArray, // Use the cleaned array
           limit: searchData.limit,
           schedule: {
-            searchId: searchDoc.id
+            searchId: searchDoc.id,
+            frequency: searchData.frequency
+          }
+        }, {
+          headers: {
+            'Content-Type': 'application/json'
           }
         });
         
@@ -94,6 +125,15 @@ async function processScheduledSearches() {
         results.successful++;
         
       } catch (error) {
+        // Enhanced error logging
+        logger.error(`Detailed API error:`, {
+          searchId: searchDoc.id,
+          errorMessage: error.message,
+          responseStatus: error.response?.status,
+          responseData: error.response?.data,
+          requestURL: CONFIG.SEARCH_FUNCTION_URL
+        });
+        
         logger.error(`Error executing scheduled search for user ${userId}`, {
           searchId: searchDoc.id,
           error: error.message
@@ -131,7 +171,7 @@ async function processScheduledSearches() {
 
 // The scheduled function just calls the core logic
 exports.runScheduledSearches = onSchedule({
-  schedule: 'every 1 minutes',
+  schedule: 'every 2 minutes',
   timeZone: 'America/New_York',
   memory: '512MiB'
 }, async (event) => {

@@ -28,6 +28,19 @@ exports.searchBright = onRequest({
   memory: "1GiB",
   secrets: ["BRIGHTDATA_API_TOKEN", "WEBHOOK_SECRET"],
 }, async (req, res) => {
+  console.log("ENTRY_POINT_DEBUG - searchBright request received:", {
+    method: req.method,
+    hasBody: !!req.body,
+    isScheduled: req.body?.schedule ? true : false
+  });
+  
+  console.log("ENTRY_LOG - searchBright function entry point", {
+    method: req.method,
+    contentType: req.headers['content-type'],
+    bodySize: req.body ? JSON.stringify(req.body).length : 0,
+    isScheduled: req.body && req.body.schedule ? "YES" : "NO"
+  });
+  
   // Wrap the entire function with CORS middleware
   return cors(req, res, async () => {
     const startTime = Date.now();  
@@ -104,6 +117,8 @@ exports.searchBright = onRequest({
 
       // Get first search param
       const search = searchParams[0];
+
+      
       
       const requestData = {
         keyword: `"${search.keyword}"`,
@@ -112,14 +127,26 @@ exports.searchBright = onRequest({
         time_range: search.time_range,
         job_type: search.job_type || undefined,
         experience_level: search.experience_level || undefined,
-        remote: search.remote || undefined,
-        company: search.company || undefined
+        remote: search.remote && search.remote !== "" ? search.remote : undefined,
+        company: search.company && search.company !== "" ? search.company : undefined,
       };
 
+      console.log("DETAILED_DEBUG - Search origin:", 
+        schedule ? "SCHEDULED" : "MANUAL", 
+        "Full request data:", JSON.stringify({
+          userId,
+          searchParams,
+          requestData, // The cleaned data for BrightData
+          limit
+        }, null, 2)
+      );
+
+      
       // Remove empty fields
       Object.keys(requestData).forEach(key => 
         requestData[key] === undefined && delete requestData[key]
       );
+      console.log("Full request to BrightData:", JSON.stringify(requestData));
 
       const webhookUrl = `${CONFIG.WEBHOOK_BASE_URL}?userId=${encodeURIComponent(userId)}`;
 
