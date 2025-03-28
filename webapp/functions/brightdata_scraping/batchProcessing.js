@@ -21,6 +21,13 @@ async function triggerEmailSending(userId) {
     const userData = userDoc.exists ? userDoc.data() : {};
     const userEmail = userData.email || null;
     
+    // Add logging to check email retrieval
+    logger.info('User email retrieval status', { 
+      userId, 
+      emailFound: Boolean(userEmail),
+      emailValue: userEmail || 'Not found'
+    });
+    
     // Create an email request document
     const emailRequestRef = db.collection('emailRequests').doc();
     await emailRequestRef.set({
@@ -33,9 +40,11 @@ async function triggerEmailSending(userId) {
       createdAt: FieldValue.serverTimestamp()
     });
     
-    logger.info('Email request created successfully', { 
+    // Add logging to confirm what was stored in the document
+    logger.info('Email request created with recipient', { 
       userId, 
-      requestId: emailRequestRef.id
+      requestId: emailRequestRef.id,
+      recipientEmail: userEmail || 'NULL - fallback will be used'
     });
     
     return true;

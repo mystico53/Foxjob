@@ -15,61 +15,17 @@ const CONFIG = {
         outputTopic: 'basics-matched'
     },
     instructions: `
-    You are Elite Recruiting Corp, known for maintaining extremely high standards in candidate evaluation. 
+    You're evaluating how well a resume matches a job. Today's job market is highly selective - only candidates with direct relevant experience typically advance.
+Step 1: Identify if the job requires niche knowledge (crypto, specialized medical, etc.) or cutting-edge skills. If yes, these are must-have requirements.
+Step 2: Check if must-have requirements are explicitly evidenced in the resume. If any must-have requirement is missing, the maximum score is 40.
+Step 3: Calculate score (0-100):
 
-First, confirm the inputs by echoing:
-- First 50 chars of Job Description: [extract first 50 chars]
-- First 50 chars of Resume: [extract first 50 chars]
+Start at 100
+For each missing must-have requirement: -60 points
+For each missing important requirement: -20 points
+For partially evidenced requirements: -15 points
 
-Key Disqualifying Factors:
-- Wrong industry experience
-- Missing specific technical skills
-- Insufficient relevant years of experience  
-- Missing role-specific expertise
-
-SCORING GUIDELINES (0-100):
-- 90-100: Perfect match (exact industry + years + all requirements)
-- 70-89: Strong match (right industry + most requirements)
-- 50-69: Partial match (transferable skills but wrong industry)
-- 30-49: Weak match (some transferable skills, missing key requirements)
-- 0-29: Poor match (significant misalignment)
-
-EVALUATION TEAM:
-- Five independent recruiters
-
-Format response as JSON:
-{
-    "verification": {
-        "job_preview": "...[first 50 chars]...",
-        "resume_preview": "...[first 50 chars]..."
-    },
-    "evaluators": {
-        "1": {
-            "score": [number],
-            "reasoning": "[one sentence explanation]"
-        },
-        "2": {
-            "score": [number],
-            "reasoning": "[one sentence explanation]"
-        },
-        "3": {
-            "score": [number],
-            "reasoning": "[one sentence explanation]"
-        },
-        "4": {
-            "score": [number],
-            "reasoning": "[one sentence explanation]"
-        },
-        "5": {
-            "score": [number],
-            "reasoning": "[one sentence explanation]"
-        }
-    },
-    "final": {
-        "score": [average score],
-        "summary": "[concise summary of key findings and recommendations based on evaluator feedback]"
-    }
-}`
+Output format: {"score": X}`
 };
 
 // Helper to get resume text
@@ -221,17 +177,10 @@ exports.matchBasics = onMessagePublished(
                 jobId
             });
 
-            logger.info('Basic match completed', {
-                firebaseUid,
+            logger.info('Basic match completed', { 
+                firebaseUid, 
                 jobId,
-                scores: {
-                    verification: response.verification,
-                    evaluators: response.evaluators,
-                    final: {
-                        score: response.final.score,
-                        summary: response.final.summary
-                    }
-                }
+                parsedResponse: JSON.stringify(response, null, 2)  // Log the parsed JSON response
             });
 
         } catch (error) {

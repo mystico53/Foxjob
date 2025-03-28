@@ -138,6 +138,12 @@ Summary: ${summary}
     
     console.log('Email content prepared. Jobs data added:', jobsHtml.length > 0 ? 'Yes' : 'No');
     
+    console.log('Email recipient details:', {
+        providedTo: data.to, 
+        fallbackUsed: !data.to,
+        finalRecipient: data.to || 'konkaiser@gmail.com'
+      });
+
     // Construct the message with jobs appended
     const msg = {
         to: data.to || 'konkaiser@gmail.com',
