@@ -14,6 +14,7 @@ const CONFIG = {
     topics: {
         outputTopic: 'basics-matched'
     },
+    minScoreThreshold: 10,
     instructions: `
    You are an AI assistant performing resume screening. Your goal is to calculate a single, precise match score (0-100) indicating how well a candidate's resume aligns with a given job description (JD), focusing strictly on the most crucial requirements.
 
@@ -274,17 +275,27 @@ exports.matchBasics = onMessagePublished(
                 }
             }
 
-            // Publish next message
-            await publishMessage(CONFIG.topics.outputTopic, {
-                firebaseUid,
-                jobId
-            });
-
-            logger.info('Basic match completed', { 
-                firebaseUid, 
-                jobId,
-                parsedResponse: JSON.stringify(response, null, 2)  // Log the parsed JSON response
-            });
+            if (response.final_score > CONFIG.minScoreThreshold) {
+                // Publish next message only if score meets threshold
+                await publishMessage(CONFIG.topics.outputTopic, {
+                    firebaseUid,
+                    jobId,
+                    batchId // Include batchId if it exists
+                });
+                
+                logger.info('Basic match completed and forwarded to summary', { 
+                    firebaseUid, 
+                    jobId,
+                    finalScore: response.final_score
+                });
+            } else {
+                logger.info('Basic match completed but score below threshold', { 
+                    firebaseUid, 
+                    jobId,
+                    finalScore: response.final_score,
+                    threshold: CONFIG.minScoreThreshold
+                });
+            }
 
         } catch (error) {
             logger.error('Match processing failed:', error);
