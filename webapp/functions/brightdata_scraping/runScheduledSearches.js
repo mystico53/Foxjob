@@ -17,7 +17,7 @@ const CONFIG = {
   SEARCH_FUNCTION_URL: 'https://searchbright-kvshkfhmua-uc.a.run.app'
   // For local testing, uncomment this:
   //SEARCH_FUNCTION_URL: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright'
-  //SEARCH_FUNCTION_URL: 'https://38ab-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/searchBright'
+  //SEARCH_FUNCTION_URL: 'https://d8bd-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/searchBright'
 };
 
 // The core logic function - independent of the trigger
@@ -28,10 +28,11 @@ async function processScheduledSearches() {
     // Calculate current time
     const now = Timestamp.now();
     
-    // Query for searches due to run
+    // Query for searches due to run that are not currently processing
     const searchesSnapshot = await db.collectionGroup('searchQueries')
       .where('isActive', '==', true)
       .where('nextRun', '<=', now)
+      .where('processingStatus', '==', 'idle')  // Only select idle searches
       .get();
     
     if (searchesSnapshot.empty) {
@@ -52,13 +53,37 @@ async function processScheduledSearches() {
     const promises = searchesSnapshot.docs.map(async (searchDoc) => {
       const searchData = searchDoc.data();
       const userId = searchDoc.ref.path.split('/')[1]; // Extract userId from path
+      const searchId = searchDoc.id;
       const searchDetail = {
         userId,
-        searchId: searchDoc.id,
+        searchId,
         status: 'pending'
       };
       
       try {
+        // First, mark this search as processing using a transaction to avoid race conditions
+        await db.runTransaction(async (transaction) => {
+          // Get a fresh snapshot of the document
+          const freshDoc = await transaction.get(searchDoc.ref);
+          
+          if (!freshDoc.exists) {
+            throw new Error('Search document no longer exists');
+          }
+          
+          const freshData = freshDoc.data();
+          
+          // Check if someone else has already started processing
+          if (freshData.processingStatus !== 'idle') {
+            throw new Error('Search is already being processed');
+          }
+          
+          // Mark as processing
+          transaction.update(searchDoc.ref, {
+            processingStatus: 'processing',
+            processingStartedAt: FieldValue.serverTimestamp()
+          });
+        });
+        
         logger.info(`Processing scheduled search for user ${userId}`, { 
           searchId: searchDoc.id 
         });
@@ -86,7 +111,7 @@ async function processScheduledSearches() {
           userId,
           searchParams: JSON.stringify(searchParamsArray),
           limit: searchData.limit,
-          searchId: searchDoc.id
+          searchId
         });
         
         // Call the searchBright function with the cleaned search parameters
@@ -95,7 +120,7 @@ async function processScheduledSearches() {
           searchParams: searchParamsArray, // Use the cleaned array
           limit: searchData.limit,
           schedule: {
-            searchId: searchDoc.id,
+            searchId,
             frequency: searchData.frequency
           }
         }, {
@@ -107,16 +132,17 @@ async function processScheduledSearches() {
         // Calculate next run time based on frequency
         const nextRun = calculateNextRunTime(searchData.frequency);
         
-        // Update the search document with next run time
+        // Update the search document with next run time and reset processing status
         await searchDoc.ref.update({
           lastRun: FieldValue.serverTimestamp(),
           lastRunStatus: 'success',
-          lastRunResult: response.data,
-          nextRun
+          nextRun,
+          processingStatus: 'idle',
+          processingCompletedAt: FieldValue.serverTimestamp()
         });
         
         logger.info(`Successfully triggered scheduled search for user ${userId}`, {
-          searchId: searchDoc.id,
+          searchId,
           nextRun
         });
         
@@ -127,7 +153,7 @@ async function processScheduledSearches() {
       } catch (error) {
         // Enhanced error logging
         logger.error(`Detailed API error:`, {
-          searchId: searchDoc.id,
+          searchId,
           errorMessage: error.message,
           responseStatus: error.response?.status,
           responseData: error.response?.data,
@@ -135,15 +161,17 @@ async function processScheduledSearches() {
         });
         
         logger.error(`Error executing scheduled search for user ${userId}`, {
-          searchId: searchDoc.id,
+          searchId,
           error: error.message
         });
         
-        // Update document with error information
+        // Update document with error information and reset processing status
         await searchDoc.ref.update({
           lastRun: FieldValue.serverTimestamp(),
           lastRunStatus: 'error',
           lastRunError: error.message,
+          processingStatus: 'idle',
+          processingCompletedAt: FieldValue.serverTimestamp(),
           nextRun: calculateNextRunTime(searchData.frequency) // Still set next run
         });
         

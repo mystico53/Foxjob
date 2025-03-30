@@ -6,6 +6,7 @@ const { FieldValue, Timestamp } = require("firebase-admin/firestore");
 const config = require('../config');
 const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const secretManager = new SecretManagerServiceClient();
+const crypto = require('crypto');
 
 if (!admin.apps.length) {
     admin.initializeApp();
@@ -22,6 +23,13 @@ const CONFIG = {
   BASE_URL: 'https://api.brightdata.com/datasets/v3/trigger',
   WEBHOOK_BASE_URL: config.webhookBaseUrl
 };
+
+// Generate a deterministic ID based on search parameters
+function generateSearchId(userId, searchParams) {
+  const searchKey = JSON.stringify(searchParams);
+  const hash = crypto.createHash('md5').update(userId + searchKey).digest('hex');
+  return hash.substring(0, 20); // Trim to reasonable length
+}
 
 exports.searchBright = onRequest({ 
   timeoutSeconds: 540,
@@ -53,6 +61,9 @@ exports.searchBright = onRequest({
         return res.status(400).json({ error: "userId and searchParams are required" });
       }
 
+      // Generate a deterministic document ID based on search parameters
+      let searchId;
+      
       // Process scheduling if requested
       if (schedule) {
         const { frequency, isActive } = schedule;
@@ -62,34 +73,61 @@ exports.searchBright = onRequest({
         }
         
         try {
-          // Save search configuration to Firestore
+          // Use provided searchId or generate a deterministic one
+          searchId = schedule.searchId || generateSearchId(userId, searchParams);
+          
+          // Reference to the search document
           const searchRef = db.collection('users')
             .doc(userId)
             .collection('searchQueries')
-            .doc();
+            .doc(searchId);
           
-          await searchRef.set({
-            searchParams,
-            limit: limit || 100,
-            frequency,
-            isActive: isActive ?? true,
-            createdAt: FieldValue.serverTimestamp(),
-            lastRun: null,
-            nextRun: calculateNextRunTime(frequency)
-          });
+          // Check if document exists
+          const docSnapshot = await searchRef.get();
           
-          functions.logger.info("Saved scheduled search", { 
-            userId, 
-            searchId: searchRef.id,
-            frequency
-          });
+          if (docSnapshot.exists) {
+            // Update existing document instead of creating a new one
+            await searchRef.update({
+              searchParams,
+              limit: limit || 100,
+              frequency,
+              isActive: isActive ?? true,
+              updatedAt: FieldValue.serverTimestamp(),
+              nextRun: calculateNextRunTime(frequency)
+            });
+            
+            functions.logger.info("Updated existing scheduled search", { 
+              userId, 
+              searchId: searchRef.id,
+              frequency
+            });
+          } else {
+            // Create new document with the deterministic ID
+            await searchRef.set({
+              searchParams,
+              limit: limit || 100,
+              frequency,
+              isActive: isActive ?? true,
+              createdAt: FieldValue.serverTimestamp(),
+              lastRun: null,
+              nextRun: calculateNextRunTime(frequency),
+              // Add a processingStatus field to prevent duplicate runs
+              processingStatus: 'idle'
+            });
+            
+            functions.logger.info("Created new scheduled search", { 
+              userId, 
+              searchId: searchRef.id,
+              frequency
+            });
+          }
           
           // If the user doesn't want to run the search immediately, return success
           if (schedule.runImmediately === false) {
             return res.json({
               status: 'success',
               message: 'Scheduled search saved successfully',
-              searchId: searchRef.id
+              searchId: searchId
             });
           }
           // Otherwise, continue with executing the search
@@ -117,8 +155,6 @@ exports.searchBright = onRequest({
 
       // Get first search param
       const search = searchParams[0];
-
-      
       
       const requestData = {
         keyword: `"${search.keyword}"`,
@@ -140,7 +176,6 @@ exports.searchBright = onRequest({
           limit
         }, null, 2)
       );
-
       
       // Remove empty fields
       Object.keys(requestData).forEach(key => 
@@ -198,23 +233,24 @@ exports.searchBright = onRequest({
         webhookUrl: webhookUrl.replace(webhookSecret, '****')
       });
 
-      // If this was a scheduled search, update the lastRun timestamp
-      if (schedule && schedule.searchId) {
+      // If this was a scheduled search, update the document (only update, not set status - leave that to the scheduler)
+      if (schedule) {
         try {
-          await db.collection('users')
+          // Use the searchId we determined earlier
+          const docRef = db.collection('users')
             .doc(userId)
             .collection('searchQueries')
-            .doc(schedule.searchId)
-            .update({
-              lastRun: FieldValue.serverTimestamp(),
-              lastRunStatus: 'success',
-              lastRunResult: response.data
-            });
+            .doc(searchId);
+          
+          // Only update search result, not status or processing fields
+          await docRef.update({
+            lastRunResult: response.data
+          });
         } catch (updateError) {
-          functions.logger.error("Failed to update scheduled search status", { 
+          functions.logger.error("Failed to update scheduled search result", { 
             error: updateError.message, 
             userId, 
-            searchId: schedule.searchId 
+            searchId 
           });
           // Don't fail the whole function for this update error
         }
