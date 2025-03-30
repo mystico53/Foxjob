@@ -112,9 +112,14 @@ function createJobStore() {
                                     hidden: false
                                     // Removed timestamp completely
                                 },
+                                // Preserve the original match data structure completely
+                                match: jobDataRaw.match || {},
+                                // For backward compatibility
                                 Score: {
-                                    totalScore: jobDataRaw.match?.finalScore || 0,
-                                    summary: jobDataRaw.match?.summary || 'No summary available'
+                                    totalScore: jobDataRaw.match?.final_score || 0,
+                                    summary: typeof jobDataRaw.match?.summary === 'string' 
+                                        ? jobDataRaw.match.summary 
+                                        : 'No summary available'
                                 },
                                 matchResult: {
                                     keySkills: jobDataRaw.match?.evaluators ? 
@@ -123,8 +128,10 @@ function createJobStore() {
                                             score: evaluator.score || 0,
                                             assessment: evaluator.reasoning || 'No assessment'
                                         })) : [],
-                                    totalScore: jobDataRaw.match?.finalScore || 0,
-                                    summary: jobDataRaw.match?.summary || 'No summary available'
+                                    totalScore: jobDataRaw.match?.final_score || 0,
+                                    summary: typeof jobDataRaw.match?.summary === 'string'
+                                        ? jobDataRaw.match.summary
+                                        : (jobDataRaw.match?.summary?.short_description || 'No summary available')
                                 },
                                 SkillAssessment: {
                                     DomainExpertise: {},
@@ -133,7 +140,7 @@ function createJobStore() {
                                 },
                                 verdict: null,
                                 AccumulatedScores: {
-                                    accumulatedScore: jobDataRaw.match?.finalScore || 0
+                                    accumulatedScore: jobDataRaw.match?.final_score || 0
                                 }
                             };
                         });

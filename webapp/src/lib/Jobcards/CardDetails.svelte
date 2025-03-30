@@ -1,9 +1,8 @@
 <script>
-	import { ProgressRadial } from '@skeletonlabs/skeleton';
+	import { ProgressRadial, Accordion, AccordionItem, ProgressBar } from '@skeletonlabs/skeleton';
 	import { fade } from 'svelte/transition';
 	import { auth } from '$lib/firebase';
 	import { jobStore } from '$lib/stores/jobStore';
-	import { Accordion, AccordionItem } from '@skeletonlabs/skeleton';
 	import { popup } from '@skeletonlabs/skeleton';
 	import { onMount, onDestroy } from 'svelte';
 	import FeedbackButtons from '$lib/admincomponents/FeedbackThumbs.svelte';
@@ -20,8 +19,11 @@
 	export let isLastJob;
 	export let toggleBookmark;
 	export let openJobLink;
-	let showAnalysis = false;
+	let showJobDescription = false;
 	let processingJobs = new Set();
+
+	// Sort match details by score (highest first)
+	$: matchDetails = (job.match?.match_details || []).sort((a, b) => b.match_score_percent - a.match_score_percent);
 
 	const popupHover = {
 		event: 'hover',
@@ -30,8 +32,13 @@
 		duration: 200
 	};
 
-	$: score = job?.AccumulatedScores?.accumulatedScore;
+	$: score = job?.match?.final_score || job?.AccumulatedScores?.accumulatedScore;
 	$: isVisible = score !== undefined;
+
+	// Access the new summary fields
+	$: shortDescription = job?.match?.summary?.short_description || 'No job description available';
+	$: shortResponsibility = job?.match?.summary?.short_responsibility || 'No responsibility information available';
+	$: shortGaps = job?.match?.summary?.short_gaps || 'No gaps information available';
 
 	let popupInstance;
 
@@ -58,7 +65,6 @@
 		currentStatus = job.generalData.status.toLowerCase();
 	}
 
-	// Updated formatDate function to handle ISO date strings
 	function formatDate(dateValue) {
 		// Handle Firebase Timestamp objects (for backward compatibility)
 		if (dateValue && dateValue.toDate) {
@@ -131,70 +137,70 @@
 	}
 
 	async function handleRetry(jobId) {
-    if (!auth.currentUser || processingJobs.has(jobId)) return;
+		if (!auth.currentUser || processingJobs.has(jobId)) return;
 
-    processingJobs = new Set(processingJobs).add(jobId);
-    const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
+		processingJobs = new Set(processingJobs).add(jobId);
+		const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
 
-    try {
-        await updateDoc(jobRef, {
-            'generalData.processingStatus': 'retrying'
-        });
+		try {
+			await updateDoc(jobRef, {
+				'generalData.processingStatus': 'retrying'
+			});
 
-        const retryUrl = getCloudFunctionUrl('retryProcessing');
-        const response = await fetch(retryUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                jobId: jobId,
-                userId: auth.currentUser.uid
-            })
-        });
+			const retryUrl = getCloudFunctionUrl('retryProcessing');
+			const response = await fetch(retryUrl, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({
+					jobId: jobId,
+					userId: auth.currentUser.uid
+				})
+			});
 
-        const data = await response.json();
-        
-        if (!response.ok) {
-            throw new Error(data.message || data.error || 'Failed to retry processing');
-        }
+			const data = await response.json();
+			
+			if (!response.ok) {
+				throw new Error(data.message || data.error || 'Failed to retry processing');
+			}
 
-        let attempts = 0;
-        const maxAttempts = 90;
-        
-        const checkStatus = async () => {
-            const docSnap = await getDoc(jobRef);
-            const status = docSnap.data()?.generalData?.processingStatus;
+			let attempts = 0;
+			const maxAttempts = 90;
+			
+			const checkStatus = async () => {
+				const docSnap = await getDoc(jobRef);
+				const status = docSnap.data()?.generalData?.processingStatus;
 
-            if (status === 'completed' || status === 'processed') {
-                return true;
-            }
-            
-            if (status === 'cancelled' || status === 'error') {
-                return false;
-            }
+				if (status === 'completed' || status === 'processed') {
+					return true;
+				}
+				
+				if (status === 'cancelled' || status === 'error') {
+					return false;
+				}
 
-            if (attempts >= maxAttempts) {
-                return false;
-            }
+				if (attempts >= maxAttempts) {
+					return false;
+				}
 
-            attempts++;
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            return checkStatus();
-        };
+				attempts++;
+				await new Promise(resolve => setTimeout(resolve, 1000));
+				return checkStatus();
+			};
 
-        await checkStatus();
+			await checkStatus();
 
-    } catch (error) {
-        console.error('Error in handleRetry:', error);
-        const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
-        await updateDoc(jobRef, {
-            'generalData.processingStatus': 'error'
-        });
-    } finally {
-        processingJobs = new Set([...processingJobs].filter(id => id !== jobId));
-    }
-}
+		} catch (error) {
+			console.error('Error in handleRetry:', error);
+			const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
+			await updateDoc(jobRef, {
+				'generalData.processingStatus': 'error'
+			});
+		} finally {
+			processingJobs = new Set([...processingJobs].filter(id => id !== jobId));
+		}
+	}
 </script>
 
 <!-- Main card content -->
@@ -252,7 +258,7 @@
 				</div>
 			</div>
 			<!-- ProgressRadial section -->
-			{#if job?.AccumulatedScores?.accumulatedScore !== undefined}
+			{#if score !== undefined}
 				{#key job.id}
 					{#if isVisible}
 						<div class="flex items-start justify-end">
@@ -332,137 +338,89 @@
 			{/if}
 		</div>
 
+		<!-- New Summary Section -->
 		<div class="w-full pt-8">
 			<p class="mb-4 text-base">
-				<span class="font-bold">Company Focus: </span>
-				{job?.companyInfo?.companyFocus || 'No company focus information available'}
+				<span class="font-bold">Job Summary: </span>
+				{shortDescription}
 			</p>
 			<p class="mb-4 text-base">
-				<span class="font-bold">Job Description: </span>
-				{job?.jobInfo?.jobSummary || job?.details?.description || 'No job summary available'}
+				<span class="font-bold">Main Responsibilities: </span>
+				{shortResponsibility}
 			</p>
 			<p class="mb-4 text-base">
-				<span class="font-bold">Match Summary: </span>
-				{job?.matchResult?.summary || job?.Score?.summary || 'No match summary available'}
+				<span class="font-bold">Your Gaps: </span>
+				{shortGaps}
 			</p>
-			<p class="mb-4 text-base">
-				<span class="font-bold">Job Description formatted: </span>
-				{#if job?.jobInfo?.descriptionHtml}
-					<!-- Render HTML content safely -->
-					<span class="description-html">{@html job.jobInfo.descriptionHtml}</span>
-				{:else}
-					{job?.jobInfo?.description || job?.jobInfo?.summary || 'No job description available'}
-				{/if}
-			</p>
-			<details>
-				<summary>Debug Information</summary>
-				<pre>{JSON.stringify(job, null, 2)}</pre>
-			</details>
 		</div>
 	</div>
 
-	<!-- Rest of component remains mostly the same -->
-	<!-- Final Verdict Section -->
+	<!-- Updated Match Details Section with Accordion -->
 	<div class="card w-full p-4">
-		<!-- Headers with icons -->
-		<div class="mb-8 grid grid-cols-2 gap-6">
-			<div class="flex items-center gap-2">
-				<iconify-icon
-					icon="solar:shield-plus-bold"
-					class="text-primary-500 text-2xl"
-					width="32"
-					height="32"
-				></iconify-icon>
-				<h4 class="h4 font-bold">Your Strengths</h4>
-			</div>
-			<div class="flex items-center gap-2">
-				<iconify-icon
-					icon="solar:minus-square-bold"
-					class="text-primary-500 text-2xl"
-					width="32"
-					height="32"
-				></iconify-icon>
-				<h4 class="h4 font-bold">Your Weaknesses</h4>
-			</div>
-		</div>
-
-		<!-- Content -->
-		{#if job.verdict}
-			<div>
-				{#each Array.from( { length: Math.max(Object.keys(job.verdict.keyStrengths || {}).length, Object.keys(job.verdict.keyGaps || {}).length) } ) as _, index}
-					<div class="grid grid-cols-2 gap-6 last:border-b-0">
-						<!-- Strength Item -->
-						<div class="pb-6">
-							{#if Object.entries(job.verdict.keyStrengths || {})[index]}
-								{@const [key, value] = Object.entries(job.verdict.keyStrengths)[index]}
-								<div class="text-base">
-									<div class="flex items-start justify-between">
-										<div>
-											<strong class="font-bold">{key}:</strong>
-											<span class="break-words text-gray-700">{value || 'N/A'}</span>
-										</div>
-										{#if job?.id}
-											<FeedbackButtons
-												jobId={job.id}
-												path={`verdict.keyStrengths.${key}`}
-												itemId={key}
-												currentData={value}
-											/>
-										{/if}
+		<h4 class="h4 mb-4 font-bold">Match Details</h4>
+		
+		{#if matchDetails.length > 0}
+			<Accordion>
+				{#each matchDetails as detail}
+					<AccordionItem class="mb-2">
+						<svelte:fragment slot="summary">
+							<div class="flex items-center gap-4 w-full">
+								<div class="flex-1">{detail.requirement}</div>
+								<div class="flex items-center gap-4 w-64">
+									<div class="w-64">
+										<ProgressBar 
+											value={Math.round(detail.match_score_percent)} 
+											max={100}
+											track="bg-surface-800/30"
+											meter="!bg-gradient-to-r from-[#FF9C00] to-[#DC3701]"
+										/>
 									</div>
 								</div>
-							{/if}
-						</div>
-
-						<!-- Gap Item -->
-						<div class="pb-6">
-							{#if Object.entries(job.verdict.keyGaps || {})[index]}
-								{@const [key, value] = Object.entries(job.verdict.keyGaps)[index]}
-								<div class="text-base">
-									<div class="flex items-start justify-between">
-										<div>
-											<strong class="text-base">{key}:</strong>
-											<span class="break-words text-gray-700">{value || 'N/A'}</span>
-										</div>
-										{#if job?.id}
-											<FeedbackButtons
-												jobId={job.id}
-												path={`verdict.keyGaps.${key}`}
-												itemId={key}
-												currentData={value}
-											/>
-										{/if}
-									</div>
+							</div>
+						</svelte:fragment>
+						<svelte:fragment slot="content">
+							<div class="rounded-lg space-y-4 p-4 bg-surface-100 border border-surface-300">
+								<div>
+									<span class="font-semibold">Match Score: {detail.match_score_percent}%</span>
 								</div>
-							{/if}
-						</div>
-					</div>
+								<div>
+									<span class="font-semibold">Evidence:</span>
+									<p class="mt-1">{detail.evidence}</p>
+								</div>
+							</div>
+						</svelte:fragment>
+					</AccordionItem>
 				{/each}
-			</div>
+			</Accordion>
 		{:else}
-			<div class="grid grid-cols-2 gap-6">
-				<p class="text-surface-600-300-token">No strengths assessed yet</p>
-				<p class="text-surface-600-300-token">No gaps assessed yet</p>
-			</div>
+			<p class="text-surface-600-300-token">No match details available</p>
 		{/if}
 	</div>
+
+	<!-- Job Description Section (Expandable) -->
 	<div class="flex w-full flex-col items-center gap-4">
 		<button
 			class="btn variant-ghost-tertiary flex items-center gap-2"
-			on:click={() => (showAnalysis = !showAnalysis)}
+			on:click={() => (showJobDescription = !showJobDescription)}
 		>
-			{#if showAnalysis}
-				Hide Analysis
+			{#if showJobDescription}
+				Hide Job Description
 				<iconify-icon icon="solar:alt-arrow-up-bold"></iconify-icon>
 			{:else}
-				Show Analysis
+				Show Job Description
 				<iconify-icon icon="solar:alt-arrow-down-bold"></iconify-icon>
 			{/if}
 		</button>
 
-		{#if showAnalysis}
-			<div transition:slide>
-				<ScoreAnalysis {job} />
+		{#if showJobDescription}
+			<div transition:slide class="card w-full p-4">
+				<h4 class="h4 mb-4 font-bold">Full Job Description</h4>
+				{#if job?.jobInfo?.descriptionHtml}
+					<!-- Render HTML content safely -->
+					<div class="description-html">{@html job.jobInfo.descriptionHtml}</div>
+				{:else}
+					<p>{job?.jobInfo?.description || job?.details?.description || 'No job description available'}</p>
+				{/if}
 			</div>
 		{/if}
 	</div>
@@ -539,7 +497,6 @@
 </div>
 
 <style>
-
 /* Add these styles to your component's <style> section */
 
 /* General styles for HTML content */
