@@ -62,54 +62,63 @@ exports.processEmailRequests = onDocumentCreated({
             
             // Query Firestore for the top 3 jobs by score
             const jobsSnapshot = await jobsRef
-              .where('match.finalScore', '>', 0)
-              .orderBy('match.finalScore', 'desc')
+              .where('match.final_score', '>', 0)
+              .orderBy('match.final_score', 'desc')
               .limit(3)
               .get();
-            
-            logger.info(`Query returned ${jobsSnapshot.size} documents`);
-            
-            if (jobsSnapshot.empty) {
-              logger.info('No jobs with scores found');
-            } else {
-              // Add header for jobs section
-              jobsHtml = `
-                <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
-                  <h2 style="color: #444;">Your Top Matched Jobs</h2>
-              `;
-              
-              jobsText = "\n\n===== YOUR TOP MATCHED JOBS =====\n\n";
-              
-              // Format the jobs for the email
-              jobsSnapshot.forEach((doc, index) => {
-                logger.info(`Processing job ${index + 1} with ID ${doc.id}`);
-                const jobData = doc.data();
-                
-                const score = jobData.match?.finalScore || 'N/A';
-                const summary = jobData.match?.summary || 'No summary available';
-                const title = jobData.basicInfo?.title || 'Untitled Position';
-                const company = jobData.basicInfo?.company || 'Unnamed Company';
-                
-                logger.info(`Job: ${title} at ${company} - Score: ${score}`);
-                
-                // Add to HTML version
-                jobsHtml += `
-                  <div style="margin-bottom: 20px; padding: 10px; border-bottom: 1px solid #eee;">
-                    <h3 style="color: #1a73e8; margin-bottom: 5px;">${title} at ${company}</h3>
-                    <p><strong>Match Score:</strong> ${score}</p>
-                    <p><strong>Summary:</strong> ${summary}</p>
-                  </div>
+
+              logger.info(`Query returned ${jobsSnapshot.size} documents`);
+
+              if (jobsSnapshot.empty) {
+                logger.info('No jobs with scores found');
+              } else {
+                // Add header for jobs section
+                jobsHtml = `
+                  <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+                    <h2 style="color: #444;">Your Top Matched Jobs</h2>
                 `;
                 
-                // Add to plain text version
-                jobsText += `
-${title} at ${company}
-Match Score: ${score}
-Summary: ${summary}
+                jobsText = "\n\n===== YOUR TOP MATCHED JOBS =====\n\n";
+                
+                // Format the jobs for the email
+                jobsSnapshot.forEach((doc, index) => {
+                  logger.info(`Processing job ${index + 1} with ID ${doc.id}`);
+                  const jobData = doc.data();
+                  
+                  // Get score from either location
+                  const score = jobData.match?.final_score || jobData.match?.finalScore || 'N/A';
+                  const title = jobData.basicInfo?.title || 'Untitled Position';
+                  const company = jobData.basicInfo?.company || 'Unnamed Company';
+                  
+                  // Get the new summary fields
+                  const description = jobData.match?.summary?.short_description || 'No company description available';
+                  const responsibility = jobData.match?.summary?.short_responsibility || 'No responsibility description available';
+                  const gaps = jobData.match?.summary?.short_gaps || 'No gaps information available';
+                  
+                  logger.info(`Job: ${title} at ${company} - Score: ${score}`);
+                  
+                  // Add to HTML version with new fields
+                  jobsHtml += `
+                    <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9;">
+                      <h3 style="color: #1a73e8; margin-bottom: 5px;">${title} at ${company}</h3>
+                      <p><strong>Match Score:</strong> ${score}</p>
+                      <p><strong>Company:</strong> ${description}</p>
+                      <p><strong>Your Role:</strong> ${responsibility}</p>
+                      <p><strong>Gap Analysis:</strong> ${gaps}</p>
+                    </div>
+                  `;
+                  
+                  // Add to plain text version with new fields
+                  jobsText += `
+              ${title} at ${company}
+              Match Score: ${score}
+              Company: ${description}
+              Your Role: ${responsibility} 
+              Gap Analysis: ${gaps}
 
-----------------------------------------
+              ----------------------------------------
 
-`;
+              `;
               });
               
               // Close the jobs HTML section
