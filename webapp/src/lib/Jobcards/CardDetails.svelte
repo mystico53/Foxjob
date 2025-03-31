@@ -92,6 +92,40 @@
 		}
 		return 'N/A';
 	}
+	
+	function formatTimeAgo(dateValue) {
+		if (!dateValue) return 'N/A';
+		
+		let date;
+		// Handle Firebase Timestamp objects
+		if (dateValue && dateValue.toDate) {
+			date = dateValue.toDate();
+		}
+		// Handle ISO date strings
+		else if (typeof dateValue === 'string') {
+			date = new Date(dateValue);
+			if (isNaN(date)) return 'N/A';
+		} else {
+			return 'N/A';
+		}
+		
+		const now = new Date();
+		const diffMs = now - date;
+		const diffMinutes = Math.floor(diffMs / (1000 * 60));
+		const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+		
+		if (diffMinutes < 60) {
+			return diffMinutes === 1 ? '1 minute ago' : `${diffMinutes} minutes ago`;
+		} else if (diffHours < 24) {
+			return diffHours === 1 ? '1 hour ago' : `${diffHours} hours ago`;
+		} else if (diffDays < 30) {
+			return diffDays === 1 ? '1 day ago' : `${diffDays} days ago`;
+		} else {
+			const diffMonths = Math.floor(diffDays / 30);
+			return diffMonths === 1 ? '1 month ago' : `${diffMonths} months ago`;
+		}
+	}
 
 	async function handleHide() {
 		try {
@@ -119,15 +153,25 @@
 	}
 
 	async function handleVisitJob() {
-		// Updated to use the apply link from the new structure
+		// Check multiple possible locations for the apply URL
 		if (job.jobInfo?.applyUrl) {
 			openJobLink(job.jobInfo.applyUrl);
 		} else if (job.basicInfo?.applyLink) {
-			// Fallback to direct access of applyLink
 			openJobLink(job.basicInfo.applyLink);
+		} else if (job.basicInfo?.url) {
+			openJobLink(job.basicInfo.url);
+		} else if (job.details?.url) {
+			openJobLink(job.details.url);
 		} else if (job.generalData?.url) {
-			// Legacy fallback
 			openJobLink(job.generalData.url);
+		} else {
+			// If no URL is found, try to construct one from the job ID
+			const linkedInBaseUrl = "https://www.linkedin.com/jobs/view/";
+			if (job.id) {
+				openJobLink(`${linkedInBaseUrl}${job.id}`);
+			} else {
+				console.error('No apply URL or job ID found:', job);
+			}
 		}
 	}
 
@@ -250,10 +294,20 @@
 
 					<span
 						class="chip variant-ghost-surface text-base"
-						title={formatDate(job.jobInfo?.postedDate || job.details?.postedDate || job.generalData?.timestamp)}
+						title={formatDate(job.details?.postedDate || job.jobInfo?.postedDate || job.generalData?.timestamp)}
 					>
 						<iconify-icon icon="solar:calendar-minimalistic-bold"></iconify-icon>
-						<span>{truncateText(formatDate(job.jobInfo?.postedDate || job.details?.postedDate || job.generalData?.timestamp))}</span>
+						<span>
+							{formatTimeAgo(job.details?.postedDate || job.jobInfo?.postedDate || job.generalData?.timestamp)}
+						</span>
+					</span>
+					
+					<span
+						class="chip variant-ghost-surface text-base"
+						title={`${job.details?.numApplicants || 0} applicants`}
+					>
+						<iconify-icon icon="solar:users-group-rounded-bold"></iconify-icon>
+						<span>{job.details?.numApplicants || 0} applicants</span>
 					</span>
 				</div>
 			</div>

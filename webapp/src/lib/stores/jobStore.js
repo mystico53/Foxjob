@@ -88,7 +88,7 @@ function createJobStore() {
                         const jobPromises = jobsSnapshot.docs.map(async (jobDoc) => {
                             const jobDataRaw = jobDoc.data() || {};
                             
-                            // Create the job object without timestamp
+                            // Create the job object with added fields for details
                             return {
                                 id: jobDoc.id,
                                 companyInfo: {
@@ -96,25 +96,40 @@ function createJobStore() {
                                     logoUrl: jobDataRaw.basicInfo?.companyLogo || '',
                                     companyUrl: jobDataRaw.basicInfo?.companyUrl || ''
                                 },
+                                // Add basicInfo direct mapping for maximum compatibility
+                                basicInfo: {
+                                    ...jobDataRaw.basicInfo || {},  // Copy all fields from basicInfo
+                                    url: jobDataRaw.basicInfo?.url || '' // Ensure URL is mapped
+                                },
                                 jobInfo: {
                                     jobTitle: jobDataRaw.title || jobDataRaw.basicInfo?.title || 'Not found',
                                     description: jobDataRaw.details?.description || 'Not found',
-                                    descriptionHtml: jobDataRaw.details?.description || null, // Add this line to store HTML version
-                                    summary: jobDataRaw.details?.summary || null, // Store summary if available  
+                                    descriptionHtml: jobDataRaw.details?.description || null,
+                                    summary: jobDataRaw.details?.summary || null,
                                     location: jobDataRaw.basicInfo?.location || 'Not found',
-                                    applyUrl: jobDataRaw.basicInfo?.applyLink || '',
+                                    // Check multiple paths for the apply URL
+                                    applyUrl: jobDataRaw.basicInfo?.applyLink || 
+                                             jobDataRaw.basicInfo?.url || 
+                                             jobDataRaw.url || 
+                                             '',
                                     postedDate: jobDataRaw.details?.postedDate || null,
                                     postedTimeAgo: jobDataRaw.details?.postedTimeAgo || null
+                                },
+                                details: {
+                                    // Map all details fields directly
+                                    ...jobDataRaw.details || {},
+                                    // Make sure URL is captured if it exists in a different field
+                                    url: jobDataRaw.details?.url || jobDataRaw.url || null
                                 },
                                 generalData: {
                                     status: jobDataRaw.processing?.status || 'Not processed',
                                     processingStatus: jobDataRaw.processing?.status || 'unknown',
-                                    hidden: false
-                                    // Removed timestamp completely
+                                    hidden: false,
+                                    // Add URL to generalData as well for maximum compatibility
+                                    url: jobDataRaw.generalData?.url || jobDataRaw.url || null
                                 },
-                                // Preserve the original match data structure completely
+                                // Rest of your mappings remain the same
                                 match: jobDataRaw.match || {},
-                                // For backward compatibility
                                 Score: {
                                     totalScore: jobDataRaw.match?.final_score || 0,
                                     summary: typeof jobDataRaw.match?.summary === 'string' 
