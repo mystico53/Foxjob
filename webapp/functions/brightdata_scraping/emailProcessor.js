@@ -5,6 +5,7 @@ const { logger } = require('firebase-functions');
 const sgMail = require('@sendgrid/mail');
 const { FieldValue } = require('firebase-admin/firestore');
 const { defineSecret } = require("firebase-functions/params");
+const config = require('../config'); // Import the config module from parent directory
 
 // Initialize if needed
 if (!admin.apps.length) {
@@ -60,65 +61,98 @@ exports.processEmailRequests = onDocumentCreated({
           } else {
             logger.info('Jobs collection exists, proceeding with query');
             
-            // Query Firestore for the top 3 jobs by score
+            // Calculate the timestamp for 24 hours ago
+            const twentyFourHoursAgo = new Date();
+            twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+            
+            logger.info(`Filtering jobs newer than: ${twentyFourHoursAgo.toISOString()}`);
+            
+            // Query Firestore for the top 3 jobs by score that are newer than 24 hours
             const jobsSnapshot = await jobsRef
               .where('match.final_score', '>', 0)
+              .where('searchMetadata.snapshotDate', '>=', twentyFourHoursAgo.toISOString())
+              .orderBy('searchMetadata.snapshotDate', 'desc')
               .orderBy('match.final_score', 'desc')
               .limit(3)
               .get();
 
-              logger.info(`Query returned ${jobsSnapshot.size} documents`);
+            logger.info(`Query returned ${jobsSnapshot.size} documents`);
 
-              if (jobsSnapshot.empty) {
-                logger.info('No jobs with scores found');
+            if (jobsSnapshot.empty) {
+              logger.info('No jobs with scores found');
+            } else {
+              // Add header for jobs section
+              jobsHtml = `
+                <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
+                  <h2 style="color: #444;">Your Top Matched Jobs</h2>
+              `;
+              
+              jobsText = "\n\n===== YOUR TOP MATCHED JOBS =====\n\n";
+              
+              // Determine base URL based on environment
+              let baseUrl;
+              if (config.environment === 'production') {
+                baseUrl = 'https://foxjob.io/workflow/';
+                logger.info('Using production job URL format');
+              } else if (config.environment === 'staging') {
+                baseUrl = 'https://jobille-45494.web.app/workflow/';
+                logger.info('Using staging job URL format');
+              } else if (config.environment === 'development') {
+                baseUrl = 'http://localhost:5000/workflow/';
+                logger.info('Using development job URL format');
               } else {
-                // Add header for jobs section
-                jobsHtml = `
-                  <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
-                    <h2 style="color: #444;">Your Top Matched Jobs</h2>
+                // Default to staging as fallback
+                baseUrl = 'https://jobille-45494.web.app/workflow/';
+                logger.info('Using staging job URL format as fallback');
+              }
+              
+              // Format the jobs for the email
+              jobsSnapshot.forEach((doc, index) => {
+                logger.info(`Processing job ${index + 1} with ID ${doc.id}`);
+                const jobData = doc.data();
+                
+                // Get score from either location
+                const score = jobData.match?.final_score || jobData.match?.finalScore || 'N/A';
+                const title = jobData.basicInfo?.title || 'Untitled Position';
+                const company = jobData.basicInfo?.company || 'Unnamed Company';
+                
+                // Get the new summary fields
+                const description = jobData.match?.summary?.short_description || 'No company description available';
+                const responsibility = jobData.match?.summary?.short_responsibility || 'No responsibility description available';
+                const gaps = jobData.match?.summary?.short_gaps || 'No gaps information available';
+                
+                // Create job URL using document ID
+                const jobUrl = `${baseUrl}${doc.id}`;
+                logger.info(`Job URL: ${jobUrl}`);
+                
+                logger.info(`Job: ${title} at ${company} - Score: ${score}`);
+                
+                // Add to HTML version with new fields and View Job button
+                jobsHtml += `
+                  <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9;">
+                    <h3 style="color: #1a73e8; margin-bottom: 5px;">${title} at ${company}</h3>
+                    <p><strong>Match Score:</strong> ${score}</p>
+                    <p><strong>Company:</strong> ${description}</p>
+                    <p><strong>Your Role:</strong> ${responsibility}</p>
+                    <p><strong>Gap Analysis:</strong> ${gaps}</p>
+                    <p style="margin-top: 15px;">
+                      <a href="${jobUrl}" style="background-color: #1a73e8; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Job</a>
+                    </p>
+                  </div>
                 `;
                 
-                jobsText = "\n\n===== YOUR TOP MATCHED JOBS =====\n\n";
-                
-                // Format the jobs for the email
-                jobsSnapshot.forEach((doc, index) => {
-                  logger.info(`Processing job ${index + 1} with ID ${doc.id}`);
-                  const jobData = doc.data();
-                  
-                  // Get score from either location
-                  const score = jobData.match?.final_score || jobData.match?.finalScore || 'N/A';
-                  const title = jobData.basicInfo?.title || 'Untitled Position';
-                  const company = jobData.basicInfo?.company || 'Unnamed Company';
-                  
-                  // Get the new summary fields
-                  const description = jobData.match?.summary?.short_description || 'No company description available';
-                  const responsibility = jobData.match?.summary?.short_responsibility || 'No responsibility description available';
-                  const gaps = jobData.match?.summary?.short_gaps || 'No gaps information available';
-                  
-                  logger.info(`Job: ${title} at ${company} - Score: ${score}`);
-                  
-                  // Add to HTML version with new fields
-                  jobsHtml += `
-                    <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9;">
-                      <h3 style="color: #1a73e8; margin-bottom: 5px;">${title} at ${company}</h3>
-                      <p><strong>Match Score:</strong> ${score}</p>
-                      <p><strong>Company:</strong> ${description}</p>
-                      <p><strong>Your Role:</strong> ${responsibility}</p>
-                      <p><strong>Gap Analysis:</strong> ${gaps}</p>
-                    </div>
-                  `;
-                  
-                  // Add to plain text version with new fields
-                  jobsText += `
-              ${title} at ${company}
-              Match Score: ${score}
-              Company: ${description}
-              Your Role: ${responsibility} 
-              Gap Analysis: ${gaps}
+                // Add to plain text version with new fields and job link
+                jobsText += `
+            ${title} at ${company}
+            Match Score: ${score}
+            Company: ${description}
+            Your Role: ${responsibility} 
+            Gap Analysis: ${gaps}
+            View Job: ${jobUrl}
 
-              ----------------------------------------
+            ----------------------------------------
 
-              `;
+            `;
               });
               
               // Close the jobs HTML section
@@ -175,5 +209,5 @@ exports.processEmailRequests = onDocumentCreated({
         errorTimestamp: FieldValue.serverTimestamp()
       });
     }
-  }
-);
+  
+});
