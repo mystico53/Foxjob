@@ -40,6 +40,10 @@
 	$: shortResponsibility = job?.match?.summary?.short_responsibility || 'No responsibility information available';
 	$: shortGaps = job?.match?.summary?.short_gaps || 'No gaps information available';
 
+	$: preferenceScore = job?.match?.preferenceScore?.score;
+	$: preferenceExplanation = job?.match?.preferenceScore?.explanation;
+	$: hasPreferenceScore = preferenceScore !== undefined;
+
 	let popupInstance;
 
 	onMount(() => {
@@ -406,6 +410,15 @@
 				<span class="font-bold">Your Gaps: </span>
 				{shortGaps}
 			</p>
+			{#if hasPreferenceScore}
+			<div class="mt-6 pt-2 border-t border-surface-300">
+				<p class="mb-2 text-base">
+					<span class="font-bold">Preference Match: </span>
+					<span class="text-primary-500 font-semibold">{preferenceScore}/100</span>
+				</p>
+				<p class="text-base italic">"{preferenceExplanation}"</p>
+			</div>
+{/if}
 		</div>
 	</div>
 
