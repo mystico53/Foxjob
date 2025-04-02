@@ -80,6 +80,7 @@ const { runScheduledSearches } = require('./brightdata_scraping/runScheduledSear
 const { sendEmail } = require('./brightdata_scraping/sendEmail.js');
 const { onBatchUpdate, processStaleJobBatches } = require('./brightdata_scraping/batchProcessing.js');
 const { processEmailRequests } = require('./brightdata_scraping/emailProcessor.js');
+const { preferenceMatch } = require('./matchpipeline/preferenceMatch.js');
 
 
 logger.info("Application configuration loaded:", { 
@@ -124,9 +125,10 @@ exports.matchJobQualities = matchJobQualities;
 exports.testPubSub = testPubSub;
 exports.matchBasics = matchBasics;
 exports.matchSummary = matchSummary;
-exports.matchBasicsTest = matchBasicsTest;  // Add this line
+exports.matchBasicsTest = matchBasicsTest;
 exports.runScheduledSearches = runScheduledSearches;
 exports.sendEmail = sendEmail;
 exports.onBatchUpdate = onBatchUpdate;
 exports.processStaleJobBatches = processStaleJobBatches;
 exports.processEmailRequests = processEmailRequests;
+exports.preferenceMatch = preferenceMatch;

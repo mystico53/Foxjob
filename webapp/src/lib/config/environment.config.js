@@ -48,7 +48,7 @@ export const cloudFunctions = {
     downloadAndProcessSnapshot: {
       path: '/downloadAndProcessSnapshot',
       urls: {
-        development: 'https://9872-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot',
+        development: 'https://9ed0-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/downloadAndProcessSnapshot',
         staging: 'https://downloadandprocesssnapshot-kvshkfhmua-uc.a.run.app',
         production: import.meta.env.VITE_DOWNLOAD_PROCESS_SNAPSHOT_URL_PROD || null // Set production URL when ready
       }

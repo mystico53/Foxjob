@@ -237,7 +237,7 @@
   </script>
   
   <div class="container mx-auto p-4 mt-8">
-    <h2 class="text-2xl font-bold mb-4">Daily Search Routines</h2>
+    <h2 class="text-2xl font-bold mb-4">Your Active Job Agents</h2>
     
     <!-- Search status message -->
     {#if $isLoading}
@@ -260,7 +260,7 @@
       </div>
     {:else if scheduledSearches.length === 0}
       <div class="alert variant-filled-surface mb-4" transition:fade={{duration: 200}}>
-        <span>You don't have any scheduled searches yet. Toggle "Automatically run this search daily" when searching to create one.</span>
+        <span>You don't have any scheduled searches yet. Toggle "Email me new matching jobs daily" when searching to create one.</span>
       </div>
     {:else}
       <!-- Scheduled searches list -->
