@@ -183,15 +183,38 @@ async function getUserPreferences(firebaseUid) {
 }
 
 // Main callable function
-exports.preferenceMatchTest = onMessagePublished(
-    { timeoutSeconds: 540 },
+exports.preferenceMatch = onMessagePublished(
+    { 
+        topic: "basics-matched",
+        timeoutSeconds: 540,
+        region: "us-central1" 
+    },
     async (event) => {
         try {
-            // Get parameters from the message
-            const message = event.data.message.json;
-            const { firebaseUid, jobId, saveToFirestore = false } = message;
+            // Parse the message data properly from PubSub
+            let message;
+            try {
+                // For Firebase Functions v2, properly decode the message
+                const rawData = event.data.message.data;
+                const decodedData = Buffer.from(rawData, 'base64').toString();
+                message = JSON.parse(decodedData);
+            } catch (parseError) {
+                logger.error('Error parsing message data', { error: parseError.message });
+                throw new Error(`Unable to parse message data: ${parseError.message}`);
+            }
+
+            const { firebaseUid, jobId, saveToFirestore = false } = message || {};
             
-            logger.info('Starting preference matching test', { firebaseUid, jobId });
+            // Validate the required parameters
+            if (!firebaseUid || typeof firebaseUid !== 'string' || firebaseUid.trim() === '') {
+                throw new Error('Invalid or missing firebaseUid');
+            }
+
+            if (!jobId || typeof jobId !== 'string' || jobId.trim() === '') {
+                throw new Error('Invalid or missing jobId');
+            }
+            
+            logger.info('Starting preference matching', { firebaseUid, jobId });
 
             // Get job document
             const jobDoc = await db.collection('users')
@@ -248,24 +271,22 @@ exports.preferenceMatchTest = onMessagePublished(
                 throw error;
             }
 
-            // Store results if saveToFirestore is true
-            if (saveToFirestore) {
-                await db.collection('users')
-                    .doc(firebaseUid)
-                    .collection('scrapedJobs')
-                    .doc(jobId)
-                    .set({
-                        match: {
-                            preferenceScore: {
-                                score: response.score,
-                                explanation: response.explanation,
-                                timestamp: FieldValue.serverTimestamp()
-                            }
-                        }
-                    }, { merge: true });
-                
-                logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
-            }
+            await db.collection('users')
+            .doc(firebaseUid)
+            .collection('scrapedJobs')
+            .doc(jobId)
+            .set({
+                match: {
+                    preferenceScore: {
+                        score: response.score,
+                        explanation: response.explanation,
+                        timestamp: FieldValue.serverTimestamp()
+                    }
+                }
+            }, { merge: true });
+        
+            logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
+            
 
             // Return results
             return {
