@@ -87,7 +87,23 @@ async function getUserPreferences(firebaseUid) {
         return null; // No preferences set
     }
     
-    return prefsDoc.data().preferences;
+    const data = prefsDoc.data();
+    
+    // Check if answers exist
+    if (!data.answer1 && !data.answer2 && !data.answer3 && !data.answer4 && !data.answer5) {
+        return null;
+    }
+    
+    // Concatenate all answers into a single preferences string
+    const preferences = `
+        ${data.question1 || ''}: ${data.answer1 || ''}
+        ${data.question2 || ''}: ${data.answer2 || ''}
+        ${data.question3 || ''}: ${data.answer3 || ''}
+        ${data.question4 || ''}: ${data.answer4 || ''}
+        ${data.question5 || ''}: ${data.answer5 || ''}
+    `;
+    
+    return preferences;
 }
 
 // Main callable function
