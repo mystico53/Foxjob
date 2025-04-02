@@ -24,54 +24,54 @@ const CONFIG = {
     Return ONLY a JSON object like this:
     {
       "score": number, // Score between 0 and 100
-      "explanation": "A single, short, direct sentence explaining the score by focusing on how specific job details **match or clash with your stated preferences**. Keep it casual, easy to scan, and add a touch of warmth/understanding.
+      "explanation": "A single, short, direct sentence explaining the score by focusing on how specific job details **match or clash with your stated preferences**. Keep it casual, easy to scan, add a touch of warmth/understanding, **and aim for a slightly positive, energizing tone** without being over the top.
 
       **Key Rules for Explanation:**
       1.  **Preference-Centric:** The core message must explain the job's relevance *to your preferences*.
       2.  **Varied Structure:** **Crucially, vary the sentence structure.** Don't always start with 'Your preference...'. Sometimes start with the job detail and immediately link it to your preference (e.g., 'The [Job Detail] aligns with your interest in...'), other times subtly reference the preference first (e.g., 'This seems to hit the [Preference X] mark because...'). Aim for natural language.
       3.  **Connect Job Details:** Clearly link specific details from the job description *back* to your preferences.
       4.  **No Job Summary:** Don't just describe the job; explain its relevance *to you*.
-      5.  **Handle Mismatches Carefully:** If an aspect mismatches, explain how the job's actual characteristic conflicts with your preference, without listing specific preferred things it *isn't*. (e.g., 'The focus on [Actual Industry] here might not be the cutting-edge tech area you're targeting.')
+      5.  **Handle Mismatches Carefully:** If an aspect mismatches, explain how the job's actual characteristic conflicts with your preference, without listing specific preferred things it *isn't*. (e.g., 'The focus on [Actual Industry] here might not be the cutting-edge tech area you find most exciting.')
       6.  **Be Concise:** Stick to the most impactful alignments/misalignments.
       "
     }
 
-    Example Tone/Style for Explanation (Showing Varied Structures):
+    Example Tone/Style for Explanation (Showing Varied Structures & Positive/Energizing Tone):
 
     **Example 1 (Tech - High Alignment):**
     - User Prefs: Likes cutting-edge tech (AI/gaming/edtech), early-stage, fast-moving teams, dislikes bureaucracy/scrum.
     - Job Desc: Moonvalley, generative AI for film, startup, anti-scrum mentioned.
     - Score: 90
-    - **New Varied Try 1:** "The generative AI focus taps right into your interest in cutting-edge tech, and the startup, anti-scrum vibe matches your preference for fast-moving, early-stage teams."
-    - **New Varied Try 2:** "Looks like a strong fit: it offers that cutting-edge AI you like, plus the anti-scrum, startup culture aligns well with your desire for a fast-paced, early-stage environment."
+    - **New Positive Try 1:** "Awesome! The generative AI focus here really hits that cutting-edge tech sweet spot you love, and the startup, anti-scrum vibe sounds perfect for the fast-moving, early-stage energy you're after."
+    - **New Positive Try 2:** "This looks really promising! You get the cutting-edge AI you enjoy, and the anti-scrum, startup culture should definitely satisfy your craving for a fast-paced, early-stage environment."
 
     **Example 2 (Tech - Mismatch):**
     - User Prefs: Likes edtech/gaming/AI, early-stage, small teams; Dislikes e-commerce, big companies.
     - Job Desc: Product Manager at Amazon, Consumables division.
     - Score: 35
-    - **New Varied Try 1:** "Heads up, being at Amazon likely brings that big company structure you want to avoid, and the consumables focus is pretty far from the cutting-edge tech fields you prefer."
-    - **New Varied Try 2:** "This might not be the one – the Amazon structure probably clashes with your preference for smaller setups, and consumables isn't quite the tech area you're aiming for."
+    - **New Positive Try 1:** "Just a heads-up, the Amazon structure might feel a bit too 'big company' for what you're looking for, and the consumables focus doesn't quite match the exciting tech areas you prefer."
+    - **New Positive Try 2:** "Hmm, this one might not quite hit the mark – the Amazon setup probably doesn't align with your love for smaller teams, and consumables is a bit different from the tech fields you find more energizing."
 
     **Example 3 (Tech - Mixed):**
     - User Prefs: Likes edtech/gaming/AI, early-stage feel, small teams.
     - Job Desc: Product role at Snap, small team, new features, pitching to CEO.
     - Score: 65
-    - **New Varied Try 1:** "While the social media focus isn't your main target, the small team building new features here could provide that early-stage vibe you enjoy."
-    - **New Varied Try 2:** "The industry isn't your top choice, but you might like the early-stage feel from working on a small team pitching new features directly."
+    - **New Positive Try 1:** "Okay, so while social media isn't your top field, the chance to work on a small team building new features here could definitely give you that energizing early-stage vibe you love!"
+    - **New Positive Try 2:** "The industry might be a slight detour, but digging into new features with a small team and pitching ideas sounds like it could really tap into that early-stage excitement you enjoy."
 
     **Example 4 (Sales - High Alignment):**
     - User Prefs: Wants high commission potential, autonomy; Dislikes micro-management.
     - Job Desc: Outside sales, commission-heavy, mentions "regular territory check-ins".
     - Score: 78
-    - **New Varied Try 1:** "This role offers the high commission potential and autonomy you're looking for, though the 'regular check-ins' are worth asking about given your dislike of micro-management."
-    - **New Varied Try 2:** "Your interest in autonomy and commission seems well-matched here, just clarify those 'regular check-ins' regarding management style."
+    - **New Positive Try 1:** "Nice! This role delivers on the high commission potential and autonomy you're looking for; just make sure to clarify those 'regular check-ins' regarding your dislike of micro-management."
+    - **New Positive Try 2:** "Great match for your interest in autonomy and commission! Definitely worth clarifying those 'regular check-ins' to ensure the management style fits."
 
     **Example 5 (Trades - Mixed):**
     - User Prefs: Prefers outdoor work, stable hours; Dislikes excessive paperwork.
     - Job Desc: Landscaping lead, varied projects, M-F schedule, "daily site reports".
     - Score: 72
-    - **New Varied Try 1:** "It definitely delivers on the outdoor work and stable hours you like, but keep in mind the daily reporting might mean more paperwork than you prefer."
-    - **New Varied Try 2:** "Good news on the outdoor work and stable hours preference, but the daily site reports clash a bit with your dislike of excessive paperwork."
+    - **New Positive Try 1:** "Solid pluses here: it definitely delivers on the outdoor work and stable hours you value! Just be aware the daily reporting might bring a bit more paperwork than ideal."
+    - **New Positive Try 2:** "You'll likely appreciate the outdoor work and stable hours here matching your preferences, though the daily site reports might be a slight drag if you dislike paperwork."
     `
 };
 
