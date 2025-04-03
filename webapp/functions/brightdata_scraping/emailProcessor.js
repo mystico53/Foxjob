@@ -120,6 +120,8 @@ exports.processEmailRequests = onDocumentCreated({
                 const description = jobData.match?.summary?.short_description || 'No company description available';
                 const responsibility = jobData.match?.summary?.short_responsibility || 'No responsibility description available';
                 const gaps = jobData.match?.summary?.short_gaps || 'No gaps information available';
+                const preferenceScore = jobData.match?.preferenceScore?.score || 'N/A';
+                const preferenceExplanation = jobData.match?.preferenceScore?.explanation || 'No preference data available';
                 
                 // Create job URL using document ID
                 const jobUrl = `${baseUrl}${doc.id}`;
@@ -129,30 +131,38 @@ exports.processEmailRequests = onDocumentCreated({
                 
                 // Add to HTML version with new fields and View Job button
                 jobsHtml += `
-                  <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9;">
-                    <h3 style="color: #1a73e8; margin-bottom: 5px;">${title} at ${company}</h3>
-                    <p><strong>Match Score:</strong> ${score}</p>
-                    <p><strong>Company:</strong> ${description}</p>
-                    <p><strong>Your Role:</strong> ${responsibility}</p>
-                    <p><strong>Gap Analysis:</strong> ${gaps}</p>
-                    <p style="margin-top: 15px;">
-                      <a href="${jobUrl}" style="background-color: #1a73e8; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Job</a>
-                    </p>
-                  </div>
-                `;
-                
-                // Add to plain text version with new fields and job link
-                jobsText += `
-            ${title} at ${company}
-            Match Score: ${score}
-            Company: ${description}
-            Your Role: ${responsibility} 
-            Gap Analysis: ${gaps}
-            View Job: ${jobUrl}
+                <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9;">
+                  <h3 style="color: #1a73e8; margin-bottom: 5px;">${title} at ${company}</h3>
+                  
+                  <!-- Add preference score and explanation here -->
+                  <p><strong>Preference Match:</strong> ${preferenceScore}/100</p>
+                  <p style="font-style: italic; color: #555; margin-bottom: 12px;">"${preferenceExplanation}"</p>
+                  
+                  <p><strong>Match Score:</strong> ${score}</p>
+                  <p><strong>Company:</strong> ${description}</p>
+                  <p><strong>Your Role:</strong> ${responsibility}</p>
+                  <p><strong>Gap Analysis:</strong> ${gaps}</p>
+                  <p style="margin-top: 15px;">
+                    <a href="${jobUrl}" style="background-color: #1a73e8; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Job</a>
+                  </p>
+                </div>
+              `;
 
-            ----------------------------------------
+              // Also update the text version
+              jobsText += `
+              ${title} at ${company}
+              Preference Match: ${preferenceScore}/100
+              "${preferenceExplanation}"
 
-            `;
+              Match Score: ${score}
+              Company: ${description}
+              Your Role: ${responsibility} 
+              Gap Analysis: ${gaps}
+              View Job: ${jobUrl}
+
+              ----------------------------------------
+
+              `;
               });
               
               // Close the jobs HTML section

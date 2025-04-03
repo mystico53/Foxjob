@@ -78,7 +78,13 @@ const CONFIG = {
 // Helper to get user preferences - UPDATED VERSION
 async function getUserPreferences(firebaseUid) {
     try {
+        const documentPath = `users/${firebaseUid}/UserCollections/work_preferences`;
+        
         logger.info('Attempting to get work preferences document', { firebaseUid });
+        logger.info('Attempting to get work preferences document', { 
+            firebaseUid,
+            documentPath 
+        });
         
         const prefsDoc = await db.collection('users')
             .doc(firebaseUid)
@@ -86,10 +92,26 @@ async function getUserPreferences(firebaseUid) {
             .doc('work_preferences')
             .get();
         
-        if (!prefsDoc.exists) {
-            logger.info('Work preferences document not found', { firebaseUid });
-            return null;
-        }
+            if (!prefsDoc.exists) {
+                logger.info('Work preferences document not found at path', { documentPath });
+                
+                // Try a document list to see what documents actually exist
+                const snapshot = await db.collection('users')
+                    .doc(firebaseUid)
+                    .collection('UserCollections')
+                    .limit(10)
+                    .get();
+                    
+                if (snapshot.empty) {
+                    logger.info('No documents found in UserCollections collection');
+                } else {
+                    logger.info('Found documents in UserCollections:', {
+                        documentIds: snapshot.docs.map(doc => doc.id)
+                    });
+                }
+                
+                return null;
+            }
         
         const prefsData = prefsDoc.data();
         logger.info('Found work preferences document with data', { 
@@ -203,7 +225,7 @@ exports.preferenceMatch = onMessagePublished(
                 throw new Error(`Unable to parse message data: ${parseError.message}`);
             }
 
-            const { firebaseUid, jobId, saveToFirestore = false } = message || {};
+            const { firebaseUid, jobId, batchId, saveToFirestore = false } = message || {};
             
             // Validate the required parameters
             if (!firebaseUid || typeof firebaseUid !== 'string' || firebaseUid.trim() === '') {
@@ -272,23 +294,44 @@ exports.preferenceMatch = onMessagePublished(
             }
 
             await db.collection('users')
-            .doc(firebaseUid)
-            .collection('scrapedJobs')
-            .doc(jobId)
-            .set({
-                match: {
-                    preferenceScore: {
-                        score: response.score,
-                        explanation: response.explanation,
-                        timestamp: FieldValue.serverTimestamp()
+                .doc(firebaseUid)
+                .collection('scrapedJobs')
+                .doc(jobId)
+                .set({
+                    match: {
+                        preferenceScore: {
+                            score: response.score,
+                            explanation: response.explanation,
+                            timestamp: FieldValue.serverTimestamp()
+                        }
                     }
-                }
-            }, { merge: true });
-        
-            logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
-            
+                }, { merge: true });
 
-            // Return results
+            logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
+
+            // ADD THE BATCH UPDATE CODE HERE
+            // Update batch if batchId exists
+            
+            if (batchId) {
+                try {
+                    const batchRef = db.collection('jobBatches').doc(batchId);
+                    await batchRef.update({
+                        [`jobStatus.${jobId}`]: 'preference_completed',
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('preference_completed'),
+                        // Only increment completion counter here, when all processing is done
+                        completedJobs: FieldValue.increment(1)
+                    });
+                    logger.info('Updated batch with preference completion', { batchId, jobId });
+                } catch (error) {
+                    logger.error('Failed to update batch with preference completion', { 
+                        batchId, 
+                        error: error.message 
+                    });
+                    // Continue even if batch update fails
+                }
+            }
+
+            // Return results (keep this existing code)
             return {
                 success: true,
                 rawOutput: result.extractedText,

@@ -14,10 +14,10 @@ const db = admin.firestore();
 // Configuration
 const CONFIG = {
   // Use the deployed URL in production
-  //SEARCH_FUNCTION_URL: 'https://searchbright-kvshkfhmua-uc.a.run.app'
+  SEARCH_FUNCTION_URL: 'https://searchbright-kvshkfhmua-uc.a.run.app'
   // For local testing, uncomment this:
   //SEARCH_FUNCTION_URL: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright'
-  SEARCH_FUNCTION_URL: 'https://9ed0-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/searchBright'
+  //SEARCH_FUNCTION_URL: 'https://5106-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/searchBright'
 };
 
 // The core logic function - independent of the trigger

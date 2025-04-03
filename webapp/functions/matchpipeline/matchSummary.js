@@ -153,7 +153,8 @@ exports.matchSummary = onMessagePublished(
                 try {
                     const batchRef = db.collection('jobBatches').doc(batchId);
                     await batchRef.update({
-                        [`jobStatus.${jobId}`]: 'summary_completed'
+                        [`jobStatus.${jobId}`]: 'summary_completed',
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('summary_completed')
                     });
                     logger.info('Updated batch status', { batchId, jobId });
                 } catch (error) {
