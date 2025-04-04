@@ -67,13 +67,11 @@ exports.processEmailRequests = onDocumentCreated({
             
             logger.info(`Filtering jobs newer than: ${twentyFourHoursAgo.toISOString()}`);
             
-            // Query Firestore for the top 3 jobs by score that are newer than 24 hours
+            // Query Firestore for all jobs from last 24 hours with a score > 0
             const jobsSnapshot = await jobsRef
               .where('match.final_score', '>', 0)
               .where('searchMetadata.snapshotDate', '>=', twentyFourHoursAgo.toISOString())
               .orderBy('searchMetadata.snapshotDate', 'desc')
-              .orderBy('match.final_score', 'desc')
-              .limit(3)
               .get();
 
             logger.info(`Query returned ${jobsSnapshot.size} documents`);
@@ -81,6 +79,24 @@ exports.processEmailRequests = onDocumentCreated({
             if (jobsSnapshot.empty) {
               logger.info('No jobs with scores found');
             } else {
+              // Convert to array for in-memory sorting
+              const allRecentJobs = [];
+              jobsSnapshot.forEach(doc => {
+                allRecentJobs.push({ id: doc.id, doc: doc });
+              });
+              
+              // Sort by final_score (highest first)
+              allRecentJobs.sort((a, b) => {
+                const scoreA = a.doc.data().match?.final_score || 0;
+                const scoreB = b.doc.data().match?.final_score || 0;
+                return scoreB - scoreA;
+              });
+              
+              // Take only the top 3
+              const topJobs = allRecentJobs.slice(0, 3);
+              
+              logger.info(`Sorted jobs by score, top 3 selected out of ${allRecentJobs.length}`);
+              
               // Add header for jobs section
               jobsHtml = `
                 <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
@@ -107,8 +123,9 @@ exports.processEmailRequests = onDocumentCreated({
               }
               
               // Format the jobs for the email
-              jobsSnapshot.forEach((doc, index) => {
-                logger.info(`Processing job ${index + 1} with ID ${doc.id}`);
+              topJobs.forEach((job, index) => {
+                const doc = job.doc;
+                logger.info(`Processing job ${index + 1} with ID ${doc.id}, score: ${doc.data().match?.final_score || 'N/A'}`);
                 const jobData = doc.data();
                 
                 // Get score from either location
