@@ -285,10 +285,10 @@
 
 					<span
 						class="chip variant-ghost-surface text-base"
-						title={job.jobInfo?.location || job.basicInfo?.location || 'N/A'}
+						title={job.basicInfo?.location || job.jobInfo?.location || 'N/A'}
 					>
 						<iconify-icon icon="solar:pin-bold"></iconify-icon>
-						<span>{truncateText(job.jobInfo?.location || job.basicInfo?.location)}</span>
+						<span>{truncateText(job.basicInfo?.location || job.jobInfo?.location)}</span>
 					</span>
 
 					<span class="chip variant-ghost-surface text-base" title={job.compensation || 'N/A'}>
