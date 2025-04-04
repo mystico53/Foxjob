@@ -35,11 +35,36 @@ const sortedJobs = derived(
         }
 
         // Sorting
-        return [...filteredJobs].sort((a, b) => {
-            // Skip timestamp sorting entirely
-            if ($sortConfig.column === 'generalData.timestamp') {
-                // Return 0 to maintain original order when sorting by timestamp
-                return 0;
+        // Sorting
+return [...filteredJobs].sort((a, b) => {
+    if ($sortConfig.column === 'generalData.timestamp') {
+        // Get posted dates from details
+        const aDate = a.details?.postedDate || a.jobInfo?.postedDate || a.generalData?.timestamp;
+        const bDate = b.details?.postedDate || b.jobInfo?.postedDate || b.generalData?.timestamp;
+        
+        // Convert string dates to Date objects for comparison
+        let dateA, dateB;
+        
+        if (aDate && typeof aDate === 'string') {
+            dateA = new Date(aDate);
+        } else if (aDate && aDate.toDate) {
+            dateA = aDate.toDate();
+        } else {
+            dateA = new Date(0); // Default to epoch if no date
+        }
+        
+        if (bDate && typeof bDate === 'string') {
+            dateB = new Date(bDate);
+        } else if (bDate && bDate.toDate) {
+            dateB = bDate.toDate();
+        } else {
+            dateB = new Date(0); // Default to epoch if no date
+        }
+        
+        // Sort descending (newest first) for "Most recent"
+        return $sortConfig.direction === 'desc' ? 
+            dateB.getTime() - dateA.getTime() : 
+            dateA.getTime() - dateB.getTime();
             }
 
             const aValue = getNestedValue(a, $sortConfig.column);

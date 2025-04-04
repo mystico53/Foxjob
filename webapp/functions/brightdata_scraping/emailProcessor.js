@@ -93,7 +93,7 @@ exports.processEmailRequests = onDocumentCreated({
               });
               
               // Take only the top 3
-              const topJobs = allRecentJobs.slice(0, 3);
+              const topJobs = allRecentJobs.slice(0, 5);
               
               logger.info(`Sorted jobs by score, top 3 selected out of ${allRecentJobs.length}`);
               
