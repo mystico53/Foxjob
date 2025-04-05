@@ -19,6 +19,7 @@
 	import { userStateStore } from '$lib/stores/userStateStore';
 	import { tooltipStore } from '$lib/stores/tooltipStore';
 	import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
+	import PreferenceProgressCounter from '$lib/preferences/PreferenceProgressCounter.svelte';
 
 	let pdfjsLib;
 	let isLibraryLoaded = false;
@@ -329,6 +330,7 @@ async function checkExistingResume() {
 			</div>
 		{/if}
 	</div>
+	<PreferenceProgressCounter />
 </div>
 
 <style>
