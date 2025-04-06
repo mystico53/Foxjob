@@ -1,27 +1,38 @@
 <script>
-    import { workPreferencesStore, getSavedCount } from '$lib/stores/workPreferencesStore';
+    import { workPreferencesStore, getSavedCount, getProgressPercentage } from '$lib/stores/workPreferencesStore';
+    import { goto } from '$app/navigation';
 
     // Reactive calculation of the saved count
     $: savedCount = getSavedCount($workPreferencesStore);
     $: isLoading = $workPreferencesStore.loading;
     $: questionsReady = $workPreferencesStore.questionsAvailable;
-
+    $: progressPercentage = getProgressPercentage($workPreferencesStore);
+    
+    function navigateToPreferences() {
+        goto('/preferences');
+    }
 </script>
 
 {#if isLoading}
-    <span class="text-sm text-gray-500">Loading prefs...</span>
+    <span class="text-sm text-gray-500">Upload your resume</span>
 {:else if !questionsReady}
-     <span class="text-sm text-gray-500">Awaiting questions...</span>
+    <span class="text-sm text-gray-500">Awaiting questions...</span>
+{:else if savedCount === 0}
+    <button 
+        on:click={navigateToPreferences}
+        class="w-full py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
+    >
+        Start Vibe Check
+    </button>
+{:else if savedCount === 5}
+    <span class="text-sm">Vibe Check completed</span>
 {:else}
-    <span class="font-medium">{savedCount}</span>
-    <span class="text-sm text-gray-600">/5 preferences saved</span>
+    <span class="text-sm">Vibe Check {progressPercentage}% done</span>
 {/if}
 
-<!-- Optional: Add styling as needed -->
 <style>
     /* Add any specific styles for this counter */
     span {
-        /* example */
         margin-right: 0.25rem;
     }
 </style>
