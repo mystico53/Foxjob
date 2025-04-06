@@ -28,6 +28,12 @@
     <span class="text-sm">Vibe Check completed</span>
 {:else}
     <span class="text-sm">Vibe Check {progressPercentage}% done</span>
+    <button 
+        on:click={navigateToPreferences}
+        class="w-full mt-2 py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
+    >
+        Finish Vibe Check
+    </button>
 {/if}
 
 <style>

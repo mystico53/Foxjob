@@ -33,11 +33,11 @@
   
   // Progress messages
   const progressMessages = {
-      20: "Great start! You're on your way to better job matches.",
-      40: "You're improving job recommendation accuracy!",
-      60: "Halfway there! Your profile is taking shape.",
-      80: "Almost done! Your preferences are becoming clearer.",
-      100: "All complete! We now have everything we need to find your perfect match."
+    20: "Nice start! We're getting to know your vibe.",
+    40: "You're on a roll! Keep those vibes coming.",
+    60: "Halfway there! Your vibe is getting clearer.",
+    80: "Almost done! We're really feeling your vibe now.",
+    100: "Awesome! We've got all the vibes we need to find your perfect match."
   };
   
   let progressPercentage = 0;
@@ -213,8 +213,8 @@
 <div class="preference-container bg-white rounded-lg shadow-md">
 <!-- Sticky progress bar and description -->
 <div class="sticky top-0 bg-white p-6 rounded-t-lg z-10 border-b">
-  <h2 class="text-2xl font-bold mb-2 text-gray-800">Work Preferences</h2>
-  <p class="mb-4 text-gray-600">Help us understand what you're looking for in your next role so we can find the perfect match for you!</p>
+  <h2 class="text-2xl font-bold mb-2 text-gray-800">Vibe Check</h2>
+  <p class="mb-4 text-gray-600">Tell us what matters in your next role so we can find opportunities that match your vibe!</p>
   
   <!-- Progress bar -->
   <div class="w-full bg-gray-200 rounded-full h-4 mb-2">
@@ -231,13 +231,13 @@
     <div class="flex justify-center items-center py-10">
       <div class="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
     </div>
-  {:else if workPreferences.status === 'error'}
+    {:else if workPreferences.status === 'error'}
     <div class="bg-red-100 p-4 rounded-md mb-4">
-      <p class="text-red-700">Sorry, we encountered an error generating your personalized questions. Please try again later.</p>
+      <p class="text-red-700">Oops, something went wrong with your vibe questions. Check back in a bit?</p>
     </div>
   {:else if !workPreferences.question1}
     <div class="bg-yellow-100 p-4 rounded-md mb-4">
-      <p class="text-yellow-700">We're still preparing your personalized questions. Please check back in a few moments.</p>
+      <p class="text-yellow-700">Just putting together your personal vibe questions. Hang tight for a sec!</p>
     </div>
   {:else}
     <div class="space-y-6">
@@ -245,13 +245,13 @@
       <div class="bg-blue-50 p-4 rounded-md relative">
         <h3 class="font-medium text-blue-800 mb-2">{workPreferences.question1}</h3>
         <textarea 
-          bind:value={workPreferences.answer1}
-          placeholder="Type your answer here..."
-          rows="1"
-          class="w-full p-3 border border-blue-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-          on:focus={() => focusedField = 'answer1'}
-          on:input={() => handleTextChange('answer1')}
-        ></textarea>
+        bind:value={workPreferences.answer1}
+        placeholder="Tell us what you think..."
+        rows="1"
+        class="w-full p-3 border border-blue-200 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+        on:focus={() => focusedField = 'answer1'}
+        on:input={() => handleTextChange('answer1')}
+      ></textarea>
         <div class="flex justify-between mt-2">
           <button 
             on:click={() => clearAnswer('answer1')} 
@@ -260,12 +260,12 @@
             Clear
           </button>
           <button 
-            on:click={() => saveAnswer('answer1')} 
-            disabled={saving === 'answer1' || !workPreferences.answer1}
-            class="px-3 py-1 {($workPreferencesStore.savedStatus.answer1 && !editedStatus.answer1) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {saving === 'answer1' ? 'Saving...' : ($workPreferencesStore.savedStatus.answer1 && !editedStatus.answer1) ? 'Saved' : 'Save Answer'}
-          </button>
+          on:click={() => saveAnswer('answer1')} 
+          disabled={saving === 'answer1' || !workPreferences.answer1}
+          class="px-3 py-1 {($workPreferencesStore.savedStatus.answer1 && !editedStatus.answer1) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {saving === 'answer1' ? 'Saving...' : ($workPreferencesStore.savedStatus.answer1 && !editedStatus.answer1) ? 'Saved' : 'Save'}
+        </button>
         </div>
       </div>
       
@@ -389,12 +389,12 @@
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
         </svg>
         <p class="text-sm font-medium text-blue-700">
-          {#if progressPercentage === 0}
-            You haven't saved any answers yet. Please answer and save each question.
+            {#if progressPercentage === 0}
+            You haven't saved anything yet. Share your thoughts for each question!
           {:else if progressPercentage === 100}
-            All 5 of 5 questions saved! Thank you for completing your work preferences.
+            All 5 questions answered! Thanks for sharing your vibe with us.
           {:else}
-            {Math.round(progressPercentage / 20)} of 5 questions saved. Don't forget to save your answers!
+            {Math.round(progressPercentage / 20)} of 5 answers saved. Keep the vibes coming!
           {/if}
         </p>
       </div>
