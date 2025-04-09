@@ -10,6 +10,7 @@
 	import ProcessingJobsCount from '$lib/utilities/ProcessingJobsCount.svelte';
 
 	let isSidebarOpen = true; // Default to open
+	let isSmallScreen = false;
 
 	onMount(() => {
 		// Initialize jobStore if needed
@@ -30,7 +31,8 @@
 	
 	// Check screen size and set sidebar state accordingly
 	function checkScreenSize() {
-		if (window.innerWidth <= 768) {
+		isSmallScreen = window.innerWidth <= 768;
+		if (isSmallScreen) {
 			isSidebarOpen = false;
 		} else {
 			isSidebarOpen = true;
@@ -43,7 +45,7 @@
 	}
 
 	function handleJobClick(job) {
-		if (window.innerWidth <= 768) {
+		if (isSmallScreen) {
 			isSidebarOpen = false;
 		}
 		goto(`/workflow/${job.id}`);
@@ -66,34 +68,33 @@
 	setContext('toggleBookmark', toggleBookmark);
 </script>
 
-<!-- Add toggle button for mobile - positioned below navbar (72px) -->
-<button 
-	class="fixed top-20 left-4 z-50 rounded-md bg-primary-500 p-2 text-white shadow-md md:hidden" 
-	on:click={toggleSidebar}
-	aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
->
-	<!-- SVG hamburger/close icon -->
-	{#if isSidebarOpen}
-		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-			<line x1="18" y1="6" x2="6" y2="18"></line>
-			<line x1="6" y1="6" x2="18" y2="18"></line>
-		</svg>
-	{:else}
-		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-			<line x1="3" y1="12" x2="21" y2="12"></line>
-			<line x1="3" y1="6" x2="21" y2="6"></line>
-			<line x1="3" y1="18" x2="21" y2="18"></line>
-		</svg>
-	{/if}
-</button>
+<div class="fixed left-0 flex h-[calc(100vh-72px)] w-full flex-row">
+	<!-- Mobile Toggle Button - positioned below navbar -->
+	<button 
+		class="fixed top-20 left-4 z-50 rounded-md bg-primary-500 p-2 text-white shadow-md transition-all duration-300 md:hidden"
+		style="left: {isSidebarOpen && isSmallScreen ? '280px' : '1rem'}"
+		on:click={toggleSidebar}
+		aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+	>
+		<!-- SVG hamburger/close icon -->
+		{#if isSidebarOpen}
+			<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<line x1="18" y1="6" x2="6" y2="18"></line>
+				<line x1="6" y1="6" x2="18" y2="18"></line>
+			</svg>
+		{:else}
+			<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+				<line x1="3" y1="12" x2="21" y2="12"></line>
+				<line x1="3" y1="6" x2="21" y2="6"></line>
+				<line x1="3" y1="18" x2="21" y2="18"></line>
+			</svg>
+		{/if}
+	</button>
 
-<div class="fixed left-0 flex h-[calc(100vh-72px)] w-full flex-col md:flex-row">
-	<!-- Sidebar with Svelte class directives for responsive behavior -->
-	<aside
-		class="bg-surface-100 custom-scrollbar fixed h-full overflow-y-auto border-r transition-transform duration-300 z-40 md:relative md:w-80 md:min-w-[25rem] md:max-w-[25rem]"
-		class:translate-x-0={isSidebarOpen}
-		class:-translate-x-full={!isSidebarOpen}
-		class:md:translate-x-0={true}
+	<!-- Sidebar with responsive behavior -->
+	<div 
+		class="bg-surface-100 custom-scrollbar fixed h-[calc(100vh-72px)] overflow-y-auto border-r z-40 transition-all duration-300 w-[25rem] md:static"
+		style="transform: {isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)'}"
 	>
 		<SortControls />
 		<ProcessingJobsCount />
@@ -131,13 +132,13 @@
 				<div class="text-surface-400 p-4 text-center">No jobs found.</div>
 			{/if}
 		</div>
-	</aside>
+	</div>
 
 	<!-- Main content area that adapts to sidebar state -->
-	<main 
-		class="bg-surface-100 flex-1 overflow-y-auto p-4 transition-all duration-300"
-		class:md:ml-80={true}
+	<div 
+		class="flex-1 h-[calc(100vh-72px)] overflow-y-auto p-4 transition-all duration-300 bg-surface-100"
+		style="margin-left: 0;"
 	>
 		<slot />
-	</main>
+	</div>
 </div>
