@@ -304,6 +304,7 @@ async function checkExistingResume() {
 					regionInterface="hover:bg-surface-500/20 transition-colors duration-150"
 					class="w-full"
 				/>
+				<!-- 
 				<OnboardingTooltip
 					title="Step 1"
 					description="Upload your resume"
@@ -311,6 +312,7 @@ async function checkExistingResume() {
 					width="400px"
 					offset="1rem"
 				/>
+				-->
 			</div>
 		{/if}
 

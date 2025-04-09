@@ -8,6 +8,12 @@
 	import { tooltipStore } from '$lib/stores/tooltipStore';
 	import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
 
+	let mobileMenuOpen = false;
+
+	function toggleMobileMenu() {
+		mobileMenuOpen = !mobileMenuOpen;
+	}
+
 	function handleTooltipClose() {
 		tooltipStore.hideNavbarTooltip();
 	}
@@ -34,18 +40,18 @@
 </script>
 
 <AppBar
-	background="bg-white"
-	class="border-b-2 px-4 py-2"
-	style="border-color: rgb(107, 114, 128);"
-	gridColumns="grid-cols-3"
-	slotDefault="place-self-center"
-	slotTrail="place-self-end"
+  background="bg-white"
+  class="border-b-2 px-4 py-2"
+  style="border-color: rgb(107, 114, 128);"
+  gridColumns="grid-cols-[1fr_auto_auto]"
+  slotDefault="place-self-center"
+  slotTrail="place-self-end"
 >
 	<svelte:fragment slot="lead">
-		<div class="flex items-center gap-4">
-			<img src={foxIcon} alt="Fox Icon" class="h-8 w-8" />
-			<strong class="foxjob-title text-xl uppercase">Foxjob</strong>
-		</div>
+		<div class="flex items-center gap-2 md:gap-4">
+			<img src={foxIcon} alt="Fox Icon" class="h-6 w-6 md:h-8 md:w-8" />
+			<strong class="foxjob-title text-lg md:text-xl uppercase">Foxjob</strong>
+		  </div>
 	</svelte:fragment>
 
 	<svelte:fragment slot="default">
@@ -103,30 +109,10 @@
 
 	<svelte:fragment slot="trail">
 		<div class="flex items-center gap-4">
+			<button class="btn btn-sm md:hidden" on:click={toggleMobileMenu}>
+				<iconify-icon icon="solar:hamburger-menu-outline"></iconify-icon>
+			  </button>
 			{#if $authStore}
-				<div class="relative">
-					<!-- Add this wrapper -->
-					<a
-						href="https://chromewebstore.google.com/detail/foxjob/lbncdalbaajjafnpgplghkdaiflfihjp"
-						class="btn btn-sm variant-ghost flex items-center gap-2"
-						title="Admin Panel"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						<iconify-icon icon="solar:download-minimalistic-outline"></iconify-icon>
-						Extension
-					</a>
-					{#if $tooltipStore.showNavbarTooltip}
-						<OnboardingTooltip
-							title="Step 2"
-							description="Add the extension to your browser"
-							position="bottom"
-							width="24rem"
-							showCloseButton={true}
-							onClose={handleTooltipClose}
-						/>
-					{/if}
-				</div>
 				<FeedbackButton />
 				<button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
 				<Avatar
@@ -142,6 +128,24 @@
 		</div>
 	</svelte:fragment>
 </AppBar>
+
+{#if mobileMenuOpen}
+  <div class="md:hidden bg-white border-b-2 w-full shadow-lg">
+    <ul class="flex flex-col list-none p-4 space-y-4">
+      {#each navItems as { href, label }}
+        <li>
+          <a 
+            {href} 
+            class="text-base font-bold {currentPath === href ? 'text-[#B45309]' : 'text-black-600'}"
+            on:click={() => mobileMenuOpen = false}
+          >
+            {label}
+          </a>
+        </li>
+      {/each}
+    </ul>
+  </div>
+{/if}
 
 <style>
 	@import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
