@@ -6,7 +6,6 @@
 	import foxIcon from '../assets/icon128.png';
 	import FeedbackButton from '$lib/admincomponents/FeedbackButton.svelte';
 	import { tooltipStore } from '$lib/stores/tooltipStore';
-	import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
 
 	let mobileMenuOpen = false;
 	let profileDropdownOpen = false;
@@ -64,7 +63,7 @@
   background="bg-white"
   class="border-b-2 px-4 py-2"
   style="border-color: rgb(107, 114, 128);"
-  gridColumns="grid-cols-[1fr_auto_auto]"
+  gridColumns="grid-cols-[1fr_2fr_1fr]"
   slotDefault="place-self-center"
   slotTrail="place-self-end"
 >
@@ -137,13 +136,23 @@
 				
 				{#if profileDropdownOpen}
 					<div class="absolute right-0 top-full mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
-					<div class="py-1">
-						<!-- Move FeedbackButton component here -->
-						<div class="px-4 py-2">
-						<FeedbackButton />
-						</div>
-						<button class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" on:click={handleLogout}>Logout</button>
-					</div>
+						<div class="py-1">
+							<!-- Keep your FeedbackButton component but adjust the wrapper -->
+							<div class="w-full">
+							  <FeedbackButton />
+							</div>
+							
+							<!-- Logout button with matching styling -->
+							<button 
+							  class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100" 
+							  on:click={handleLogout}
+							>
+							  <div class="flex items-center gap-2">
+								<iconify-icon icon="solar:logout-2-outline"></iconify-icon>
+								Logout
+							  </div>
+							</button>
+						  </div>
 					</div>
 				{/if}
 				</div>

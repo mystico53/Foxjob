@@ -2,6 +2,7 @@
   import FeedbackModal from '$lib/admincomponents/FeedbackModal.svelte';
   import { getFirestore, setDoc, doc } from 'firebase/firestore';
   import { auth } from '$lib/firebase';
+  export let customClass = "";
   
   let showModal = false;
   let feedbackText = '';
