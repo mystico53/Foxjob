@@ -9,18 +9,42 @@
 	import { onMount, setContext } from 'svelte';
 	import ProcessingJobsCount from '$lib/utilities/ProcessingJobsCount.svelte';
 
-	let sidebar;
+	let isSidebarOpen = true; // Default to open
 
 	onMount(() => {
 		// Initialize jobStore if needed
 		if (auth.currentUser) {
 			jobStore.init(auth.currentUser.uid);
 		}
+		
+		// Handle initial state based on screen size
+		checkScreenSize();
+		
+		// Add resize listener
+		window.addEventListener('resize', checkScreenSize);
+		
+		return () => {
+			window.removeEventListener('resize', checkScreenSize);
+		};
 	});
+	
+	// Check screen size and set sidebar state accordingly
+	function checkScreenSize() {
+		if (window.innerWidth <= 768) {
+			isSidebarOpen = false;
+		} else {
+			isSidebarOpen = true;
+		}
+	}
+	
+	// Function to toggle sidebar visibility
+	function toggleSidebar() {
+		isSidebarOpen = !isSidebarOpen;
+	}
 
 	function handleJobClick(job) {
 		if (window.innerWidth <= 768) {
-			sidebar.style.transform = 'translateX(-100%)';
+			isSidebarOpen = false;
 		}
 		goto(`/workflow/${job.id}`);
 	}
@@ -42,11 +66,34 @@
 	setContext('toggleBookmark', toggleBookmark);
 </script>
 
+<!-- Add toggle button for mobile - positioned below navbar (72px) -->
+<button 
+	class="fixed top-20 left-4 z-50 rounded-md bg-primary-500 p-2 text-white shadow-md md:hidden" 
+	on:click={toggleSidebar}
+	aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+>
+	<!-- SVG hamburger/close icon -->
+	{#if isSidebarOpen}
+		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<line x1="18" y1="6" x2="6" y2="18"></line>
+			<line x1="6" y1="6" x2="18" y2="18"></line>
+		</svg>
+	{:else}
+		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+			<line x1="3" y1="12" x2="21" y2="12"></line>
+			<line x1="3" y1="6" x2="21" y2="6"></line>
+			<line x1="3" y1="18" x2="21" y2="18"></line>
+		</svg>
+	{/if}
+</button>
+
 <div class="fixed left-0 flex h-[calc(100vh-72px)] w-full flex-col md:flex-row">
+	<!-- Sidebar with Svelte class directives for responsive behavior -->
 	<aside
-		class="bg-surface-100 custom-scrollbar h-full w-full transform overflow-y-auto border-r transition-transform md:w-80 md:translate-x-0"
-		style="width: 25rem;"
-		bind:this={sidebar}
+		class="bg-surface-100 custom-scrollbar fixed h-full overflow-y-auto border-r transition-transform duration-300 z-40 md:relative md:w-80 md:min-w-[25rem] md:max-w-[25rem]"
+		class:translate-x-0={isSidebarOpen}
+		class:-translate-x-full={!isSidebarOpen}
+		class:md:translate-x-0={true}
 	>
 		<SortControls />
 		<ProcessingJobsCount />
@@ -86,7 +133,11 @@
 		</div>
 	</aside>
 
-	<main class="bg-surface-100 flex-1 overflow-y-auto p-4">
+	<!-- Main content area that adapts to sidebar state -->
+	<main 
+		class="bg-surface-100 flex-1 overflow-y-auto p-4 transition-all duration-300"
+		class:md:ml-80={true}
+	>
 		<slot />
 	</main>
 </div>
