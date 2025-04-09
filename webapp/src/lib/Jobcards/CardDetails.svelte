@@ -494,10 +494,12 @@
 </div>
 
 <!-- Fixed position action buttons -->
+<!-- Replace the current fixed position button container with this -->
 <div
-	class="bg-surface-100 fixed inset-x-0 bottom-0 z-10 border-t p-4 md:left-[25rem] md:right-[1rem]"
+	class="bg-surface-100 fixed inset-x-0 bottom-0 z-10 border-t p-4 md:left-[25rem] md:right-[1rem] transition-all duration-200"
 >
-	<div class="mx-auto flex max-w-4xl flex-wrap justify-center gap-24">
+	<!-- For desktop: Keep original layout -->
+	<div class="hidden md:flex mx-auto max-w-4xl flex-wrap justify-center gap-24">
 		<button
 			class="btn variant-primary flex items-center gap-2 rounded"
 			on:click={previousJob}
@@ -507,18 +509,6 @@
 		</button>
 
 		<div class="flex gap-4">
-			<button
-				class="btn variant-ghost-tertiary flex items-center gap-2 rounded"
-				on:click={() => handleRetry(job.id)}
-				disabled={processingJobs.has(job.id)}
-			>
-				{#if processingJobs.has(job.id)}
-					<iconify-icon icon="svg-spinners:blocks-shuffle-3"></iconify-icon>
-					<p>Rematching ~30sec</p>
-				{:else}
-					<iconify-icon icon="solar:refresh-bold"></iconify-icon>
-				{/if}
-			</button>
 
 			<button
 				class="btn variant-ghost-tertiary flex items-center gap-2 rounded"
@@ -555,6 +545,59 @@
 
 		<button
 			class="btn variant-primary flex items-center gap-2 rounded"
+			on:click={() => handleNext(job.id)}
+			disabled={isLastJob || isHiding}
+		>
+			<iconify-icon icon="solar:map-arrow-right-bold"></iconify-icon>
+		</button>
+	</div>
+	
+	<!-- For mobile: Optimized layout -->
+	<div class="flex md:hidden mx-auto max-w-4xl flex-wrap justify-between gap-4">
+		<button
+			class="btn variant-primary flex items-center justify-center w-10 h-10 rounded"
+			on:click={previousJob}
+			disabled={isFirstJob || isHiding}
+		>
+			<iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
+		</button>
+
+		<div class="flex flex-wrap justify-center gap-2">
+			<button
+				class="btn variant-ghost-tertiary flex items-center justify-center w-10 h-10 rounded"
+				on:click={handleBookmark}
+				disabled={isHiding}
+			>
+				{#if currentStatus === 'bookmarked'}
+					<iconify-icon icon="solar:bookmark-bold"></iconify-icon>
+				{:else}
+					<iconify-icon icon="solar:bookmark-outline"></iconify-icon>
+				{/if}
+			</button>
+
+			<button
+				class="btn variant-filled-primary py-2 px-3 rounded"
+				on:click={handleVisitJob}
+				disabled={isHiding}
+			>
+				Apply
+			</button>
+
+			<button
+				class="btn variant-ghost-tertiary flex items-center justify-center w-10 h-10 rounded"
+				on:click={handleHide}
+				disabled={isHiding}
+			>
+				{#if isHiding}
+					<iconify-icon icon="solar:trash-bin-trash-bold"></iconify-icon>
+				{:else}
+					<iconify-icon icon="solar:trash-bin-minimalistic-outline"></iconify-icon>
+				{/if}
+			</button>
+		</div>
+
+		<button
+			class="btn variant-primary flex items-center justify-center w-10 h-10 rounded"
 			on:click={() => handleNext(job.id)}
 			disabled={isLastJob || isHiding}
 		>
