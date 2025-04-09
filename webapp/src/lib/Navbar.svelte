@@ -9,6 +9,11 @@
 	import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
 
 	let mobileMenuOpen = false;
+	let profileDropdownOpen = false;
+
+	function toggleProfileDropdown() {
+		profileDropdownOpen = !profileDropdownOpen;
+	}
 
 	function toggleMobileMenu() {
 		mobileMenuOpen = !mobileMenuOpen;
@@ -28,6 +33,22 @@
 		// { href: '/assessments', label: 'Assesments' },
 		// { href: '/resume', label: 'My resume' },
 	];
+
+	function clickOutside(node) {
+		const handleClick = (event) => {
+			if (!node.contains(event.target)) {
+			profileDropdownOpen = false;
+			}
+		};
+		
+		document.addEventListener('click', handleClick, true);
+		
+		return {
+			destroy() {
+			document.removeEventListener('click', handleClick, true);
+			}
+		};
+		}
 
 	async function handleLogout() {
 		try {
@@ -49,9 +70,9 @@
 >
 	<svelte:fragment slot="lead">
 		<div class="flex items-center gap-2 md:gap-4">
-			<img src={foxIcon} alt="Fox Icon" class="h-6 w-6 md:h-8 md:w-8" />
+			<img src={foxIcon} alt="Fox Icon" class="h-6 w-6 md:h-8 md:w-8 !important" />
 			<strong class="foxjob-title text-lg md:text-xl uppercase">Foxjob</strong>
-		  </div>
+		</div>
 	</svelte:fragment>
 
 	<svelte:fragment slot="default">
@@ -60,19 +81,6 @@
 				<ul class="flex list-none justify-center space-x-8">
 					<!-- First menu item with relative positioning -->
 					<li class="relative px-4">
-						{#if $tooltipStore.showThirdTooltip}
-							<OnboardingTooltip
-								title="Step 3"
-								description="Time to scan your first job!"
-								position="bottom"
-								width="17rem"
-								showCloseButton={true}
-								onClose={() => tooltipStore.hideThirdTooltip()}
-								primaryButtonText="See example job"
-								primaryButtonLink="/list/example"
-								secondaryButtonText="Close"
-							/>
-						{/if}
 						<a
 							href={navItems[0].href}
 							class="text-base font-bold {currentPath === navItems[0].href
@@ -113,15 +121,32 @@
 				<iconify-icon icon="solar:hamburger-menu-outline"></iconify-icon>
 			  </button>
 			{#if $authStore}
-				<FeedbackButton />
-				<button class="btn btn-sm variant-ghost" on:click={handleLogout}>Logout</button>
-				<Avatar
+			<div class="relative" use:clickOutside>
+				<button 
+					on:click={toggleProfileDropdown}
+					class="flex items-center focus:outline-none"
+				>
+					<Avatar
 					width="w-12"
 					initials={$authStore.displayName?.charAt(0).toUpperCase() ??
 						$authStore.email?.charAt(0).toUpperCase() ??
 						'U'}
 					background="bg-tertiary-500"
-				/>
+					/>
+				</button>
+				
+				{#if profileDropdownOpen}
+					<div class="absolute right-0 top-full mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+					<div class="py-1">
+						<!-- Move FeedbackButton component here -->
+						<div class="px-4 py-2">
+						<FeedbackButton />
+						</div>
+						<button class="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100" on:click={handleLogout}>Logout</button>
+					</div>
+					</div>
+				{/if}
+				</div>
 			{:else}
 				<a href="/auth/signin" class="btn btn-sm variant-filled-primary">Login</a>
 			{/if}
