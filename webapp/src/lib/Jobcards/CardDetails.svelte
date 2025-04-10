@@ -423,46 +423,42 @@
 	</div>
 
 	<!-- Updated Match Details Section with Accordion -->
-	<div class="card w-full p-4">
-		<h4 class="h4 mb-4 font-bold">Match Details</h4>
-		
-		{#if matchDetails.length > 0}
-			<Accordion>
-				{#each matchDetails as detail}
-					<AccordionItem class="mb-2">
-						<svelte:fragment slot="summary">
-							<div class="flex items-center gap-4 w-full">
-								<div class="flex-1">{detail.requirement}</div>
-								<div class="flex items-center gap-4 w-64">
-									<div class="w-64">
-										<ProgressBar 
-											value={Math.round(detail.match_score_percent)} 
-											max={100}
-											track="bg-surface-800/30"
-											meter="!bg-gradient-to-r from-[#FF9C00] to-[#DC3701]"
-										/>
-									</div>
-								</div>
+	<!-- Updated Match Details Section with Accordion -->
+<div class="card w-full p-4">
+	<h4 class="h4 mb-4 font-bold">Match Details</h4>
+	
+	{#if matchDetails.length > 0}
+		<Accordion>
+			{#each matchDetails as detail}
+				<AccordionItem class="mb-2">
+					<svelte:fragment slot="summary">
+						<div class="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 w-full">
+							<div class="flex-1 mb-2 md:mb-0">{detail.requirement}</div>
+							<div class="w-full md:w-64">
+								<ProgressBar 
+									value={Math.round(detail.match_score_percent)} 
+									max={100}
+									track="bg-surface-800/30"
+									meter="!bg-gradient-to-r from-[#FF9C00] to-[#DC3701]"
+								/>
 							</div>
-						</svelte:fragment>
-						<svelte:fragment slot="content">
-							<div class="rounded-lg space-y-4 p-4 bg-surface-100 border border-surface-300">
-								<div>
-									<span class="font-semibold">Match Score: {detail.match_score_percent}%</span>
-								</div>
-								<div>
-									<span class="font-semibold">Evidence:</span>
-									<p class="mt-1">{detail.evidence}</p>
-								</div>
+						</div>
+					</svelte:fragment>
+					<svelte:fragment slot="content">
+						<div class="rounded-lg space-y-4 p-4 bg-surface-100 border border-surface-300">
+							<div>
+								<span class="font-semibold">Evidence:</span>
+								<p class="mt-1">{detail.evidence}</p>
 							</div>
-						</svelte:fragment>
-					</AccordionItem>
-				{/each}
-			</Accordion>
-		{:else}
-			<p class="text-surface-600-300-token">No match details available</p>
-		{/if}
-	</div>
+						</div>
+					</svelte:fragment>
+				</AccordionItem>
+			{/each}
+		</Accordion>
+	{:else}
+		<p class="text-surface-600-300-token">No match details available</p>
+	{/if}
+</div>
 
 	<!-- Job Description Section (Expandable) -->
 	<div class="flex w-full flex-col items-center gap-4">
