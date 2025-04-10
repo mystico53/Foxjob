@@ -3,7 +3,14 @@
   import { getFirestore, doc, getDoc, updateDoc } from 'firebase/firestore';
   import { getAuth, onAuthStateChanged } from 'firebase/auth';
   import { onMount } from 'svelte';
-  import { workPreferencesStore } from '$lib/stores/workPreferencesStore';
+  import { 
+  userStateStore, 
+  setSavedAnswer,
+  setQuestionsStatus,
+  setQuestionsAvailable,
+  getSavedCount,
+  getProgressPercentage 
+} from '$lib/stores/userStateStore';
   
   const db = getFirestore();
   const auth = getAuth();
@@ -47,99 +54,123 @@
   let focusedField = null;
   
   // Subscribe to the store
-  workPreferencesStore.subscribe(store => {
-      loading = store.loading;
-      const totalQuestions = 5;
-      const answeredQuestions = Object.values(store.savedStatus).filter(Boolean).length;
-      progressPercentage = Math.round((answeredQuestions / totalQuestions) * 100);
-  });
-  
+  userStateStore.subscribe(store => {
+    loading = store.workPreferences.loading;
+    const totalQuestions = 5;
+    const answeredQuestions = Object.values(store.workPreferences.savedStatus).filter(Boolean).length;
+    progressPercentage = Math.round((answeredQuestions / totalQuestions) * 100);
+});
   // Get current progress message
   $: currentProgressMessage = progressMessages[progressPercentage] || "";
   
   onMount(() => {
-      // Reset store state on mount
-      workPreferencesStore.update(s => ({ ...s, loading: true, questionsAvailable: false }));
-      
-      const unsubscribe = onAuthStateChanged(auth, (user) => {
-          if (user) {
-              userId = user.uid;
-              loadWorkPreferences();
-          } else {
-              // If no user, update store to reflect loading finished
-              workPreferencesStore.update(s => ({ ...s, loading: false }));
-          }
-      });
-      
-      return unsubscribe;
-  });
+    // Reset store state on mount - update for userStateStore
+    userStateStore.update(s => ({
+        ...s,
+        workPreferences: {
+            ...s.workPreferences,
+            loading: true,
+            questionsAvailable: false
+        }
+    }));
+    
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+        if (user) {
+            userId = user.uid;
+            loadWorkPreferences();
+        } else {
+            // Update for userStateStore
+            userStateStore.update(s => ({
+                ...s,
+                workPreferences: {
+                    ...s.workPreferences,
+                    loading: false
+                }
+            }));
+        }
+    });
+    
+    return unsubscribe;
+});
   
-  async function loadWorkPreferences() {
-      // Ensure loading state is true at the start
-      workPreferencesStore.update(s => ({ ...s, loading: true }));
-      
-      try {
-          const prefDocRef = doc(db, 'users', userId, 'UserCollections', 'work_preferences');
-          const prefSnap = await getDoc(prefDocRef);
-          let newSavedStatus = {
-              answer1: false,
-              answer2: false,
-              answer3: false,
-              answer4: false,
-              answer5: false
-          };
-          let questionsAvailable = false;
-          
-          if (prefSnap.exists()) {
-              const data = prefSnap.data();
-              workPreferences = {
-                  question1: data.question1 || '',
-                  answer1: data.answer1 || '',
-                  question2: data.question2 || '',
-                  answer2: data.answer2 || '',
-                  question3: data.question3 || '',
-                  answer3: data.answer3 || '',
-                  question4: data.question4 || '',
-                  answer4: data.answer4 || '',
-                  question5: data.question5 || '',
-                  answer5: data.answer5 || '',
-                  status: data.status || 'pending'
-              };
-              
-              // Determine saved status based on loaded data
-              newSavedStatus = {
-                  answer1: !!workPreferences.answer1,
-                  answer2: !!workPreferences.answer2,
-                  answer3: !!workPreferences.answer3,
-                  answer4: !!workPreferences.answer4,
-                  answer5: !!workPreferences.answer5
-              };
-              
-              questionsAvailable = !!workPreferences.question1;
-          }
-          
-          // Update the store with loaded state
-          workPreferencesStore.update(s => ({
-              ...s,
-              savedStatus: newSavedStatus,
-              loading: false,
-              questionsAvailable: questionsAvailable
-          }));
-          
-      } catch (err) {
-          console.error('Error loading work preferences:', err);
-          // Update the store on error
-          workPreferencesStore.update(s => ({ 
-              ...s, 
-              loading: false, 
-              questionsAvailable: false 
-          }));
-      }
-  }
+async function loadWorkPreferences() {
+    // Update for userStateStore
+    userStateStore.update(s => ({
+        ...s,
+        workPreferences: {
+            ...s.workPreferences,
+            loading: true
+        }
+    }));
+    
+    try {
+        const prefDocRef = doc(db, 'users', userId, 'UserCollections', 'work_preferences');
+        const prefSnap = await getDoc(prefDocRef);
+        
+        if (prefSnap.exists()) {
+            const data = prefSnap.data();
+            workPreferences = {
+                question1: data.question1 || '',
+                answer1: data.answer1 || '',
+                question2: data.question2 || '',
+                answer2: data.answer2 || '',
+                question3: data.question3 || '',
+                answer3: data.answer3 || '',
+                question4: data.question4 || '',
+                answer4: data.answer4 || '',
+                question5: data.question5 || '',
+                answer5: data.answer5 || '',
+                status: data.status || 'pending'
+            };
+            
+            // Update the savedStatus using the helper functions
+            for (let i = 1; i <= 5; i++) {
+                setSavedAnswer(i, !!workPreferences[`answer${i}`]);
+            }
+            
+            // Update status and questionsAvailable
+            setQuestionsStatus(workPreferences.status);
+            setQuestionsAvailable(!!workPreferences.question1);
+            
+            // Update loading
+            userStateStore.update(s => ({
+                ...s,
+                workPreferences: {
+                    ...s.workPreferences,
+                    loading: false
+                }
+            }));
+        } else {
+            // Update the store on no data
+            setQuestionsStatus('');
+            setQuestionsAvailable(false);
+            userStateStore.update(s => ({
+                ...s, 
+                workPreferences: {
+                    ...s.workPreferences,
+                    loading: false
+                }
+            }));
+        }
+        
+    } catch (err) {
+        console.error('Error loading work preferences:', err);
+        // Update the store on error
+        setQuestionsStatus('error');
+        setQuestionsAvailable(false);
+        userStateStore.update(s => ({
+            ...s, 
+            workPreferences: {
+                ...s.workPreferences,
+                loading: false
+            }
+        }));
+    }
+}
   
   // Track text changes
   function handleTextChange(answerKey) {
-      const currentStoreValue = $workPreferencesStore;
+      const currentStoreValue = $userStateStore.workPreferences;
       if (currentStoreValue.savedStatus[answerKey]) {
           editedStatus[answerKey] = true;
       }
@@ -147,67 +178,68 @@
   
   // Clear answer
   function clearAnswer(answerKey) {
-      workPreferences[answerKey] = '';
-      editedStatus[answerKey] = false;
-      
-      // Update the store
-      workPreferencesStore.update(s => {
-          const newSavedStatus = { ...s.savedStatus, [answerKey]: false };
-          return { ...s, savedStatus: newSavedStatus };
-      });
-      
-      // Update in database if user is logged in
-      if (userId) {
-          const updateData = {};
-          updateData[answerKey] = '';
-          updateData.updatedAt = new Date();
-          
-          updateDoc(
-              doc(db, 'users', userId, 'UserCollections', 'work_preferences'),
-              updateData
-          ).catch(err => {
-              console.error(`Error clearing ${answerKey}:`, err);
-          });
-      }
-  }
+    workPreferences[answerKey] = '';
+    editedStatus[answerKey] = false;
+    
+    // Use the setSavedAnswer helper function
+    const answerNumber = parseInt(answerKey.replace('answer', ''));
+    setSavedAnswer(answerNumber, false);
+    
+    // Update in database if user is logged in
+    if (userId) {
+        const updateData = {};
+        updateData[answerKey] = '';
+        updateData.updatedAt = new Date();
+        
+        updateDoc(
+            doc(db, 'users', userId, 'UserCollections', 'work_preferences'),
+            updateData
+        ).catch(err => {
+            console.error(`Error clearing ${answerKey}:`, err);
+        });
+    }
+}
   
   // Save individual answer
   async function saveAnswer(answerKey) {
-      if (!userId || !workPreferences[answerKey]) return;
-      
-      saving = answerKey;
-      try {
-          const updateData = {};
-          updateData[answerKey] = workPreferences[answerKey];
-          updateData.updatedAt = new Date();
-          
-          // Also update status to completed if all questions are answered
-          if (workPreferences.answer1 && 
-              workPreferences.answer2 && 
-              workPreferences.answer3 && 
-              workPreferences.answer4 && 
-              workPreferences.answer5) {
-              updateData.status = 'completed';
-          }
-          
-          await updateDoc(
-              doc(db, 'users', userId, 'UserCollections', 'work_preferences'),
-              updateData
-          );
-          
-          // Update the store
-          workPreferencesStore.update(s => {
-              const newSavedStatus = { ...s.savedStatus, [answerKey]: true };
-              return { ...s, savedStatus: newSavedStatus };
-          });
-          
-          editedStatus[answerKey] = false; // Reset edited status after saving
-      } catch (err) {
-          console.error(`Error saving ${answerKey}:`, err);
-      } finally {
-          saving = '';
-      }
-  }
+    if (!userId || !workPreferences[answerKey]) return;
+    
+    saving = answerKey;
+    try {
+        const updateData = {};
+        updateData[answerKey] = workPreferences[answerKey];
+        updateData.updatedAt = new Date();
+        
+        // Check if all questions are answered
+        if (workPreferences.answer1 && 
+            workPreferences.answer2 && 
+            workPreferences.answer3 && 
+            workPreferences.answer4 && 
+            workPreferences.answer5) {
+            updateData.status = 'completed';
+        }
+        
+        await updateDoc(
+            doc(db, 'users', userId, 'UserCollections', 'work_preferences'),
+            updateData
+        );
+        
+        // Use the setSavedAnswer helper function instead
+        const answerNumber = parseInt(answerKey.replace('answer', ''));
+        setSavedAnswer(answerNumber, true);
+        
+        // If status is changed to completed, update that too
+        if (updateData.status === 'completed') {
+            setQuestionsStatus('completed');
+        }
+        
+        editedStatus[answerKey] = false; // Reset edited status after saving
+    } catch (err) {
+        console.error(`Error saving ${answerKey}:`, err);
+    } finally {
+        saving = '';
+    }
+}
 </script>
 
 <div class="preference-container bg-white rounded-lg shadow-md">
@@ -262,9 +294,9 @@
           <button 
           on:click={() => saveAnswer('answer1')} 
           disabled={saving === 'answer1' || !workPreferences.answer1}
-          class="px-3 py-1 {($workPreferencesStore.savedStatus.answer1 && !editedStatus.answer1) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-3 py-1 {($userStateStore.workPreferences.savedStatus.answer1 && !editedStatus.answer1) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {saving === 'answer1' ? 'Saving...' : ($workPreferencesStore.savedStatus.answer1 && !editedStatus.answer1) ? 'Saved' : 'Save'}
+          {saving === 'answer1' ? 'Saving...' : ($userStateStore.workPreferences.savedStatus.answer1 && !editedStatus.answer1) ? 'Saved' : 'Save'}
         </button>
         </div>
       </div>
@@ -290,9 +322,9 @@
           <button 
             on:click={() => saveAnswer('answer2')} 
             disabled={saving === 'answer2' || !workPreferences.answer2}
-            class="px-3 py-1 {($workPreferencesStore.savedStatus.answer2 && !editedStatus.answer2) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-3 py-1 {($userStateStore.workPreferences.savedStatus.answer2 && !editedStatus.answer2) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving === 'answer2' ? 'Saving...' : ($workPreferencesStore.savedStatus.answer2 && !editedStatus.answer2) ? 'Saved' : 'Save Answer'}
+            {saving === 'answer2' ? 'Saving...' : ($userStateStore.workPreferences.savedStatus.answer2 && !editedStatus.answer2) ? 'Saved' : 'Save Answer'}
           </button>
         </div>
       </div>
@@ -318,9 +350,9 @@
           <button 
             on:click={() => saveAnswer('answer3')} 
             disabled={saving === 'answer3' || !workPreferences.answer3}
-            class="px-3 py-1 {($workPreferencesStore.savedStatus.answer3 && !editedStatus.answer3) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-3 py-1 {($userStateStore.workPreferences.savedStatus.answer3 && !editedStatus.answer3) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving === 'answer3' ? 'Saving...' : ($workPreferencesStore.savedStatus.answer3 && !editedStatus.answer3) ? 'Saved' : 'Save Answer'}
+            {saving === 'answer3' ? 'Saving...' : ($userStateStore.workPreferences.savedStatus.answer3 && !editedStatus.answer3) ? 'Saved' : 'Save Answer'}
           </button>
         </div>
       </div>
@@ -346,9 +378,9 @@
           <button 
             on:click={() => saveAnswer('answer4')} 
             disabled={saving === 'answer4' || !workPreferences.answer4}
-            class="px-3 py-1 {($workPreferencesStore.savedStatus.answer4 && !editedStatus.answer4) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-3 py-1 {($userStateStore.workPreferences.savedStatus.answer4 && !editedStatus.answer4) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving === 'answer4' ? 'Saving...' : ($workPreferencesStore.savedStatus.answer4 && !editedStatus.answer4) ? 'Saved' : 'Save Answer'}
+            {saving === 'answer4' ? 'Saving...' : ($userStateStore.workPreferences.savedStatus.answer4 && !editedStatus.answer4) ? 'Saved' : 'Save Answer'}
           </button>
         </div>
       </div>
@@ -374,9 +406,9 @@
           <button 
             on:click={() => saveAnswer('answer5')} 
             disabled={saving === 'answer5' || !workPreferences.answer5}
-            class="px-3 py-1 {($workPreferencesStore.savedStatus.answer5 && !editedStatus.answer5) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
+            class="px-3 py-1 {($userStateStore.workPreferences.savedStatus.answer5 && !editedStatus.answer5) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {saving === 'answer5' ? 'Saving...' : ($workPreferencesStore.savedStatus.answer5 && !editedStatus.answer5) ? 'Saved' : 'Save Answer'}
+            {saving === 'answer5' ? 'Saving...' : ($userStateStore.workPreferences.savedStatus.answer5 && !editedStatus.answer5) ? 'Saved' : 'Save Answer'}
           </button>
         </div>
       </div>
