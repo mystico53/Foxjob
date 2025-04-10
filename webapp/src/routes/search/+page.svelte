@@ -13,6 +13,7 @@
 
   <SearchResults/>
   <ScrapeJobsTable/>
-  <GetSnapshots datasetId="gd_lpfll7v5hcqtkxl6l"/>
   <DownloadSnapshot/>
+  <GetSnapshots datasetId="gd_lpfll7v5hcqtkxl6l"/>
+
   
