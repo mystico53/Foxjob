@@ -1,6 +1,16 @@
 <script>
     import { userStateStore, getSavedCount, getProgressPercentage } from '$lib/stores/userStateStore';
     import { goto } from '$app/navigation';
+    import { onMount } from 'svelte';
+
+    // Add debugging
+    onMount(() => {
+        const unsubscribe = userStateStore.subscribe(state => {
+            console.log("PreferenceProgressCounter store updated:", state);
+        });
+        
+        return unsubscribe;
+    });
 
     // Reactive calculations using the combined store
     $: workPreferences = $userStateStore.workPreferences;

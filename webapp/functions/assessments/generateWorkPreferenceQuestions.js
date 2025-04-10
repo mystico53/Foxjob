@@ -140,7 +140,7 @@ exports.generateWorkPreferenceQuestions = onDocumentCreated('users/{userId}/User
       'question5': questionData.questions[4],
       'answer5': '',
       'timestamp': FieldValue.serverTimestamp(),
-      'status': 'pending'
+      'status': 'ready'
     };
 
     // Set the document

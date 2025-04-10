@@ -17,7 +17,8 @@
 	} from 'firebase/firestore';
 	import { 
 		setResumeStatus, 
-		setQuestionsStatus, 
+		setQuestionsStatus,
+		setWorkPreferencesLoading, 
 		setQuestionsAvailable,
 		userStateStore 
 	} from '$lib/stores/userStateStore';
@@ -165,6 +166,7 @@ function updateUIFromData(data, timestamp) {
         uploadFeedback = `"${currentFileName}" processed successfully`;
         uploadFeedbackColor = 'variant-filled-surface';
         setResumeStatus(true, currentFileName, formattedTimestamp, 'processed');
+		setWorkPreferencesLoading(false);
     } else if (data.status === 'error') {
         resumeUploaded = false;
         resumeStatus = 'error';
