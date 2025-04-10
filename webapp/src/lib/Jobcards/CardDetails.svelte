@@ -32,7 +32,7 @@
 		duration: 200
 	};
 
-	$: score = job?.match?.final_score || job?.AccumulatedScores?.accumulatedScore;
+	$: score = job?.match?.match_score || job?.AccumulatedScores?.accumulatedScore;
 	$: isVisible = score !== undefined;
 
 	// Access the new summary fields

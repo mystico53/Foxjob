@@ -60,7 +60,7 @@
 	// Stats derived from filtered jobs
 	$: totalJobs = $filteredJobs.length;
 	$: highScoringJobs = $filteredJobs.filter(
-		(job) => (job.AccumulatedScores?.accumulatedScore > 65) || (job.match?.final_score > 65)
+		(job) => (job.AccumulatedScores?.accumulatedScore > 65) || (job.match?.match_score > 65)
 	).length;
 	$: progressPercentage = totalJobs > 0 ? Math.round((highScoringJobs / totalJobs) * 100) : 0;
 

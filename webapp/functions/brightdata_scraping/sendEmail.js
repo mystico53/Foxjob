@@ -34,7 +34,7 @@ function createEmailContent(originalHtml, originalText, jobsData = []) {
         // Format the jobs for the email
         jobsData.forEach((job) => {
             // Get score from either location (handling both field naming conventions)
-            const score = job.match?.final_score || job.match?.finalScore || 'N/A';
+            const score = job.match?.match_score || job.match?.finalScore || 'N/A';
             const title = job.basicInfo?.title || 'Untitled Position';
             const company = job.basicInfo?.company || 'Unnamed Company';
             
@@ -160,10 +160,10 @@ exports.sendEmail = onCall({
                 // Try both field naming patterns
                 let jobsSnapshot;
                 try {
-                    // Try first field naming pattern (final_score)
+                    // Try first field naming pattern (match_score)
                     jobsSnapshot = await jobsRef
-                        .where('match.final_score', '>', 0)
-                        .orderBy('match.final_score', 'desc')
+                        .where('match.match_score', '>', 0)
+                        .orderBy('match.match_score', 'desc')
                         .limit(3)
                         .get();
                 } catch (err) {
@@ -206,7 +206,7 @@ exports.sendEmail = onCall({
                 location: "Remote"
             },
             match: {
-                final_score: 85,
+                match_score: 85,
                 finalScore: 85,
                 summary: {
                     short_description: "TechCorp is a leading software company specializing in AI solutions.",
@@ -292,8 +292,8 @@ exports.previewEmail = onCall({
                 let jobsSnapshot;
                 try {
                     jobsSnapshot = await jobsRef
-                        .where('match.final_score', '>', 0)
-                        .orderBy('match.final_score', 'desc')
+                        .where('match.match_score', '>', 0)
+                        .orderBy('match.match_score', 'desc')
                         .limit(3)
                         .get();
                 } catch (err) {

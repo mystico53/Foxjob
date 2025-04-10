@@ -115,7 +115,7 @@ Return ONLY the following JSON object, with no additional text before or after i
     }
     // ... matching details for all prioritized requirements
   ],
-  "final_score": <Calculated Weighted Average Score (0-100)>
+  "match_score": <Calculated Weighted Average Score (0-100)>
 }
     `
 };

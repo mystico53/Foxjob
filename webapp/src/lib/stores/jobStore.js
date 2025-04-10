@@ -156,7 +156,7 @@ function createJobStore() {
                                 // Rest of your mappings remain the same
                                 match: jobDataRaw.match || {},
                                 Score: {
-                                    totalScore: jobDataRaw.match?.final_score || 0,
+                                    totalScore: jobDataRaw.match?.match_score || 0,
                                     summary: typeof jobDataRaw.match?.summary === 'string' 
                                         ? jobDataRaw.match.summary 
                                         : 'No summary available'
@@ -168,7 +168,7 @@ function createJobStore() {
                                             score: evaluator.score || 0,
                                             assessment: evaluator.reasoning || 'No assessment'
                                         })) : [],
-                                    totalScore: jobDataRaw.match?.final_score || 0,
+                                    totalScore: jobDataRaw.match?.match_score || 0,
                                     summary: typeof jobDataRaw.match?.summary === 'string'
                                         ? jobDataRaw.match.summary
                                         : (jobDataRaw.match?.summary?.short_description || 'No summary available')
@@ -180,7 +180,7 @@ function createJobStore() {
                                 },
                                 verdict: null,
                                 AccumulatedScores: {
-                                    accumulatedScore: jobDataRaw.match?.final_score || 0
+                                    accumulatedScore: jobDataRaw.match?.match_score || 0
                                 }
                             };
                         });
