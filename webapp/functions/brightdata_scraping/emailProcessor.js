@@ -69,7 +69,7 @@ exports.processEmailRequests = onDocumentCreated({
             
             // Query Firestore for all jobs from last 24 hours with a score > 0
             const jobsSnapshot = await jobsRef
-              .where('match.match_score', '>', 0)
+              .where('match.final_score', '>', 0)
               .where('searchMetadata.snapshotDate', '>=', twentyFourHoursAgo.toISOString())
               .orderBy('searchMetadata.snapshotDate', 'desc')
               .get();
@@ -85,10 +85,10 @@ exports.processEmailRequests = onDocumentCreated({
                 allRecentJobs.push({ id: doc.id, doc: doc });
               });
               
-              // Sort by match_score (highest first)
+              // Sort by final_score (highest first)
               allRecentJobs.sort((a, b) => {
-                const scoreA = a.doc.data().match?.match_score || 0;
-                const scoreB = b.doc.data().match?.match_score || 0;
+                const scoreA = a.doc.data().match?.final_score || 0;
+                const scoreB = b.doc.data().match?.final_score || 0;
                 return scoreB - scoreA;
               });
               
@@ -125,11 +125,11 @@ exports.processEmailRequests = onDocumentCreated({
               // Format the jobs for the email
               topJobs.forEach((job, index) => {
                 const doc = job.doc;
-                logger.info(`Processing job ${index + 1} with ID ${doc.id}, score: ${doc.data().match?.match_score || 'N/A'}`);
+                logger.info(`Processing job ${index + 1} with ID ${doc.id}, score: ${doc.data().match?.final_score || 'N/A'}`);
                 const jobData = doc.data();
                 
                 // Get score from either location
-                const score = jobData.match?.match_score || jobData.match?.finalScore || 'N/A';
+                const score = jobData.match?.final_score || jobData.match?.finalScore || 'N/A';
                 const title = jobData.basicInfo?.title || 'Untitled Position';
                 const company = jobData.basicInfo?.company || 'Unnamed Company';
                 
