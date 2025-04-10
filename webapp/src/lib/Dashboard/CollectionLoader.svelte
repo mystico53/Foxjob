@@ -94,28 +94,28 @@
 	}
 
 	function updateUIFromData(data, timestamp) {
-		currentFileName = data.fileName || 'Unknown';
-		
-		if (data.status === 'processed' && data.structuredData) {
-			resumeUploaded = true;
-			resumeStatus = 'processed';
-			uploadFeedback = `"${currentFileName}" processed successfully`;
-			uploadFeedbackColor = 'variant-filled-surface';
-			setResumeStatus(true, currentFileName, timestamp);
-		} else if (data.status === 'error') {
-			resumeUploaded = false;
-			resumeStatus = 'error';
-			uploadFeedback = `Error processing "${currentFileName}". Please try again.`;
-			uploadFeedbackColor = 'variant-filled-error';
-			setResumeStatus(false);
-		} else {
-			resumeUploaded = true;
-			resumeStatus = 'processing';
-			uploadFeedback = currentFileName;  // Only change: simplified feedback to just filename
-			uploadFeedbackColor = 'variant-filled-surface';  // Changed from warning to surface
-			setResumeStatus(true, currentFileName, timestamp);
-		}
+	currentFileName = data.fileName || 'Unknown';
+	
+	if (data.status === 'processed' && data.structuredData) {
+		resumeUploaded = true;
+		resumeStatus = 'processed';
+		uploadFeedback = `"${currentFileName}" processed successfully`;
+		uploadFeedbackColor = 'variant-filled-surface';
+		setResumeStatus(true, currentFileName, timestamp, 'processed');
+	} else if (data.status === 'error') {
+		resumeUploaded = false;
+		resumeStatus = 'error';
+		uploadFeedback = `Error processing "${currentFileName}". Please try again.`;
+		uploadFeedbackColor = 'variant-filled-error';
+		setResumeStatus(false, currentFileName, timestamp, 'error');
+	} else {
+		resumeUploaded = true;
+		resumeStatus = 'processing';
+		uploadFeedback = currentFileName;
+		uploadFeedbackColor = 'variant-filled-surface';
+		setResumeStatus(true, currentFileName, timestamp, 'processing');
 	}
+}
 
 async function checkExistingResume() {
     try {
@@ -138,13 +138,14 @@ async function checkExistingResume() {
         } else {
             uploadFeedback = 'Add your resume to match it with job descriptions';
             resumeUploaded = false;
-            setResumeStatus(false);
+            setResumeStatus(false, '', null, '');
         }
     } catch (error) {
         console.error('Error checking existing resume:', error);
         uploadFeedback = 'Error checking resume status. Please try again.';
         uploadFeedbackColor = 'variant-filled-error';
         resumeUploaded = false;
+        setResumeStatus(false, '', null, 'error');
     }
 }
 
@@ -213,62 +214,65 @@ async function checkExistingResume() {
 	}
 
 	async function storeExtractedText(text) {
-		try {
-			const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
+	try {
+		const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
 
-			const q = query(userCollectionsRef, where('type', '==', 'Resume'));
-			const querySnapshot = await getDocs(q);
+		const q = query(userCollectionsRef, where('type', '==', 'Resume'));
+		const querySnapshot = await getDocs(q);
+		const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
+		await Promise.all(deletePromises);
+
+		await addDoc(userCollectionsRef, {
+			type: 'Resume',
+			extractedText: text,
+			fileName: currentFileName,
+			timestamp: serverTimestamp(),
+			status: 'processing' // Add initial processing status
+		});
+
+		const timestamp = new Date();
+		setResumeStatus(true, currentFileName, timestamp, 'processing');
+		uploadFeedback = `Uploading "${currentFileName}", please wait while processing...`;
+		uploadFeedbackColor = 'variant-filled-surface';
+		resumeUploaded = true;
+		resumeStatus = 'processing';
+		tooltipStore.showNavbarTooltip();
+	} catch (error) {
+		console.error('Error storing extracted text:', error);
+		uploadFeedback = 'Error uploading resume. Please try again.';
+		uploadFeedbackColor = 'variant-filled-error';
+		resumeUploaded = false;
+		setResumeStatus(false, '', null, 'error');
+	}
+}
+
+async function deleteResume() {
+	try {
+		const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
+		const q = query(userCollectionsRef, where('type', '==', 'Resume'));
+		const querySnapshot = await getDocs(q);
+		setResumeStatus(false, '', null, '');
+
+		if (!querySnapshot.empty) {
 			const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
 			await Promise.all(deletePromises);
 
-			await addDoc(userCollectionsRef, {
-				type: 'Resume',
-				extractedText: text,
-				fileName: currentFileName,
-				timestamp: serverTimestamp()
-			});
+			uploadFeedback = 'Add your resume to match it with job descriptions';
 
-			const timestamp = new Date();
-			setResumeStatus(true, currentFileName, timestamp);
-			uploadFeedback = `Resume "${currentFileName}" successfully uploaded on ${timestamp.toLocaleString()}`;
-			uploadFeedbackColor = 'variant-filled-surface';
-			resumeUploaded = true;
-			tooltipStore.showNavbarTooltip();
-		} catch (error) {
-			console.error('Error storing extracted text:', error);
-			uploadFeedback = 'Error uploading resume. Please try again.';
-			uploadFeedbackColor = 'variant-filled-error';
 			resumeUploaded = false;
+			resumeStatus = '';
+			extractedText = '';
+			currentFileName = '';
+		} else {
+			uploadFeedback = 'No resume found to delete';
+			uploadFeedbackColor = 'variant-filled-warning';
 		}
+	} catch (error) {
+		console.error('Error deleting resume:', error);
+		uploadFeedback = 'Error deleting resume. Please try again.';
+		uploadFeedbackColor = 'variant-filled-error';
 	}
-
-	async function deleteResume() {
-		try {
-			const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
-			const q = query(userCollectionsRef, where('type', '==', 'Resume'));
-			const querySnapshot = await getDocs(q);
-			setResumeStatus(false);
-
-			if (!querySnapshot.empty) {
-				const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
-				await Promise.all(deletePromises);
-
-				uploadFeedback = 'Add your resume to match it with job descriptions';
-
-				resumeUploaded = false;
-				resumeStatus = '';  // Add this line
-				extractedText = '';
-				currentFileName = '';
-			} else {
-				uploadFeedback = 'No resume found to delete';
-				uploadFeedbackColor = 'variant-filled-warning';
-			}
-		} catch (error) {
-			console.error('Error deleting resume:', error);
-			uploadFeedback = 'Error deleting resume. Please try again.';
-			uploadFeedbackColor = 'variant-filled-error';
-		}
-	}
+}
 </script>
 
 <div class="flex h-full w-full flex-col">
