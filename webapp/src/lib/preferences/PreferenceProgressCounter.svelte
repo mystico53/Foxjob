@@ -19,17 +19,25 @@
     <span class="text-sm text-gray-500">Upload your resume</span>
     {#if resumeStatus.isUploaded}
         {#if resumeStatus.status === 'processing'}
-            <span class="text-sm text-yellow-500 ml-1">• Resume processing: {resumeStatus.fileName}</span>
+            <span class="text-sm text-yellow-500 ml-1">• Resume processing</span>
         {:else if resumeStatus.status === 'processed'}
-            <span class="text-sm text-green-500 ml-1">• Resume uploaded: {resumeStatus.fileName}</span>
+            <span class="text-sm text-green-500 ml-1">• Resume processed</span>
         {:else if resumeStatus.status === 'error'}
-            <span class="text-sm text-red-500 ml-1">• Resume error: {resumeStatus.fileName}</span>
+            <span class="text-sm text-red-500 ml-1">• Resume error</span>
         {:else}
-            <span class="text-sm text-green-500 ml-1">• Resume uploaded: {resumeStatus.fileName}</span>
+            <span class="text-sm text-green-500 ml-1">• Resume uploaded</span>
         {/if}
     {/if}
 {:else if !questionsReady}
-    <span class="text-sm text-gray-500">Awaiting questions...</span>
+    <span class="text-sm text-gray-500">
+        {#if workPreferences.status === 'pending'}
+            Generating questions...
+        {:else if workPreferences.status === 'error'}
+            Error generating questions
+        {:else}
+            Awaiting questions...
+        {/if}
+    </span>
     {#if resumeStatus.isUploaded}
         {#if resumeStatus.status === 'processing'}
             <span class="text-sm text-yellow-500 ml-1">• Resume processing</span>
@@ -45,7 +53,7 @@
     {#if resumeStatus.isUploaded}
         {#if resumeStatus.status === 'processing'}
             <span class="text-sm text-yellow-500 mb-2">Resume processing</span>
-        {:else if resumeStatus.status === 'processed'}
+        {:else if resumeStatus.status === 'processed'} 
             <span class="text-sm text-green-500 mb-2">Resume processed</span>
         {:else if resumeStatus.status === 'error'}
             <span class="text-sm text-red-500 mb-2">Resume error</span>
@@ -75,7 +83,15 @@
 {:else}
     <span class="text-sm">Vibe Check {progressPercentage}% done</span>
     {#if resumeStatus.isUploaded}
-        <span class="text-sm text-green-500 ml-1">• Resume ready</span>
+        {#if resumeStatus.status === 'processing'}
+            <span class="text-sm text-yellow-500 ml-1">• Resume processing</span>
+        {:else if resumeStatus.status === 'processed'}
+            <span class="text-sm text-green-500 ml-1">• Resume ready</span>
+        {:else if resumeStatus.status === 'error'}
+            <span class="text-sm text-red-500 ml-1">• Resume error</span>
+        {:else}
+            <span class="text-sm text-green-500 ml-1">• Resume ready</span>
+        {/if}
     {/if}
     <button 
         on:click={navigateToPreferences}

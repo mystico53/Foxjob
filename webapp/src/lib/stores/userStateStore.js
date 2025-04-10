@@ -26,7 +26,8 @@ const initialState = {
     workPreferences: {
         loading: true,
         savedStatus: initialSavedStatus,
-        questionsAvailable: false
+        questionsAvailable: false,
+        status: '' // Can be '', 'pending', 'ready', or 'error'
     }
 };
 
@@ -69,12 +70,23 @@ export function setWorkPreferencesLoading(isLoading) {
     }));
 }
 
+export function setQuestionsStatus(status) {
+    userStateStore.update(state => ({
+        ...state,
+        workPreferences: {
+            ...state.workPreferences,
+            status: status
+        }
+    }));
+}
+
 export function setQuestionsAvailable(available) {
     userStateStore.update(state => ({
         ...state,
         workPreferences: {
             ...state.workPreferences,
-            questionsAvailable: available
+            questionsAvailable: available,
+            status: available ? 'ready' : state.workPreferences.status
         }
     }));
 }
@@ -115,7 +127,8 @@ export const workPreferencesStore = {
             callback({
                 loading: state.workPreferences.loading,
                 savedStatus: state.workPreferences.savedStatus,
-                questionsAvailable: state.workPreferences.questionsAvailable
+                questionsAvailable: state.workPreferences.questionsAvailable,
+                status: state.workPreferences.status
             });
         });
     }

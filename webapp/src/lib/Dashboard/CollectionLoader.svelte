@@ -12,13 +12,16 @@
 		deleteDoc,
 		orderBy,
 		limit,
-		onSnapshot
+		onSnapshot,
+		doc
 	} from 'firebase/firestore';
-	import ExtensionChecker from '$lib/Dashboard/ExtensionChecker.svelte';
-	import { setResumeStatus } from '$lib/stores/userStateStore.js';
-	import { userStateStore } from '$lib/stores/userStateStore';
+	import { 
+		setResumeStatus, 
+		setQuestionsStatus, 
+		setQuestionsAvailable,
+		userStateStore 
+	} from '$lib/stores/userStateStore';
 	import { tooltipStore } from '$lib/stores/tooltipStore';
-	import OnboardingTooltip from '$lib/onboarding/OnboardingTooltip.svelte';
 	import PreferenceProgressCounter from '$lib/preferences/PreferenceProgressCounter.svelte';
 
 	let pdfjsLib;
@@ -66,55 +69,115 @@
 	});
 
 	async function setupResumeListener() {
-		if (!user) {
-			console.log('No user, not setting up listener');
-			return;
-		}
-		
-		console.log('Setting up resume listener for user:', user.uid);
-		
-		const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
-		const q = query(
-			userCollectionsRef,
-			where('type', '==', 'Resume'),
-			orderBy('timestamp', 'desc'),
-			limit(1)
-		);
-		
-		unsubscribeResumeListener = onSnapshot(q, (snapshot) => {
-			console.log('Resume snapshot received:', snapshot.docs.length, 'docs');
-			if (!snapshot.empty) {
-				const doc = snapshot.docs[0];
-				const data = doc.data();
-				console.log('Resume data updated:', data.status);
-				const timestamp = data.timestamp.toDate();
-				updateUIFromData(data, timestamp);
-			}
-		});
+	if (!user) {
+		console.log('No user, not setting up listener');
+		return;
 	}
-
-	function updateUIFromData(data, timestamp) {
-	currentFileName = data.fileName || 'Unknown';
 	
-	if (data.status === 'processed' && data.structuredData) {
-		resumeUploaded = true;
-		resumeStatus = 'processed';
-		uploadFeedback = `"${currentFileName}" processed successfully`;
-		uploadFeedbackColor = 'variant-filled-surface';
-		setResumeStatus(true, currentFileName, timestamp, 'processed');
-	} else if (data.status === 'error') {
-		resumeUploaded = false;
-		resumeStatus = 'error';
-		uploadFeedback = `Error processing "${currentFileName}". Please try again.`;
-		uploadFeedbackColor = 'variant-filled-error';
-		setResumeStatus(false, currentFileName, timestamp, 'error');
-	} else {
-		resumeUploaded = true;
-		resumeStatus = 'processing';
-		uploadFeedback = currentFileName;
-		uploadFeedbackColor = 'variant-filled-surface';
-		setResumeStatus(true, currentFileName, timestamp, 'processing');
-	}
+	console.log('Setting up resume listener for user:', user.uid);
+	
+	// Resume listener
+	const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
+	const resumeQuery = query(
+		userCollectionsRef,
+		where('type', '==', 'Resume'),
+		orderBy('timestamp', 'desc'),
+		limit(1)
+	);
+	
+	// Work preferences listener
+	const workPreferencesRef = doc(db, 'users', user.uid, 'UserCollections', 'work_preferences');
+	
+	// Set up resume listener
+	const resumeUnsubscribe = onSnapshot(resumeQuery, (snapshot) => {
+		console.log('Resume snapshot received:', snapshot.docs.length, 'docs');
+		if (!snapshot.empty) {
+			const doc = snapshot.docs[0];
+			const data = doc.data();
+			console.log('Resume data updated:', data.status);
+			// Pass data directly to updateUIFromData and let it handle timestamp safely
+			updateUIFromData(data, null);
+		}
+	});
+	
+	// Set up work preferences listener
+	const workPrefsUnsubscribe = onSnapshot(workPreferencesRef, (docSnapshot) => {
+		if (docSnapshot.exists()) {
+			const data = docSnapshot.data();
+			console.log('Work preferences data updated:', data.status);
+			
+			// Update the store based on document status
+			if (data.status === 'pending') {
+				setQuestionsStatus('pending');
+				setQuestionsAvailable(false);
+			} else if (data.status === 'error') {
+				setQuestionsStatus('error');
+				setQuestionsAvailable(false);
+			} else {
+				// Check if questions are actually available
+				const hasQuestions = data.question1 && 
+								   data.question2 && 
+								   data.question3 && 
+								   data.question4 && 
+								   data.question5;
+				
+				if (hasQuestions) {
+					setQuestionsStatus('ready');
+					setQuestionsAvailable(true);
+				}
+			}
+		} else {
+			// Document doesn't exist yet
+			console.log('Work preferences document does not exist yet');
+			setQuestionsStatus('');
+			setQuestionsAvailable(false);
+		}
+	}, (error) => {
+		console.error('Error listening to work preferences:', error);
+		setQuestionsStatus('error');
+	});
+	
+	// Combined cleanup function
+	const originalUnsubscribe = unsubscribeResumeListener;
+	unsubscribeResumeListener = () => {
+		resumeUnsubscribe();
+		workPrefsUnsubscribe();
+		if (originalUnsubscribe) originalUnsubscribe();
+	};
+}
+
+function updateUIFromData(data, timestamp) {
+    currentFileName = data.fileName || 'Unknown';
+    
+    // Convert timestamp safely
+    let formattedTimestamp = null;
+    if (timestamp) {
+        // If it's already a Date object
+        formattedTimestamp = timestamp;
+    } else if (data.timestamp && typeof data.timestamp.toDate === 'function') {
+        // If it's a Firestore timestamp
+        formattedTimestamp = data.timestamp.toDate();
+    }
+    
+    if (data.status === 'processed' && data.structuredData) {
+        resumeUploaded = true;
+        resumeStatus = 'processed';
+        uploadFeedback = `"${currentFileName}" processed successfully`;
+        uploadFeedbackColor = 'variant-filled-surface';
+        setResumeStatus(true, currentFileName, formattedTimestamp, 'processed');
+    } else if (data.status === 'error') {
+        resumeUploaded = false;
+        resumeStatus = 'error';
+        uploadFeedback = `Error processing "${currentFileName}". Please try again.`;
+        uploadFeedbackColor = 'variant-filled-error';
+        setResumeStatus(false, currentFileName, formattedTimestamp, 'error');
+    } else {
+        resumeUploaded = true;
+        resumeStatus = 'processing';
+        uploadFeedback = currentFileName;
+        uploadFeedbackColor = 'variant-filled-surface';
+        setResumeStatus(true, currentFileName, formattedTimestamp, 'processing');
+    }
 }
 
 async function checkExistingResume() {
@@ -131,10 +194,10 @@ async function checkExistingResume() {
         if (!querySnapshot.empty) {
             const doc = querySnapshot.docs[0];
             const data = doc.data();
-            const timestamp = data.timestamp.toDate();
             currentFileName = data.fileName || 'Unknown';
             
-            updateUIFromData(data, timestamp);
+            // Simply pass data to updateUIFromData and let it handle timestamp
+            updateUIFromData(data, null);
         } else {
             uploadFeedback = 'Add your resume to match it with job descriptions';
             resumeUploaded = false;
@@ -232,6 +295,11 @@ async function checkExistingResume() {
 
 		const timestamp = new Date();
 		setResumeStatus(true, currentFileName, timestamp, 'processing');
+		
+		// Reset work preferences status to pending since we uploaded a new resume
+		setQuestionsStatus('pending');
+		setQuestionsAvailable(false);
+		
 		uploadFeedback = `Uploading "${currentFileName}", please wait while processing...`;
 		uploadFeedbackColor = 'variant-filled-surface';
 		resumeUploaded = true;
@@ -252,6 +320,10 @@ async function deleteResume() {
 		const q = query(userCollectionsRef, where('type', '==', 'Resume'));
 		const querySnapshot = await getDocs(q);
 		setResumeStatus(false, '', null, '');
+		
+		// Reset work preferences status since resume is deleted
+		setQuestionsStatus('');
+		setQuestionsAvailable(false);
 
 		if (!querySnapshot.empty) {
 			const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
