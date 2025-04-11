@@ -11,6 +11,7 @@
 	import { db } from '$lib/firebase';
 	import { doc, getDoc, updateDoc } from 'firebase/firestore';
 	import { getCloudFunctionUrl } from '$lib/config/environment.config';
+	import DualRadial from './DualRadial.svelte';
 
 	export let job = {};
 	export let handleNext;
@@ -257,6 +258,7 @@
 	<div class="card p-8">
 		<!-- Job title at the top -->
 		<h5 class="h5 m-0 flex items-center pb-4">{job.jobInfo?.jobTitle || 'N/A'}</h5>
+		<DualRadial />
 		
 		<div class="hidden md:flex w-full items-center justify-between gap-4 pb-4">
 			<!-- Company section with logo and name -->
