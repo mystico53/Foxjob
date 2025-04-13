@@ -2,15 +2,99 @@
   import { onMount } from 'svelte';
   import { scrapeStore, isLoading, totalJobs } from '$lib/stores/scrapeStore';
   import { authStore } from '$lib/stores/authStore';
+  import { 
+    userStateStore, 
+    jobAgentStore, 
+    setJobAgentStatus, 
+    setJobAgentLoading,
+    resetJobAgentStatus 
+  } from '$lib/stores/userStateStore';
   import { getCloudFunctionUrl, environmentUrls } from '$lib/config/environment.config';
   import DailySearchRoutines from '$lib/searchJobs/DailySearchRoutines.svelte';
   
   let uid;
-  let scheduleSearch = false;
+  // Hardcoded to true as requested
+  let scheduleSearch = true;
+  let error = null;
+  
+  // Local reactive variables that come from the store
+  let hasActiveAgent;
+  let isCheckingAgent;
+  
+  // Subscribe to the job agent store
+  const unsubJobAgent = jobAgentStore.subscribe(state => {
+    hasActiveAgent = state.hasActiveAgent;
+    isCheckingAgent = state.isLoading;
+  });
+  
+  // Unsubscribe when component is destroyed
+  onMount(() => {
+    return () => {
+      unsubJobAgent();
+    };
+  });
 
   authStore.subscribe(user => {
     uid = user?.uid;
+    if (uid) {
+      checkExistingQueries();
+    }
   });
+
+  // Check if user already has an active search query
+  async function checkExistingQueries() {
+    setJobAgentLoading(true);
+    try {
+      const checkUrl = getCloudFunctionUrl('checkUserQueries');
+      const response = await fetch(checkUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: uid })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setJobAgentStatus(data.hasActiveQuery || false, data.agentId || null);
+      }
+    } catch (error) {
+      console.error("Error checking queries:", error);
+      setJobAgentStatus(false, null);
+    } finally {
+      setJobAgentLoading(false);
+    }
+  }
+  
+  // Function to delete job agent
+  async function deleteJobAgent() {
+    setJobAgentLoading(true);
+    try {
+      const deleteUrl = getCloudFunctionUrl('deleteJobAgent');
+      const response = await fetch(deleteUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          userId: uid,
+          agentId: hasActiveAgent.agentId 
+        })
+      });
+      
+      if (response.ok) {
+        // Reset job agent status in the store
+        resetJobAgentStatus();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Error: ${response.status}`);
+      }
+    } catch (err) {
+      error = err.message || 'An error occurred while deleting the job agent';
+    } finally {
+      setJobAgentLoading(false);
+    }
+  }
 
   // Form options remain the same
   const jobTypes = [
@@ -39,7 +123,7 @@
     { value: 'Hybrid', label: 'Hybrid' }
   ];
 
-  // Form state with added limitPerInput
+  // Form state with removed company field
   let keywords = '';
   let location = '';
   let jobType = '';
@@ -47,16 +131,31 @@
   let workplaceType = '';
   let datePosted = '';
   let country = '';
-  let company = '';
   let limitPerInput = 1; // Default value
-  let error = null;
 
+  // Add time options for when to receive results
+  const timeOptions = [
+    { value: '06:00', label: '6:00 AM' },
+    { value: '07:00', label: '7:00 AM' },
+    { value: '08:00', label: '8:00 AM' },
+    { value: '09:00', label: '9:00 AM' },
+    { value: '10:00', label: '10:00 AM' },
+    { value: '12:00', label: '12:00 PM' },
+    { value: '14:00', label: '2:00 PM' },
+    { value: '16:00', label: '4:00 PM' },
+    { value: '18:00', label: '6:00 PM' },
+    { value: '20:00', label: '8:00 PM' }
+  ];
+  
+  // Default to 8:00 AM
+  let deliveryTime = '08:00';
+  
   async function searchJobs() {
     isLoading.set(true);
     error = null;
 
     if (!keywords) {
-      error = 'Please enter keywords to search';
+      error = 'Please enter a job title to search';
       isLoading.set(false);
       return;
     }
@@ -65,18 +164,20 @@
       const searchPayload = [{
         keyword: keywords.trim(),
         location: location?.trim() || '',
-        country: 'US', // Hardcoded to US as in original code
+        country: 'US', 
         time_range: datePosted || 'Any time',
         job_type: jobType || '',
         experience_level: experience || '',
         remote: workplaceType || '',
-        company: company?.trim() || '' // Added company from form
+        // Company field removed
       }];
 
       // Use the environment config to determine the correct URL
       const searchUrl = getCloudFunctionUrl('searchBright');
       
-      // Remove baseUrl declaration since we're using getCloudFunctionUrl directly
+      // Enforce maximum of 50 results
+      const limit = Math.min(parseInt(limitPerInput) || 1, 50);
+      
       const response = await fetch(searchUrl, {
         method: 'POST',
         headers: {
@@ -85,11 +186,12 @@
         body: JSON.stringify({
           userId: uid,
           searchParams: searchPayload,
-          limit: parseInt(limitPerInput) || 2,
-          schedule: scheduleSearch ? {
+          limit: limit,
+          schedule: {
             frequency: 'daily',
-            runImmediately: true
-          } : undefined
+            runImmediately: true,
+            deliveryTime: deliveryTime // Add delivery time to the schedule
+          }
         })
       });
 
@@ -103,6 +205,9 @@
       scrapeStore.set(data.jobs || []);
       totalJobs.set(data.total || 0);
       
+      // After successful creation, update the job agent status in the store
+      setJobAgentStatus(true, data.agentId || null);
+      
     } catch (err) {
       error = err.message || 'An error occurred while searching for jobs';
     } finally {
@@ -115,157 +220,174 @@
 <div class="mb-4">
   <!-- Card with white background matching the Jobs Collected card -->
   <div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-xl font-bold mb-2">Job Agent Setup</h2>
+    <h2 class="text-xl font-bold mb-2">Set up your Agent</h2>
     
     <p class="mb-6">A FoxJob Agent automatically scans job sites and brings the best matches to your inbox daily.</p>
     
-    <form on:submit|preventDefault={searchJobs}>
-      <!-- Keywords -->
-      <div class="mb-4">
-        <label for="keywords" class="block font-bold mb-2">Keywords *</label>
-        <input
-          id="keywords"
-          type="search"
-          bind:value={keywords}
-          placeholder="Job title, keywords, or company"
-          required
-          class="w-full px-4 py-2 border rounded-lg"
-        />
+    {#if isCheckingAgent}
+      <!-- Loading state while checking for existing queries -->
+      <div class="flex justify-center items-center py-8">
+        <div class="h-6 w-6 rounded-full animate-pulse bg-orange-500"></div>
+        <span class="ml-3">Checking your account...</span>
       </div>
-
-      <!-- Three column layout for form fields -->
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-        <!-- Location -->
-        <div>
-          <label for="location" class="block font-bold mb-2">Location *</label>
+    {:else if hasActiveAgent}
+      <!-- Show free tier limitation message with delete option -->
+      <div class="py-8 text-center">
+        <div class="bg-blue-50 p-6 rounded-lg">
+          <svg class="w-16 h-16 mx-auto mb-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <h3 class="text-lg font-bold mb-2">Only one job agent in free tier</h3>
+          <p>You already have an active job agent. Free tier accounts are limited to one job agent at a time.</p>
+          <p class="mt-4">To manage your existing job agent, check below.</p>
+          
+          <!-- Delete button -->
+          <button 
+            on:click={deleteJobAgent}
+            class="mt-6 py-2 px-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg" 
+            disabled={isCheckingAgent}
+          >
+            {isCheckingAgent ? 'Deleting...' : 'Delete Job Agent'}
+          </button>
+        </div>
+      </div>
+    {:else}
+      <!-- Show the form when there are no active queries -->
+      <form on:submit|preventDefault={searchJobs}>
+        <!-- Changed to Job Title -->
+        <div class="mb-4">
+          <label for="keywords" class="block font-bold mb-2">Job Title *</label>
           <input
-            id="location"
-            type="text"
-            bind:value={location}
-            placeholder="City or region"
+            id="keywords"
+            type="search"
+            bind:value={keywords}
+            placeholder="Job title, keywords, or company"
+            required
             class="w-full px-4 py-2 border rounded-lg"
           />
         </div>
 
-        <!-- Country -->
-        <div>
-          <label for="country" class="block font-bold mb-2">Country *</label>
-          <input
-            id="country"
-            type="text"
-            bind:value={country}
-            placeholder="Country code (e.g., US, FR)"
-            class="w-full px-4 py-2 border rounded-lg"
-          />
+        <!-- Three column layout for form fields -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+          <!-- Location -->
+          <div>
+            <label for="location" class="block font-bold mb-2">Location *</label>
+            <input
+              id="location"
+              type="text"
+              bind:value={location}
+              placeholder="City or region"
+              class="w-full px-4 py-2 border rounded-lg"
+            />
+          </div>
+
+          <!-- Country -->
+          <div>
+            <label for="country" class="block font-bold mb-2">Country *</label>
+            <input
+              id="country"
+              type="text"
+              bind:value={country}
+              placeholder="Country code (e.g., US, FR)"
+              class="w-full px-4 py-2 border rounded-lg"
+            />
+          </div>
+
+          <!-- Job Type -->
+          <div>
+            <label for="jobType" class="block font-bold mb-2">Job Type</label>
+            <select id="jobType" class="w-full px-4 py-2 border rounded-lg" bind:value={jobType}>
+              <option value="">Any Job Type</option>
+              {#each jobTypes as type}
+                <option value={type.value}>{type.label}</option>
+              {/each}
+            </select>
+          </div>
+
+          <!-- Experience Level -->
+          <div>
+            <label for="experience" class="block font-bold mb-2">Experience Level</label>
+            <select id="experience" class="w-full px-4 py-2 border rounded-lg" bind:value={experience}>
+              <option value="">Any Experience</option>
+              {#each experienceLevels as level}
+                <option value={level.value}>{level.label}</option>
+              {/each}
+            </select>
+          </div>
+
+          <!-- Workplace Type -->
+          <div>
+            <label for="workplaceType" class="block font-bold mb-2">Workplace Type</label>
+            <select id="workplaceType" class="w-full px-4 py-2 border rounded-lg" bind:value={workplaceType}>
+              <option value="">Any Workplace</option>
+              {#each workplaceTypes as type}
+                <option value={type.value}>{type.label}</option>
+              {/each}
+            </select>
+          </div>
+
+          <!-- Date Posted -->
+          <div>
+            <label for="datePosted" class="block font-bold mb-2">Date Posted</label>
+            <select id="datePosted" class="w-full px-4 py-2 border rounded-lg" bind:value={datePosted}>
+              <option value="">Any Time</option>
+              {#each dateOptions as option}
+                <option value={option.value}>{option.label}</option>
+              {/each}
+            </select>
+          </div>
+          
+          <!-- Delivery Time -->
+          <div>
+            <label for="deliveryTime" class="block font-bold mb-2">When to Receive Results</label>
+            <select id="deliveryTime" class="w-full px-4 py-2 border rounded-lg" bind:value={deliveryTime}>
+              {#each timeOptions as option}
+                <option value={option.value}>{option.label}</option>
+              {/each}
+            </select>
+          </div>
+
+          <!-- Limit Per Input -->
+          <div>
+            <label for="limitPerInput" class="block font-bold mb-2">Results Per Search</label>
+            <input
+              id="limitPerInput"
+              type="number"
+              bind:value={limitPerInput}
+              min="1"
+              max="50"
+              class="w-full px-4 py-2 border rounded-lg"
+              placeholder="Number of results per search (max 50)"
+            />
+          </div>
         </div>
 
-        <!-- Job Type -->
-        <div>
-          <label for="jobType" class="block font-bold mb-2">Job Type</label>
-          <select id="jobType" class="w-full px-4 py-2 border rounded-lg" bind:value={jobType}>
-            <option value="">Any Job Type</option>
-            {#each jobTypes as type}
-              <option value={type.value}>{type.label}</option>
-            {/each}
-          </select>
+        <!-- Create Job Agent Button - Orange button to match site style -->
+        <button
+          type="submit"
+          class="w-full py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
+          disabled={$isLoading}
+        >
+          {$isLoading ? 'Setting up your job agent...' : 'Create Job Agent'}
+        </button>
+      </form>
+
+      {#if error}
+        <div class="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
+          {error}
         </div>
+      {/if}
 
-        <!-- Experience Level -->
-        <div>
-          <label for="experience" class="block font-bold mb-2">Experience Level</label>
-          <select id="experience" class="w-full px-4 py-2 border rounded-lg" bind:value={experience}>
-            <option value="">Any Experience</option>
-            {#each experienceLevels as level}
-              <option value={level.value}>{level.label}</option>
-            {/each}
-          </select>
+      <!-- Progress notification when searching -->
+      {#if $isLoading}
+        <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+          <div class="flex items-center justify-between mb-2">
+            <span class="font-bold">Setting up your job agent...</span>
+            <div class="h-3 w-3 rounded-full animate-pulse bg-orange-500"></div>
+          </div>
+          <p>We're scanning job sites for the best matches. You'll receive email updates with new jobs daily.</p>
         </div>
-
-        <!-- Workplace Type -->
-        <div>
-          <label for="workplaceType" class="block font-bold mb-2">Workplace Type</label>
-          <select id="workplaceType" class="w-full px-4 py-2 border rounded-lg" bind:value={workplaceType}>
-            <option value="">Any Workplace</option>
-            {#each workplaceTypes as type}
-              <option value={type.value}>{type.label}</option>
-            {/each}
-          </select>
-        </div>
-
-        <!-- Date Posted -->
-        <div>
-          <label for="datePosted" class="block font-bold mb-2">Date Posted</label>
-          <select id="datePosted" class="w-full px-4 py-2 border rounded-lg" bind:value={datePosted}>
-            <option value="">Any Time</option>
-            {#each dateOptions as option}
-              <option value={option.value}>{option.label}</option>
-            {/each}
-          </select>
-        </div>
-
-        <!-- Company -->
-        <div>
-          <label for="company" class="block font-bold mb-2">Company (Optional)</label>
-          <input
-            id="company"
-            type="text"
-            bind:value={company}
-            placeholder="Company name"
-            class="w-full px-4 py-2 border rounded-lg"
-          />
-        </div>
-
-        <!-- Limit Per Input -->
-        <div>
-          <label for="limitPerInput" class="block font-bold mb-2">Results Per Search</label>
-          <input
-            id="limitPerInput"
-            type="number"
-            bind:value={limitPerInput}
-            min="1"
-            max="100"
-            class="w-full px-4 py-2 border rounded-lg"
-            placeholder="Number of results per search"
-          />
-        </div>
-      </div>
-
-      <div class="mb-6">
-        <label class="flex items-center">
-          <input
-            type="checkbox"
-            bind:checked={scheduleSearch}
-            class="mr-2"
-          />
-          <span>Email me new matching jobs daily</span>
-        </label>
-      </div>
-
-      <!-- Create Job Agent Button - Orange button to match site style -->
-      <button
-        type="submit"
-        class="w-full py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
-        disabled={$isLoading}
-      >
-        {$isLoading ? 'Setting up your job agent...' : 'Create Job Agent'}
-      </button>
-    </form>
-
-    {#if error}
-      <div class="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
-        {error}
-      </div>
-    {/if}
-
-    <!-- Progress notification when searching -->
-    {#if $isLoading}
-      <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-        <div class="flex items-center justify-between mb-2">
-          <span class="font-bold">Setting up your job agent...</span>
-          <div class="h-3 w-3 rounded-full animate-pulse bg-orange-500"></div>
-        </div>
-        <p>We're scanning job sites for the best matches. You'll receive email updates with new jobs daily.</p>
-      </div>
+      {/if}
     {/if}
   </div>
 

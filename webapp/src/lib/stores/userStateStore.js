@@ -28,6 +28,13 @@ const initialState = {
         savedStatus: initialSavedStatus,
         questionsAvailable: false,
         status: '' // Can be '', 'pending', 'ready', or 'error'
+    },
+    // Add jobAgent state to track the job agent status
+    jobAgent: {
+        hasActiveAgent: false,
+        isLoading: false,
+        lastChecked: null,
+        agentId: null
     }
 };
 
@@ -132,6 +139,41 @@ export function getProgressPercentage(storeValue) {
     return Math.round((count / totalQuestions) * 100);
 }
 
+// Job Agent helper functions
+export function setJobAgentStatus(hasActiveAgent, agentId = null) {
+    userStateStore.update(state => ({
+        ...state,
+        jobAgent: {
+            ...state.jobAgent,
+            hasActiveAgent,
+            agentId,
+            lastChecked: new Date()
+        }
+    }));
+}
+
+export function setJobAgentLoading(isLoading) {
+    userStateStore.update(state => ({
+        ...state,
+        jobAgent: {
+            ...state.jobAgent,
+            isLoading
+        }
+    }));
+}
+
+export function resetJobAgentStatus() {
+    userStateStore.update(state => ({
+        ...state,
+        jobAgent: {
+            hasActiveAgent: false,
+            isLoading: false,
+            lastChecked: new Date(),
+            agentId: null
+        }
+    }));
+}
+
 // Compatibility export for existing components that might use workPreferencesStore
 export const workPreferencesStore = {
     subscribe: callback => {
@@ -141,6 +183,20 @@ export const workPreferencesStore = {
                 savedStatus: state.workPreferences.savedStatus,
                 questionsAvailable: state.workPreferences.questionsAvailable,
                 status: state.workPreferences.status
+            });
+        });
+    }
+};
+
+// Export jobAgentStore for components that need only job agent data
+export const jobAgentStore = {
+    subscribe: callback => {
+        return userStateStore.subscribe(state => {
+            callback({
+                hasActiveAgent: state.jobAgent.hasActiveAgent,
+                isLoading: state.jobAgent.isLoading,
+                lastChecked: state.jobAgent.lastChecked,
+                agentId: state.jobAgent.agentId
             });
         });
     }

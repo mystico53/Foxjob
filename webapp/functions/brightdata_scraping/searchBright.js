@@ -31,6 +31,43 @@ function generateSearchId(userId, searchParams) {
   return hash.substring(0, 20); // Trim to reasonable length
 }
 
+// Updated function to calculate next run time based on frequency and delivery time
+function calculateNextRunTime(frequency, deliveryTime = '08:00') {
+  const now = new Date();
+  let nextRun = new Date();
+  
+  // Parse the delivery time (format: "HH:MM")
+  const [hours, minutes] = deliveryTime.split(':').map(num => parseInt(num, 10));
+  
+  // Set the time component to the specified delivery time
+  nextRun.setHours(hours, minutes, 0, 0);
+  
+  // If the delivery time for today has already passed, start from tomorrow
+  if (nextRun <= now) {
+    nextRun.setDate(nextRun.getDate() + 1);
+  }
+  
+  // Add additional days based on frequency
+  switch (frequency) {
+    case 'daily':
+      // Already set for the next day if needed
+      break;
+    case 'weekly':
+      nextRun.setDate(nextRun.getDate() + 7);
+      break;
+    case 'biweekly':
+      nextRun.setDate(nextRun.getDate() + 14);
+      break;
+    case 'monthly':
+      nextRun.setMonth(nextRun.getMonth() + 1);
+      break;
+    default:
+      // Default to daily if frequency is not recognized
+  }
+  
+  return Timestamp.fromDate(nextRun);
+}
+
 exports.searchBright = onRequest({ 
   timeoutSeconds: 540,
   memory: "1GiB",
@@ -66,7 +103,7 @@ exports.searchBright = onRequest({
       
       // Process scheduling if requested
       if (schedule) {
-        const { frequency, isActive } = schedule;
+        const { frequency, isActive, deliveryTime = '08:00' } = schedule;
         
         if (!frequency) {
           return res.status(400).json({ error: "Frequency is required for scheduled searches" });
@@ -91,15 +128,17 @@ exports.searchBright = onRequest({
               searchParams,
               limit: limit || 100,
               frequency,
+              deliveryTime, // Store the delivery time
               isActive: isActive ?? true,
               updatedAt: FieldValue.serverTimestamp(),
-              nextRun: calculateNextRunTime(frequency)
+              nextRun: calculateNextRunTime(frequency, deliveryTime)
             });
             
             functions.logger.info("Updated existing scheduled search", { 
               userId, 
               searchId: searchRef.id,
-              frequency
+              frequency,
+              deliveryTime
             });
           } else {
             // Create new document with the deterministic ID
@@ -107,10 +146,11 @@ exports.searchBright = onRequest({
               searchParams,
               limit: limit || 100,
               frequency,
+              deliveryTime, // Store the delivery time
               isActive: isActive ?? true,
               createdAt: FieldValue.serverTimestamp(),
               lastRun: null,
-              nextRun: calculateNextRunTime(frequency),
+              nextRun: calculateNextRunTime(frequency, deliveryTime),
               // Add a processingStatus field to prevent duplicate runs
               processingStatus: 'idle'
             });
@@ -118,7 +158,8 @@ exports.searchBright = onRequest({
             functions.logger.info("Created new scheduled search", { 
               userId, 
               searchId: searchRef.id,
-              frequency
+              frequency,
+              deliveryTime
             });
           }
           
@@ -173,7 +214,8 @@ exports.searchBright = onRequest({
           userId,
           searchParams,
           requestData, // The cleaned data for BrightData
-          limit
+          limit,
+          deliveryTime: schedule?.deliveryTime
         }, null, 2)
       );
       
@@ -279,27 +321,3 @@ exports.searchBright = onRequest({
     }
   });
 });
-
-// Helper function to calculate next run time based on frequency
-function calculateNextRunTime(frequency) {
-  const now = new Date();
-  
-  switch (frequency) {
-    case 'daily':
-      now.setDate(now.getDate() + 1);
-      break;
-    case 'weekly':
-      now.setDate(now.getDate() + 7);
-      break;
-    case 'biweekly':
-      now.setDate(now.getDate() + 14);
-      break;
-    case 'monthly':
-      now.setMonth(now.getMonth() + 1);
-      break;
-    default:
-      now.setDate(now.getDate() + 1);
-  }
-  
-  return Timestamp.fromDate(now);
-}

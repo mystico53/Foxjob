@@ -17,7 +17,7 @@ const CONFIG = {
   //SEARCH_FUNCTION_URL: 'https://searchbright-kvshkfhmua-uc.a.run.app'
   // For local testing, uncomment this:
   //SEARCH_FUNCTION_URL: 'http://127.0.0.1:5001/jobille-45494/us-central1/searchBright'
-  SEARCH_FUNCTION_URL: 'https://75dd-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/searchBright'
+  SEARCH_FUNCTION_URL: 'https://288f-99-8-162-33.ngrok-free.app/jobille-45494/us-central1/searchBright'
 };
 
 // The core logic function - independent of the trigger
@@ -121,7 +121,8 @@ async function processScheduledSearches() {
           limit: searchData.limit,
           schedule: {
             searchId,
-            frequency: searchData.frequency
+            frequency: searchData.frequency,
+            deliveryTime: searchData.deliveryTime // Pass the delivery time
           }
         }, {
           headers: {
@@ -129,8 +130,8 @@ async function processScheduledSearches() {
           }
         });
         
-        // Calculate next run time based on frequency
-        const nextRun = calculateNextRunTime(searchData.frequency);
+        // Calculate next run time based on frequency and delivery time
+        const nextRun = calculateNextRunTime(searchData.frequency, searchData.deliveryTime);
         
         // Update the search document with next run time and reset processing status
         await searchDoc.ref.update({
@@ -143,7 +144,8 @@ async function processScheduledSearches() {
         
         logger.info(`Successfully triggered scheduled search for user ${userId}`, {
           searchId,
-          nextRun
+          nextRun,
+          deliveryTime: searchData.deliveryTime
         });
         
         searchDetail.status = 'success';
@@ -172,7 +174,7 @@ async function processScheduledSearches() {
           lastRunError: error.message,
           processingStatus: 'idle',
           processingCompletedAt: FieldValue.serverTimestamp(),
-          nextRun: calculateNextRunTime(searchData.frequency) // Still set next run
+          nextRun: calculateNextRunTime(searchData.frequency, searchData.deliveryTime) // Still set next run with delivery time
         });
         
         searchDetail.status = 'error';
@@ -226,26 +228,39 @@ exports.manualRunScheduledSearches = onRequest({
   }
 });
 
-// Helper function to calculate next run time based on frequency
-function calculateNextRunTime(frequency) {
+// Updated helper function to calculate next run time based on frequency and delivery time
+function calculateNextRunTime(frequency, deliveryTime = '08:00') {
   const now = new Date();
+  let nextRun = new Date();
   
-  switch (frequency) {
-    case 'daily':
-      now.setDate(now.getDate() + 1);
-      break;
-    case 'weekly':
-      now.setDate(now.getDate() + 7);
-      break;
-    case 'biweekly':
-      now.setDate(now.getDate() + 14);
-      break;
-    case 'monthly':
-      now.setMonth(now.getMonth() + 1);
-      break;
-    default:
-      now.setDate(now.getDate() + 1);
+  // Parse the delivery time (format: "HH:MM")
+  const [hours, minutes] = deliveryTime.split(':').map(num => parseInt(num, 10));
+  
+  // Set the time component to the specified delivery time
+  nextRun.setHours(hours, minutes, 0, 0);
+  
+  // If the delivery time for today has already passed, start from tomorrow
+  if (nextRun <= now) {
+    nextRun.setDate(nextRun.getDate() + 1);
   }
   
-  return Timestamp.fromDate(now);
+  // Add additional days based on frequency
+  switch (frequency) {
+    case 'daily':
+      // Already set for the next day if needed
+      break;
+    case 'weekly':
+      nextRun.setDate(nextRun.getDate() + 7);
+      break;
+    case 'biweekly':
+      nextRun.setDate(nextRun.getDate() + 14);
+      break;
+    case 'monthly':
+      nextRun.setMonth(nextRun.getMonth() + 1);
+      break;
+    default:
+      // Default to daily if frequency is not recognized
+  }
+  
+  return Timestamp.fromDate(nextRun);
 }
