@@ -22,6 +22,10 @@
   let hasActiveAgent;
   let isCheckingAgent;
   
+  // Variables to track editing state
+  let editingAgentId = null;
+  let isEditing = false;
+  
   // Subscribe to the job agent store
   const unsubJobAgent = jobAgentStore.subscribe(state => {
     hasActiveAgent = state.hasActiveAgent;
@@ -131,7 +135,7 @@
   let experience = '';
   let workplaceType = '';
   let datePosted = '';
-  let country = '';
+  let country = 'US';
   let limitPerInput = 1; // Default value
 
   // Add time options for when to receive results
@@ -151,6 +155,64 @@
   // Default to 8:00 AM
   let deliveryTime = '08:00';
   
+  // Function to handle the edit event from JobAgentList
+  // Function to handle the edit event from JobAgentList
+function handleEditAgent(event) {
+  const query = event.detail;
+  editingAgentId = query.id;
+  isEditing = true;
+  
+  // Extract search parameters from the first item in the array
+  const searchParam = query.searchParams && query.searchParams.length > 0 
+    ? query.searchParams[0] 
+    : {};
+  
+  // Populate the form fields with query data
+  keywords = searchParam.keyword || '';
+  location = searchParam.location || '';
+  country = searchParam.country || 'US';
+  jobType = searchParam.job_type || '';
+  experience = searchParam.experience_level || '';
+  workplaceType = searchParam.remote || '';
+  datePosted = searchParam.time_range || '';
+  
+  // Make sure to set the proper delivery time
+  deliveryTime = query.deliveryTime || '08:00';
+  
+  // Convert numeric limit to string for form input
+  limitPerInput = query.limit ? query.limit.toString() : '1';
+  
+  // Force a UI update by scheduling a microtask
+  setTimeout(() => {
+    console.log("Current delivery time:", deliveryTime);
+  }, 0);
+  
+  // Scroll the form into view
+  setTimeout(() => {
+    document.getElementById('job-agent-form')?.scrollIntoView({ 
+      behavior: 'smooth',
+      block: 'start'
+    });
+  }, 100);
+}
+  
+  // Cancel editing and reset form
+  function cancelEdit() {
+    isEditing = false;
+    editingAgentId = null;
+    
+    // Reset form fields
+    keywords = '';
+    location = '';
+    jobType = '';
+    experience = '';
+    workplaceType = '';
+    datePosted = '';
+    country = 'US';
+    limitPerInput = 1;
+    deliveryTime = '08:00';
+  }
+  
   async function searchJobs() {
     isLoading.set(true);
     error = null;
@@ -165,7 +227,7 @@
       const searchPayload = [{
         keyword: keywords.trim(),
         location: location?.trim() || '',
-        country: 'US', 
+        country: country || 'US', 
         time_range: datePosted || 'Any time',
         job_type: jobType || '',
         experience_level: experience || '',
@@ -179,21 +241,28 @@
       // Enforce maximum of 50 results
       const limit = Math.min(parseInt(limitPerInput) || 1, 50);
       
+      const requestBody = {
+        userId: uid,
+        searchParams: searchPayload,
+        limit: limit,
+        schedule: {
+          frequency: 'daily',
+          runImmediately: true,
+          deliveryTime: deliveryTime // Add delivery time to the schedule
+        }
+      };
+      
+      // If editing, include the existing searchId
+      if (isEditing && editingAgentId) {
+        requestBody.schedule.searchId = editingAgentId;
+      }
+
       const response = await fetch(searchUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          userId: uid,
-          searchParams: searchPayload,
-          limit: limit,
-          schedule: {
-            frequency: 'daily',
-            runImmediately: true,
-            deliveryTime: deliveryTime // Add delivery time to the schedule
-          }
-        })
+        body: JSON.stringify(requestBody)
       });
 
       // Process the response
@@ -206,8 +275,12 @@
       scrapeStore.set(data.jobs || []);
       totalJobs.set(data.total || 0);
       
-      // After successful creation, update the job agent status in the store
-      setJobAgentStatus(true, data.agentId || null);
+      // After successful creation/update, update the job agent status in the store
+      setJobAgentStatus(true, data.agentId || editingAgentId || null);
+      
+      // Reset editing state
+      isEditing = false;
+      editingAgentId = null;
       
     } catch (err) {
       error = err.message || 'An error occurred while searching for jobs';
@@ -220,8 +293,10 @@
 <!-- Main container with same padding/margin as used in the Jobs Collected card -->
 <div class="mb-4">
   <!-- Card with white background matching the Jobs Collected card -->
-  <div class="bg-white rounded-lg shadow p-6">
-    <h2 class="text-xl font-bold mb-2">Set up your Agent</h2>
+  <div class="bg-white rounded-lg shadow p-6" id="job-agent-form">
+    <h2 class="text-xl font-bold mb-2">
+      {isEditing ? 'Edit your Agent' : 'Set up your Agent'}
+    </h2>
     
     <p class="mb-6">A FoxJob Agent automatically scans job sites and brings the best matches to your inbox daily.</p>
     
@@ -231,7 +306,7 @@
         <div class="h-6 w-6 rounded-full animate-pulse bg-orange-500"></div>
         <span class="ml-3">Checking your account...</span>
       </div>
-    {:else if hasActiveAgent}
+    {:else if hasActiveAgent && !isEditing}
       <!-- Show free tier limitation message with delete option -->
       <div class="py-8 text-center">
         <div class="bg-blue-50 p-6 rounded-lg">
@@ -253,7 +328,7 @@
         </div>
       </div>
     {:else}
-      <!-- Show the form when there are no active queries -->
+      <!-- Show the form when there are no active queries or when editing -->
       <form on:submit|preventDefault={searchJobs}>
         <!-- Changed to Job Title -->
         <div class="mb-4">
@@ -363,14 +438,35 @@
           </div>
         </div>
 
-        <!-- Create Job Agent Button - Orange button to match site style -->
-        <button
-          type="submit"
-          class="w-full py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
-          disabled={$isLoading}
-        >
-          {$isLoading ? 'Setting up your job agent...' : 'Create Job Agent'}
-        </button>
+        <!-- Action Buttons -->
+        <div class="flex items-center space-x-4">
+          <!-- Create/Update Job Agent Button -->
+          <button
+            type="submit"
+            class="flex-grow py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
+            disabled={$isLoading}
+          >
+            {#if $isLoading}
+              Setting up your job agent...
+            {:else if isEditing}
+              Update Job Agent
+            {:else}
+              Create Job Agent
+            {/if}
+          </button>
+          
+          <!-- Cancel button (only shown when editing) -->
+          {#if isEditing}
+            <button
+              type="button"
+              on:click={cancelEdit}
+              class="py-3 px-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded-lg"
+              disabled={$isLoading}
+            >
+              Cancel
+            </button>
+          {/if}
+        </div>
       </form>
 
       {#if error}
@@ -383,7 +479,9 @@
       {#if $isLoading}
         <div class="mt-6 p-4 bg-blue-50 rounded-lg">
           <div class="flex items-center justify-between mb-2">
-            <span class="font-bold">Setting up your job agent...</span>
+            <span class="font-bold">
+              {isEditing ? 'Updating your job agent...' : 'Setting up your job agent...'}
+            </span>
             <div class="h-3 w-3 rounded-full animate-pulse bg-orange-500"></div>
           </div>
           <p>We're scanning job sites for the best matches. You'll receive email updates with new jobs daily.</p>
@@ -392,7 +490,5 @@
     {/if}
   </div>
 
-  <JobAgentList />
-
-  <DailySearchRoutines />
+  <JobAgentList on:edit={handleEditAgent} />
 </div>

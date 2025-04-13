@@ -4,6 +4,11 @@
     import { authStore } from '$lib/stores/authStore';
     import { setJobAgentLoading, setJobAgentStatus } from '$lib/stores/userStateStore';
     import { getCloudFunctionUrl } from '$lib/config/environment.config';
+    import { createEventDispatcher } from 'svelte';
+    import { deleteDoc, doc } from 'firebase/firestore';
+    import { db } from '$lib/firebase'; 
+    
+    const dispatch = createEventDispatcher();
     
     let uid;
     let deletingId = null;
@@ -50,41 +55,34 @@
     }
     
     // Function to delete job agent
+
     async function deleteJobAgent(agentId) {
-      if (!uid || !agentId) return;
-      
-      deletingId = agentId;
-      error = null;
-      
-      try {
-        const deleteUrl = getCloudFunctionUrl('deleteJobAgent');
-        const response = await fetch(deleteUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ 
-            userId: uid,
-            agentId: agentId 
-          })
-        });
-        
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || `Error: ${response.status}`);
-        }
+    if (!uid || !agentId) return;
+    
+    deletingId = agentId;
+    error = null;
+    
+    try {
+        // Delete the document directly from Firestore
+        const docRef = doc(db, 'users', uid, 'searchQueries', agentId);
+        await deleteDoc(docRef);
         
         // Update the job agent status in the userStateStore
         if ($searchQueriesStore.queries.length <= 1) {
-          setJobAgentStatus(false, null);
+        setJobAgentStatus(false, null);
         }
         
-      } catch (err) {
+    } catch (err) {
         error = err.message || 'An error occurred while deleting the job agent';
         console.error("Delete job agent error:", error);
-      } finally {
+    } finally {
         deletingId = null;
-      }
+    }
+    }
+    
+    // Function to handle edit button click
+    function editJobAgent(query) {
+      dispatch('edit', query);
     }
   </script>
   
@@ -147,13 +145,22 @@
                   </div>
                 {/if}
                 
-                <button 
-                  on:click={() => deleteJobAgent(query.id)}
-                  class="text-sm py-1 px-3 bg-red-500 hover:bg-red-600 text-white rounded" 
-                  disabled={deletingId === query.id}
-                >
-                  {deletingId === query.id ? 'Deleting...' : 'Delete'}
-                </button>
+                <div class="flex space-x-2">
+                  <button 
+                    on:click={() => editJobAgent(query)}
+                    class="text-sm py-1 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                  >
+                    Edit
+                  </button>
+                  
+                  <button 
+                    on:click={() => deleteJobAgent(query.id)}
+                    class="text-sm py-1 px-3 bg-red-500 hover:bg-red-600 text-white rounded" 
+                    disabled={deletingId === query.id}
+                  >
+                    {deletingId === query.id ? 'Deleting...' : 'Delete'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
