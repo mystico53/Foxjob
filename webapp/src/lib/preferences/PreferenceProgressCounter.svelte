@@ -1,7 +1,52 @@
 <script>
-    import { userStateStore, getSavedCount, getProgressPercentage } from '$lib/stores/userStateStore';
+    // Import Firestore functions and auth
+    import { userStateStore, getSavedCount, getProgressPercentage, setSavedAnswer } from '$lib/stores/userStateStore';
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
+    import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+    import { auth, db } from '$lib/firebase';
+
+    // Add function to reset all answers in both store and Firestore
+    async function resetAllAnswers() {
+        try {
+            // Get current user
+            const user = auth.currentUser;
+            if (!user) {
+                console.error('No user logged in');
+                return;
+            }
+
+            // Get reference to work_preferences document
+            const workPreferencesRef = doc(db, 'users', user.uid, 'UserCollections', 'work_preferences');
+            
+            // Option 1: Delete the document completely
+            // await deleteDoc(workPreferencesRef);
+            
+            // Option 2: Update it to clear all answers but keep questions
+            await updateDoc(workPreferencesRef, {
+                answer1: null,
+                answer2: null,
+                answer3: null,
+                answer4: null,
+                answer5: null,
+                // Don't reset questions
+            });
+            
+            console.log("Successfully reset answers in Firestore");
+            
+            // Reset local state
+            setSavedAnswer(1, false);
+            setSavedAnswer(2, false);
+            setSavedAnswer(3, false);
+            setSavedAnswer(4, false);
+            setSavedAnswer(5, false);
+            
+            // Redirect to preferences page so user can answer again
+            goto('/preferences');
+        } catch (error) {
+            console.error("Error resetting answers:", error);
+        }
+    }
 
     let currentMessageText = "Nice to meet you, let's find the right job for you";
     
@@ -87,8 +132,17 @@
         <!-- Message area -->
         <div class="mt-2">
             {#if savedCount === 5}
-                <!-- Make it a link when all questions are answered -->
-                <a href="/preferences" class="text-sm font-medium">Vibe Questions answered</a>
+                <!-- Make it a link when all questions are answered with checkmark and delete button -->
+                <div class="flex items-center space-x-2">
+                    <a href="/preferences" class="text-sm font-medium">Vibe Questions answered</a>
+                    <iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
+                    <button 
+                        on:click|preventDefault|stopPropagation={resetAllAnswers} 
+                        class="btn btn-sm variant-ghost-surface"
+                    >
+                        <iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-xl"></iconify-icon>
+                    </button>
+                </div>
             {:else}
                 <span class="text-sm">{currentMessageText}</span>
             {/if}

@@ -407,12 +407,6 @@ async function deleteResume() {
 				
 			<!-- Resume Processing State -->
 			{:else if resumeStatus === 'processing'}
-				<button 
-					class="btn variant-filled-primary" 
-					disabled={true}
-				>
-					Upload Resume
-				</button>
 				<iconify-icon icon="line-md:loading-twotone-loop" class="text-2xl"></iconify-icon>
 				<span>{uploadFeedback}</span>
 				
