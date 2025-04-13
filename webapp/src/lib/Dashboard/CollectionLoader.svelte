@@ -1,8 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
-	import { FileDropzone } from '@skeletonlabs/skeleton';
 	import { auth, db } from '$lib/firebase';
-	import {
+	import { 
 		collection,
 		addDoc,
 		serverTimestamp,
@@ -13,13 +12,15 @@
 		orderBy,
 		limit,
 		onSnapshot,
-		doc
+		doc,
+		updateDoc  // Add this import
 	} from 'firebase/firestore';
 	import { 
 		setResumeStatus, 
 		setQuestionsStatus,
 		setWorkPreferencesLoading, 
 		setQuestionsAvailable,
+		setSavedAnswer,
 		userStateStore 
 	} from '$lib/stores/userStateStore';
 	import { tooltipStore } from '$lib/stores/tooltipStore';
@@ -35,6 +36,7 @@
 	let currentFileName = '';
 	let resumeStatus = '';
 	let unsubscribeResumeListener = null;
+	let fileInput;
 
 	onMount(async () => {
 		const script = document.createElement('script');
@@ -229,6 +231,10 @@ async function checkExistingResume() {
 		}
 	}
 
+	function triggerFileInput() {
+		fileInput.click();
+	}
+
 	async function processFile(file) {
 		if (!isLibraryLoaded) {
 			console.error('PDF.js library not loaded yet. Please try again in a moment.');
@@ -319,20 +325,38 @@ async function checkExistingResume() {
 async function deleteResume() {
 	try {
 		const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
-		const q = query(userCollectionsRef, where('type', '==', 'Resume'));
-		const querySnapshot = await getDocs(q);
-		setResumeStatus(false, '', null, '');
 		
-		// Reset work preferences status since resume is deleted
+		// 1. Update store state first
+		setResumeStatus(false, '', null, '');
 		setQuestionsStatus('');
 		setQuestionsAvailable(false);
+		
+		// Reset all saved answers to false
+		setSavedAnswer(1, false);
+		setSavedAnswer(2, false);
+		setSavedAnswer(3, false);
+		setSavedAnswer(4, false);
+		setSavedAnswer(5, false);
+
+		// 2. Delete the work_preferences document completely
+		const workPreferencesRef = doc(db, 'users', user.uid, 'UserCollections', 'work_preferences');
+		try {
+			await deleteDoc(workPreferencesRef);
+			console.log("Work preferences document deleted successfully");
+		} catch (error) {
+			console.error("Error deleting work preferences:", error);
+		}
+
+		// 3. Delete the resume document
+		const q = query(userCollectionsRef, where('type', '==', 'Resume'));
+		const querySnapshot = await getDocs(q);
 
 		if (!querySnapshot.empty) {
 			const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
 			await Promise.all(deletePromises);
 
 			uploadFeedback = 'Add your resume to match it with job descriptions';
-
+			uploadFeedbackColor = 'variant-filled-surface';
 			resumeUploaded = false;
 			resumeStatus = '';
 			extractedText = '';
@@ -350,67 +374,88 @@ async function deleteResume() {
 </script>
 
 <div class="flex h-full w-full flex-col">
+	<!-- Header Section -->
 	<div class="flex items-center justify-between py-2">
-		<h2 class="m-0 text-xl font-bold">Your resume</h2>
-		{#if resumeUploaded}
-		<div>
-			{#if resumeStatus === 'processed'}
-				<iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
-			{:else if resumeStatus === 'processing'}
-				<iconify-icon icon="line-md:loading-twotone-loop" class="text-2xl"></iconify-icon>
-			{:else if resumeStatus === 'error'}
-				<iconify-icon icon="fluent:error-circle-12-filled" class="text-2xl text-error-500"></iconify-icon>
-			{/if}
-			<button on:click={deleteResume}>
-				<iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-2xl"></iconify-icon>
-			</button>
-		</div>
-{/if}
+		<h2 class="m-0 text-xl font-bold">Your Profile</h2>
 	</div>
-	<div class="flex flex-1 flex-col items-center justify-center">
-		{#if !$userStateStore.resume.isUploaded}
-			<div class="relative w-full">
-				<FileDropzone
-					name="files"
-					on:change={handleFiles}
-					on:selected={handleFiles}
-					on:submit={handleFiles}
+	
+	<!-- Content Area (Single Line) -->
+	<div class="flex flex-1 flex-col">
+		<!-- Main content area -->
+		<div class="flex items-center space-x-2 py-4">
+			<!-- No Resume Uploaded State -->
+			{#if !resumeUploaded}
+				<button 
+					class="btn variant-filled-primary" 
+					on:click={triggerFileInput}
+					disabled={resumeStatus === 'processing'}
+				>
+					Upload Resume
+				</button>
+				<input 
+					bind:this={fileInput}
+					type="file" 
 					accept=".pdf,application/pdf"
-					border="border-2 border-solid border-tertiary-500"
-					padding="p-4 py-8"
-					rounded="rounded-container-token"
-					regionInterface="hover:bg-surface-500/20 transition-colors duration-150"
-					class="w-full"
+					on:change={handleFiles} 
+					style="display: none;"
 				/>
-				<!-- 
-				<OnboardingTooltip
-					title="Step 1"
-					description="Upload your resume"
-					position="top"
-					width="400px"
-					offset="1rem"
-				/>
-				-->
-			</div>
-		{/if}
-
-		{#if uploadFeedback}
-			<div
-				class="alert {uploadFeedbackColor} mt-4 flex w-full flex-col items-center gap-2 text-center"
-			>
-				{#if resumeUploaded}
-					<iconify-icon
-						icon="healthicons:i-documents-accepted-outline"
-						class="text-6xl text-gray-500"
-					></iconify-icon>
-				{:else}
-					<iconify-icon icon="ep:document" class="text-6xl text-gray-500"></iconify-icon>
+				
+				{#if resumeStatus === 'error'}
+					<iconify-icon icon="fluent:error-circle-12-filled" class="text-2xl text-error-500"></iconify-icon>
+					<span class="text-error-500">{uploadFeedback}</span>
 				{/if}
+				
+			<!-- Resume Processing State -->
+			{:else if resumeStatus === 'processing'}
+				<button 
+					class="btn variant-filled-primary" 
+					disabled={true}
+				>
+					Upload Resume
+				</button>
+				<iconify-icon icon="line-md:loading-twotone-loop" class="text-2xl"></iconify-icon>
+				<span>{uploadFeedback}</span>
+				
+			<!-- Resume Processed State -->
+			{:else if resumeStatus === 'processed'}
+				<span class="font-medium">{currentFileName}</span>
+				<iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
+				<button on:click={deleteResume} class="btn btn-sm variant-ghost-surface">
+					<iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-xl"></iconify-icon>
+				</button>
+				
+			<!-- Resume Error State (if not caught by first condition) -->
+			{:else if resumeStatus === 'error'}
+				<button 
+					class="btn variant-filled-primary" 
+					on:click={triggerFileInput}
+				>
+					Upload Resume
+				</button>
+				<input 
+					bind:this={fileInput}
+					type="file" 
+					accept=".pdf,application/pdf"
+					on:change={handleFiles} 
+					style="display: none;"
+				/>
+				<iconify-icon icon="fluent:error-circle-12-filled" class="text-2xl text-error-500"></iconify-icon>
+				<span class="text-error-500">{uploadFeedback}</span>
+			{/if}
+		</div>
+		
+		<!-- Additional message area (if needed) -->
+		{#if uploadFeedback && !resumeUploaded && resumeStatus !== 'error'}
+			<div class="py-2">
 				<p>{uploadFeedback}</p>
 			</div>
 		{/if}
 	</div>
-	<PreferenceProgressCounter />
+	
+	<!-- Footer -->
+	<div class="mt-auto">
+		<PreferenceProgressCounter />
+	</div>
 </div>
 
 <style>

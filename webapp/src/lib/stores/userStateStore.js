@@ -108,6 +108,18 @@ export function setSavedAnswer(questionNumber, saved) {
     });
 }
 
+export function resetAnswerProgress() {
+    userStateStore.update(state => ({
+        ...state,
+        workPreferences: {
+            ...state.workPreferences,
+            savedStatus: initialSavedStatus,
+            questionsAvailable: false,
+            status: ''
+        }
+    }));
+}
+
 // Helper functions to calculate saved count and progress
 export function getSavedCount(storeValue) {
     if (!storeValue || !storeValue.workPreferences || !storeValue.workPreferences.savedStatus) return 0;
