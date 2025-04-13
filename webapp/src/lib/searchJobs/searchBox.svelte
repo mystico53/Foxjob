@@ -11,6 +11,7 @@
   } from '$lib/stores/userStateStore';
   import { getCloudFunctionUrl, environmentUrls } from '$lib/config/environment.config';
   import DailySearchRoutines from '$lib/searchJobs/DailySearchRoutines.svelte';
+  import JobAgentList from '$lib/searchJobs/JobAgentList.svelte';
   
   let uid;
   // Hardcoded to true as requested
@@ -390,6 +391,8 @@
       {/if}
     {/if}
   </div>
+
+  <JobAgentList />
 
   <DailySearchRoutines />
 </div>
