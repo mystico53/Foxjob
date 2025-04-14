@@ -93,11 +93,9 @@
 	
 	// Set up resume listener
 	const resumeUnsubscribe = onSnapshot(resumeQuery, (snapshot) => {
-		console.log('Resume snapshot received:', snapshot.docs.length, 'docs');
 		if (!snapshot.empty) {
 			const doc = snapshot.docs[0];
 			const data = doc.data();
-			console.log('Resume data updated:', data.status);
 			// Pass data directly to updateUIFromData and let it handle timestamp safely
 			updateUIFromData(data, null);
 		}
@@ -107,7 +105,6 @@
 	const workPrefsUnsubscribe = onSnapshot(workPreferencesRef, (docSnapshot) => {
 		if (docSnapshot.exists()) {
 			const data = docSnapshot.data();
-			console.log('Work preferences data updated:', data.status);
 			
 			// Update the store based on document status
 			if (data.status === 'pending') {
