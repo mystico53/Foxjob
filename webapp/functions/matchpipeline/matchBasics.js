@@ -14,7 +14,7 @@ const CONFIG = {
     topics: {
         outputTopic: 'basics-matched'
     },
-    minScoreThreshold: 10,
+    minScoreThreshold: 50,
     instructions: `
    Alright, think of yourself as my super-sharp buddy helping me screen resumes! Our goal is to get a really clear score (0-100) showing how well this candidate's resume lines up with the job description (JD), focusing *only* on the absolute must-haves for the role.
 

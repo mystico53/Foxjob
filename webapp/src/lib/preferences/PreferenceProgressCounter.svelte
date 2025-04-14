@@ -52,12 +52,7 @@
     
     // Add more detailed debugging
     onMount(() => {
-        const unsubscribe = userStateStore.subscribe(state => {
-            console.log("PreferenceProgressCounter store updated:", state);
-            console.log("Saved count:", getSavedCount(state));
-            console.log("Questions ready:", state.workPreferences.questionsAvailable);
-            console.log("Work preferences status:", state.workPreferences.status);
-            
+        const unsubscribe = userStateStore.subscribe(state => { 
             // Force message update
             updateMessageText(state);
         });
@@ -76,7 +71,6 @@
     // Force update message when key variables change
     $: {
         // This block will re-run whenever these variables change
-        console.log("REACTIVE UPDATE - questionsReady:", questionsReady, "savedCount:", savedCount);
         updateMessageText($userStateStore);
     }
     
@@ -92,7 +86,7 @@
         const questionsReady = state.workPreferences?.questionsAvailable || false;
         const workPrefStatus = state.workPreferences?.status || '';
         
-        console.log("UPDATE MESSAGE - savedCount:", savedCount, "questionsReady:", questionsReady, "status:", workPrefStatus);
+        
         
         if (questionsReady && savedCount === 0) {
             currentMessageText = "Thanks! To find the best jobs, tell us how you vibe";
