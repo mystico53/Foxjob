@@ -90,7 +90,6 @@
         
         if (questionsReady && savedCount === 0) {
             currentMessageText = "Thanks! To find the best jobs, tell us how you vibe";
-            console.log("Setting message to: Thanks! To find the best jobs, tell us how you vibe");
         } else if (!questionsReady) {
             if (workPrefStatus === 'pending') {
                 currentMessageText = "Reading your resume, checking your vibe";

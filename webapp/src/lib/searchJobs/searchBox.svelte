@@ -12,6 +12,8 @@
   import { getCloudFunctionUrl, environmentUrls } from '$lib/config/environment.config';
   import DailySearchRoutines from '$lib/searchJobs/DailySearchRoutines.svelte';
   import JobAgentList from '$lib/searchJobs/JobAgentList.svelte';
+  import { db } from '$lib/firebase';
+  import { collection, query, where, limit, getDocs } from 'firebase/firestore';
   
   let uid;
   // Hardcoded to true as requested
@@ -58,30 +60,34 @@
   return offsetHours;
 }
 
-  // Check if user already has an active search query
-  async function checkExistingQueries() {
-    setJobAgentLoading(true);
-    try {
-      const checkUrl = getCloudFunctionUrl('checkUserQueries');
-      const response = await fetch(checkUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ userId: uid })
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setJobAgentStatus(data.hasActiveQuery || false, data.agentId || null);
-      }
-    } catch (error) {
-      console.error("Error checking queries:", error);
+// Check if user already has an active search query
+// Check if user already has an active search query
+async function checkExistingQueries() {
+  setJobAgentLoading(true);
+  try {
+    // Get a reference to the user's searchQueries collection
+    const queriesRef = collection(db, 'users', uid, 'searchQueries');
+    
+    // Query for active queries
+    // Note: Firebase v9 modular API requires a separate query constructor
+    const q = query(queriesRef, where('isActive', '==', true), limit(1));
+    const snapshot = await getDocs(q);
+    
+    if (!snapshot.empty) {
+      // User has an active query
+      const doc = snapshot.docs[0];
+      setJobAgentStatus(true, doc.id);
+    } else {
+      // No active queries found
       setJobAgentStatus(false, null);
-    } finally {
-      setJobAgentLoading(false);
     }
+  } catch (error) {
+    console.error("Error checking queries:", error);
+    setJobAgentStatus(false, null);
+  } finally {
+    setJobAgentLoading(false);
   }
+}
   
   // Function to delete job agent
   async function deleteJobAgent() {
