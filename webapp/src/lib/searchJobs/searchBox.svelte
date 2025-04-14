@@ -28,6 +28,9 @@
   let editingAgentId = null;
   let isEditing = false;
   
+  // New variable to control form visibility
+  let showForm = false;
+  
   // Subscribe to the job agent store
   const unsubJobAgent = jobAgentStore.subscribe(state => {
     hasActiveAgent = state.hasActiveAgent;
@@ -60,7 +63,6 @@
   return offsetHours;
 }
 
-// Check if user already has an active search query
 // Check if user already has an active search query
 async function checkExistingQueries() {
   setJobAgentLoading(true);
@@ -174,11 +176,11 @@ async function checkExistingQueries() {
   let deliveryTime = '08:00';
   
   // Function to handle the edit event from JobAgentList
-  // Function to handle the edit event from JobAgentList
 function handleEditAgent(event) {
   const query = event.detail;
   editingAgentId = query.id;
   isEditing = true;
+  showForm = true;  // Show the form when editing
   
   // Extract search parameters from the first item in the array
   const searchParam = query.searchParams && query.searchParams.length > 0 
@@ -218,6 +220,7 @@ function handleEditAgent(event) {
   function cancelEdit() {
     isEditing = false;
     editingAgentId = null;
+    showForm = false;  // Hide the form when canceling
     
     // Reset form fields
     keywords = '';
@@ -229,6 +232,25 @@ function handleEditAgent(event) {
     country = 'US';
     limitPerInput = 1;
     deliveryTime = '08:00';
+  }
+  
+  // Toggle form visibility
+  function toggleForm() {
+    showForm = !showForm;
+    if (showForm) {
+      // Reset form fields when showing form
+      isEditing = false;
+      editingAgentId = null;
+      keywords = '';
+      location = '';
+      jobType = '';
+      experience = '';
+      workplaceType = '';
+      datePosted = '';
+      country = 'US';
+      limitPerInput = 1;
+      deliveryTime = '08:00';
+    }
   }
   
   async function searchJobs() {
@@ -299,6 +321,7 @@ function handleEditAgent(event) {
       // Reset editing state
       isEditing = false;
       editingAgentId = null;
+      showForm = false;  // Hide the form after successful submission
       
     } catch (err) {
       error = err.message || 'An error occurred while searching for jobs';
@@ -308,209 +331,232 @@ function handleEditAgent(event) {
   }
 </script>
 
-<div class="mb-4"><JobAgentList on:edit={handleEditAgent} /></div>
-<!-- Main container with same padding/margin as used in the Jobs Collected card -->
+<!-- Main container that holds all components -->
 <div class="mb-4">
-  <!-- Card with white background matching the Jobs Collected card -->
-  
-  <div class="bg-white rounded-lg shadow p-6" id="job-agent-form">
+  <!-- Card with white background containing title, button, and agent list -->
+  <div class="bg-white rounded-lg shadow p-6 mb-4">
+    <!-- Header with title and Create Agent button -->
+    <div class="flex justify-between items-center mb-4">
+      <h2 class="text-xl font-bold">Your Job Agents</h2>
+      {#if !hasActiveAgent || isEditing}
+        <button 
+          on:click={toggleForm}
+          class="py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
+        >
+          {showForm ? 'Cancel' : 'Create Agent'}
+        </button>
+      {/if}
+    </div>
     
+    <!-- Job Agent List or empty state message -->
+    <div>
+      {#if !hasActiveAgent && !isCheckingAgent}
+        <p class="text-gray-500 text-center py-8">There are no agents working for you currently.</p>
+      {:else}
+        <JobAgentList on:edit={handleEditAgent} />
+      {/if}
+    </div>
     
-    <h2 class="text-xl font-bold mb-2">
-      {isEditing ? 'Edit your Agent' : 'Set up your Agent'}
-    </h2>
-    
-    <p class="mb-6">A FoxJob Agent automatically scans job sites and brings the best matches to your inbox daily.</p>
-    
-    {#if isCheckingAgent}
-      <!-- Loading state while checking for existing queries -->
-      <div class="flex justify-center items-center py-8">
-        <div class="h-6 w-6 rounded-full animate-pulse bg-orange-500"></div>
-        <span class="ml-3">Checking your account...</span>
-      </div>
-    {:else if hasActiveAgent && !isEditing}
-      <!-- Show free tier limitation message with delete option -->
-      <div class="py-8 text-center">
-        <div class="bg-blue-50 p-6 rounded-lg">
-          <svg class="w-16 h-16 mx-auto mb-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-          </svg>
-          <h3 class="text-lg font-bold mb-2">Only one job agent in free tier</h3>
-          <p>You already have an active job agent. Free tier accounts are limited to one job agent at a time.</p>
-          <p class="mt-4">To manage your existing job agent, check below.</p>
+    <!-- Form container with light gray background -->
+    {#if showForm || (isCheckingAgent) || (hasActiveAgent && !isEditing)}
+      <div class="bg-gray-100 rounded-lg p-6 mt-6" id="job-agent-form">
+        {#if showForm}
+          <h2 class="text-xl font-bold mb-2">
+            {isEditing ? 'Edit your Agent' : 'Set up your Agent'}
+          </h2>
           
-          <!-- Delete button -->
-          <button 
-            on:click={deleteJobAgent}
-            class="mt-6 py-2 px-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg" 
-            disabled={isCheckingAgent}
-          >
-            {isCheckingAgent ? 'Deleting...' : 'Delete Job Agent'}
-          </button>
-        </div>
-      </div>
-    {:else}
-      <!-- Show the form when there are no active queries or when editing -->
-      <form on:submit|preventDefault={searchJobs}>
-        <!-- Changed to Job Title -->
-        <div class="mb-4">
-          <label for="keywords" class="block font-bold mb-2">Job Title *</label>
-          <input
-            id="keywords"
-            type="search"
-            bind:value={keywords}
-            placeholder="Job title, keywords, or company"
-            required
-            class="w-full px-4 py-2 border rounded-lg"
-          />
-        </div>
-
-        <!-- Three column layout for form fields -->
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
-          <!-- Location -->
-          <div>
-            <label for="location" class="block font-bold mb-2">Location *</label>
-            <input
-              id="location"
-              type="text"
-              bind:value={location}
-              placeholder="City or region"
-              class="w-full px-4 py-2 border rounded-lg"
-            />
+          <p class="mb-6">A FoxJob Agent automatically scans job sites and brings the best matches to your inbox daily.</p>
+        {/if}
+        
+        {#if isCheckingAgent}
+          <!-- Loading state while checking for existing queries -->
+          <div class="flex justify-center items-center py-8">
+            <div class="h-6 w-6 rounded-full animate-pulse bg-orange-500"></div>
+            <span class="ml-3">Checking your account...</span>
           </div>
-
-          <!-- Country -->
-          <div>
-            <label for="country" class="block font-bold mb-2">Country *</label>
-            <input
-              id="country"
-              type="text"
-              bind:value={country}
-              placeholder="Country code (e.g., US, FR)"
-              class="w-full px-4 py-2 border rounded-lg"
-            />
+        {:else if hasActiveAgent && !isEditing}
+          <!-- Show free tier limitation message with delete option -->
+          <div class="py-8 text-center">
+            <div class="bg-blue-50 p-6 rounded-lg">
+              <svg class="w-16 h-16 mx-auto mb-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <h3 class="text-lg font-bold mb-2">Only one job agent in free tier</h3>
+              <p>You already have an active job agent. Free tier accounts are limited to one job agent at a time.</p>
+              <p class="mt-4">To manage your existing job agent, check below.</p>
+              
+              <!-- Delete button -->
+              <button 
+                on:click={deleteJobAgent}
+                class="mt-6 py-2 px-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg" 
+                disabled={isCheckingAgent}
+              >
+                {isCheckingAgent ? 'Deleting...' : 'Delete Job Agent'}
+              </button>
+            </div>
           </div>
+        {:else if showForm}
+          <!-- Show the form when the Create Agent button is clicked or when editing -->
+          <form on:submit|preventDefault={searchJobs}>
+            <!-- Changed to Job Title -->
+            <div class="mb-4">
+              <label for="keywords" class="block font-bold mb-2">Job Title *</label>
+              <input
+                id="keywords"
+                type="search"
+                bind:value={keywords}
+                placeholder="Job title, keywords, or company"
+                required
+                class="w-full px-4 py-2 border rounded-lg"
+              />
+            </div>
 
-          <!-- Job Type -->
-          <div>
-            <label for="jobType" class="block font-bold mb-2">Job Type</label>
-            <select id="jobType" class="w-full px-4 py-2 border rounded-lg" bind:value={jobType}>
-              <option value="">Any Job Type</option>
-              {#each jobTypes as type}
-                <option value={type.value}>{type.label}</option>
-              {/each}
-            </select>
-          </div>
+            <!-- Three column layout for form fields -->
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+              <!-- Location -->
+              <div>
+                <label for="location" class="block font-bold mb-2">Location *</label>
+                <input
+                  id="location"
+                  type="text"
+                  bind:value={location}
+                  placeholder="City or region"
+                  class="w-full px-4 py-2 border rounded-lg"
+                />
+              </div>
 
-          <!-- Experience Level -->
-          <div>
-            <label for="experience" class="block font-bold mb-2">Experience Level</label>
-            <select id="experience" class="w-full px-4 py-2 border rounded-lg" bind:value={experience}>
-              <option value="">Any Experience</option>
-              {#each experienceLevels as level}
-                <option value={level.value}>{level.label}</option>
-              {/each}
-            </select>
-          </div>
+              <!-- Country -->
+              <div>
+                <label for="country" class="block font-bold mb-2">Country *</label>
+                <input
+                  id="country"
+                  type="text"
+                  bind:value={country}
+                  placeholder="Country code (e.g., US, FR)"
+                  class="w-full px-4 py-2 border rounded-lg"
+                />
+              </div>
 
-          <!-- Workplace Type -->
-          <div>
-            <label for="workplaceType" class="block font-bold mb-2">Workplace Type</label>
-            <select id="workplaceType" class="w-full px-4 py-2 border rounded-lg" bind:value={workplaceType}>
-              <option value="">Any Workplace</option>
-              {#each workplaceTypes as type}
-                <option value={type.value}>{type.label}</option>
-              {/each}
-            </select>
-          </div>
+              <!-- Job Type -->
+              <div>
+                <label for="jobType" class="block font-bold mb-2">Job Type</label>
+                <select id="jobType" class="w-full px-4 py-2 border rounded-lg" bind:value={jobType}>
+                  <option value="">Any Job Type</option>
+                  {#each jobTypes as type}
+                    <option value={type.value}>{type.label}</option>
+                  {/each}
+                </select>
+              </div>
 
-          <!-- Date Posted -->
-          <div>
-            <label for="datePosted" class="block font-bold mb-2">Date Posted</label>
-            <select id="datePosted" class="w-full px-4 py-2 border rounded-lg" bind:value={datePosted}>
-              <option value="">Any Time</option>
-              {#each dateOptions as option}
-                <option value={option.value}>{option.label}</option>
-              {/each}
-            </select>
-          </div>
-          
-          <!-- Delivery Time -->
-          <div>
-            <label for="deliveryTime" class="block font-bold mb-2">When to Receive Results</label>
-            <select id="deliveryTime" class="w-full px-4 py-2 border rounded-lg" bind:value={deliveryTime}>
-              {#each timeOptions as option}
-                <option value={option.value}>{option.label}</option>
-              {/each}
-            </select>
-          </div>
+              <!-- Experience Level -->
+              <div>
+                <label for="experience" class="block font-bold mb-2">Experience Level</label>
+                <select id="experience" class="w-full px-4 py-2 border rounded-lg" bind:value={experience}>
+                  <option value="">Any Experience</option>
+                  {#each experienceLevels as level}
+                    <option value={level.value}>{level.label}</option>
+                  {/each}
+                </select>
+              </div>
 
-          <!-- Limit Per Input -->
-          <div>
-            <label for="limitPerInput" class="block font-bold mb-2">Results Per Search</label>
-            <input
-              id="limitPerInput"
-              type="number"
-              bind:value={limitPerInput}
-              min="1"
-              max="50"
-              class="w-full px-4 py-2 border rounded-lg"
-              placeholder="Number of results per search (max 50)"
-            />
-          </div>
-        </div>
+              <!-- Workplace Type -->
+              <div>
+                <label for="workplaceType" class="block font-bold mb-2">Workplace Type</label>
+                <select id="workplaceType" class="w-full px-4 py-2 border rounded-lg" bind:value={workplaceType}>
+                  <option value="">Any Workplace</option>
+                  {#each workplaceTypes as type}
+                    <option value={type.value}>{type.label}</option>
+                  {/each}
+                </select>
+              </div>
 
-        <!-- Action Buttons -->
-        <div class="flex items-center space-x-4">
-          <!-- Create/Update Job Agent Button -->
-          <button
-            type="submit"
-            class="flex-grow py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
-            disabled={$isLoading}
-          >
-            {#if $isLoading}
-              Setting up your job agent...
-            {:else if isEditing}
-              Update Job Agent
-            {:else}
-              Create Job Agent
-            {/if}
-          </button>
-          
-          <!-- Cancel button (only shown when editing) -->
-          {#if isEditing}
-            <button
-              type="button"
-              on:click={cancelEdit}
-              class="py-3 px-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded-lg"
-              disabled={$isLoading}
-            >
-              Cancel
-            </button>
+              <!-- Date Posted -->
+              <div>
+                <label for="datePosted" class="block font-bold mb-2">Date Posted</label>
+                <select id="datePosted" class="w-full px-4 py-2 border rounded-lg" bind:value={datePosted}>
+                  <option value="">Any Time</option>
+                  {#each dateOptions as option}
+                    <option value={option.value}>{option.label}</option>
+                  {/each}
+                </select>
+              </div>
+              
+              <!-- Delivery Time -->
+              <div>
+                <label for="deliveryTime" class="block font-bold mb-2">When to Receive Results</label>
+                <select id="deliveryTime" class="w-full px-4 py-2 border rounded-lg" bind:value={deliveryTime}>
+                  {#each timeOptions as option}
+                    <option value={option.value}>{option.label}</option>
+                  {/each}
+                </select>
+              </div>
+
+              <!-- Limit Per Input -->
+              <div>
+                <label for="limitPerInput" class="block font-bold mb-2">Results Per Search</label>
+                <input
+                  id="limitPerInput"
+                  type="number"
+                  bind:value={limitPerInput}
+                  min="1"
+                  max="50"
+                  class="w-full px-4 py-2 border rounded-lg"
+                  placeholder="Number of results per search (max 50)"
+                />
+              </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex items-center space-x-4">
+              <!-- Create/Update Job Agent Button -->
+              <button
+                type="submit"
+                class="flex-grow py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
+                disabled={$isLoading}
+              >
+                {#if $isLoading}
+                  Setting up your job agent...
+                {:else if isEditing}
+                  Update Job Agent
+                {:else}
+                  Create Job Agent
+                {/if}
+              </button>
+              
+              <!-- Cancel button (only shown when editing) -->
+              {#if isEditing}
+                <button
+                  type="button"
+                  on:click={cancelEdit}
+                  class="py-3 px-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded-lg"
+                  disabled={$isLoading}
+                >
+                  Cancel
+                </button>
+              {/if}
+            </div>
+          </form>
+
+          {#if error}
+            <div class="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
+              {error}
+            </div>
           {/if}
-        </div>
-      </form>
 
-      {#if error}
-        <div class="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
-          {error}
-        </div>
-      {/if}
-
-      <!-- Progress notification when searching -->
-      {#if $isLoading}
-        <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-          <div class="flex items-center justify-between mb-2">
-            <span class="font-bold">
-              {isEditing ? 'Updating your job agent...' : 'Setting up your job agent...'}
-            </span>
-            <div class="h-3 w-3 rounded-full animate-pulse bg-orange-500"></div>
-          </div>
-          <p>We're scanning job sites for the best matches. You'll receive email updates with new jobs daily.</p>
-        </div>
-      {/if}
+          <!-- Progress notification when searching -->
+          {#if $isLoading}
+            <div class="mt-6 p-4 bg-blue-50 rounded-lg">
+              <div class="flex items-center justify-between mb-2">
+                <span class="font-bold">
+                  {isEditing ? 'Updating your job agent...' : 'Setting up your job agent...'}
+                </span>
+                <div class="h-3 w-3 rounded-full animate-pulse bg-orange-500"></div>
+              </div>
+              <p>We're scanning job sites for the best matches. You'll receive email updates with new jobs daily.</p>
+            </div>
+          {/if}
+        {/if}
+      </div>
     {/if}
   </div>
-
-  
 </div>
