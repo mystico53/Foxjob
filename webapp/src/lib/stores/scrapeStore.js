@@ -10,7 +10,7 @@ export const currentBatch = writable(0)
 export let uid; 
 
 scrapeStore.subscribe(value => {
-  console.log('🔄 scrapeStore updated:', value.length, 'jobs')
+  //console.log('🔄 scrapeStore updated:', value.length, 'jobs')
 })
 
 // Helper function to ensure collection exists

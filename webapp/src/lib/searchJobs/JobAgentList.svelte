@@ -101,7 +101,13 @@
     <div class="space-y-4">
       {#each $searchQueriesStore.queries as query}
         <div class="border rounded-lg p-4 hover:bg-gray-50">
-          <div class="flex justify-between items-start">
+          <div class="flex items-center">
+            <!-- Icon avatar on the left, now centered vertically -->
+            <div class="flex-shrink-0 mr-4 flex items-center justify-center">
+              <img src="/src/assets/icon128.png" alt="Job Agent" class="w-12 h-12 rounded-lg" />
+            </div>
+            
+            <!-- Main content pushed to the right -->
             <div class="flex-grow">
               <div class="flex justify-between items-start">
                 <h3 class="font-bold">{formatSearchParams(query.searchParams)}</h3>
@@ -128,7 +134,6 @@
                 </span>
               </div>
               
-              <!-- Processing status badge moved to bottom left -->
               <div class="text-sm mt-2 flex justify-between items-end">
                 <div>
                   {#if query.processingStatus}
@@ -168,9 +173,6 @@
                 </div>
               </div>
             </div>
-            
-            <!-- Empty div to maintain layout -->
-            <div class="flex-shrink-0"></div>
           </div>
         </div>
       {/each}
