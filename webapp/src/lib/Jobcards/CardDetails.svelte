@@ -299,7 +299,9 @@
 							icon="solar:info-circle-bold"
 							class="text-tertiary-900 cursor-pointer rounded-full"
 						  />
-						  <!-- Popup content here -->
+						  <div class="card p-4 w-72 shadow-xl" data-popup="popupHover">
+							test
+						  </div>
 						</div>
 					  </div>
 					</div>
