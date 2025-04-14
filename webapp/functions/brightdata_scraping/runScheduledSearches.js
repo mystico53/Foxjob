@@ -32,7 +32,7 @@ async function processScheduledSearches() {
     const searchesSnapshot = await db.collectionGroup('searchQueries')
       .where('isActive', '==', true)
       .where('nextRun', '<=', now)
-      .where('processingStatus', '==', 'idle')  // Only select idle searches
+      .where('processingStatus', '==', 'online')  // Only select online searches
       .get();
     
     if (searchesSnapshot.empty) {
@@ -73,7 +73,7 @@ async function processScheduledSearches() {
           const freshData = freshDoc.data();
           
           // Check if someone else has already started processing
-          if (freshData.processingStatus !== 'idle') {
+          if (freshData.processingStatus !== 'online') {
             throw new Error('Search is already being processed');
           }
           
@@ -138,7 +138,7 @@ async function processScheduledSearches() {
           lastRun: FieldValue.serverTimestamp(),
           lastRunStatus: 'success',
           nextRun,
-          processingStatus: 'idle',
+          processingStatus: 'online',
           processingCompletedAt: FieldValue.serverTimestamp()
         });
         
@@ -172,7 +172,7 @@ async function processScheduledSearches() {
           lastRun: FieldValue.serverTimestamp(),
           lastRunStatus: 'error',
           lastRunError: error.message,
-          processingStatus: 'idle',
+          processingStatus: 'online',
           processingCompletedAt: FieldValue.serverTimestamp(),
           nextRun: calculateNextRunTime(searchData.frequency, searchData.deliveryTime) // Still set next run with delivery time
         });

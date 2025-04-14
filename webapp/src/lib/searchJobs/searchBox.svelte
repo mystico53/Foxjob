@@ -46,6 +46,18 @@
     }
   });
 
+  function getTimezoneOffset() {
+  // Get minutes offset (e.g., -420 for PDT which is UTC-7)
+  const offsetMinutes = new Date().getTimezoneOffset();
+  
+  // Convert to hours (e.g., 7 for PDT)
+  // Note: getTimezoneOffset returns the opposite of what we want
+  // so we negate it (e.g., -(-420)/60 = 7)
+  const offsetHours = -offsetMinutes / 60;
+  
+  return offsetHours;
+}
+
   // Check if user already has an active search query
   async function checkExistingQueries() {
     setJobAgentLoading(true);
@@ -214,48 +226,48 @@ function handleEditAgent(event) {
   }
   
   async function searchJobs() {
-    isLoading.set(true);
-    error = null;
+  isLoading.set(true);
+  error = null;
 
-    if (!keywords) {
-      error = 'Please enter a job title to search';
-      isLoading.set(false);
-      return;
-    }
+  if (!keywords) {
+    error = 'Please enter a job title to search';
+    isLoading.set(false);
+    return;
+  }
 
-    try {
-      const searchPayload = [{
-        keyword: keywords.trim(),
-        location: location?.trim() || '',
-        country: country || 'US', 
-        time_range: datePosted || 'Any time',
-        job_type: jobType || '',
-        experience_level: experience || '',
-        remote: workplaceType || '',
-        // Company field removed
-      }];
+  try {
+    const searchPayload = [{
+      keyword: keywords.trim(),
+      location: location?.trim() || '',
+      country: country || 'US', 
+      time_range: datePosted || 'Any time',
+      job_type: jobType || '',
+      experience_level: experience || '',
+      remote: workplaceType || '',
+    }];
 
-      // Use the environment config to determine the correct URL
-      const searchUrl = getCloudFunctionUrl('searchBright');
-      
-      // Enforce maximum of 50 results
-      const limit = Math.min(parseInt(limitPerInput) || 1, 50);
-      
-      const requestBody = {
-        userId: uid,
-        searchParams: searchPayload,
-        limit: limit,
-        schedule: {
-          frequency: 'daily',
-          runImmediately: true,
-          deliveryTime: deliveryTime // Add delivery time to the schedule
-        }
-      };
-      
-      // If editing, include the existing searchId
-      if (isEditing && editingAgentId) {
-        requestBody.schedule.searchId = editingAgentId;
+    // Use the environment config to determine the correct URL
+    const searchUrl = getCloudFunctionUrl('searchBright');
+    
+    // Enforce maximum of 50 results
+    const limit = Math.min(parseInt(limitPerInput) || 1, 50);
+    
+    const requestBody = {
+      userId: uid,
+      searchParams: searchPayload,
+      limit: limit,
+      schedule: {
+        frequency: 'daily',
+        runImmediately: true,
+        deliveryTime: deliveryTime,
+        timezoneOffset: getTimezoneOffset() // Add the timezone offset
       }
+    };
+    
+    // If editing, include the existing searchId
+    if (isEditing && editingAgentId) {
+      requestBody.schedule.searchId = editingAgentId;
+    }
 
       const response = await fetch(searchUrl, {
         method: 'POST',
@@ -290,10 +302,14 @@ function handleEditAgent(event) {
   }
 </script>
 
+<div class="mb-4"><JobAgentList on:edit={handleEditAgent} /></div>
 <!-- Main container with same padding/margin as used in the Jobs Collected card -->
 <div class="mb-4">
   <!-- Card with white background matching the Jobs Collected card -->
+  
   <div class="bg-white rounded-lg shadow p-6" id="job-agent-form">
+    
+    
     <h2 class="text-xl font-bold mb-2">
       {isEditing ? 'Edit your Agent' : 'Set up your Agent'}
     </h2>
@@ -490,5 +506,5 @@ function handleEditAgent(event) {
     {/if}
   </div>
 
-  <JobAgentList on:edit={handleEditAgent} />
+  
 </div>

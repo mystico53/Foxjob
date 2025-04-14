@@ -32,40 +32,50 @@ function generateSearchId(userId, searchParams) {
 }
 
 // Updated function to calculate next run time based on frequency and delivery time
-function calculateNextRunTime(frequency, deliveryTime = '08:00') {
-  const now = new Date();
-  let nextRun = new Date();
-  
+// Updated function to calculate next run time based on frequency and delivery time
+function calculateNextRunTime(frequency, deliveryTime = '08:00', timezoneOffset = 0) {
   // Parse the delivery time (format: "HH:MM")
   const [hours, minutes] = deliveryTime.split(':').map(num => parseInt(num, 10));
   
-  // Set the time component to the specified delivery time
-  nextRun.setHours(hours, minutes, 0, 0);
+  // Get current time
+  const now = new Date();
   
-  // If the delivery time for today has already passed, start from tomorrow
-  if (nextRun <= now) {
-    nextRun.setDate(nextRun.getDate() + 1);
+  // Create target date
+  const targetDate = new Date();
+  
+  // Calculate UTC hours based on the delivery time and timezone offset
+  // For example: 8:00 AM in Pacific (offset=7) would be 15:00 UTC
+  // For example: 8:00 AM in Tokyo (offset=-9) would be 23:00 UTC (previous day)
+  targetDate.setUTCHours(hours + timezoneOffset, minutes, 0, 0);
+  
+  // If already past today's time, move to next day
+  if (targetDate <= now) {
+    targetDate.setUTCDate(targetDate.getUTCDate() + 1);
   }
   
-  // Add additional days based on frequency
+  // Apply frequency adjustments
   switch (frequency) {
     case 'daily':
       // Already set for the next day if needed
       break;
     case 'weekly':
-      nextRun.setDate(nextRun.getDate() + 7);
+      targetDate.setUTCDate(targetDate.getUTCDate() + 6);
       break;
     case 'biweekly':
-      nextRun.setDate(nextRun.getDate() + 14);
+      targetDate.setUTCDate(targetDate.getUTCDate() + 13);
       break;
     case 'monthly':
-      nextRun.setMonth(nextRun.getMonth() + 1);
+      targetDate.setUTCMonth(targetDate.getUTCMonth() + 1);
       break;
     default:
-      // Default to daily if frequency is not recognized
+      // Default to daily
   }
   
-  return Timestamp.fromDate(nextRun);
+  console.log(`Setting next run time for ${deliveryTime} in timezone with offset ${timezoneOffset}`);
+  console.log(`UTC date: ${targetDate.toISOString()}`);
+  console.log(`Local time will be: ${targetDate.toString()}`);
+  
+  return Timestamp.fromDate(targetDate);
 }
 
 exports.searchBright = onRequest({ 
@@ -152,7 +162,7 @@ exports.searchBright = onRequest({
               lastRun: null,
               nextRun: calculateNextRunTime(frequency, deliveryTime),
               // Add a processingStatus field to prevent duplicate runs
-              processingStatus: 'idle'
+              processingStatus: 'online'
             });
             
             functions.logger.info("Created new scheduled search", { 
