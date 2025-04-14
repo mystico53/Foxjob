@@ -137,12 +137,6 @@
                     {query.frequency || 'daily'}, {formatDeliveryTime(query.deliveryTime)} 
                   </span>
                   
-                  {#if query.nextRun}
-                    <span class="inline-flex items-center ml-4 text-gray-600">
-                      Next run: {formatDate(query.nextRun)}
-                    </span>
-                  {/if}
-                  
                   {#if query.lastRun}
                     <span class="inline-flex items-center ml-4 text-gray-600">
                       Last run: {formatDate(query.lastRun)}
