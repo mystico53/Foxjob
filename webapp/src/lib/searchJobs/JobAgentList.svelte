@@ -120,9 +120,16 @@
                 </div>
               </div>
               
-              <!-- Timing information below title -->
-              <div class="flex justify-between items-start text-sm text-gray-600 mt-1">
-                <div class="flex">
+              <!-- Modified section: Timing info and Actions in same row -->
+              <div class="flex justify-between items-center text-sm text-gray-600 mt-2">
+                <div class="flex items-center flex-wrap">
+                  {#if query.limit !== undefined && query.limit !== null}
+                    <span class="inline-flex items-center mr-4 text-gray-600">
+                      <iconify-icon icon="tabler:stack-2" width="18" height="18" class="mr-1"></iconify-icon>
+                      matches {query.limit} job{query.limit !== 1 ? 's' : ''}
+                    </span>
+                  {/if}
+                  
                   <span class="inline-flex items-center">
                     <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
@@ -135,18 +142,16 @@
                       Next run: {formatDate(query.nextRun)}
                     </span>
                   {/if}
+                  
+                  {#if query.lastRun}
+                    <span class="inline-flex items-center ml-4 text-gray-600">
+                      Last run: {formatDate(query.lastRun)}
+                    </span>
+                  {/if}
                 </div>
-              </div>
-              
-              <div class="text-sm mt-2 flex justify-start items-end">
-                {#if query.lastRun}
-                  <span class="inline-flex items-center text-gray-600">
-                    Last run: {formatDate(query.lastRun)}
-                  </span>
-                {/if}
                 
-                <!-- Actions with reduced padding and spacing -->
-                <div class="flex ml-auto">
+                <!-- Actions moved to the right side of the timing info -->
+                <div class="flex">
                   <button 
                     on:click={() => editJobAgent(query)}
                     class="text-sm p-1 text-black hover:text-gray-700 rounded-full"
