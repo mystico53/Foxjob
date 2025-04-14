@@ -30,11 +30,11 @@
     const param = params[0]; // Get the first search param
     
     let parts = [];
-    if (param.keyword) parts.push(`"${param.keyword}"`);
+    if (param.keyword) parts.push(`${param.keyword}`);
     if (param.location) parts.push(`in ${param.location}`);
     if (param.job_type) parts.push(param.job_type);
     
-    return parts.join(' · ') || 'Custom search';
+    return parts.join(' ') || 'Custom search';
   }
   
   // Format delivery time
@@ -110,65 +110,62 @@
             <!-- Main content pushed to the right -->
             <div class="flex-grow">
               <div class="flex justify-between items-start">
+                <!-- Title at the top -->
                 <h3 class="font-bold">{formatSearchParams(query.searchParams)}</h3>
                 
-                <!-- Active indicator moved to top right -->
+                <!-- Active indicator at top right -->
                 <div class="inline-flex items-center {query.isActive ? 'text-green-600' : 'text-red-600'}">
                   <span class="h-2 w-2 rounded-full {query.isActive ? 'bg-green-600' : 'bg-red-600'} mr-1"></span>
                   {query.isActive ? 'Active' : 'Inactive'}
                 </div>
               </div>
               
-              <div class="text-sm text-gray-600 mt-1">
-                <span class="inline-flex items-center mr-4">
-                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-                  </svg>
-                  {query.frequency || 'daily'}, {formatDeliveryTime(query.deliveryTime)} 
-                </span>
-                <span class="inline-flex items-center">
-                  <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-                  </svg>
-                  Created {formatDate(query.createdAt)}
-                </span>
-              </div>
-              
-              <div class="text-sm mt-2 flex justify-between items-end">
-                <div>
-                  {#if query.processingStatus}
-                    <div class="inline-flex bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                      {query.processingStatus}
-                    </div>
-                  {/if}
+              <!-- Timing information below title -->
+              <div class="flex justify-between items-start text-sm text-gray-600 mt-1">
+                <div class="flex">
+                  <span class="inline-flex items-center">
+                    <svg class="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    {query.frequency || 'daily'}, {formatDeliveryTime(query.deliveryTime)} 
+                  </span>
                   
-                  {#if query.lastRun}
-                    <span class="inline-flex items-center ml-4 text-gray-600">
-                      Last run: {formatDate(query.lastRun)}
-                    </span>
-                  {/if}
                   {#if query.nextRun}
                     <span class="inline-flex items-center ml-4 text-gray-600">
                       Next run: {formatDate(query.nextRun)}
                     </span>
                   {/if}
                 </div>
+              </div>
+              
+              <div class="text-sm mt-2 flex justify-start items-end">
+                {#if query.lastRun}
+                  <span class="inline-flex items-center text-gray-600">
+                    Last run: {formatDate(query.lastRun)}
+                  </span>
+                {/if}
                 
-                <!-- Actions moved to bottom right -->
-                <div class="flex space-x-2">
+                <!-- Actions with reduced padding and spacing -->
+                <div class="flex ml-auto">
                   <button 
                     on:click={() => editJobAgent(query)}
-                    class="text-sm py-1 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded"
+                    class="text-sm p-1 text-black hover:text-gray-700 rounded-full"
+                    aria-label="Edit"
                   >
-                    Edit
+                    <iconify-icon icon="mynaui:edit-solid" width="18" height="18"></iconify-icon>
                   </button>
                   
                   <button 
                     on:click={() => deleteJobAgent(query.id)}
-                    class="text-sm py-1 px-3 bg-red-500 hover:bg-red-600 text-white rounded" 
+                    class="text-sm p-1 text-black hover:text-gray-700 rounded-full ml-1" 
                     disabled={deletingId === query.id}
+                    aria-label="Delete"
                   >
-                    {deletingId === query.id ? 'Deleting...' : 'Delete'}
+                    {#if deletingId === query.id}
+                      <div class="h-4 w-4 rounded-full animate-pulse bg-gray-400"></div>
+                    {:else}
+                      <iconify-icon icon="solar:trash-bin-trash-bold" width="18" height="18"></iconify-icon>
+                    {/if}
                   </button>
                 </div>
               </div>
