@@ -444,7 +444,7 @@ async function deleteResume() {
 	</div>
 	
 	<!-- Footer -->
-	<div class="mt-auto">
+	<div>
 		<PreferenceProgressCounter />
 	</div>
 </div>

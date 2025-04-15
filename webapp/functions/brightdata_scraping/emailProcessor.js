@@ -152,7 +152,6 @@ exports.processEmailRequests = onDocumentCreated({
                   <h3 style="color: #1a73e8; margin-bottom: 5px;">${title} at ${company}</h3>
                   
                   <!-- Add preference score and explanation here -->
-                  <p><strong>Preference Match:</strong> ${preferenceScore}/100</p>
                   <p style="font-style: italic; color: #555; margin-bottom: 12px;">"${preferenceExplanation}"</p>
                   
                   <p><strong>Match Score:</strong> ${score}</p>
@@ -168,7 +167,6 @@ exports.processEmailRequests = onDocumentCreated({
               // Also update the text version
               jobsText += `
               ${title} at ${company}
-              Preference Match: ${preferenceScore}/100
               "${preferenceExplanation}"
 
               Match Score: ${score}

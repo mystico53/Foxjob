@@ -31,8 +31,14 @@
   // New variable to control form visibility
   let showForm = false;
   
+  // New variable for advanced options visibility
+  let showAdvanced = false;
+  
   // New variable to track resume upload status
   let resumeUploaded = false;
+  
+  // For workplace type pill selection
+  let selectedWorkplaceTypes = [];
   
   // Subscribe to the job agent store
   const unsubJobAgent = jobAgentStore.subscribe(state => {
@@ -61,44 +67,44 @@
   });
 
   function getTimezoneOffset() {
-  // Get minutes offset (e.g., -420 for PDT which is UTC-7)
-  const offsetMinutes = new Date().getTimezoneOffset();
-  
-  // Convert to hours (e.g., 7 for PDT)
-  // Note: getTimezoneOffset returns the opposite of what we want
-  // so we negate it (e.g., -(-420)/60 = 7)
-  const offsetHours = -offsetMinutes / 60;
-  
-  return offsetHours;
-}
-
-// Check if user already has an active search query
-async function checkExistingQueries() {
-  setJobAgentLoading(true);
-  try {
-    // Get a reference to the user's searchQueries collection
-    const queriesRef = collection(db, 'users', uid, 'searchQueries');
+    // Get minutes offset (e.g., -420 for PDT which is UTC-7)
+    const offsetMinutes = new Date().getTimezoneOffset();
     
-    // Query for active queries
-    // Note: Firebase v9 modular API requires a separate query constructor
-    const q = query(queriesRef, where('isActive', '==', true), limit(1));
-    const snapshot = await getDocs(q);
+    // Convert to hours (e.g., 7 for PDT)
+    // Note: getTimezoneOffset returns the opposite of what we want
+    // so we negate it (e.g., -(-420)/60 = 7)
+    const offsetHours = -offsetMinutes / 60;
     
-    if (!snapshot.empty) {
-      // User has an active query
-      const doc = snapshot.docs[0];
-      setJobAgentStatus(true, doc.id);
-    } else {
-      // No active queries found
-      setJobAgentStatus(false, null);
-    }
-  } catch (error) {
-    console.error("Error checking queries:", error);
-    setJobAgentStatus(false, null);
-  } finally {
-    setJobAgentLoading(false);
+    return offsetHours;
   }
-}
+
+  // Check if user already has an active search query
+  async function checkExistingQueries() {
+    setJobAgentLoading(true);
+    try {
+      // Get a reference to the user's searchQueries collection
+      const queriesRef = collection(db, 'users', uid, 'searchQueries');
+      
+      // Query for active queries
+      // Note: Firebase v9 modular API requires a separate query constructor
+      const q = query(queriesRef, where('isActive', '==', true), limit(1));
+      const snapshot = await getDocs(q);
+      
+      if (!snapshot.empty) {
+        // User has an active query
+        const doc = snapshot.docs[0];
+        setJobAgentStatus(true, doc.id);
+      } else {
+        // No active queries found
+        setJobAgentStatus(false, null);
+      }
+    } catch (error) {
+      console.error("Error checking queries:", error);
+      setJobAgentStatus(false, null);
+    } finally {
+      setJobAgentLoading(false);
+    }
+  }
   
   // Function to delete job agent
   async function deleteJobAgent() {
@@ -163,7 +169,7 @@ async function checkExistingQueries() {
   let jobType = '';
   let experience = '';
   let workplaceType = '';
-  let datePosted = '';
+  let datePosted = 'Past 24 hours'; // Default to 24 hours
   let country = 'US';
   let limitPerInput = 1; // Default value
 
@@ -184,46 +190,61 @@ async function checkExistingQueries() {
   // Default to 8:00 AM
   let deliveryTime = '08:00';
   
+  // Not needed anymore since we're using single selection
+  // Removed toggleWorkplaceType function as we now use direct selection
+  
   // Function to handle the edit event from JobAgentList
-function handleEditAgent(event) {
-  const query = event.detail;
-  editingAgentId = query.id;
-  isEditing = true;
-  showForm = true;  // Show the form when editing
-  
-  // Extract search parameters from the first item in the array
-  const searchParam = query.searchParams && query.searchParams.length > 0 
-    ? query.searchParams[0] 
-    : {};
-  
-  // Populate the form fields with query data
-  keywords = searchParam.keyword || '';
-  location = searchParam.location || '';
-  country = searchParam.country || 'US';
-  jobType = searchParam.job_type || '';
-  experience = searchParam.experience_level || '';
-  workplaceType = searchParam.remote || '';
-  datePosted = searchParam.time_range || '';
-  
-  // Make sure to set the proper delivery time
-  deliveryTime = query.deliveryTime || '08:00';
-  
-  // Convert numeric limit to string for form input
-  limitPerInput = query.limit ? query.limit.toString() : '1';
-  
-  // Force a UI update by scheduling a microtask
-  setTimeout(() => {
-    console.log("Current delivery time:", deliveryTime);
-  }, 0);
-  
-  // Scroll the form into view
-  setTimeout(() => {
-    document.getElementById('job-agent-form')?.scrollIntoView({ 
-      behavior: 'smooth',
-      block: 'start'
-    });
-  }, 100);
-}
+  function handleEditAgent(event) {
+    const query = event.detail;
+    editingAgentId = query.id;
+    isEditing = true;
+    showForm = true;  // Show the form when editing
+    
+    // Extract search parameters from the first item in the array
+    const searchParam = query.searchParams && query.searchParams.length > 0 
+      ? query.searchParams[0] 
+      : {};
+    
+    // Populate the form fields with query data
+    keywords = searchParam.keyword || '';
+    location = searchParam.location || '';
+    country = searchParam.country || 'US';
+    jobType = searchParam.job_type || '';
+    experience = searchParam.experience_level || '';
+    
+    // Set selected workplace type - the API accepts only one value
+    if (searchParam.remote) {
+      // Just select the first value if there's a comma-separated list
+      const remoteValue = searchParam.remote.split(',')[0].trim();
+      selectedWorkplaceTypes = [remoteValue];
+    } else {
+      selectedWorkplaceTypes = [];
+    }
+    
+    datePosted = searchParam.time_range || 'Past 24 hours';
+    
+    // Make sure to set the proper delivery time
+    deliveryTime = query.deliveryTime || '08:00';
+    
+    // Convert numeric limit to string for form input
+    limitPerInput = query.limit ? query.limit.toString() : '1';
+    
+    // Open advanced section if any of those fields are filled
+    showAdvanced = !!(jobType || experience || datePosted !== 'Past 24 hours');
+    
+    // Force a UI update by scheduling a microtask
+    setTimeout(() => {
+      console.log("Current delivery time:", deliveryTime);
+    }, 0);
+    
+    // Scroll the form into view
+    setTimeout(() => {
+      document.getElementById('job-agent-form')?.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'start'
+      });
+    }, 100);
+  }
   
   // Cancel editing and reset form
   function cancelEdit() {
@@ -236,11 +257,12 @@ function handleEditAgent(event) {
     location = '';
     jobType = '';
     experience = '';
-    workplaceType = '';
-    datePosted = '';
+    selectedWorkplaceTypes = [];
+    datePosted = 'Past 24 hours';
     country = 'US';
     limitPerInput = 1;
     deliveryTime = '08:00';
+    showAdvanced = false;
   }
   
   // Toggle form visibility
@@ -254,57 +276,66 @@ function handleEditAgent(event) {
       location = '';
       jobType = '';
       experience = '';
-      workplaceType = '';
-      datePosted = '';
+      selectedWorkplaceTypes = [];
+      datePosted = 'Past 24 hours';
       country = 'US';
       limitPerInput = 1;
       deliveryTime = '08:00';
+      showAdvanced = false;
     }
   }
   
-  async function searchJobs() {
-  isLoading.set(true);
-  error = null;
-
-  if (!keywords) {
-    error = 'Please enter a job title to search';
-    isLoading.set(false);
-    return;
+  // Toggle advanced options visibility
+  function toggleAdvanced() {
+    showAdvanced = !showAdvanced;
   }
+  
+  async function searchJobs() {
+    isLoading.set(true);
+    error = null;
 
-  try {
-    const searchPayload = [{
-      keyword: keywords.trim(),
-      location: location?.trim() || '',
-      country: country || 'US', 
-      time_range: datePosted || 'Any time',
-      job_type: jobType || '',
-      experience_level: experience || '',
-      remote: workplaceType || '',
-    }];
-
-    // Use the environment config to determine the correct URL
-    const searchUrl = getCloudFunctionUrl('searchBright');
-    
-    // Enforce maximum of 50 results
-    const limit = Math.min(parseInt(limitPerInput) || 1, 50);
-    
-    const requestBody = {
-      userId: uid,
-      searchParams: searchPayload,
-      limit: limit,
-      schedule: {
-        frequency: 'daily',
-        runImmediately: true,
-        deliveryTime: deliveryTime,
-        timezoneOffset: getTimezoneOffset() // Add the timezone offset
-      }
-    };
-    
-    // If editing, include the existing searchId
-    if (isEditing && editingAgentId) {
-      requestBody.schedule.searchId = editingAgentId;
+    if (!keywords) {
+      error = 'Please enter a job title to search';
+      isLoading.set(false);
+      return;
     }
+
+    try {
+      // Use only the first selected workplace type - API doesn't accept multiple values
+      const remoteValue = selectedWorkplaceTypes.length > 0 ? selectedWorkplaceTypes[0] : '';
+      
+      const searchPayload = [{
+        keyword: keywords.trim(),
+        location: location?.trim() || '',
+        country: country || 'US', 
+        time_range: datePosted || 'Past 24 hours',
+        job_type: jobType || '',
+        experience_level: experience || '',
+        remote: remoteValue, // Use only the first selected value
+      }];
+
+      // Use the environment config to determine the correct URL
+      const searchUrl = getCloudFunctionUrl('searchBright');
+      
+      // Enforce maximum of 50 results
+      const limit = Math.min(parseInt(limitPerInput) || 1, 50);
+      
+      const requestBody = {
+        userId: uid,
+        searchParams: searchPayload,
+        limit: limit,
+        schedule: {
+          frequency: 'daily',
+          runImmediately: true,
+          deliveryTime: deliveryTime,
+          timezoneOffset: getTimezoneOffset() // Add the timezone offset
+        }
+      };
+      
+      // If editing, include the existing searchId
+      if (isEditing && editingAgentId) {
+        requestBody.schedule.searchId = editingAgentId;
+      }
 
       const response = await fetch(searchUrl, {
         method: 'POST',
@@ -390,7 +421,7 @@ function handleEditAgent(event) {
         {:else if showForm}
           <!-- Show the form when the Create Agent button is clicked or when editing -->
           <form on:submit|preventDefault={searchJobs}>
-            <!-- Changed to Job Title -->
+            <!-- Job Title -->
             <div class="mb-4">
               <label for="keywords" class="block font-bold mb-2">Job Title *</label>
               <input
@@ -403,8 +434,8 @@ function handleEditAgent(event) {
               />
             </div>
 
-            <!-- Three column layout for form fields -->
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <!-- Two column layout for Location and Country -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <!-- Location -->
               <div>
                 <label for="location" class="block font-bold mb-2">Location *</label>
@@ -428,51 +459,91 @@ function handleEditAgent(event) {
                   class="w-full px-4 py-2 border rounded-lg"
                 />
               </div>
+            </div>
 
-              <!-- Job Type -->
-              <div>
-                <label for="jobType" class="block font-bold mb-2">Job Type</label>
-                <select id="jobType" class="w-full px-4 py-2 border rounded-lg" bind:value={jobType}>
-                  <option value="">Any Job Type</option>
-                  {#each jobTypes as type}
-                    <option value={type.value}>{type.label}</option>
-                  {/each}
-                </select>
+            <!-- Workplace Type as Pills - Single Selection Only -->
+            <div class="mb-4">
+              <label class="block font-bold mb-2">Workplace Type</label>
+              <div class="flex flex-wrap gap-2">
+                {#each workplaceTypes as type}
+                  <button 
+                    type="button"
+                    class="px-4 py-2 rounded-full text-sm font-medium {selectedWorkplaceTypes.includes(type.value) ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+                    on:click={() => {
+                      // Single selection only - replace the current selection
+                      selectedWorkplaceTypes = [type.value];
+                    }}
+                  >
+                    {type.label}
+                  </button>
+                {/each}
+                <!-- Add "Any" option to clear selection -->
+                <button 
+                  type="button"
+                  class="px-4 py-2 rounded-full text-sm font-medium {selectedWorkplaceTypes.length === 0 ? 'bg-orange-500 text-white' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}"
+                  on:click={() => {
+                    selectedWorkplaceTypes = [];
+                  }}
+                >
+                  Any
+                </button>
               </div>
+            </div>
 
-              <!-- Experience Level -->
-              <div>
-                <label for="experience" class="block font-bold mb-2">Experience Level</label>
-                <select id="experience" class="w-full px-4 py-2 border rounded-lg" bind:value={experience}>
-                  <option value="">Any Experience</option>
-                  {#each experienceLevels as level}
-                    <option value={level.value}>{level.label}</option>
-                  {/each}
-                </select>
-              </div>
-
-              <!-- Workplace Type -->
-              <div>
-                <label for="workplaceType" class="block font-bold mb-2">Workplace Type</label>
-                <select id="workplaceType" class="w-full px-4 py-2 border rounded-lg" bind:value={workplaceType}>
-                  <option value="">Any Workplace</option>
-                  {#each workplaceTypes as type}
-                    <option value={type.value}>{type.label}</option>
-                  {/each}
-                </select>
-              </div>
-
-              <!-- Date Posted -->
-              <div>
-                <label for="datePosted" class="block font-bold mb-2">Date Posted</label>
-                <select id="datePosted" class="w-full px-4 py-2 border rounded-lg" bind:value={datePosted}>
-                  <option value="">Any Time</option>
-                  {#each dateOptions as option}
-                    <option value={option.value}>{option.label}</option>
-                  {/each}
-                </select>
-              </div>
+            <!-- Advanced Options Collapsible -->
+            <div class="mb-4">
+              <button 
+                type="button" 
+                class="flex items-center text-orange-500 font-medium hover:text-orange-600 focus:outline-none"
+                on:click={toggleAdvanced}
+              >
+                <span class="mr-2">{showAdvanced ? '▼' : '►'}</span>
+                Advanced Options
+              </button>
               
+              {#if showAdvanced}
+                <div class="mt-3 space-y-4 pl-4 border-l-2 border-orange-200">
+                  <!-- Job Type -->
+                  <div>
+                    <label for="jobType" class="block font-bold mb-2">Job Type</label>
+                    <select id="jobType" class="w-full px-4 py-2 border rounded-lg" bind:value={jobType}>
+                      <option value="">Any Job Type</option>
+                      {#each jobTypes as type}
+                        <option value={type.value}>{type.label}</option>
+                      {/each}
+                    </select>
+                  </div>
+
+                  <!-- Experience Level -->
+                  <div>
+                    <label for="experience" class="block font-bold mb-2">Experience Level</label>
+                    <select id="experience" class="w-full px-4 py-2 border rounded-lg" bind:value={experience}>
+                      <option value="">Any Experience</option>
+                      {#each experienceLevels as level}
+                        <option value={level.value}>{level.label}</option>
+                      {/each}
+                    </select>
+                  </div>
+
+                  <!-- Date Posted -->
+                  <div>
+                    <label for="datePosted" class="block font-bold mb-2">Date Posted</label>
+                    <select id="datePosted" class="w-full px-4 py-2 border rounded-lg" bind:value={datePosted}>
+                      <option value="Past 24 hours">Last 24 hours</option>
+                      {#each dateOptions as option}
+                        <option value={option.value}>{option.label}</option>
+                      {/each}
+                    </select>
+                  </div>
+                </div>
+              {/if}
+            </div>
+            
+            <!-- Divider Line -->
+            <hr class="my-6 border-gray-300" />
+            
+            <!-- Delivery settings -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
               <!-- Delivery Time -->
               <div>
                 <label for="deliveryTime" class="block font-bold mb-2">When to Receive Results</label>
@@ -485,7 +556,7 @@ function handleEditAgent(event) {
 
               <!-- Limit Per Input -->
               <div>
-                <label for="limitPerInput" class="block font-bold mb-2">Results Per Search</label>
+                <label for="limitPerInput" class="block font-bold mb-2">Daily Match Limit (max 50)</label>
                 <input
                   id="limitPerInput"
                   type="number"
@@ -500,7 +571,7 @@ function handleEditAgent(event) {
 
             <!-- Action Buttons -->
             <div class="flex items-center space-x-4">
-              <!-- Cancel button moved to the left -->
+              <!-- Cancel button -->
               <button
                 type="button"
                 on:click={toggleForm}
@@ -532,11 +603,8 @@ function handleEditAgent(event) {
               {error}
             </div>
           {/if}
-
         {/if}
       </div>
     {/if}
-    
-    <!-- Removed the Delete Job Agent button entirely -->
   </div>
 </div>

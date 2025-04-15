@@ -165,9 +165,9 @@
         
 <!-- Completed state - only show checkmark and edit/delete buttons -->
 {#if savedCount === 5}
-<div class="flex w-full">
-    <span class="font-medium">Vibe Questions answered</span>
-    <div class="align-right flex gap-2">
+<div class="flex w-full justify-between items-center">
+    <span class="font-medium whitespace-nowrap">Vibe Questions answered</span>
+    <div class="flex gap-2">
         <iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
         <button 
             on:click={navigateToPreferences} 

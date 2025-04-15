@@ -7,6 +7,7 @@
   import { createEventDispatcher } from 'svelte';
   import { deleteDoc, doc } from 'firebase/firestore';
   import { db } from '$lib/firebase'; 
+  import foxIcon from '../../assets/icon128.png';
   
   const dispatch = createEventDispatcher();
   
@@ -104,7 +105,7 @@
           <div class="flex items-center">
             <!-- Icon avatar on the left, now centered vertically -->
             <div class="flex-shrink-0 mr-4 flex items-center justify-center">
-              <img src="/src/assets/icon128.png" alt="Job Agent" class="w-12 h-12 rounded-lg" />
+              <img src={foxIcon} alt="Job Agent" class="w-12 h-12 rounded-lg" />
             </div>
             
             <!-- Main content pushed to the right -->
