@@ -335,10 +335,10 @@ function handleEditAgent(event) {
 <div class="mb-4">
   <!-- Card with white background containing title, button, and agent list -->
   <div class="bg-white rounded-lg shadow p-6 mb-4">
-    <!-- Header with title and Create Agent button -->
+    <!-- Header with title and Create Agent button based on active agent status -->
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">Your Job Agents</h2>
-      <!-- Button appears inactive with gray styling when there's an active agent -->
+      <!-- Button styling based on whether there's an active agent -->
       <button 
         on:click={toggleForm}
         class={hasActiveAgent && !isEditing ? 
@@ -346,7 +346,7 @@ function handleEditAgent(event) {
           "py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"}
         disabled={hasActiveAgent && !isEditing}
       >
-        {showForm ? 'Cancel' : 'Create Agent'}
+        Create Agent
       </button>
     </div>
     
@@ -362,7 +362,8 @@ function handleEditAgent(event) {
     <!-- Form container with light gray background -->
     {#if showForm || isCheckingAgent}
       <div class="bg-gray-100 rounded-lg p-6 mt-6" id="job-agent-form">
-        {#if showForm}
+        <!-- Only show form header when not in checking state -->
+        {#if !isCheckingAgent && showForm}
           <h2 class="text-xl font-bold mb-2">
             {isEditing ? 'Edit your Agent' : 'Set up your Agent'}
           </h2>
@@ -489,6 +490,16 @@ function handleEditAgent(event) {
 
             <!-- Action Buttons -->
             <div class="flex items-center space-x-4">
+              <!-- Cancel button moved to the left -->
+              <button
+                type="button"
+                on:click={toggleForm}
+                class="py-3 px-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded-lg"
+                disabled={$isLoading}
+              >
+                Cancel
+              </button>
+              
               <!-- Create/Update Job Agent Button -->
               <button
                 type="submit"
@@ -496,25 +507,13 @@ function handleEditAgent(event) {
                 disabled={$isLoading}
               >
                 {#if $isLoading}
-                  Setting up your job agent...
+                  Saving
                 {:else if isEditing}
                   Update Job Agent
                 {:else}
                   Create Job Agent
                 {/if}
               </button>
-              
-              <!-- Cancel button (only shown when editing) -->
-              {#if isEditing}
-                <button
-                  type="button"
-                  on:click={cancelEdit}
-                  class="py-3 px-6 bg-gray-300 hover:bg-gray-400 text-gray-800 font-bold rounded-lg"
-                  disabled={$isLoading}
-                >
-                  Cancel
-                </button>
-              {/if}
             </div>
           </form>
 
@@ -524,21 +523,10 @@ function handleEditAgent(event) {
             </div>
           {/if}
 
-          <!-- Progress notification when searching -->
-          {#if $isLoading}
-            <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-              <div class="flex items-center justify-between mb-2">
-                <span class="font-bold">
-                  {isEditing ? 'Updating your job agent...' : 'Setting up your job agent...'}
-                </span>
-                <div class="h-3 w-3 rounded-full animate-pulse bg-orange-500"></div>
-              </div>
-              <p>We're scanning job sites for the best matches. You'll receive email updates with new jobs daily.</p>
-            </div>
-          {/if}
         {/if}
       </div>
     {/if}
     
+    <!-- Removed the Delete Job Agent button entirely -->
   </div>
 </div>
