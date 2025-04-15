@@ -15,7 +15,7 @@
 	let user = null;
 	let unsubscribeAuth = null;
 	let currentPage = 1;
-	let rowsPerPage = 10;
+	let rowsPerPage = 25;
 	let sortValue = 'date-newest'; // Default sort
 
 	// Sort options
@@ -168,7 +168,6 @@
 						<tr class="bg-tertiary-500">
 							<th class="w-[25%]">Company</th>
 							<th class="w-[25%]">Title</th>
-							<th class="w-[25%]">Industry</th>
 							<th class="w-[5%]">Score</th>
 							<th class="w-[15%]">Date</th>
 							<th class="w-[5%]">Status</th>
@@ -196,9 +195,6 @@
 							  </td>
 								<td title={job.jobInfo?.jobTitle || 'N/A'}
 									>{truncateText(job.jobInfo?.jobTitle || 'N/A')}</td
-								>
-								<td title={job.companyInfo?.industry || 'N/A'}
-									>{truncateText(job.companyInfo?.industry || 'N/A')}</td
 								>
 								<td
 									>{job.AccumulatedScores?.accumulatedScore

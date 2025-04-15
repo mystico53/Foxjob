@@ -3,7 +3,7 @@
     import { userStateStore, getSavedCount, getProgressPercentage, setSavedAnswer } from '$lib/stores/userStateStore';
     import { goto } from '$app/navigation';
     import { onMount } from 'svelte';
-    import { doc, deleteDoc, updateDoc } from 'firebase/firestore';
+    import { doc, deleteDoc, updateDoc, getDoc } from 'firebase/firestore';
     import { auth, db } from '$lib/firebase';
 
     // Add function to reset all answers in both store and Firestore
@@ -48,10 +48,17 @@
         }
     }
 
+    function navigateToPreferences() {
+        goto('/preferences');
+    }
+
     let currentMessageText = "";
     
     // Add more detailed debugging
-    onMount(() => {
+    onMount(async () => {
+        // Check Firestore for answers on initial load
+        await checkFirestoreAnswers();
+        
         const unsubscribe = userStateStore.subscribe(state => { 
             // Force message update
             updateMessageText(state);
@@ -59,6 +66,35 @@
         
         return unsubscribe;
     });
+
+    // Function to check Firestore for saved answers on initial load
+    async function checkFirestoreAnswers() {
+        try {
+            const user = auth.currentUser;
+            if (!user) {
+                console.error('No user logged in');
+                return;
+            }
+            
+            const workPreferencesRef = doc(db, 'users', user.uid, 'UserCollections', 'work_preferences');
+            const docSnap = await getDoc(workPreferencesRef);
+            
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                
+                // Update local store based on Firestore data
+                setSavedAnswer(1, !!data.answer1);
+                setSavedAnswer(2, !!data.answer2);
+                setSavedAnswer(3, !!data.answer3);
+                setSavedAnswer(4, !!data.answer4);
+                setSavedAnswer(5, !!data.answer5);
+                
+                console.log("Loaded answers from Firestore");
+            }
+        } catch (error) {
+            console.error("Error checking Firestore answers:", error);
+        }
+    }
 
     // Reactive calculations using the combined store
     $: workPreferences = $userStateStore.workPreferences;
@@ -73,10 +109,6 @@
     $: {
         // This block will re-run whenever these variables change
         updateMessageText($userStateStore);
-    }
-    
-    function navigateToPreferences() {
-        goto('/preferences');
     }
 
     // Determine if button should be active - only active when questions are ready or partially answered
@@ -96,7 +128,7 @@
         
         // Resume is uploaded but vibe check not started
         if (resumeUploadStatus && savedCount === 0) {
-            currentMessageText = "To improve accuracy, tell us how you vibe";
+            currentMessageText = "To improve accuracy of job matches, tell us how you vibe";
         } 
         // Vibe check in progress (started but not finished)
         else if (savedCount > 0 && savedCount < 5) {
@@ -120,7 +152,7 @@
                 class="btn variant-filled-primary self-start {buttonActive ? '' : 'opacity-50 cursor-not-allowed'}"
                 disabled={!buttonActive}
             >
-                {savedCount === 0 ? 'Start Vibe Check' : 'Finish Vibe Check'}
+                {savedCount === 0 ? '🎵 Start Vibe Check' : 'Finish Vibe Check'}
             </button>
             
             <!-- Message area - only show when vibe check not completed -->
@@ -131,21 +163,28 @@
             {/if}
         {/if}
         
-        <!-- Completed state - only show checkmark and delete button -->
-        {#if savedCount === 5}
-        <div class="flex w-full items-center">
-            <span class="font-medium">Vibe Questions answered</span>
-            <div class="flex items-center space-x-2 ml-auto">
-                <iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
-                <button 
-                    on:click|preventDefault|stopPropagation={resetAllAnswers} 
-                    class="btn btn-sm variant-ghost-surface p-0 !px-0 flex justify-center items-center w-8 h-8"
-                >
-                    <iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-xl"></iconify-icon>
-                </button>
-            </div>
-        </div>
-    {/if}
+<!-- Completed state - only show checkmark and edit/delete buttons -->
+{#if savedCount === 5}
+<div class="flex w-full">
+    <span class="font-medium">Vibe Questions answered</span>
+    <div class="align-right flex gap-2">
+        <iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
+        <button 
+            on:click={navigateToPreferences} 
+            class="btn btn-sm variant-ghost-surface"
+        >
+        <iconify-icon icon="mynaui:edit-solid" width="18" height="18"></iconify-icon>
+        </button>
+        
+        <button 
+            on:click|preventDefault|stopPropagation={resetAllAnswers} 
+            class="btn btn-sm variant-ghost-surface"
+        >
+            <iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-xl"></iconify-icon>
+        </button>
+    </div>
+</div>
+{/if}
     </div>
 </div>
 

@@ -27,8 +27,8 @@
 	const navItems = [
 		{ href: '/list', label: 'Home' },
 		{ href: '/workflow', label: 'Jobs' },
-		{ href: '/search', label: 'Search' },
-		{ href: '/preferences', label: 'Your Preferences' },
+		//{ href: '/search', label: 'Search' },
+		//{ href: '/preferences', label: 'Your Preferences' },
 		// { href: '/assessments', label: 'Assesments' },
 		// { href: '/resume', label: 'My resume' },
 	];

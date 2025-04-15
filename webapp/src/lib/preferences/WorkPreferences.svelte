@@ -4,13 +4,14 @@
   import { getAuth, onAuthStateChanged } from 'firebase/auth';
   import { onMount } from 'svelte';
   import { 
-  userStateStore, 
-  setSavedAnswer,
-  setQuestionsStatus,
-  setQuestionsAvailable,
-  getSavedCount,
-  getProgressPercentage 
-} from '$lib/stores/userStateStore';
+    userStateStore, 
+    setSavedAnswer,
+    setQuestionsStatus,
+    setQuestionsAvailable,
+    getSavedCount,
+    getProgressPercentage 
+  } from '$lib/stores/userStateStore';
+  import { goto } from '$app/navigation';
   
   const db = getFirestore();
   const auth = getAuth();
@@ -59,9 +60,15 @@
     const totalQuestions = 5;
     const answeredQuestions = Object.values(store.workPreferences.savedStatus).filter(Boolean).length;
     progressPercentage = Math.round((answeredQuestions / totalQuestions) * 100);
-});
+  });
+  
   // Get current progress message
   $: currentProgressMessage = progressMessages[progressPercentage] || "";
+  
+  // Handle go back button click
+  function goBack() {
+    goto('/list');
+  }
   
   onMount(() => {
     // Reset store state on mount - update for userStateStore
@@ -245,7 +252,15 @@ async function loadWorkPreferences() {
 <div class="preference-container bg-white rounded-lg shadow-md">
 <!-- Sticky progress bar and description -->
 <div class="sticky top-0 bg-white p-6 rounded-t-lg z-10 border-b">
-  <h2 class="text-2xl font-bold mb-2 text-gray-800">Vibe Check</h2>
+  <div class="flex justify-between items-center mb-2">
+    <h2 class="text-2xl font-bold text-gray-800">🎵 Vibe Check</h2>
+    <button 
+      on:click={goBack} 
+      class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition"
+    >
+      Go back
+    </button>
+  </div>
   <p class="mb-4 text-gray-600">Tell us what matters in your next role so we can find opportunities that match your vibe!</p>
   
   <!-- Progress bar -->
@@ -296,7 +311,7 @@ async function loadWorkPreferences() {
           disabled={saving === 'answer1' || !workPreferences.answer1}
           class="px-3 py-1 {($userStateStore.workPreferences.savedStatus.answer1 && !editedStatus.answer1) ? 'bg-green-500 hover:bg-green-600' : 'bg-blue-500 hover:bg-blue-600'} text-white text-sm rounded-md transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {saving === 'answer1' ? 'Saving...' : ($userStateStore.workPreferences.savedStatus.answer1 && !editedStatus.answer1) ? 'Saved' : 'Save'}
+          {saving === 'answer1' ? 'Saving...' : ($userStateStore.workPreferences.savedStatus.answer1 && !editedStatus.answer1) ? 'Saved' : 'Save Answer'}
         </button>
         </div>
       </div>
@@ -416,19 +431,27 @@ async function loadWorkPreferences() {
     
     <!-- Summary box at the bottom -->
     <div class="mt-6 p-4 bg-blue-100 border-l-4 border-blue-500 rounded-md">
-      <div class="flex items-center">
-        <svg class="h-5 w-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <p class="text-sm font-medium text-blue-700">
+      <div class="flex justify-between items-center">
+        <div class="flex items-center">
+          <svg class="h-5 w-5 text-blue-500 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+          </svg>
+          <p class="text-sm font-medium text-blue-700">
             {#if progressPercentage === 0}
-            You haven't saved anything yet. Share your thoughts for each question!
-          {:else if progressPercentage === 100}
-            All 5 questions answered! Thanks for sharing your vibe with us.
-          {:else}
-            {Math.round(progressPercentage / 20)} of 5 answers saved. Keep the vibes coming!
-          {/if}
-        </p>
+              You haven't saved anything yet. Share your thoughts for each question!
+            {:else if progressPercentage === 100}
+              All 5 questions answered! Thanks for sharing your vibe with us.
+            {:else}
+              {Math.round(progressPercentage / 20)} of 5 answers saved. Keep the vibes coming!
+            {/if}
+          </p>
+        </div>
+        <button 
+          on:click={goBack} 
+          class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 rounded-md transition"
+        >
+          Go back
+        </button>
       </div>
     </div>
   {/if}
