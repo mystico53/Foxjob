@@ -86,7 +86,7 @@
 </script>
 
 <div class="bg-white rounded-lg shadow p-6 mt-4">
-  <h2 class="text-xl font-bold mb-4">Your Job Agents</h2>
+  
   
   {#if $searchQueriesStore.loading}
     <div class="flex justify-center items-center py-4">

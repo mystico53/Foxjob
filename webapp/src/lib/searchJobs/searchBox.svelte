@@ -338,14 +338,16 @@ function handleEditAgent(event) {
     <!-- Header with title and Create Agent button -->
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">Your Job Agents</h2>
-      {#if !hasActiveAgent || isEditing}
-        <button 
-          on:click={toggleForm}
-          class="py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
-        >
-          {showForm ? 'Cancel' : 'Create Agent'}
-        </button>
-      {/if}
+      <!-- Button appears inactive with gray styling when there's an active agent -->
+      <button 
+        on:click={toggleForm}
+        class={hasActiveAgent && !isEditing ? 
+          "py-2 px-4 bg-gray-300 text-gray-500 font-bold rounded-lg cursor-not-allowed" : 
+          "py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"}
+        disabled={hasActiveAgent && !isEditing}
+      >
+        {showForm ? 'Cancel' : 'Create Agent'}
+      </button>
     </div>
     
     <!-- Job Agent List or empty state message -->
@@ -358,7 +360,7 @@ function handleEditAgent(event) {
     </div>
     
     <!-- Form container with light gray background -->
-    {#if showForm || (isCheckingAgent) || (hasActiveAgent && !isEditing)}
+    {#if showForm || isCheckingAgent}
       <div class="bg-gray-100 rounded-lg p-6 mt-6" id="job-agent-form">
         {#if showForm}
           <h2 class="text-xl font-bold mb-2">
@@ -373,27 +375,6 @@ function handleEditAgent(event) {
           <div class="flex justify-center items-center py-8">
             <div class="h-6 w-6 rounded-full animate-pulse bg-orange-500"></div>
             <span class="ml-3">Checking your account...</span>
-          </div>
-        {:else if hasActiveAgent && !isEditing}
-          <!-- Show free tier limitation message with delete option -->
-          <div class="py-8 text-center">
-            <div class="bg-blue-50 p-6 rounded-lg">
-              <svg class="w-16 h-16 mx-auto mb-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-              </svg>
-              <h3 class="text-lg font-bold mb-2">Only one job agent in free tier</h3>
-              <p>You already have an active job agent. Free tier accounts are limited to one job agent at a time.</p>
-              <p class="mt-4">To manage your existing job agent, check below.</p>
-              
-              <!-- Delete button -->
-              <button 
-                on:click={deleteJobAgent}
-                class="mt-6 py-2 px-4 bg-red-500 hover:bg-red-600 text-white font-bold rounded-lg" 
-                disabled={isCheckingAgent}
-              >
-                {isCheckingAgent ? 'Deleting...' : 'Delete Job Agent'}
-              </button>
-            </div>
           </div>
         {:else if showForm}
           <!-- Show the form when the Create Agent button is clicked or when editing -->
@@ -558,5 +539,6 @@ function handleEditAgent(event) {
         {/if}
       </div>
     {/if}
+    
   </div>
 </div>
