@@ -363,7 +363,7 @@ function handleEditAgent(event) {
     <!-- Job Agent List or empty state message -->
     <div>
       {#if !hasActiveAgent && !isCheckingAgent}
-        <p class="text-gray-500 text-center py-8">There are no agents working for you currently.</p>
+        <p class="text-gray-500 text-center py-8">Your job agents will be listed here.</p>
       {:else}
         <JobAgentList on:edit={handleEditAgent} />
       {/if}
