@@ -31,16 +31,25 @@
   // New variable to control form visibility
   let showForm = false;
   
+  // New variable to track resume upload status
+  let resumeUploaded = false;
+  
   // Subscribe to the job agent store
   const unsubJobAgent = jobAgentStore.subscribe(state => {
     hasActiveAgent = state.hasActiveAgent;
     isCheckingAgent = state.isLoading;
   });
   
+  // Subscribe to the userStateStore to get resume status
+  const unsubUserState = userStateStore.subscribe(state => {
+    resumeUploaded = state.resume.isUploaded;
+  });
+  
   // Unsubscribe when component is destroyed
   onMount(() => {
     return () => {
       unsubJobAgent();
+      unsubUserState();
     };
   });
 
@@ -338,13 +347,14 @@ function handleEditAgent(event) {
     <!-- Header with title and Create Agent button based on active agent status -->
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">Your Job Agents</h2>
-      <!-- Button styling based on whether there's an active agent -->
+      <!-- Button styling based on whether there's an active agent and resume is uploaded -->
       <button 
         on:click={toggleForm}
-        class={hasActiveAgent && !isEditing ? 
+        class={(hasActiveAgent && !isEditing) || !resumeUploaded ? 
           "py-2 px-4 bg-gray-300 text-gray-500 font-bold rounded-lg cursor-not-allowed" : 
           "py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"}
-        disabled={hasActiveAgent && !isEditing}
+        disabled={(hasActiveAgent && !isEditing) || !resumeUploaded}
+        title={!resumeUploaded ? "Upload your resume first" : (hasActiveAgent && !isEditing ? "You already have an active job agent" : "Create a job agent")}
       >
         Create Agent
       </button>

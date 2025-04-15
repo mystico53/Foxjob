@@ -200,7 +200,7 @@ async function checkExistingResume() {
             // Simply pass data to updateUIFromData and let it handle timestamp
             updateUIFromData(data, null);
         } else {
-            uploadFeedback = 'Add your resume to match it with job descriptions';
+            uploadFeedback = 'Start here so we can match your resume with job descriptions';
             resumeUploaded = false;
             setResumeStatus(false, '', null, '');
         }
@@ -352,7 +352,7 @@ async function deleteResume() {
 			const deletePromises = querySnapshot.docs.map((doc) => deleteDoc(doc.ref));
 			await Promise.all(deletePromises);
 
-			uploadFeedback = 'Add your resume to match it with job descriptions';
+			uploadFeedback = 'Start here so we can match your resume with job descriptions';
 			uploadFeedbackColor = 'variant-filled-surface';
 			resumeUploaded = false;
 			resumeStatus = '';
