@@ -1,6 +1,5 @@
 <script>
 	import { onMount } from 'svelte';
-	import { FileDropzone } from '@skeletonlabs/skeleton';
 	import { auth, db } from '$lib/firebase';
 	import { 
 		collection,
@@ -14,14 +13,14 @@
 		limit,
 		onSnapshot,
 		doc,
-		updateDoc  // Keep this import
+		updateDoc
 	} from 'firebase/firestore';
 	import { 
 		setResumeStatus, 
 		setQuestionsStatus,
 		setWorkPreferencesLoading, 
 		setQuestionsAvailable,
-		setSavedAnswer, // Keep this import
+		setSavedAnswer,
 		userStateStore 
 	} from '$lib/stores/userStateStore';
 	import { tooltipStore } from '$lib/stores/tooltipStore';
@@ -55,7 +54,7 @@
 			user = currentUser;
 			if (user) {
 				checkExistingResume();
-				setupResumeListener(); // Move this here
+				setupResumeListener();
 			} else {
 				// Cleanup if user logs out
 				if (unsubscribeResumeListener) {
@@ -214,10 +213,17 @@
 		}
 	}
 
+	// Function to trigger file input click
+	function triggerFileInput() {
+		if (fileInput) {
+			fileInput.click();
+		}
+	}
+
 	async function handleFiles(event) {
-		const fileInput = event.target;
-		if (fileInput && fileInput.files && fileInput.files.length > 0) {
-			const file = fileInput.files[0];
+		const fileInputElement = event.target;
+		if (fileInputElement && fileInputElement.files && fileInputElement.files.length > 0) {
+			const file = fileInputElement.files[0];
 			currentFileName = file.name;
 			console.log('File selected:', file);
 			if (file.type === 'application/pdf') {
@@ -385,19 +391,23 @@
 	</div>
 	<div class="flex flex-1 flex-col items-center justify-center">
 		{#if !$userStateStore.resume.isUploaded}
-			<div class="relative w-full">
-				<FileDropzone
-					name="files"
-					on:change={handleFiles}
-					on:selected={handleFiles}
-					on:submit={handleFiles}
+			<div class="relative w-full flex justify-center">
+				<!-- Hidden file input -->
+				<input
+					bind:this={fileInput}
+					type="file"
 					accept=".pdf,application/pdf"
-					border="border-2 border-solid border-tertiary-500"
-					padding="p-4 py-8"
-					rounded="rounded-container-token"
-					regionInterface="hover:bg-surface-500/20 transition-colors duration-150"
-					class="w-full"
+					on:change={handleFiles}
+					class="hidden"
 				/>
+				
+				<!-- Primary button to trigger file selection -->
+				<button
+					on:click={triggerFileInput}
+					class="btn variant-filled-primary"
+				>
+					Upload Resume
+				</button>
 			</div>
 		{/if}
 
@@ -417,7 +427,6 @@
 			</div>
 		{/if}
 	</div>
-	
 </div>
 
 <style>
