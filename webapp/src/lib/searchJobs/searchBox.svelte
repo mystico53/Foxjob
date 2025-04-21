@@ -447,16 +447,15 @@
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">Your Job Agents</h2>
       <!-- Button styling based on whether there's an active agent and resume is uploaded -->
+      {#if (!hasActiveAgent || isEditing) && resumeUploaded}
       <button 
         on:click={toggleForm}
-        class={(hasActiveAgent && !isEditing) || !resumeUploaded ? 
-          "py-2 px-4 bg-gray-300 text-gray-500 font-bold rounded-lg cursor-not-allowed" : 
-          "py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"}
-        disabled={(hasActiveAgent && !isEditing) || !resumeUploaded}
-        title={!resumeUploaded ? "Upload your resume first" : (hasActiveAgent && !isEditing ? "You already have an active job agent" : "Create a job agent")}
+        class="py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
+        title="Create a job agent"
       >
         Create Agent
       </button>
+    {/if}
     </div>
     
     <!-- Job Agent List or empty state message -->

@@ -372,9 +372,9 @@
 		<h2 class="m-0 text-xl font-bold">Your resume</h2>
 		{#if resumeUploaded}
 		<div>
-			{#if resumeStatus === 'processed'}
-				<iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
-			{:else if resumeStatus === 'error'}
+			<!-- Show checkmark as soon as resume is uploaded -->
+			<iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
+			{#if resumeStatus === 'error'}
 				<iconify-icon icon="fluent:error-circle-12-filled" class="text-2xl text-error-500"></iconify-icon>
 			{/if}
 			<button on:click={deleteResume}>
