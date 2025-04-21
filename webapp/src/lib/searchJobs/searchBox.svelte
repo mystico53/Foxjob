@@ -13,7 +13,8 @@
   import DailySearchRoutines from '$lib/searchJobs/DailySearchRoutines.svelte';
   import JobAgentList from '$lib/searchJobs/JobAgentList.svelte';
   import { db } from '$lib/firebase';
-  import { collection, query, where, limit, getDocs } from 'firebase/firestore';
+  import { collection, query, where, limit, getDocs, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+  import { getFirestore } from 'firebase/firestore';
   
   let uid;
   // Hardcoded to true as requested
@@ -39,6 +40,12 @@
   
   // For workplace type pill selection
   let selectedWorkplaceTypes = [];
+
+  // Work preferences variables
+  let workPreferences = {
+    preferences: '',
+    avoidance: ''
+  };
   
   // Subscribe to the job agent store
   const unsubJobAgent = jobAgentStore.subscribe(state => {
@@ -63,6 +70,7 @@
     uid = user?.uid;
     if (uid) {
       checkExistingQueries();
+      loadWorkPreferences();
     }
   });
 
@@ -103,6 +111,54 @@
       setJobAgentStatus(false, null);
     } finally {
       setJobAgentLoading(false);
+    }
+  }
+  
+  // Function to load work preferences
+  async function loadWorkPreferences() {
+    try {
+      const prefDocRef = doc(db, 'users', uid, 'UserCollections', 'work_preferences');
+      const prefSnap = await getDoc(prefDocRef);
+      
+      if (prefSnap.exists()) {
+        const data = prefSnap.data();
+        workPreferences = {
+          preferences: data.preferences || '',
+          avoidance: data.avoidance || ''
+        };
+      }
+    } catch (err) {
+      console.error('Error loading work preferences:', err);
+    }
+  }
+  
+  // Function to save work preferences
+  async function saveWorkPreferences() {
+    try {
+      const prefDocRef = doc(db, 'users', uid, 'UserCollections', 'work_preferences');
+      
+      // First check if document exists
+      const prefSnap = await getDoc(prefDocRef);
+      
+      const updateData = {
+        preferences: workPreferences.preferences,
+        avoidance: workPreferences.avoidance,
+        updatedAt: new Date(),
+        status: 'completed'
+      };
+      
+      if (prefSnap.exists()) {
+        // Update existing document
+        await updateDoc(prefDocRef, updateData);
+      } else {
+        // Create new document
+        await setDoc(prefDocRef, {
+          ...updateData,
+          createdAt: new Date()
+        });
+      }
+    } catch (err) {
+      console.error('Error saving work preferences:', err);
     }
   }
   
@@ -190,9 +246,6 @@
   // Default to 8:00 AM
   let deliveryTime = '08:00';
   
-  // Not needed anymore since we're using single selection
-  // Removed toggleWorkplaceType function as we now use direct selection
-  
   // Function to handle the edit event from JobAgentList
   function handleEditAgent(event) {
     const query = event.detail;
@@ -244,6 +297,9 @@
         block: 'start'
       });
     }, 100);
+    
+    // Load work preferences to populate those fields
+    loadWorkPreferences();
   }
   
   // Cancel editing and reset form
@@ -263,6 +319,12 @@
     limitPerInput = 1;
     deliveryTime = '08:00';
     showAdvanced = false;
+    
+    // Reset preferences
+    workPreferences = {
+      preferences: '',
+      avoidance: ''
+    };
   }
   
   // Toggle form visibility
@@ -282,6 +344,9 @@
       limitPerInput = 1;
       deliveryTime = '08:00';
       showAdvanced = false;
+      
+      // Load current preferences
+      loadWorkPreferences();
     }
   }
   
@@ -301,6 +366,9 @@
     }
 
     try {
+      // Save work preferences first
+      await saveWorkPreferences();
+      
       // Use only the first selected workplace type - API doesn't accept multiple values
       const remoteValue = selectedWorkplaceTypes.length > 0 ? selectedWorkplaceTypes[0] : '';
       
@@ -537,6 +605,36 @@
                   </div>
                 </div>
               {/if}
+            </div>
+            
+            <!-- Preferences Section - Added below advanced options -->
+            <div class="mb-6 mt-6 bg-blue-50 p-4 rounded-md">
+              <h3 class="text-lg font-bold mb-3">Tailor this agent to your preferences</h3>
+              <p class="text-gray-700 mb-4">Tell the agent what you like and what not. Just write it down, industry, company name, culture, team size, etc.</p>
+              
+              <!-- Preferences Field -->
+              <div class="mb-4">
+                <label for="preferences" class="block font-bold mb-2">Preferences</label>
+                <textarea
+                  id="preferences"
+                  bind:value={workPreferences.preferences}
+                  placeholder="What you're looking for in a role..."
+                  rows="3"
+                  class="w-full px-4 py-2 border rounded-lg"
+                ></textarea>
+              </div>
+              
+              <!-- Avoidance Field -->
+              <div>
+                <label for="avoidance" class="block font-bold mb-2">What to avoid</label>
+                <textarea
+                  id="avoidance"
+                  bind:value={workPreferences.avoidance}
+                  placeholder="What you want to avoid in a role..."
+                  rows="3"
+                  class="w-full px-4 py-2 border rounded-lg"
+                ></textarea>
+              </div>
             </div>
             
             <!-- Divider Line -->

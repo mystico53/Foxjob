@@ -23,10 +23,4 @@
 	</div>
 
 	<SearchBox/>
-
-	<!-- Datatable below the columns -->
-	<div class="card mt-4 pt-6">
-		<Datatable />
-		<JobsProcessing />
-	</div>
 </div>

@@ -76,6 +76,7 @@ const CONFIG = {
 };
 
 // Helper to get user preferences - UPDATED VERSION
+// Updated helper to get user preferences with new structure
 async function getUserPreferences(firebaseUid) {
     try {
         const documentPath = `users/${firebaseUid}/UserCollections/work_preferences`;
@@ -92,103 +93,67 @@ async function getUserPreferences(firebaseUid) {
             .doc('work_preferences')
             .get();
         
-            if (!prefsDoc.exists) {
-                logger.info('Work preferences document not found at path', { documentPath });
+        if (!prefsDoc.exists) {
+            logger.info('Work preferences document not found at path', { documentPath });
+            
+            // Try a document list to see what documents actually exist
+            const snapshot = await db.collection('users')
+                .doc(firebaseUid)
+                .collection('UserCollections')
+                .limit(10)
+                .get();
                 
-                // Try a document list to see what documents actually exist
-                const snapshot = await db.collection('users')
-                    .doc(firebaseUid)
-                    .collection('UserCollections')
-                    .limit(10)
-                    .get();
-                    
-                if (snapshot.empty) {
-                    logger.info('No documents found in UserCollections collection');
-                } else {
-                    logger.info('Found documents in UserCollections:', {
-                        documentIds: snapshot.docs.map(doc => doc.id)
-                    });
-                }
-                
-                return null;
+            if (snapshot.empty) {
+                logger.info('No documents found in UserCollections collection');
+            } else {
+                logger.info('Found documents in UserCollections:', {
+                    documentIds: snapshot.docs.map(doc => doc.id)
+                });
             }
+            
+            return null;
+        }
         
         const prefsData = prefsDoc.data();
         logger.info('Found work preferences document with data', { 
             firebaseUid, 
             fields: Object.keys(prefsData),
-            hasQuestion1: !!prefsData.question1,
-            hasAnswer1: !!prefsData.answer1,
-            answer1Value: prefsData.answer1 || 'empty',
+            hasPreferences: !!prefsData.preferences,
+            hasAvoidance: !!prefsData.avoidance,
             status: prefsData.status || 'none'
         });
         
-        // Check if we have any non-empty answers
-        let hasAnswers = false;
-        let answerCount = 0;
-        for (let i = 1; i <= 5; i++) {
-            const answerKey = `answer${i}`;
-            if (prefsData[answerKey] && 
-                typeof prefsData[answerKey] === 'string' && 
-                prefsData[answerKey].trim() !== '') {
-                
-                hasAnswers = true;
-                answerCount++;
-                logger.info(`Found valid ${answerKey}`, { 
-                    firebaseUid, 
-                    value: prefsData[answerKey] 
-                });
-            } else {
-                logger.info(`${answerKey} is empty or invalid`, { 
-                    firebaseUid,
-                    exists: answerKey in prefsData,
-                    type: typeof prefsData[answerKey],
-                    empty: prefsData[answerKey] === '',
-                    value: prefsData[answerKey] || 'undefined'
-                });
-            }
-        }
+        // Check if we have non-empty preferences
+        const hasValidPreferences = prefsData.preferences && 
+            typeof prefsData.preferences === 'string' && 
+            prefsData.preferences.trim() !== '';
+            
+        const hasValidAvoidance = prefsData.avoidance && 
+            typeof prefsData.avoidance === 'string' && 
+            prefsData.avoidance.trim() !== '';
         
-        if (!hasAnswers) {
-            logger.info('No non-empty answers found in work preferences', { 
-                firebaseUid,
-                answerCount 
-            });
+        if (!hasValidPreferences && !hasValidAvoidance) {
+            logger.info('No valid preferences found in work preferences', { firebaseUid });
             return null;
         }
         
-        // Format the preferences as question-answer pairs
+        // Format the preferences
         const formattedPreferences = [];
         
-        for (let i = 1; i <= 5; i++) {
-            const questionKey = `question${i}`;
-            const answerKey = `answer${i}`;
-            
-            // Only include questions with non-empty answers
-            if (prefsData[questionKey] && 
-                prefsData[answerKey] && 
-                typeof prefsData[answerKey] === 'string' && 
-                prefsData[answerKey].trim() !== '') {
-                
-                formattedPreferences.push(
-                    `Question: ${prefsData[questionKey]}\nAnswer: ${prefsData[answerKey]}`
-                );
-                
-                logger.info(`Added ${questionKey}-${answerKey} pair to formatted preferences`, { 
-                    firebaseUid
-                });
-            }
+        if (hasValidPreferences) {
+            formattedPreferences.push(`What I'm looking for:\n${prefsData.preferences.trim()}`);
+            logger.info('Added preferences to formatted preferences', { firebaseUid });
         }
         
-        if (formattedPreferences.length === 0) {
-            logger.info('No valid question-answer pairs found', { firebaseUid });
-            return null;
+        if (hasValidAvoidance) {
+            formattedPreferences.push(`What I want to avoid:\n${prefsData.avoidance.trim()}`);
+            logger.info('Added avoidance to formatted preferences', { firebaseUid });
         }
         
         const result = formattedPreferences.join('\n\n');
         logger.info('Successfully formatted user preferences', { 
             firebaseUid, 
-            pairsCount: formattedPreferences.length,
+            sectionCount: formattedPreferences.length,
             preferencesLength: result.length,
             preferencesStart: result.substring(0, 50)
         });
