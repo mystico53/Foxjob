@@ -133,11 +133,28 @@ const publishJobMessage = async (topic, firebaseUid, jobId) => {
   }
 };
 
-
+// ENHANCED downloadSnapshot function with detailed logging
 async function downloadSnapshot(snapshotId, authToken) {
   try {
+    logger.info(`Downloading snapshot ${snapshotId} from BrightData API`);
+    
+    const apiUrl = `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}`;
+    logger.info(`API URL: ${apiUrl}`);
+    
+    // Log the request configuration
+    logger.info('Request configuration:', {
+      url: apiUrl,
+      headers: {
+        'Authorization': 'Bearer [REDACTED]',
+      },
+      params: {
+        format: 'json'
+      }
+    });
+    
+    const startTime = Date.now();
     const response = await axios.get(
-      `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}`,
+      apiUrl,
       {
         headers: {
           'Authorization': `Bearer ${authToken}`,
@@ -147,21 +164,86 @@ async function downloadSnapshot(snapshotId, authToken) {
         }
       }
     );
+    const requestDuration = Date.now() - startTime;
+    
+    // Log detailed response information
+    logger.info(`BrightData API response received in ${requestDuration}ms for snapshot ${snapshotId}`, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+      contentType: response.headers['content-type'],
+      contentLength: response.headers['content-length'],
+      dataType: typeof response.data,
+      isArray: Array.isArray(response.data),
+      dataLength: Array.isArray(response.data) ? response.data.length : 1
+    });
+    
+    // Log the first item in the response to understand structure (limit personal data)
+    if (Array.isArray(response.data) && response.data.length > 0) {
+      const sampleJob = { ...response.data[0] };
+      // Redact any sensitive fields
+      if (sampleJob.job_description) sampleJob.job_description = '[REDACTED FOR LOG]';
+      if (sampleJob.job_description_formatted) sampleJob.job_description_formatted = '[REDACTED FOR LOG]';
+      
+      logger.info('Sample job structure from response:', sampleJob);
+      
+      // Log job title distribution for debugging relevance
+      const jobTitles = response.data.map(job => job.job_title || '').filter(Boolean);
+      const titleAnalysis = jobTitles.reduce((acc, title) => {
+        const lowerTitle = title.toLowerCase();
+        
+        // Track specific title patterns
+        if (lowerTitle.includes('product manager')) acc.productManager++;
+        else if (lowerTitle.includes('software engineer')) acc.softwareEngineer++;
+        else if (lowerTitle.includes('developer')) acc.developer++;
+        else acc.other++;
+        
+        return acc;
+      }, { productManager: 0, softwareEngineer: 0, developer: 0, other: 0, total: jobTitles.length });
+      
+      logger.info('Job title distribution analysis:', titleAnalysis);
+    } else {
+      // If it's a single object or empty, log appropriate info
+      logger.info('Response is not an array or is empty. Data structure:', {
+        type: typeof response.data,
+        keys: typeof response.data === 'object' ? Object.keys(response.data) : 'N/A'
+      });
+    }
+    
+    // Log the entire raw response as JSON string for complete debugging
+    // Be careful with large responses - this could make logs very large
+    logger.info(`COMPLETE_RAW_RESPONSE: ${JSON.stringify(response.data)}`);
+    
     return response.data;
   } catch (error) {
-    console.error('Error downloading snapshot:', error);
+    // Enhanced error logging
+    logger.error('Error downloading snapshot:', {
+      snapshotId,
+      errorMessage: error.message,
+      errorCode: error.code,
+      errorStack: error.stack,
+      responseStatus: error.response?.status,
+      responseData: error.response?.data
+    });
     throw new Error(`Failed to download snapshot: ${error.message}`);
   }
 }
 
-
-
+// ENHANCED main function with more logging points
 exports.downloadAndProcessSnapshot = onRequest({
   timeoutSeconds: 540,
   memory: '1GiB',
   region: 'us-central1',
   secrets: ["BRIGHTDATA_API_TOKEN"],
 }, async (req, res) => {
+  const startTime = Date.now();
+  logger.info('Function started', {
+    method: req.method,
+    query: req.query,
+    bodyKeys: req.body ? Object.keys(req.body) : [],
+    timestamp: new Date().toISOString()
+  });
+  
   await new Promise((resolve) => cors(req, res, resolve));
   try {
     const snapshotId = req.query.snapshotId || req.body?.snapshotId;
@@ -169,17 +251,21 @@ exports.downloadAndProcessSnapshot = onRequest({
       throw new Error('Snapshot ID is required');
     }
 
-    const firebaseUid = req.query.firebaseUid || 'test_user';
+    const firebaseUid = req.query.firebaseUid || req.body?.firebaseUid || 'test_user';
+    logger.info(`Processing request for user ${firebaseUid}, snapshot ${snapshotId}`);
 
     const brightdataTokenName = 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest';
     const [brightdataVersion] = await secretManager.accessSecretVersion({ name: brightdataTokenName });
     const brightdataToken = brightdataVersion.payload.data.toString();
+    logger.info('Successfully retrieved BrightData API token');
 
+    // Get snapshot data with enhanced logging
     const snapshotData = await downloadSnapshot(snapshotId, brightdataToken);
     
     const jobs = Array.isArray(snapshotData) ? snapshotData : [snapshotData];
+    logger.info(`Processing ${jobs.length} jobs from snapshot ${snapshotId}`);
+    
     const MAX_BATCH_SIZE = 500;
-    const batches = [];
     
     const results = {
       successful: [],
@@ -194,6 +280,8 @@ exports.downloadAndProcessSnapshot = onRequest({
     // Process jobs in batches
     for (let i = 0; i < jobs.length; i += MAX_BATCH_SIZE) {
       const batchJobs = jobs.slice(i, i + MAX_BATCH_SIZE);
+      logger.info(`Processing batch ${Math.floor(i/MAX_BATCH_SIZE) + 1} with ${batchJobs.length} jobs`);
+      
       const batch = db.batch();
       const batchJobIds = [];  // Track jobs in this batch
     
@@ -208,7 +296,11 @@ exports.downloadAndProcessSnapshot = onRequest({
           batch.set(docRef, transformedJob, { merge: true });
           batchJobIds.push(transformedJob.basicInfo.jobId);
         } catch (error) {
-          logger.error('Error processing job:', error);
+          logger.error('Error processing job:', {
+            jobId: job.job_posting_id,
+            error: error.message,
+            stack: error.stack
+          });
           results.failed.push({
             jobId: job.job_posting_id,
             error: error.message
@@ -239,8 +331,13 @@ exports.downloadAndProcessSnapshot = onRequest({
         );
     
         await Promise.all(pubsubPromises);
+        logger.info(`Published ${batchJobIds.length} messages to Pub/Sub`);
       } catch (error) {
-        logger.error('Error in batch operation:', error);
+        logger.error('Error in batch operation:', {
+          error: error.message,
+          stack: error.stack,
+          batchSize: batchJobIds.length
+        });
         batchJobIds.forEach(jobId => {
           results.failed.push({
             jobId,
@@ -249,6 +346,13 @@ exports.downloadAndProcessSnapshot = onRequest({
         });
       }
     }
+
+    const processingTime = Date.now() - startTime;
+    logger.info(`Function completed successfully in ${processingTime}ms`, {
+      totalJobs: jobs.length,
+      successful: results.successful.length,
+      failed: results.failed.length
+    });
 
     res.json({
       success: true,
@@ -261,14 +365,22 @@ exports.downloadAndProcessSnapshot = onRequest({
       },
       snapshotId,
       firebaseUid,
+      processingTime: `${processingTime}ms`,
       timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    logger.error('Function error:', error);
+    const processingTime = Date.now() - startTime;
+    logger.error('Function failed:', {
+      error: error.message,
+      stack: error.stack,
+      processingTime: `${processingTime}ms`
+    });
+    
     res.status(500).json({
       success: false,
       error: error.message,
+      processingTime: `${processingTime}ms`,
       timestamp: new Date().toISOString()
     });
   }

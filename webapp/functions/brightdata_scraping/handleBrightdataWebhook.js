@@ -188,6 +188,7 @@ exports.handleBrightdataWebhook = onRequest({
 }, async (req, res) => {
   try {
     const userId = req.query.userId || 'test_user';
+    const searchId = req.query.searchId;
     logger.info('Webhook received', { bodyType: typeof req.body, isArray: Array.isArray(req.body) });
     
     // Case 1: Status update from Brightdata
@@ -212,13 +213,14 @@ exports.handleBrightdataWebhook = onRequest({
       await batchRef.set({
         userId,
         snapshotId: batchId,
+        searchId: searchId, // Add this line to store the search query ID
         totalJobs: jobs.length,
         completedJobs: 0,
         status: 'processing',
         startedAt: FieldValue.serverTimestamp(),
         emailSent: false,
-        smallBatch: jobs.length === 1, // Flag for optimization
-        jobIds: [] // Will be populated after processing
+        smallBatch: jobs.length === 1,
+        jobIds: []
       });
       
       // Pass batchId to processing function

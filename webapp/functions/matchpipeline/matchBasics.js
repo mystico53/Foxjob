@@ -262,7 +262,8 @@ exports.matchBasics = onMessagePublished(
                     const batchRef = db.collection('jobBatches').doc(batchId);
                     await batchRef.update({
                         [`jobStatus.${jobId}`]: 'basic_completed',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed')
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
+                        completedJobs: FieldValue.increment(1) // Add this line
                     });
                     logger.info('Updated batch progress', { batchId, jobId });
                 } catch (error) {

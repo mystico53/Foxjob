@@ -259,6 +259,32 @@ exports.preferenceMatch = onMessagePublished(
 
             // Get user preferences with the updated function
             const preferences = await getUserPreferences(firebaseUid);
+            
+            // IMPORTANT CHANGE: Always update batch counter, even if preferences are missing
+            if (batchId) {
+                try {
+                    const batchRef = db.collection('jobBatches').doc(batchId);
+                    await batchRef.update({
+                        [`jobStatus.${jobId}`]: preferences ? 'preference_completed' : 'preference_skipped',
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion(preferences ? 'preference_completed' : 'preference_skipped'),
+                        // Always increment completion counter
+                        completedJobs: FieldValue.increment(1)
+                    });
+                    logger.info('Updated batch counter', { 
+                        batchId, 
+                        jobId, 
+                        hasPreferences: !!preferences 
+                    });
+                } catch (error) {
+                    logger.error('Failed to update batch counter', { 
+                        batchId, 
+                        error: error.message 
+                    });
+                    // Continue even if batch update fails
+                }
+            }
+            
+            // After updating the batch counter, now check if we can continue with preference processing
             if (!preferences) {
                 logger.info('No preferences found', { firebaseUid });
                 return {
@@ -309,29 +335,7 @@ exports.preferenceMatch = onMessagePublished(
 
             logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
 
-            // ADD THE BATCH UPDATE CODE HERE
-            // Update batch if batchId exists
-            
-            if (batchId) {
-                try {
-                    const batchRef = db.collection('jobBatches').doc(batchId);
-                    await batchRef.update({
-                        [`jobStatus.${jobId}`]: 'preference_completed',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('preference_completed'),
-                        // Only increment completion counter here, when all processing is done
-                        completedJobs: FieldValue.increment(1)
-                    });
-                    logger.info('Updated batch with preference completion', { batchId, jobId });
-                } catch (error) {
-                    logger.error('Failed to update batch with preference completion', { 
-                        batchId, 
-                        error: error.message 
-                    });
-                    // Continue even if batch update fails
-                }
-            }
-
-            // Return results (keep this existing code)
+            // Return results
             return {
                 success: true,
                 rawOutput: result.extractedText,

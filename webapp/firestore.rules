@@ -6,73 +6,53 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to check if user is accessing their own data
-    function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+    // ADMIN DASHBOARD ACCESS
+    // Allow any authenticated user to read everything for the admin dashboard
+    // Note: In production, you should restrict this with proper admin claims
+    match /{document=**} {
+      allow read, list: if isAuthenticated();
     }
-
-    // Allow read/write access to top-level scrapedJobs collection
-    match /scrapedJobs/{jobId} {
-      allow read, write, list: if isAuthenticated();
-    }
-
-    // Allow read/write access to searchQueries subcollection
-    match /users/{userId}/searchQueries/{document=**} {
-      allow read, write: if isOwner(userId);
-    }
-
-    // Rules for users collection and subcollections
+    
+    // USER-SPECIFIC WRITE PERMISSIONS
+    // Allow users to write only to their own data
     match /users/{userId} {
-      // Allow users to read/write their own documents
-      allow read, write, create: if isOwner(userId);
+      allow write, create, update, delete: if isAuthenticated() && request.auth.uid == userId;
       
-      // Rules for UserCollections subcollection
-      match /UserCollections/{document=**} {
-        allow read, write: if isOwner(userId);
-      }
-      
-      // Rules for jobs subcollection
-      match /jobs/{jobId} {
-        allow read, write, list: if isOwner(userId);
-      }
-
-      // Rules for processed subcollection
-      match /processed/{docId} {
-        allow read, write, list: if isOwner(userId);
-      }
-      
-      // Rules for scrapedJobs subcollection - simplified for debugging
-      match /scrapedJobs/{jobId} {
-        allow read, write, list, create: if isOwner(userId);
+      // All subcollections under a user's document
+      match /{subcollection}/{docId} {
+        allow write, create, update, delete: if isAuthenticated() && request.auth.uid == userId;
       }
     }
-
-    // Add rule for UserCollections at the top level
+    
+    // SPECIFIC COLLECTION WRITE PERMISSIONS
+    // These collections have specific write permissions
+    
+    // jobBatches collection
+    match /jobBatches/{batchId} {
+      allow create, update, delete: if isAuthenticated();
+    }
+    
+    // Allow write to scrapedJobs collection
+    match /scrapedJobs/{jobId} {
+      allow write, create, update, delete: if isAuthenticated();
+    }
+    
+    // UserCollections at top level
     match /UserCollections/{collectionId} {
-      allow read, write, list: if isAuthenticated();
+      allow write, create, update, delete: if isAuthenticated();
     }
 
-    // Rest of your rules remain the same
-    match /googleSubToUid/{googleSubId} {
-      allow read: if false;
-      allow write: if request.auth != null && request.auth.token.admin == true;
-    }
-
+    // Other specific collections
     match /pending_users/{pendingId} {
-      allow read, write: if isAuthenticated();
+      allow write, create, update, delete: if isAuthenticated();
     }
 
     match /test/{docId} {
-      allow read, write: if isAuthenticated();
+      allow write, create, update, delete: if isAuthenticated();
     }
 
     match /dev-test/{docId} {
-      allow read, write: if isAuthenticated();
-    }
-
-    // Default deny
-    match /{document=**} {
-      allow read, write: if false;
+      allow write, create, update, delete: if isAuthenticated();
     }
   }
 }

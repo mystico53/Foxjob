@@ -235,7 +235,7 @@ exports.searchBright = onRequest({
       );
       console.log("Full request to BrightData:", JSON.stringify(requestData));
 
-      const webhookUrl = `${CONFIG.WEBHOOK_BASE_URL}?userId=${encodeURIComponent(userId)}`;
+      const webhookUrl = `${CONFIG.WEBHOOK_BASE_URL}?userId=${encodeURIComponent(userId)}&searchId=${encodeURIComponent(searchId)}`;
 
       const url = new URL(CONFIG.BASE_URL);
       url.searchParams.append('dataset_id', CONFIG.BRIGHTDATA_DATASET_ID);

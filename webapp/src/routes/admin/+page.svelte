@@ -1,15 +1,16 @@
-
 <script>
     import { onMount } from 'svelte';
     import { goto } from '$app/navigation';
-    import FeedbackTable from '$lib/admincomponents/FeedbackTable.svelte';
     import UserTable from '$lib/admincomponents/UserTable.svelte';
-    import OpenFeedbackTable from '$lib/admincomponents/OpenFeedbackTable.svelte';
+    import AgentsOverview from '$lib/admincomponents/AgentsOverview.svelte';
     
-    const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD;
+    // Use environment variable for the admin password
+    const ADMIN_PASSWORD = import.meta.env.VITE_ADMIN_PASSWORD || "123foxie321";
+    
     let isAuthenticated = false;
     let password = '';
     let error = '';
+    let debugInfo = '';
 
     onMount(() => {
         const adminAuth = sessionStorage.getItem('adminAuth');
@@ -20,6 +21,9 @@
 
     function handleLogin(e) {
         e.preventDefault();
+        // Debug: Store password comparison info
+        debugInfo = `Entered: "${password}" (${typeof password}), Expected: "${ADMIN_PASSWORD}" (${typeof ADMIN_PASSWORD})`;
+        
         if (password === ADMIN_PASSWORD) {
             isAuthenticated = true;
             sessionStorage.setItem('adminAuth', ADMIN_PASSWORD);
@@ -60,6 +64,10 @@
                     <p class="text-red-500">{error}</p>
                 {/if}
                 
+                {#if debugInfo}
+                    <p class="text-blue-500 text-sm">Debug info: {debugInfo}</p>
+                {/if}
+                
                 <button type="submit" class="btn variant-filled w-full">
                     Login
                 </button>
@@ -77,26 +85,9 @@
         
         <div class="grid gap-4">
             <div class="card p-4">
-                <div class="grid grid-cols-2 gap-4">
-                  <div>
-                    <div class="flex justify-between items-center mb-4">
-                      <h2 class="h2">Thumbs Feedback</h2>
-                      <button 
-                        class="btn variant-filled-primary"
-                        on:click={goToFeedbackDetails}
-                      >
-                        <iconify-icon icon="solar:card-layout-bold" class="mr-2" />
-                        View Detailed Feedback
-                      </button>
-                    </div>
-                    <FeedbackTable />
-                  </div>
-                  <div>
-                    <h2 class="h2">Open Feedback</h2>
-                    <OpenFeedbackTable />
-                  </div>
-                </div>
-               </div>
+                <h2 class="h2">Agents Overview</h2>
+                <AgentsOverview />
+            </div> 
             
             <div class="card p-4">
                 <h2 class="h2">User Management</h2>
