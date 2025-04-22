@@ -681,10 +681,11 @@
               <!-- Create/Update Job Agent Button -->
               <button
                 type="submit"
-                class="flex-grow py-3 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
+                class="flex-grow py-3 px-4 {$isLoading ? 'bg-orange-400' : 'bg-orange-500 hover:bg-orange-600'} text-white font-bold rounded-lg flex items-center justify-center"
                 disabled={$isLoading}
               >
                 {#if $isLoading}
+                  <iconify-icon icon="svg-spinners:pulse" width="24" height="24" class="mr-2"></iconify-icon>
                   Saving
                 {:else if isEditing}
                   Update Job Agent
