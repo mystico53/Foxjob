@@ -157,6 +157,83 @@ async function getUserPreferences(firebaseUid) {
     }
 }
 
+// Helper function to adjust final score based on preference score
+async function adjustFinalScore(firebaseUid, jobId) {
+    try {
+        // Get the job document
+        const jobDoc = await db.collection('users')
+            .doc(firebaseUid)
+            .collection('scrapedJobs')
+            .doc(jobId)
+            .get();
+        
+        if (!jobDoc.exists) {
+            logger.info('Job not found for score adjustment', { firebaseUid, jobId });
+            return false;
+        }
+        
+        const jobData = jobDoc.data();
+        
+        // Check if both match data and preference score exist
+        if (!jobData.match || !jobData.match.final_score || 
+            !jobData.match.preferenceScore || !jobData.match.preferenceScore.score) {
+            logger.info('Missing required scores for adjustment', { 
+                firebaseUid, 
+                jobId,
+                hasMatch: !!jobData.match,
+                hasFinalScore: !!(jobData.match && jobData.match.final_score),
+                hasPreferenceScore: !!(jobData.match && jobData.match.preferenceScore && jobData.match.preferenceScore.score)
+            });
+            return false;
+        }
+        
+        // Get the scores
+        const originalScore = jobData.match.final_score;
+        const preferenceScore = jobData.match.preferenceScore.score;
+        
+        // Calculate adjustment: (difference between pref score and 100) / 2
+        const adjustment = (100 - preferenceScore) / 2;
+        
+        // Calculate new final score
+        const adjustedScore = Math.max(0, Math.min(100, originalScore - adjustment));
+        
+        // Round to whole number
+        const roundedAdjustedScore = Math.round(adjustedScore);
+        
+        // Update the document with both scores
+        await db.collection('users')
+            .doc(firebaseUid)
+            .collection('scrapedJobs')
+            .doc(jobId)
+            .set({
+                match: {
+                    basic_score: originalScore, // Store original for documentation
+                    final_score: roundedAdjustedScore, // Update the final score
+                    score_adjusted_timestamp: FieldValue.serverTimestamp()
+                }
+            }, { merge: true });
+        
+        logger.info('Successfully adjusted final score', {
+            firebaseUid,
+            jobId,
+            originalScore,
+            preferenceScore,
+            adjustment,
+            adjustedScore: roundedAdjustedScore
+        });
+        
+        return true;
+    } catch (error) {
+        logger.error('Error adjusting final score', {
+            firebaseUid,
+            jobId,
+            error: error.message,
+            stack: error.stack
+        });
+        return false;
+    }
+}
+
 // Main callable function
 exports.preferenceMatch = onMessagePublished(
     { 
@@ -287,6 +364,10 @@ exports.preferenceMatch = onMessagePublished(
                 }, { merge: true });
 
             logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
+
+            await adjustFinalScore(firebaseUid, jobId);
+
+            logger.info('Adjusted final score based on preferences', { firebaseUid, jobId });
 
             // Return results
             return {
