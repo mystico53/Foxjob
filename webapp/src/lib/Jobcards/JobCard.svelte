@@ -53,13 +53,6 @@
 				return status;
 		}
 	}
-	
-	function isProcessingJob(status) {
-		if (!status) return true; // If no status, assume it's still processing
-		
-		const completedStatuses = ['preference_completed', 'preference_skipped', 'basics_matched', 'bookmarked', 'summary_completed'];
-		return !completedStatuses.includes(status.toLowerCase());
-	}
 
 	async function handleBookmarkClick(event) {
 		event.stopPropagation();
@@ -102,11 +95,6 @@
 		<!-- Column for Main Content -->
 		<div class="content-column space-y-2">
 			<div class="flex items-center gap-2">
-				<div class="w-4 h-4 flex items-center justify-center">
-					{#if isProcessingJob(status)}
-						<iconify-icon icon="svg-spinners:blocks-shuffle-2" width="16" height="16"></iconify-icon>
-					{/if}
-				</div>
 				{#if companyLogo}
 					<img src={companyLogo} alt="{companyName} logo" class="h-6 w-6 rounded-full object-cover" />
 				{/if}
