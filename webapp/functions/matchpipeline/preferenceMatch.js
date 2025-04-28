@@ -246,7 +246,6 @@ exports.preferenceMatch = onMessagePublished(
             // Parse the message data properly from PubSub
             let message;
             try {
-                // For Firebase Functions v2, properly decode the message
                 const rawData = event.data.message.data;
                 const decodedData = Buffer.from(rawData, 'base64').toString();
                 message = JSON.parse(decodedData);
@@ -290,95 +289,94 @@ exports.preferenceMatch = onMessagePublished(
             // Get user preferences with the updated function
             const preferences = await getUserPreferences(firebaseUid);
             
-            // IMPORTANT CHANGE: Always update batch counter, even if preferences are missing
+            // Set an initial status for this job
+            let jobStatus = preferences ? 'preference_completed' : 'preference_skipped';
+            
+            // If no preferences, update job status but still continue with the process flow
+            if (!preferences) {
+                logger.info('No preferences found', { firebaseUid });
+                // We don't return here - we continue to the batch update at the end
+            } else {
+                // Call Gemini API
+                const result = await callGeminiAPI(
+                    `Job Description: ${jobDescription}\n\n` +
+                    `User Preferences: ${preferences}`,
+                    CONFIG.instructions,
+                    {
+                        temperature: 0.3
+                    }
+                );
+
+                // Parse response
+                let response;
+                try {
+                    const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
+                    const start = jsonStr.indexOf('{');
+                    const end = jsonStr.lastIndexOf('}') + 1;
+                    if (start === -1 || end === 0) throw new Error('No JSON object found in response');
+                    response = JSON.parse(jsonStr.slice(start, end));
+                } catch (error) {
+                    logger.error('Failed to parse Gemini response:', { 
+                        error: error.message,
+                        rawResponse: result.extractedText
+                    });
+                    throw error;
+                }
+
+                await db.collection('users')
+                    .doc(firebaseUid)
+                    .collection('scrapedJobs')
+                    .doc(jobId)
+                    .set({
+                        match: {
+                            preferenceScore: {
+                                score: response.score,
+                                explanation: response.explanation,
+                                timestamp: FieldValue.serverTimestamp()
+                            }
+                        }
+                    }, { merge: true });
+
+                logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
+
+                await adjustFinalScore(firebaseUid, jobId);
+
+                logger.info('Adjusted final score based on preferences', { firebaseUid, jobId });
+            }
+
+            // FINAL STEP: Always update batch counter at the end of processing
             if (batchId) {
                 try {
                     const batchRef = db.collection('jobBatches').doc(batchId);
                     await batchRef.update({
-                        [`jobStatus.${jobId}`]: preferences ? 'preference_completed' : 'preference_skipped',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion(preferences ? 'preference_completed' : 'preference_skipped'),
+                        [`jobStatus.${jobId}`]: jobStatus,
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion(jobStatus),
                         // Always increment completion counter
                         completedJobs: FieldValue.increment(1)
                     });
-                    logger.info('Updated batch counter', { 
+                    logger.info('Updated batch counter as final step', { 
                         batchId, 
                         jobId, 
-                        hasPreferences: !!preferences 
+                        status: jobStatus
                     });
                 } catch (error) {
                     logger.error('Failed to update batch counter', { 
                         batchId, 
                         error: error.message 
                     });
-                    // Continue even if batch update fails
+                    // Even if batch update fails, we consider the job processed
                 }
             }
-            
-            // After updating the batch counter, now check if we can continue with preference processing
-            if (!preferences) {
-                logger.info('No preferences found', { firebaseUid });
-                return {
-                    success: false,
-                    error: 'No user preferences found'
-                };
-            }
-
-            // Call Gemini API
-            const result = await callGeminiAPI(
-                `Job Description: ${jobDescription}\n\n` +
-                `User Preferences: ${preferences}`,
-                CONFIG.instructions,
-                {
-                    temperature: 0.3
-                }
-            );
-
-            // Parse response
-            let response;
-            try {
-                const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
-                const start = jsonStr.indexOf('{');
-                const end = jsonStr.lastIndexOf('}') + 1;
-                if (start === -1 || end === 0) throw new Error('No JSON object found in response');
-                response = JSON.parse(jsonStr.slice(start, end));
-            } catch (error) {
-                logger.error('Failed to parse Gemini response:', { 
-                    error: error.message,
-                    rawResponse: result.extractedText
-                });
-                throw error;
-            }
-
-            await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .set({
-                    match: {
-                        preferenceScore: {
-                            score: response.score,
-                            explanation: response.explanation,
-                            timestamp: FieldValue.serverTimestamp()
-                        }
-                    }
-                }, { merge: true });
-
-            logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
-
-            await adjustFinalScore(firebaseUid, jobId);
-
-            logger.info('Adjusted final score based on preferences', { firebaseUid, jobId });
 
             // Return results
             return {
                 success: true,
-                rawOutput: result.extractedText,
-                parsedResponse: response,
-                savedToFirestore: saveToFirestore
+                status: jobStatus,
+                hasPreferences: !!preferences
             };
 
         } catch (error) {
-            logger.error('Preference matching test failed:', error);
+            logger.error('Preference matching failed:', error);
             return {
                 success: false,
                 error: error.message,

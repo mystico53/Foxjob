@@ -608,7 +608,7 @@
             
             <!-- Preferences Section - Added below advanced options -->
             <div class="mb-6 mt-6 bg-blue-50 p-4 rounded-md">
-              <h3 class="text-lg font-bold mb-3">Tailor this agent to your preferences</h3>
+              <h3 class="text-lg font-bold mb-3">Prompt your agent</h3>
               <p class="text-gray-700 mb-4">Tell the agent what you like and what not. Just write it down, industry, company name, culture, team size, etc.</p>
               
               <!-- Preferences Field -->

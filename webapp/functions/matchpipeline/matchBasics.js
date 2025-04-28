@@ -18,7 +18,7 @@ const CONFIG = {
     instructions: `
    Alright, think of yourself as my super-sharp buddy helping me screen resumes! Our goal is to get a really clear score (0-100) showing how well this candidate's resume lines up with the job description (JD), focusing *only* on the absolute must-haves for the role.
 
-Here’s how we’ll tackle it:
+Here's how we'll tackle it:
 
 **1. Picking Out What *Really* Matters (Max 10 Requirements):**
 
@@ -256,14 +256,13 @@ exports.matchBasics = onMessagePublished(
                 .doc(jobId)
                 .set(documentData, { merge: true });
 
-            // Update batch if batchId exists
+            // Update batch status for all jobs, regardless of score
             if (batchId) {
                 try {
                     const batchRef = db.collection('jobBatches').doc(batchId);
                     await batchRef.update({
                         [`jobStatus.${jobId}`]: 'basic_completed',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
-                        completedJobs: FieldValue.increment(1) // Add this line
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed')
                     });
                     logger.info('Updated batch progress', { batchId, jobId });
                 } catch (error) {
@@ -286,6 +285,20 @@ exports.matchBasics = onMessagePublished(
                     finalScore: response.final_score
                 });
             } else {
+                // Only increment completedJobs for jobs that DON'T meet the threshold
+                if (batchId) {
+                    try {
+                        const batchRef = db.collection('jobBatches').doc(batchId);
+                        await batchRef.update({
+                            completedJobs: FieldValue.increment(1)
+                        });
+                        logger.info('Incremented completed jobs counter', { batchId, jobId });
+                    } catch (error) {
+                        logger.error('Failed to increment completed jobs counter', { batchId, error });
+                        // Continue even if batch update fails
+                    }
+                }
+                
                 logger.info('Basic match completed but score below threshold', { 
                     firebaseUid, 
                     jobId,
