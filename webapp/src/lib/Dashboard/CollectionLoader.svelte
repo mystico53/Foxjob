@@ -16,15 +16,10 @@
 		updateDoc
 	} from 'firebase/firestore';
 	import { 
-		setResumeStatus, 
-		setQuestionsStatus,
-		setWorkPreferencesLoading, 
-		setQuestionsAvailable,
-		setSavedAnswer,
+		setResumeStatus,
 		userStateStore 
 	} from '$lib/stores/userStateStore';
 	import { tooltipStore } from '$lib/stores/tooltipStore';
-	import PreferenceProgressCounter from '$lib/preferences/PreferenceProgressCounter.svelte';
 
 	let pdfjsLib;
 	let isLibraryLoaded = false;
@@ -88,9 +83,6 @@
 			limit(1)
 		);
 		
-		// Work preferences listener
-		const workPreferencesRef = doc(db, 'users', user.uid, 'UserCollections', 'work_preferences');
-		
 		// Set up resume listener
 		const resumeUnsubscribe = onSnapshot(resumeQuery, (snapshot) => {
 			if (!snapshot.empty) {
@@ -99,42 +91,6 @@
 				// Pass data directly to updateUIFromData and let it handle timestamp safely
 				updateUIFromData(data, null);
 			}
-		});
-		
-		// Set up work preferences listener
-		const workPrefsUnsubscribe = onSnapshot(workPreferencesRef, (docSnapshot) => {
-			if (docSnapshot.exists()) {
-				const data = docSnapshot.data();
-				
-				// Update the store based on document status
-				if (data.status === 'pending') {
-					setQuestionsStatus('pending');
-					setQuestionsAvailable(false);
-				} else if (data.status === 'error') {
-					setQuestionsStatus('error');
-					setQuestionsAvailable(false);
-				} else {
-					// Check if questions are actually available
-					const hasQuestions = data.question1 && 
-									   data.question2 && 
-									   data.question3 && 
-									   data.question4 && 
-									   data.question5;
-					
-					if (hasQuestions) {
-						setQuestionsStatus('ready');
-						setQuestionsAvailable(true);
-					}
-				}
-			} else {
-				// Document doesn't exist yet
-				console.log('Work preferences document does not exist yet');
-				setQuestionsStatus('');
-				setQuestionsAvailable(false);
-			}
-		}, (error) => {
-			console.error('Error listening to work preferences:', error);
-			setQuestionsStatus('error');
 		});
 		
 		// Combined cleanup function
@@ -165,7 +121,6 @@
 			uploadFeedback = `"${currentFileName}" processed successfully`;
 			uploadFeedbackColor = 'variant-filled-surface';
 			setResumeStatus(true, currentFileName, formattedTimestamp, 'processed');
-			setWorkPreferencesLoading(false);
 		} else if (data.status === 'error') {
 			resumeUploaded = false;
 			resumeStatus = 'error';
@@ -328,24 +283,6 @@
 			
 			// 1. Update store state first
 			setResumeStatus(false, '', null, '');
-			setQuestionsStatus('');
-			setQuestionsAvailable(false);
-			
-			// Reset all saved answers to false
-			setSavedAnswer(1, false);
-			setSavedAnswer(2, false);
-			setSavedAnswer(3, false);
-			setSavedAnswer(4, false);
-			setSavedAnswer(5, false);
-
-			// 2. Delete the work_preferences document completely
-			const workPreferencesRef = doc(db, 'users', user.uid, 'UserCollections', 'work_preferences');
-			try {
-				await deleteDoc(workPreferencesRef);
-				console.log("Work preferences document deleted successfully");
-			} catch (error) {
-				console.error("Error deleting work preferences:", error);
-			}
 
 			// 3. Delete the resume document
 			const q = query(userCollectionsRef, where('type', '==', 'Resume'));

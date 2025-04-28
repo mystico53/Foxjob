@@ -8,12 +8,15 @@
   import { deleteDoc, doc } from 'firebase/firestore';
   import { db } from '$lib/firebase'; 
   import foxIcon from '../../assets/icon128.png';
+  import InfoCard from '$lib/searchJobs/InfoCard.svelte';
   
   const dispatch = createEventDispatcher();
   
   let uid;
   let deletingId = null;
   let error = null;
+  let showInfoCard = true;
+  let agentCreating = true; // Set to true to show the initial loading state
   
   authStore.subscribe(user => {
     uid = user?.uid;
@@ -84,11 +87,32 @@
   function editJobAgent(query) {
     dispatch('edit', query);
   }
+  
+  // Function to dismiss info card
+  function dismissInfoCard() {
+    showInfoCard = false;
+  }
+  
+  // Simulate agent creation completion after 3 seconds
+  // In a real application, you would track this state based on Firestore data
+  import { onMount } from 'svelte';
+  
+  onMount(() => {
+    // Simulate agent creation process
+    setTimeout(() => {
+      agentCreating = false;
+    }, 3000);
+  });
 </script>
 
+<InfoCard 
+  message="Your agent is being created! You can expect an email with first results within the next few minutes."
+  show={showInfoCard}
+  loading={agentCreating}
+  on:dismiss={dismissInfoCard}
+/>
+
 <div class="bg-white rounded-lg shadow p-6 mt-4">
-  
-  
   {#if $searchQueriesStore.loading}
     <div class="flex justify-center items-center py-4">
       <div class="h-6 w-6 rounded-full animate-pulse bg-orange-500"></div>
