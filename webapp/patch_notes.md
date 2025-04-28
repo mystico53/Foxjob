@@ -1,0 +1,223 @@
+﻿# Patch Notes
+
+- fcc05be - fix for premature job completion status (2025-04-28) <mystico53>
+- 315e58c - disabled saving button (2025-04-21) <mystico53>
+- 3868912 - prefs influence final_score (2025-04-21) <mystico53>
+- d6a84dd - Revert "added processing status to cards" (2025-04-21) <mystico53>
+- b8a4c2e - updated pref match prompt (2025-04-21) <mystico53>
+- 0d57f0b - added processing status to cards (2025-04-21) <mystico53>
+- 56c06ea - replaced dropzone with primary button in resume upload (2025-04-21) <mystico53>
+- 60abbfb - hiding button if one active agent (2025-04-21) <mystico53>
+- aa6d269 - reverted collectionloader layout (2025-04-21) <mystico53>
+- cb95e9d - added search queries to admin area (2025-04-21) <mystico53>
+- 15ac095 - built advanced searchbox (2025-04-14) <mystico53>
+- 43c932e - fixed vibe check after reload (2025-04-14) <mystico53>
+- a9e4882 - made some changes to progress counter (2025-04-14) <mystico53>
+- a08232f - added conditional rendering for create agent button (2025-04-14) <mystico53>
+- 671c5ba - created conditional create agent button (2025-04-14) <mystico53>
+- 119bbd7 - removed ugly warning (2025-04-14) <mystico53>
+- b9357a5 - tooltip (2025-04-14) <mystico53>
+- 9fedbe2 - added button to create agent (2025-04-14) <mystico53>
+- 2575f6d - even prettier (2025-04-14) <mystico53>
+- 86335c1 - even better stylign for agents (2025-04-14) <mystico53>
+- b92d6d5 - styling agents (2025-04-14) <mystico53>
+- 310cba9 - added avatar to job agent (2025-04-14) <mystico53>
+- b2b75b7 - switched active status pos in agent list (2025-04-14) <mystico53>
+- c42a6e9 - cleaned up some logging (2025-04-14) <mystico53>
+- 0116cca - fixed db reference in searchquery (2025-04-14) <mystico53>
+- dc4e6df - minor bugs (2025-04-14) <mystico53>
+- a726935 - working on agents (2025-04-13) <mystico53>
+- dabfe1d - added job list and delete agent (2025-04-13) <mystico53>
+- 155f861 - getting an agent list (2025-04-13) <mystico53>
+- 3702411 - integrating search routines with searchbox (2025-04-13) <mystico53>
+- 8571d32 - delete answers from vibe check (2025-04-12) <mystico53>
+- 11726ce - overhauled onboarding flow (2025-04-12) <mystico53>
+- 867a56e - Revert "started with dualradial" (2025-04-10) <mystico53>
+- adb9aac - started with dualradial (2025-04-10) <mystico53>
+- 2ce18dd - Revert "turned final_score into match_score" (2025-04-10) <mystico53>
+- 042d8f8 - turned final_score into match_score (2025-04-10) <mystico53>
+- e551b04 - fixed delete all jbos in sort controls (2025-04-10) <mystico53>
+- 0c1296a - getting answer states from userstatestoe (2025-04-09) <mystico53>
+- 5ab21ea - fixed qns state (2025-04-09) <mystico53>
+- 27fb7bf - fixed errors in user state store (2025-04-09) <mystico53>
+- 44acf31 - replacing pref store with userstatestore (2025-04-09) <mystico53>
+- c3be49f - made workflow responsive (2025-04-09) <mystico53>
+- 2b39565 - stacked progressbars in card details (2025-04-09) <mystico53>
+- 7dc5cd8 - fixed action bar (2025-04-09) <mystico53>
+- 227e170 - better sidebar toggle button (2025-04-09) <mystico53>
+- 3c7c8cb - no left margin on sidebar (2025-04-09) <mystico53>
+- e7ec5fb - some progress with sidebar (2025-04-09) <mystico53>
+- cbdfffb - integrated classes to feedback button (2025-04-09) <mystico53>
+- fb14184 - added logout to avatar dropdown (2025-04-09) <mystico53>
+- c2be7ba - navbar added hamburger for responsive (2025-04-09) <mystico53>
+- b252c94 - added more reactivity to vibe check (2025-04-05) <mystico53>
+- 82eab39 - added somewhat reactive vive check progress (2025-04-05) <mystico53>
+- 16de4ca - started with pref progress counter (2025-04-05) <mystico53>
+- 5dbf9ea - changed line chart to area chart (2025-04-04) <mystico53>
+- 21471b4 - fixed "most recent" in sort controls (2025-04-04) <mystico53>
+- e3cd365 - updated job sorting in emails (2025-04-04) <mystico53>
+- 550c566 - fixed jobcount graph (2025-04-04) <mystico53>
+- 63ff64b - added prefs to emails (2025-04-03) <mystico53>
+- d3d998d - integrated pref score to frontend card (2025-04-02) <mystico53>
+- d18f2d7 - integrated pref score to main pipeline (2025-04-02) <mystico53>
+- 4d1a144 - added qns to frontend (2025-04-02) <mystico53>
+- 64bf38f - generating pref colleciotn qns (2025-04-02) <mystico53>
+- d21b82d - added more personal tone to match basics (2025-04-02) <mystico53>
+- 6178797 - tweaked empathy on prefmatch prompt (2025-04-02) <mystico53>
+- ab16f61 - added pref match test function (2025-04-02) <mystico53>
+- 25779e3 - added work_preferences (2025-04-02) <mystico53>
+- ee70c08 - updated email processor with button-links (2025-04-01) <mystico53>
+- 170dc76 - email style preview debugger (2025-03-31) <mystico53>
+- 71dbe0e - updated sendgrid email to work with new score and summary (2025-03-31) <mystico53>
+- c593b02 - added number of applicants and time ago (2025-03-30) <mystico53>
+- 616e8a5 - added new db fields to carddetails frontend w/ progressbars (2025-03-30) <mystico53>
+- 83ea486 - updated match summary to make it more personal (2025-03-30) <mystico53>
+- 081a893 - added matchSummary (2025-03-30) <mystico53>
+- 059fe70 - updated matchbasics with new prompt (2025-03-30) <mystico53>
+- bbd6ba3 - fixed query doubling up (2025-03-30) <mystico53>
+- baf8d01 - created new prompt for basics match (2025-03-28) <mystico53>
+- 7e6b0ba - implemented scheduled emails on staging (2025-03-27) <mystico53>
+- f2655e7 - getting Schedules ready (2025-03-27) <mystico53>
+- 4645a41 - created index for daily search routine (2025-03-26) <mystico53>
+- f016d60 - added searchbox to listview (2025-03-26) <mystico53>
+- f7910c1 - added delete doc to workflow view (2025-03-26) <mystico53>
+- 6136239 - made queries editabel (2025-03-26) <mystico53>
+- cea26e8 - added daily search routines component (2025-03-26) <mystico53>
+- 382c318 - connected webhook and emails to staging (2025-03-26) <mystico53>
+- a0cdd5d - requesting snapshots (2025-03-25) <mystico53>
+- 3813afb - added email sending to staging (2025-03-25) <mystico53>
+- 122269f - sending emails with firebase secrets (2025-03-25) <mystico53>
+- 0ae0a78 - added email processor (2025-03-06) <mystico53>
+- f499db5 - integrating data to emails (2025-03-06) <mystico53>
+- c8990ec - Update .gitignore to exclude Firebase runtime config (2025-03-06) <mystico53>
+- 01df604 - Remove sensitive .runtimeconfig.json file from repository (2025-03-06) <mystico53>
+- 7289867 - sending email out via sendgrid api (2025-03-06) <mystico53>
+- 5622c87 - implemented scheduling with api hook chain (2025-03-06) <mystico53>
+- ff4b859 - storing schedule in firestore (2025-03-06) <mystico53>
+- 799f01e - implemented basics for scheduling (2025-03-06) <mystico53>
+- 839f9de - added job descriptions in (2025-03-05) <mystico53>
+- 31e84cf - added summary and description text (unformatted still) (2025-03-05) <mystico53>
+- 34b1468 - added date and location to job card and job details (2025-03-05) <mystico53>
+- 70aa6da - updated date in table and jobcard (2025-03-05) <mystico53>
+- 1ffa672 - added logo (2025-03-05) <mystico53>
+- 4f4233b - started mapping new db fields to store (2025-03-05) <mystico53>
+- 976b0da - cleaned navbar items (2025-03-05) <mystico53>
+- 5420965 - added posting date to table (2025-03-05) <mystico53>
+- 54ca061 - added new datatable (2025-03-05) <mystico53>
+- a2e306e - added five recruiters (2025-02-20) <mystico53>
+- 44913f1 - sorting matches, increased rate limit (2025-02-20) <mystico53>
+- 4ab24fe - still tweaking basic matching (2025-02-20) <mystico53>
+- 6f7e761 - added basic match (2025-02-20) <mystico53>
+- 095c569 - refined prompt for recruiter council (2025-02-19) <mystico53>
+- ad67fbb - additional change in prompt, assume skills (2025-02-17) <mystico53>
+- 60a1f4d - improved job match prompt with criticality (2025-02-17) <mystico53>
+- 2093077 - simplied job match by 50% and switched from haiku to gemini api (2025-02-17) <mystico53>
+- 042b004 - more embedding progress, added testPubSub trigger fucntion to frontend (2025-02-17) <mystico53>
+- 613d345 - adding 2nd stage embedding match (2025-02-16) <mystico53>
+- e9581e9 - improved UI for colleciton loader (2025-02-16) <mystico53>
+- 684f22c - working but ugly (2025-02-16) <mystico53>
+- 5d9da71 - added status for resume processing in frontend (2025-02-16) <mystico53>
+- e4775b4 - structure resume on upload (2025-02-16) <mystico53>
+- 481c80f - updaded 7qualities extraction prompt (2025-02-15) <mystico53>
+- 5812b58 - added gemini 1.5 (2025-02-15) <mystico53>
+- 4ba8219 - starting to add gemini service (2025-02-15) <mystico53>
+- 83b175e - added quality extraction to pubsub (2025-02-14) <mystico53>
+- 6d4aa4e - made embedding pub sub more robust (2025-02-14) <mystico53>
+- c517170 - added pub sub to embedding (2025-02-14) <mystico53>
+- 35b1e2c - isolated embedding match (2025-02-14) <mystico53>
+- 2ee10b2 - simplified embedding match (2025-02-13) <mystico53>
+- 7c3fd73 - additional formatting (2025-02-04) <mystico53>
+- 027d0ac - formatting strings (2025-02-04) <mystico53>
+- b91cd4a - Merge pull request #7 from mystico53/automated-job-fetching (2025-02-03) <mystico53>
+- e259d57 - displaying company logos (2025-02-03) <mystico53>
+- 8ae03f4 - embedding match (2025-02-03) <mystico53>
+- 27fa957 - matching newjob with embeds (2025-02-03) <mystico53>
+- 98f92d8 - using proper keywords (2025-02-03) <mystico53>
+- 84e9a12 - deleting oxylabs code and adding inital status (2025-02-03) <mystico53>
+- 686c496 - getting results and downloading snapshots (2025-02-02) <mystico53>
+- 6aac7e0 - added limit to fetching (2025-02-02) <mystico53>
+- 6c9e0a9 - getting data and looking up snapshot status (2025-02-02) <mystico53>
+- 7ce102e - made search work again (2025-02-02) <mystico53>
+- f7ccc1c - added styling to searchbox (2025-02-02) <mystico53>
+- 80b1094 - results in frontend (2025-02-02) <mystico53>
+- 9bbeb2e - adding back in user id to query (2025-02-02) <mystico53>
+- c798b03 - getting full jobs from brightdata (2025-02-02) <mystico53>
+- 235da82 - switching to brightdata (2025-01-31) <mystico53>
+- f5d812d - making new queueing more robust (2025-01-29) <mystico53>
+- 2ea7160 - adding more atomic transactions (2025-01-26) <mystico53>
+- 6189e42 - added queueing system (2025-01-26) <mystico53>
+- d025e8e - cleaned logging (2025-01-26) <mystico53>
+- b5ab46c - saving title and company details (2025-01-26) <mystico53>
+- b8cf1bd - getting details (2025-01-26) <mystico53>
+- 5065ca2 - testing with gpt (2025-01-25) <mystico53>
+- 45b824d - fetching 30 jobs, no details yet (2025-01-25) <mystico53>
+- 1714d29 - saving 30 jobs (2025-01-25) <mystico53>
+- a67861b - batch fetching job search results, storing them in firestore (2025-01-24) <mystico53>
+- 215e12e - integrated ngrok for callbacks (2025-01-24) <mystico53>
+- 6f32783 - included faulted status for retires in callbacks (2025-01-24) <mystico53>
+- e058749 - removed headers in logging (2025-01-23) <mystico53>
+- 0d98d22 - saving search and details in callback (2025-01-23) <mystico53>
+- 9d11a4a - saving test callbacks to firestore (2025-01-23) <mystico53>
+- cc72898 - making test callbacks work (2025-01-22) <mystico53>
+- 107c98e - starting with callbacks (2025-01-22) <mystico53>
+- 145d1c0 - made consecurtive errors reinitialization work (2025-01-22) <mystico53>
+- 2a3ce3c - made multipage work, but still some faulted with consecutive retries (2025-01-22) <mystico53>
+- 922a1bb - adding more concurrent jbos (2025-01-22) <mystico53>
+- 7d84e25 - continuous scraping with some faulted (2025-01-22) <mystico53>
+- 5082f95 - added resilient batch processing (2025-01-22) <mystico53>
+- e42a90c - working on parsing filters (2025-01-21) <mystico53>
+- d735331 - added embedding matchscore to svelte (2025-01-19) <mystico53>
+- 360c7b8 - fixed url search params (2025-01-19) <mystico53>
+- 0741381 - made url builder work in svelte (2025-01-19) <mystico53>
+- 6a9a09f - improved formatting and validation (2025-01-19) <mystico53>
+- 97f8ce9 - added more structure to frontend (2025-01-19) <mystico53>
+- ea64d24 - got batch processing to work with details (2025-01-19) <mystico53>
+- ff7b36a - getting description (2025-01-18) <mystico53>
+- 26d48ed - getting successful results with batch but no details yet (2025-01-08) <mystico53>
+- 2fe7b72 - fixed search button (2025-01-07) <mystico53>
+- 9b2d872 - added scrape store (2025-01-07) <mystico53>
+- 078044e - optimized saving on firestore (2025-01-07) <mystico53>
+- e439dfc - saving to firestore (2025-01-07) <mystico53>
+- e6ffd57 - getting description from multiple jobs (2025-01-06) <mystico53>
+- 51e5dd4 - getting details with push and pull (2025-01-06) <mystico53>
+- 3df99a8 - getting more details (2025-01-06) <mystico53>
+- 68bbc38 - asyn push pull basic functionality works (2025-01-06) <mystico53>
+- 77497e4 - trying multiple jobs but failing based on ttl from oxylabs (2025-01-06) <mystico53>
+- 6951d43 - saving posting date (2025-01-06) <mystico53>
+- 2063ce1 - getting job description (2025-01-06) <mystico53>
+- dd30a6f - mnodularized the code (2025-01-06) <mystico53>
+- 2702eaf - multiple fallback selectors (2025-01-06) <mystico53>
+- f5ffe36 - potentially working description (2025-01-06) <mystico53>
+- 66938ef - getting first html (2025-01-06) <mystico53>
+- 22f6bbf - added more logging (2025-01-06) <mystico53>
+- cd7f388 - optimized initial payload with wait for (2025-01-06) <mystico53>
+- 212e50c - accessing html on jobs detail page (2025-01-06) <mystico53>
+- 73dd6d4 - saving ids and links (2025-01-05) <mystico53>
+- c5884be - started with job description extraction (2025-01-04) <mystico53>
+- 59a18c7 - returning 15 jobs (2025-01-04) <mystico53>
+- bd15074 - minimal config works for api scraper (2025-01-04) <mystico53>
+- 823f497 - started with api scraper and hopefully fixed ems-env (2025-01-04) <mystico53>
+- fa4d5e6 - added searchstatus (2025-01-02) <mystico53>
+- 6ee73a1 - added clear store function (2025-01-02) <mystico53>
+- 934fcd1 - added store for reactive scraping to svelte component (2025-01-02) <mystico53>
+- 6a4673f - saving jobs to firestore (2024-12-31) <mystico53>
+- 222f726 - repaired retryProcessing (hopefully) (2024-12-31) <mystico53>
+- 1c5880b - cloudflare handling (2024-12-30) <mystico53>
+- c055ad3 - added job type filtering (2024-12-30) <mystico53>
+- a9dba71 - increase performance (2024-12-30) <mystico53>
+- 90d441c - made job descriptions scraping more robust (2024-12-30) <mystico53>
+- 914dfd4 - scraping job descriptions (2024-12-30) <mystico53>
+- 97fa33b - fixed global options (2024-12-30) <mystico53>
+- f5e1cde - added jobsearch to page (2024-12-30) <mystico53>
+- 51ac1b9 - added exponential backoff for llm services (2024-12-30) <mystico53>
+- f29b55a - fixed retry processing (2024-12-22) <mystico53>
+- 995f399 - new layout for detailed analysis (2024-12-20) <mystico53>
+- db987c0 - score anaylsis added accordeons (2024-12-20) <mystico53>
+- 61861a2 - score analysis start changed fomatting (2024-12-20) <mystico53>
+- 294f310 - rotated admin pw and added to .env (2024-12-20) <mystico53>
+- 545c3e8 - prod version 0.21 (2024-12-20) <mystico53>
+- 8010e34 - Update README.md (2024-12-18) <mystico53>
+- fefe700 - Update README.md (2024-12-18) <mystico53>
+- 01482bd - Merge branch 'main' of https://github.com/mystico53/Foxjob (2024-12-18) <mystico53>
+- 2c5ee80 - added extension config file to hide api keys and endpoints (2024-12-18) <mystico53>
+

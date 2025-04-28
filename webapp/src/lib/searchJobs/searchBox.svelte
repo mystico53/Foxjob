@@ -227,7 +227,7 @@
   let workplaceType = '';
   let datePosted = 'Past 24 hours'; // Default to 24 hours
   let country = 'US';
-  let limitPerInput = 1; // Default value
+  let limitPerInput = '10'; // Changed default to string value "10"
 
   // Add time options for when to receive results
   const timeOptions = [
@@ -279,8 +279,8 @@
     // Make sure to set the proper delivery time
     deliveryTime = query.deliveryTime || '08:00';
     
-    // Convert numeric limit to string for form input
-    limitPerInput = query.limit ? query.limit.toString() : '1';
+    // Convert numeric limit to string for form input - keep limit as string now
+    limitPerInput = query.limit ? query.limit.toString() : '10';
     
     // Open advanced section if any of those fields are filled
     showAdvanced = !!(jobType || experience || datePosted !== 'Past 24 hours');
@@ -316,7 +316,7 @@
     selectedWorkplaceTypes = [];
     datePosted = 'Past 24 hours';
     country = 'US';
-    limitPerInput = 1;
+    limitPerInput = '10';
     deliveryTime = '08:00';
     showAdvanced = false;
     
@@ -341,7 +341,7 @@
       selectedWorkplaceTypes = [];
       datePosted = 'Past 24 hours';
       country = 'US';
-      limitPerInput = 1;
+      limitPerInput = '10';
       deliveryTime = '08:00';
       showAdvanced = false;
       
@@ -359,8 +359,21 @@
     isLoading.set(true);
     error = null;
 
+    // Validate required fields
     if (!keywords) {
       error = 'Please enter a job title to search';
+      isLoading.set(false);
+      return;
+    }
+    
+    if (!location) {
+      error = 'Please enter a location';
+      isLoading.set(false);
+      return;
+    }
+    
+    if (!country) {
+      error = 'Please enter a country code';
       isLoading.set(false);
       return;
     }
@@ -385,8 +398,8 @@
       // Use the environment config to determine the correct URL
       const searchUrl = getCloudFunctionUrl('searchBright');
       
-      // Enforce maximum of 50 results
-      const limit = Math.min(parseInt(limitPerInput) || 1, 50);
+      // Parse the limit from the radio button value
+      const limit = parseInt(limitPerInput);
       
       const requestBody = {
         userId: uid,
@@ -651,18 +664,44 @@
                 </select>
               </div>
 
-              <!-- Limit Per Input -->
+              <!-- REPLACED: Daily Match Limit with Radio Buttons -->
               <div>
-                <label for="limitPerInput" class="block font-bold mb-2">Daily Match Limit (max 50)</label>
-                <input
-                  id="limitPerInput"
-                  type="number"
-                  bind:value={limitPerInput}
-                  min="1"
-                  max="50"
-                  class="w-full px-4 py-2 border rounded-lg"
-                  placeholder="Number of results per search (max 50)"
-                />
+                <label class="block font-bold mb-2">Job matches per day</label>
+                <div class="flex items-center h-11"> <!-- Added height to match dropdown -->
+                  <!-- Radio for 10 -->
+                  <div class="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="limit10" 
+                      name="limitPerInput" 
+                      value="10" 
+                      bind:group={limitPerInput}
+                      class="mr-2 h-5 w-5"
+                    />
+                    <label for="limit10" class="text-base mr-4">10</label>
+                  </div>
+                  
+                  <!-- Radio for 50 -->
+                  <div class="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="limit50" 
+                      name="limitPerInput" 
+                      value="50" 
+                      bind:group={limitPerInput}
+                      class="mr-2 h-5 w-5"
+                    />
+                    <label for="limit50" class="text-base mr-2">50</label>
+                    
+                    <!-- Upgrade button with dark grey styling -->
+                    <button 
+                      type="button"
+                      class="py-1 px-3 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg ml-2"
+                    >
+                      upgrade
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
