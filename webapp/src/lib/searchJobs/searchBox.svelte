@@ -87,6 +87,20 @@
     return offsetHours;
   }
 
+  function getUnixTimestampForDeliveryTime(timeString) {
+    // Parse the delivery time (format: "HH:MM")
+    const [hoursStr, minutesStr] = timeString.split(':');
+    const hours = parseInt(hoursStr, 10);
+    const minutes = parseInt(minutesStr, 10);
+    
+    // Create a date for today at the specified local time
+    const date = new Date();
+    date.setHours(hours, minutes, 0, 0);
+    
+    // Return the Unix timestamp (milliseconds since epoch)
+    return date.getTime();
+  }
+
   // Check if user already has an active search query
   async function checkExistingQueries() {
     setJobAgentLoading(true);
@@ -357,100 +371,105 @@
   }
   
   async function searchJobs() {
-    isLoading.set(true);
-    error = null;
+  isLoading.set(true);
+  error = null;
 
-    // Validate required fields
-    if (!keywords) {
-      error = 'Please enter a job title to search';
-      isLoading.set(false);
-      return;
-    }
-    
-    if (!location) {
-      error = 'Please enter a location';
-      isLoading.set(false);
-      return;
-    }
-    
-    if (!country) {
-      error = 'Please enter a country code';
-      isLoading.set(false);
-      return;
-    }
-
-    try {
-      // Save work preferences first
-      await saveWorkPreferences();
-      
-      // Use only the first selected workplace type - API doesn't accept multiple values
-      const remoteValue = selectedWorkplaceTypes.length > 0 ? selectedWorkplaceTypes[0] : '';
-      
-      const searchPayload = [{
-        keyword: keywords.trim(),
-        location: location?.trim() || '',
-        country: country || 'US', 
-        time_range: datePosted || 'Past 24 hours',
-        job_type: jobType || '',
-        experience_level: experience || '',
-        remote: remoteValue, // Use only the first selected value
-      }];
-
-      // Use the environment config to determine the correct URL
-      const searchUrl = getCloudFunctionUrl('searchBright');
-      
-      // Parse the limit from the radio button value
-      const limit = parseInt(limitPerInput);
-      
-      const requestBody = {
-        userId: uid,
-        searchParams: searchPayload,
-        limit: limit,
-        schedule: {
-          frequency: 'daily',
-          runImmediately: true,
-          deliveryTime: deliveryTime,
-          timezoneOffset: getTimezoneOffset() // Add the timezone offset
-        }
-      };
-      
-      // If editing, include the existing searchId
-      if (isEditing && editingAgentId) {
-        requestBody.schedule.searchId = editingAgentId;
-      }
-
-      const response = await fetch(searchUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
-      });
-
-      // Process the response
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      scrapeStore.set(data.jobs || []);
-      totalJobs.set(data.total || 0);
-      
-      // After successful creation/update, update the job agent status in the store
-      setJobAgentStatus(true, data.agentId || editingAgentId || null);
-      
-      // Reset editing state
-      isEditing = false;
-      editingAgentId = null;
-      showForm = false;  // Hide the form after successful submission
-      
-    } catch (err) {
-      error = err.message || 'An error occurred while searching for jobs';
-    } finally {
-      isLoading.set(false);
-    }
+  // Validate required fields
+  if (!keywords) {
+    error = 'Please enter a job title to search';
+    isLoading.set(false);
+    return;
   }
+  
+  if (!location) {
+    error = 'Please enter a location';
+    isLoading.set(false);
+    return;
+  }
+  
+  if (!country) {
+    error = 'Please enter a country code';
+    isLoading.set(false);
+    return;
+  }
+
+  try {
+    // Save work preferences first
+    await saveWorkPreferences();
+    
+    // Use only the first selected workplace type - API doesn't accept multiple values
+    const remoteValue = selectedWorkplaceTypes.length > 0 ? selectedWorkplaceTypes[0] : '';
+    
+    const searchPayload = [{
+      keyword: keywords.trim(),
+      location: location?.trim() || '',
+      country: country || 'US', 
+      time_range: datePosted || 'Past 24 hours',
+      job_type: jobType || '',
+      experience_level: experience || '',
+      remote: remoteValue, // Use only the first selected value
+    }];
+
+    // Use the environment config to determine the correct URL
+    const searchUrl = getCloudFunctionUrl('searchBright');
+    
+    // Parse the limit from the radio button value
+    const limit = parseInt(limitPerInput);
+    
+    const requestBody = {
+      userId: uid,
+      searchParams: searchPayload,
+      limit: limit,
+      schedule: {
+        frequency: 'daily',
+        runImmediately: true,
+        deliveryTime: deliveryTime,
+        // Include both the string time and a Unix timestamp to ensure accuracy
+        timeInfo: {
+          timezoneOffset: getTimezoneOffset(),
+          timestamp: getUnixTimestampForDeliveryTime(deliveryTime),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone // Include timezone identifier like 'America/Los_Angeles'
+        }
+      }
+    };
+    
+    // If editing, include the existing searchId
+    if (isEditing && editingAgentId) {
+      requestBody.schedule.searchId = editingAgentId;
+    }
+
+    const response = await fetch(searchUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody)
+    });
+
+    // Process the response
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `Error: ${response.status}`);
+    }
+
+    const data = await response.json();
+    scrapeStore.set(data.jobs || []);
+    totalJobs.set(data.total || 0);
+    
+    // After successful creation/update, update the job agent status in the store
+    setJobAgentStatus(true, data.agentId || editingAgentId || null);
+    
+    // Reset editing state
+    isEditing = false;
+    editingAgentId = null;
+    showForm = false;  // Hide the form after successful submission
+    
+  } catch (err) {
+    error = err.message || 'An error occurred while searching for jobs';
+  } finally {
+    isLoading.set(false);
+  }
+}
 </script>
 
 <!-- Main container that holds all components -->
@@ -671,6 +690,18 @@
               <div>
                 <label class="block font-bold mb-2">Job matches per day</label>
                 <div class="flex items-center h-11"> <!-- Added height to match dropdown -->
+                    <!-- Radio for 1 -->
+                    <div class="flex items-center">
+                      <input 
+                        type="radio" 
+                        id="limit1" 
+                        name="limitPerInput" 
+                        value="1" 
+                        bind:group={limitPerInput}
+                        class="mr-2 h-5 w-5"
+                      />
+                      <label for="limit1" class="text-base mr-4">1</label>
+                    </div>
                   <!-- Radio for 10 -->
                   <div class="flex items-center">
                     <input 

@@ -4,7 +4,7 @@
   import { authStore } from '$lib/stores/authStore';
   import { setJobAgentLoading, setJobAgentStatus } from '$lib/stores/userStateStore';
   import { getCloudFunctionUrl } from '$lib/config/environment.config';
-  import { createEventDispatcher } from 'svelte';
+  import { createEventDispatcher, onMount } from 'svelte';
   import { deleteDoc, doc } from 'firebase/firestore';
   import { db } from '$lib/firebase'; 
   import foxIcon from '../../assets/icon128.png';
@@ -15,8 +15,8 @@
   let uid;
   let deletingId = null;
   let error = null;
-  let showInfoCard = true;
-  let agentCreating = true; // Set to true to show the initial loading state
+  let showInfoCard = false; // Start hidden by default
+  let agentCreating = false; // Don't start in loading state by default
   
   authStore.subscribe(user => {
     uid = user?.uid;
@@ -91,17 +91,32 @@
   // Function to dismiss info card
   function dismissInfoCard() {
     showInfoCard = false;
+    // Ensure localStorage is set when dismissed
+    localStorage.setItem('hasSeenJobAgentCreationMessage', 'true');
   }
   
-  // Simulate agent creation completion after 3 seconds
-  // In a real application, you would track this state based on Firestore data
-  import { onMount } from 'svelte';
-  
   onMount(() => {
-    // Simulate agent creation process
-    setTimeout(() => {
-      agentCreating = false;
-    }, 3000);
+    // Check if this is the first time creating a job agent
+    const hasSeenJobAgentCreationMessage = localStorage.getItem('hasSeenJobAgentCreationMessage');
+    
+    // Subscribe to store to detect when queries are available
+    const unsubscribe = searchQueriesStore.subscribe(store => {
+      // If user hasn't seen the message before AND there's at least one query
+      if (!hasSeenJobAgentCreationMessage && !store.loading && store.queries.length > 0) {
+        showInfoCard = true;
+        
+        // Set a short loading state for visual feedback
+        agentCreating = true;
+        setTimeout(() => {
+          agentCreating = false;
+        }, 2000);
+        
+        // Save to localStorage so it won't show again
+        localStorage.setItem('hasSeenJobAgentCreationMessage', 'true');
+      }
+    });
+    
+    return unsubscribe;
   });
 </script>
 

@@ -31,51 +31,63 @@ function generateSearchId(userId, searchParams) {
   return hash.substring(0, 20); // Trim to reasonable length
 }
 
-// Updated function to calculate next run time based on frequency and delivery time
-// Updated function to calculate next run time based on frequency and delivery time
+// Completely new approach using Unix timestamps
 function calculateNextRunTime(frequency, deliveryTime = '08:00', timezoneOffset = 0) {
   // Parse the delivery time (format: "HH:MM")
-  const [hours, minutes] = deliveryTime.split(':').map(num => parseInt(num, 10));
+  const [hoursStr, minutesStr] = deliveryTime.split(':');
+  const hours = parseInt(hoursStr, 10);
+  const minutes = parseInt(minutesStr, 10);
   
-  // Get current time
+  // Get current date in UTC
   const now = new Date();
   
-  // Create target date
-  const targetDate = new Date();
+  // Create a date object for today at the specified time in user's timezone
+  // by setting hours and minutes in the user's local timezone
+  const localDate = new Date();
+  localDate.setHours(hours, minutes, 0, 0);
   
-  // Calculate UTC hours based on the delivery time and timezone offset
-  // For example: 8:00 AM in Pacific (offset=7) would be 15:00 UTC
-  // For example: 8:00 AM in Tokyo (offset=-9) would be 23:00 UTC (previous day)
-  targetDate.setUTCHours(hours + timezoneOffset, minutes, 0, 0);
+  // Convert user's local time to a unix timestamp (milliseconds since epoch)
+  const targetTimestamp = localDate.getTime();
   
-  // If already past today's time, move to next day
-  if (targetDate <= now) {
-    targetDate.setUTCDate(targetDate.getUTCDate() + 1);
+  // If the target time has already passed today, add one day
+  const nowTimestamp = now.getTime();
+  let finalTimestamp = targetTimestamp;
+  
+  if (finalTimestamp <= nowTimestamp) {
+    // Add 24 hours (in milliseconds) to get tomorrow at the same time
+    finalTimestamp = targetTimestamp + (24 * 60 * 60 * 1000);
   }
   
-  // Apply frequency adjustments
+  // Apply frequency adjustments to the timestamp
   switch (frequency) {
     case 'daily':
       // Already set for the next day if needed
       break;
     case 'weekly':
-      targetDate.setUTCDate(targetDate.getUTCDate() + 6);
+      finalTimestamp += 6 * 24 * 60 * 60 * 1000; // Add 6 more days
       break;
     case 'biweekly':
-      targetDate.setUTCDate(targetDate.getUTCDate() + 13);
+      finalTimestamp += 13 * 24 * 60 * 60 * 1000; // Add 13 more days
       break;
     case 'monthly':
-      targetDate.setUTCMonth(targetDate.getUTCMonth() + 1);
+      // Add roughly a month (30 days)
+      finalTimestamp += 30 * 24 * 60 * 60 * 1000;
       break;
     default:
       // Default to daily
   }
   
-  console.log(`Setting next run time for ${deliveryTime} in timezone with offset ${timezoneOffset}`);
-  console.log(`UTC date: ${targetDate.toISOString()}`);
-  console.log(`Local time will be: ${targetDate.toString()}`);
+  // Convert the final unix timestamp back to a Firebase Timestamp
+  const nextRunDate = new Date(finalTimestamp);
   
-  return Timestamp.fromDate(targetDate);
+  // Debug logs
+  console.log(`Input delivery time: ${deliveryTime}`);
+  console.log(`Calculated next run (local): ${nextRunDate.toLocaleString()}`);
+  console.log(`Calculated next run (UTC): ${nextRunDate.toUTCString()}`);
+  console.log(`Unix timestamp: ${finalTimestamp}`);
+  
+  // Return a Firebase Timestamp from the calculated date
+  return Timestamp.fromMillis(finalTimestamp);
 }
 
 exports.searchBright = onRequest({ 
