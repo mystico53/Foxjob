@@ -15,7 +15,8 @@
   import { db } from '$lib/firebase';
   import { collection, query, where, limit, getDocs, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
   import { getFirestore } from 'firebase/firestore';
-  
+  import * as countryCodes from "country-codes-list";  
+
   let uid;
   // Hardcoded to true as requested
   let scheduleSearch = true;
@@ -531,13 +532,15 @@
               <!-- Country -->
               <div>
                 <label for="country" class="block font-bold mb-2">Country *</label>
-                <input
+                <select
                   id="country"
-                  type="text"
                   bind:value={country}
-                  placeholder="Country code (e.g., US, FR)"
                   class="w-full px-4 py-2 border rounded-lg"
-                />
+                >
+                  {#each Object.entries(countryCodes.customList('countryCode', '{countryNameEn}')) as [code, name]}
+                    <option value={code}>{name} ({code})</option>
+                  {/each}
+                </select>
               </div>
             </div>
 
