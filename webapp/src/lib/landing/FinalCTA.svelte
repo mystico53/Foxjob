@@ -30,7 +30,7 @@
 			style="background-color: #DC3701; border-radius: 0.250rem;"
 			on:click={handleStartJobMatching}
 		>
-			Upload your resume
+			Create my job search agent
 		</button>
 	</div>
 </div>
