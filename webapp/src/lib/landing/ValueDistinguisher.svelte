@@ -2,21 +2,21 @@
 	const features = [
 		{
 			icon: 'ph:hand-heart-light',
-			title: 'Receive a personalized compatibility score for every job'
+			title: 'Scans daily for new jobs'
 		},
 		{
 			icon: 'ion:flash-outline',
-			title: 'Your strengths and weaknesses explained before you apply'
+			title: 'LLM compares with your resume'
 		},
 		{
 			icon: 'qlementine-icons:jump-over-16',
-			title: 'Skip mismatches'
+			title: 'Focuses on best matches'
 		}
 	];
 </script>
 
 <div class="pb-22 container mx-auto px-4 py-16">
-	<h2 class="h2 mb-12 py-8 text-center font-bold">The GenAI filter for your jobsearch</h2>
+	<h2 class="h2 mb-12 py-8 text-center font-bold">How GenAI can automate your jobsearch:</h2>
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
 		{#each features as feature}

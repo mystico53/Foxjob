@@ -18,10 +18,28 @@
         </a>
     </p>
     <p class="text-sm text-gray-500">
-        Version: 0.2
+        Version: 1.5 (
+        <a
+            class="patchnotes"
+            href="https://spiritual-chicken-5d2.notion.site/Foxjob-Patch-Notes-1e3370f58e75805ebbd4e914235b4436"
+            target="_blank"
+            rel="noopener noreferrer"
+        >
+            Patchnotes
+        </a>
+        )
     </p>
 </footer>
 
 <style>
-
+    /* You can add any custom styles for the footer links here */
+    footer a {
+        color: #6b7280;
+        text-decoration: underline;
+        transition: color 0.2s;
+    }
+    
+    footer a:hover {
+        color: #4b5563;
+    }
 </style>

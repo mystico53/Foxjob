@@ -11,12 +11,12 @@
 		},
 		{
 			number: 2,
-			title: 'Install Extension',
+			title: 'Setup your agent',
 			description: ''
 		},
 		{
 			number: 3,
-			title: 'Scan job descriptions',
+			title: 'Daily matches in your inbox',
 			description: ''
 		}
 	];
@@ -87,7 +87,7 @@
 </script>
 
 <div class="bg-tertiary-300 container mx-auto px-4 py-16">
-	<h2 class="h2 mb-12 py-8 text-center font-bold">How it works</h2>
+	<h2 class="h2 mb-12 py-8 text-center font-bold">How it works (Video needs to be updated)</h2>
 
 	<div class="mb-12 grid grid-cols-1 gap-8 px-8 md:grid-cols-3">
 		{#each steps as step}
