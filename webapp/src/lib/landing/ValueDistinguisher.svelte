@@ -2,11 +2,11 @@
 	const features = [
 		{
 			icon: 'ph:hand-heart-light',
-			title: 'Scans daily for new jobs'
+			title: 'You create a friendly ai-assistant who looks for jobs for you'
 		},
 		{
 			icon: 'ion:flash-outline',
-			title: 'LLM compares with your resume'
+			title: 'It compares up to 1250 jobs with your resume'
 		},
 		{
 			icon: 'qlementine-icons:jump-over-16',
@@ -16,7 +16,7 @@
 </script>
 
 <div class="pb-22 container mx-auto px-4 py-16">
-	<h2 class="h2 mb-12 py-8 text-center font-bold">How GenAI can automate your jobsearch:</h2>
+	<h2 class="h2 mb-12 py-8 text-center font-bold">GenAi in three steps</h2>
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
 		{#each features as feature}
