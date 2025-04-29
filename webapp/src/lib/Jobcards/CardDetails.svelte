@@ -21,6 +21,21 @@
 	export let openJobLink;
 	let showJobDescription = false;
 	let processingJobs = new Set();
+	let animationsReady = false;
+	let isLoading = true;
+	
+
+	let renderedScore;
+	let renderAttempts = 0;
+	const maxRenderAttempts = 1;
+
+	$: if (score !== undefined) {
+	renderedScore = score;
+	}
+
+	$: if (score !== undefined) {
+	renderedScore = score;
+	}
 
 	// Sort match details by score (highest first)
 	$: matchDetails = (job.match?.match_details || []).sort((a, b) => b.match_score_percent - a.match_score_percent);
@@ -46,13 +61,25 @@
 
 	let popupInstance;
 
+	// In the script section, modify your onMount function:
 	onMount(() => {
+	// Set initial states
+	isLoading = true;
+	animationsReady = false;
+	
+	setTimeout(() => {
+		const trigger = document.querySelector('[data-popup="popupHover"]');
+		if (trigger) {
+		trigger.style.opacity = '1';
+		}
+		
+		// Important: Keep isLoading true until animations are ready
 		setTimeout(() => {
-			const trigger = document.querySelector('[data-popup="popupHover"]');
-			if (trigger) {
-				trigger.style.opacity = '1';
-			}
-		}, 100);
+		// Set both states at the same time to avoid the flicker
+		animationsReady = true;
+		isLoading = false;
+		}, 400);
+	}, 100);
 	});
 
 	onDestroy(() => {
@@ -271,43 +298,60 @@
 			  <h1 class="h1 font-bold">{job.companyInfo?.name || 'N/A'}</h1>
 			</div>
 			
-			<!-- ProgressRadial for medium screens and up - now w-32/h-32 -->
+			<!-- ProgressRadial for medium screens and up -->
 			{#if score !== undefined}
-			  {#key job.id}
-				{#if isVisible}
-				  <div class="flex-shrink-0">
-					<div class="relative">
-					  <div class="relative flex h-32 w-32 items-center justify-center">
-						<div
-						  in:fade={{ duration: 400, delay: 100 }}
-						  class="relative flex h-full w-full items-center justify-center"
-						>
-						  <ProgressRadial
-							class="!w-4"
+			{#key job.id}
+			<div class="flex-shrink-0">
+				<div class="relative">
+				<div class="relative flex h-32 w-32 items-center justify-center progress-radial-container">
+					{#if isLoading}
+					<div class="flex h-full w-full items-center justify-center bg-surface-200/50 rounded-full">
+						<span class="text-sm">Loading...</span>
+					</div>
+					{:else if isVisible}
+					{#if animationsReady}
+						<div class="relative flex h-full w-full items-center justify-center" in:fade={{ duration: 400, delay: 100 }}>
+						<ProgressRadial
+							class="!w-full !h-full"
 							stroke={60}
 							font={150}
 							meter="!stroke-primary-500"
 							track="!stroke-tertiary-700/30"
 							strokeLinecap="round"
-							value={Math.round(score || 0)}
-						  >
-							{Math.round(score || 0)}
-						  </ProgressRadial>
+							value={Math.round(renderedScore || 0)}
+						>
+							{Math.round(renderedScore || 0)}
+						</ProgressRadial>
 						</div>
-						<div class="absolute -right-2 -top-2" use:popup={popupHover}>
-						  <iconify-icon
-							icon="solar:info-circle-bold"
-							class="text-tertiary-900 cursor-pointer rounded-full"
-						  />
-						  <div class="card p-4 w-72 shadow-xl" data-popup="popupHover">
-							test
-						  </div>
+					{:else}
+						<div class="relative flex h-full w-full items-center justify-center">
+						<ProgressRadial
+							class="!w-full !h-full"
+							stroke={60}
+							font={150}
+							meter="!stroke-primary-500"
+							track="!stroke-tertiary-700/30"
+							strokeLinecap="round"
+							value={Math.round(renderedScore || 0)}
+						>
+							{Math.round(renderedScore || 0)}
+						</ProgressRadial>
 						</div>
-					  </div>
+					{/if}
+					<div class="absolute -right-2 -top-2" use:popup={popupHover}>
+						<iconify-icon
+						icon="solar:info-circle-bold"
+						class="text-tertiary-900 cursor-pointer rounded-full"
+						/>
+						<div class="card p-4 w-72 shadow-xl" data-popup="popupHover">
+						test
+						</div>
 					</div>
-				  </div>
-				{/if}
-			  {/key}
+					{/if}
+				</div>
+				</div>
+			</div>
+			{/key}
 			{/if}
 		  </div>
 		  
@@ -326,41 +370,57 @@
 			</div>
 			
 			<!-- ProgressRadial row for small screens -->
-			{#if score !== undefined}
-			  {#key job.id}
-				{#if isVisible}
-				  <div class="flex justify-center pb-4">
+				{#if score !== undefined}
+				{#key job.id}
+				<div class="flex justify-center pb-4">
 					<div class="relative">
-					  <div class="relative flex h-20 w-20 items-center justify-center">
-						<div
-						  in:fade={{ duration: 400, delay: 100 }}
-						  class="relative flex h-full w-full items-center justify-center"
-						>
-						  <ProgressRadial
-							class="!w-4"
-							stroke={60}
-							font={100}
-							meter="!stroke-primary-500"
-							track="!stroke-tertiary-700/30"
-							strokeLinecap="round"
-							value={Math.round(score || 0)}
-						  >
-							{Math.round(score || 0)}
-						  </ProgressRadial>
+					<div class="relative flex h-20 w-20 items-center justify-center progress-radial-container">
+						{#if isLoading}
+						<div class="flex h-full w-full items-center justify-center bg-surface-200/50 rounded-full">
+							<span class="text-xs">Loading...</span>
 						</div>
+						{:else if isVisible}
+						{#if animationsReady}
+							<div class="relative flex h-full w-full items-center justify-center" in:fade={{ duration: 400, delay: 100 }}>
+							<ProgressRadial
+								class="!w-full !h-full"
+								stroke={40}
+								font={120}
+								meter="!stroke-primary-500"
+								track="!stroke-tertiary-700/30"
+								strokeLinecap="round"
+								value={Math.round(renderedScore || 0)}
+							>
+								{Math.round(renderedScore || 0)}
+							</ProgressRadial>
+							</div>
+						{:else}
+							<div class="relative flex h-full w-full items-center justify-center">
+							<ProgressRadial
+								class="!w-full !h-full"
+								stroke={40}
+								font={120}
+								meter="!stroke-primary-500"
+								track="!stroke-tertiary-700/30"
+								strokeLinecap="round"
+								value={Math.round(renderedScore || 0)}
+							>
+								{Math.round(renderedScore || 0)}
+							</ProgressRadial>
+							</div>
+						{/if}
 						<div class="absolute -right-1 -top-1 scale-75" use:popup={popupHover}>
-						  <iconify-icon
+							<iconify-icon
 							icon="solar:info-circle-bold"
 							class="text-tertiary-900 cursor-pointer rounded-full"
-						  />
-						  <!-- Popup content here -->
+							/>
 						</div>
-					  </div>
+						{/if}
 					</div>
-				  </div>
+					</div>
+				</div>
+				{/key}
 				{/if}
-			  {/key}
-			{/if}
 		  </div>
 
 		<!-- Meta Information -->
