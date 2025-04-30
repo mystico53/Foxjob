@@ -213,65 +213,9 @@
           <div class="h-64 w-full">
             <canvas bind:this={chartCanvas}></canvas>
           </div>
-          
-          <!-- Color Legend (manually added instead of chart legend) -->
-          <div class="flex flex-wrap items-center justify-center mt-2 gap-4">
-            <div class="flex items-center">
-              <div class="w-4 h-4 mr-1" style="background-color: rgba(66, 153, 225, 0.9);"></div>
-              <span>Top Matches (≥ 85)</span>
-            </div>
-            <div class="flex items-center">
-              <div class="w-4 h-4 mr-1" style="background-color: rgba(66, 153, 225, 0.7);"></div>
-              <span>Good Matches (≥ 65)</span>
-            </div>
-            <div class="flex items-center">
-              <div class="w-4 h-4 mr-1" style="background-color: rgba(255, 156, 0, 0.7);"></div>
-              <span>OK Matches (≥ 50)</span>
-            </div>
-            <div class="flex items-center">
-              <div class="w-4 h-4 mr-1" style="background-color: rgba(220, 55, 1, 0.7);"></div>
-              <span>Poor Matches (&lt; 50)</span>
-            </div>
-          </div>
         </div>
         
-        <!-- Text Details (keeping for reference) -->
-        <div class="border p-2">
-          <h4 class="font-bold">Recent Job Activity Details</h4>
-          
-          {#each recentDaysStats as day}
-            <div class="border-b py-2 last:border-b-0">
-              <h5 class="font-semibold">{day.label} ({day.date})</h5>
-              <p>Total Jobs: {day.total}</p>
-              <p>Top Matches (≥ 85): {day.topMatch || 0}</p>
-              <p>Good Matches (≥ 65): {day.goodMatch || 0}</p>
-              <p>OK Matches (≥ 50): {day.okMatch || 0}</p>
-              <p>Poor Matches (&lt; 50): {day.poorMatch || 0}</p>
-            </div>
-          {/each}
-        </div>
-        
-        <!-- Last 7 Days Stats -->
-        <div class="border p-2">
-          <h4 class="font-bold">Last 7 Days</h4>
-          <p>Total Jobs: {last7DaysStats.total}</p>
-          <p>Top Matches (≥ 85): {last7DaysStats.topMatch || 0}</p>
-          <p>Good Matches (≥ 65): {last7DaysStats.goodMatch || 0}</p>
-          <p>OK Matches (≥ 50): {last7DaysStats.okMatch || 0}</p>
-          <p>Poor Matches (&lt; 50): {last7DaysStats.poorMatch || 0}</p>
-        </div>
-        
-        <!-- All-Time Stats -->
-        <div class="border p-2">
-          <h4 class="font-bold">All Jobs</h4>
-          <p>Total Jobs: {allTimeStats.total}</p>
-          <p>Top Matches (≥ 85): {allTimeStats.topMatch || 0}</p>
-          <p>Good Matches (≥ 65): {allTimeStats.goodMatch || 0}</p>
-          <p>OK Matches (≥ 50): {allTimeStats.okMatch || 0}</p>
-          <p>Poor Matches (&lt; 50): {allTimeStats.poorMatch || 0}</p>
-        </div>
-        
-        <!-- Debug Info -->
+        <!-- Debug Info - Kept exactly as is -->
         <div class="mt-4 text-xs text-gray-500">
           <p>Jobs loaded: {debugInfo.jobsLoaded || 0}</p>
           <p>Last updated: {debugInfo.lastUpdated ? debugInfo.lastUpdated.toLocaleTimeString() : 'Never'}</p>
