@@ -5,6 +5,9 @@
 	import OnboardingProgress from '$lib/onboarding/OnboardingProgress.svelte';
 	import JobsProcessing from '$lib/utilities/JobsProcessing.svelte';
 	import SearchBox from '$lib/searchJobs/searchBox.svelte';
+	import BarChart from '$lib/Dashboard/JobBarChart.svelte';
+	import JobStackedBarChart from '$lib/Dashboard/JobStackedBarChart.svelte';
+
 </script>
 
 <!-- Parent container -->
@@ -21,6 +24,8 @@
 			<CollectionLoader />
 		</div>
 	</div>
+
+	<BarChart/>
 
 	<SearchBox/>
 </div>
