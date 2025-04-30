@@ -1,10 +1,10 @@
 <!-- JobCountGraph.svelte -->
 <script>
 	import { ProgressRadial } from '@skeletonlabs/skeleton';
-	import { auth } from '$lib/firebase';
+
 	import { jobStore } from '$lib/stores/jobStore';
 	import { writable, derived } from 'svelte/store';
-	import { onMount } from 'svelte';
+
 
 	// Time period store
 	const timePeriod = writable('month');

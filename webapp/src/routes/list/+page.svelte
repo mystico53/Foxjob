@@ -1,12 +1,9 @@
 <script>
-	import Datatable from '$lib/Dashboard/Datatable.svelte';
+
 	import CollectionLoader from '$lib/Dashboard/CollectionLoader.svelte';
 	import JobCountGraph from '$lib/Dashboard/JobCountGraph.svelte';
-	import OnboardingProgress from '$lib/onboarding/OnboardingProgress.svelte';
-	import JobsProcessing from '$lib/utilities/JobsProcessing.svelte';
+
 	import SearchBox from '$lib/searchJobs/searchBox.svelte';
-	import BarChart from '$lib/Dashboard/JobBarChart.svelte';
-	import JobStackedBarChart from '$lib/Dashboard/JobStackedBarChart.svelte';
 
 </script>
 
@@ -24,8 +21,6 @@
 			<CollectionLoader />
 		</div>
 	</div>
-
-	<BarChart/>
 
 	<SearchBox/>
 </div>
