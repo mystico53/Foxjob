@@ -34,11 +34,16 @@ const jobStatsByDay = derived(
     while (currentDate <= $dateRange.endDate) {
       const dateKey = formatDate(currentDate);
       stats[dateKey] = {
+        date: dateKey,
         total: 0,
-        lowScore: 0,  // Score < 50
-        highScore: 0  // Score >= 50
+        topMatch: 0,  // Score >= 85
+        goodMatch: 0, // Score >= 65 and < 85
+        okMatch: 0,   // Score >= 50 and < 65
+        poorMatch: 0  // Score < 50
       };
-      currentDate.setDate(currentDate.getDate() + 1);
+      const newDate = new Date(currentDate);
+      newDate.setDate(currentDate.getDate() + 1);
+      currentDate = newDate;
     }
     
     // Process each job
@@ -57,6 +62,7 @@ const jobStatsByDay = derived(
           return; // Skip if timestamp format is unexpected
         }
       } catch (e) {
+        console.error('Error converting timestamp:', e);
         return; // Skip if timestamp conversion fails
       }
       
@@ -72,19 +78,23 @@ const jobStatsByDay = derived(
       
       // Increment counters
       stats[jobDate].total++;
-      if (score >= 50) {
-        stats[jobDate].highScore++;
+      
+      // Categorize score
+      if (score >= 85) {
+        stats[jobDate].topMatch++;
+      } else if (score >= 65) {
+        stats[jobDate].goodMatch++;
+      } else if (score >= 50) {
+        stats[jobDate].okMatch++;
       } else {
-        stats[jobDate].lowScore++;
+        stats[jobDate].poorMatch++;
       }
     });
     
     // Convert to array format for chart libraries
     const chartData = Object.keys(stats).map(date => ({
       date,
-      total: stats[date].total,
-      lowScore: stats[date].lowScore,
-      highScore: stats[date].highScore
+      ...stats[date]
     }));
     
     // Sort by date
@@ -97,33 +107,37 @@ const lastFiveDaysStats = derived(
   jobStatsByDay,
   ($jobStatsByDay) => {
     // Get dates for the past 5 days
+    const todayDate = new Date();
     const past5Days = Array(5).fill().map((_, i) => {
-      const d = new Date();
-      d.setDate(today.getDate() - i);
+      const d = new Date(todayDate);
+      d.setDate(d.getDate() - i);
       return formatDate(d);
     });
     
     // Find stats for each of these days
     return past5Days.map(dateStr => {
+      // Find the matching stats or use default values
       const dayStats = $jobStatsByDay.find(item => item.date === dateStr) || {
         date: dateStr,
         total: 0,
-        lowScore: 0,
-        highScore: 0
+        topMatch: 0,
+        goodMatch: 0,
+        okMatch: 0,
+        poorMatch: 0
       };
       
       // Add a readable label
       let label;
-      const todayStr = formatDate(today);
+      const todayStr = formatDate(todayDate);
       
       if (dateStr === todayStr) {
         label = 'Today';
       } else {
-        // Create a date object for comparison
+        // Create new date objects for comparison to avoid modifying original dates
         const dateObj = new Date(dateStr);
         const todayObj = new Date(todayStr);
         
-        // Calculate days difference - important to use new date objects to avoid modifying originals
+        // Calculate days difference
         const diffTime = todayObj.getTime() - dateObj.getTime();
         const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
         

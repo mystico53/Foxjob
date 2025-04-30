@@ -10,51 +10,6 @@
     let isLoading = true;
     let debugInfo = {};
     
-    // Derived calculations
-    $: todayStats = getTodayStats(stats);
-    $: last7DaysStats = getLast7DaysStats(stats);
-    $: lastMonthStats = getLastMonthStats(stats);
-    
-    // Get today's stats
-    function getTodayStats(stats) {
-      const today = new Date();
-      const todayFormatted = formatDate(today);
-      const todayData = stats.find(item => item.date === todayFormatted) || { total: 0, lowScore: 0, highScore: 0 };
-      return todayData;
-    }
-    
-    // Get last 7 days stats
-    function getLast7DaysStats(stats) {
-      const today = new Date();
-      const last7Days = Array(7).fill().map((_, i) => {
-        const d = new Date();
-        d.setDate(today.getDate() - i);
-        return formatDate(d);
-      });
-      
-      // Filter stats for last 7 days and sum them
-      return stats
-        .filter(item => last7Days.includes(item.date))
-        .reduce((acc, curr) => {
-          return {
-            total: acc.total + curr.total,
-            lowScore: acc.lowScore + curr.lowScore,
-            highScore: acc.highScore + curr.highScore
-          };
-        }, { total: 0, lowScore: 0, highScore: 0 });
-    }
-    
-    // Get last month stats
-    function getLastMonthStats(stats) {
-      return stats.reduce((acc, curr) => {
-        return {
-          total: acc.total + curr.total,
-          lowScore: acc.lowScore + curr.lowScore,
-          highScore: acc.highScore + curr.highScore
-        };
-      }, { total: 0, lowScore: 0, highScore: 0 });
-    }
-    
     // Helper function to format date consistently (copied from jobStatsStore)
     function formatDate(date) {
       return date.toISOString().split('T')[0]; // YYYY-MM-DD format
@@ -101,6 +56,56 @@
         jobStatsStore.cleanup();
       };
     });
+    
+    // Calculate aggregated stats for 7 days
+    $: last7DaysStats = calculateLast7DaysStats(stats);
+    
+    function calculateLast7DaysStats(stats) {
+      const today = new Date();
+      const sevenDaysAgo = new Date(today);
+      sevenDaysAgo.setDate(today.getDate() - 7);
+      
+      const sevenDaysAgoFormatted = formatDate(sevenDaysAgo);
+      
+      return stats
+        .filter(item => item.date >= sevenDaysAgoFormatted)
+        .reduce((acc, curr) => {
+          return {
+            total: acc.total + curr.total,
+            topMatch: acc.topMatch + (curr.topMatch || 0),
+            goodMatch: acc.goodMatch + (curr.goodMatch || 0),
+            okMatch: acc.okMatch + (curr.okMatch || 0),
+            poorMatch: acc.poorMatch + (curr.poorMatch || 0)
+          };
+        }, { 
+          total: 0, 
+          topMatch: 0, 
+          goodMatch: 0,
+          okMatch: 0,
+          poorMatch: 0 
+        });
+    }
+    
+    // Calculate all-time stats
+    $: allTimeStats = calculateAllTimeStats(stats);
+    
+    function calculateAllTimeStats(stats) {
+      return stats.reduce((acc, curr) => {
+        return {
+          total: acc.total + curr.total,
+          topMatch: acc.topMatch + (curr.topMatch || 0),
+          goodMatch: acc.goodMatch + (curr.goodMatch || 0),
+          okMatch: acc.okMatch + (curr.okMatch || 0),
+          poorMatch: acc.poorMatch + (curr.poorMatch || 0)
+        };
+      }, { 
+        total: 0, 
+        topMatch: 0, 
+        goodMatch: 0,
+        okMatch: 0,
+        poorMatch: 0 
+      });
+    }
   </script>
   
   <div>
@@ -120,8 +125,10 @@
             <div class="border-b py-2 last:border-b-0">
               <h5 class="font-semibold">{day.label} ({day.date})</h5>
               <p>Total Jobs: {day.total}</p>
-              <p>Good Matches (≥ 50): {day.highScore}</p>
-              <p>Poor Matches (&lt; 50): {day.lowScore}</p>
+              <p>Top Matches (≥ 85): {day.topMatch || 0}</p>
+              <p>Good Matches (≥ 65): {day.goodMatch || 0}</p>
+              <p>OK Matches (≥ 50): {day.okMatch || 0}</p>
+              <p>Poor Matches (&lt; 50): {day.poorMatch || 0}</p>
             </div>
           {/each}
         </div>
@@ -130,16 +137,20 @@
         <div class="border p-2">
           <h4 class="font-bold">Last 7 Days</h4>
           <p>Total Jobs: {last7DaysStats.total}</p>
-          <p>Good Matches (≥ 50): {last7DaysStats.highScore}</p>
-          <p>Poor Matches (&lt; 50): {last7DaysStats.lowScore}</p>
+          <p>Top Matches (≥ 85): {last7DaysStats.topMatch || 0}</p>
+          <p>Good Matches (≥ 65): {last7DaysStats.goodMatch || 0}</p>
+          <p>OK Matches (≥ 50): {last7DaysStats.okMatch || 0}</p>
+          <p>Poor Matches (&lt; 50): {last7DaysStats.poorMatch || 0}</p>
         </div>
         
-        <!-- Last Month Stats -->
+        <!-- All-Time Stats -->
         <div class="border p-2">
           <h4 class="font-bold">All Jobs</h4>
-          <p>Total Jobs: {lastMonthStats.total}</p>
-          <p>Good Matches (≥ 50): {lastMonthStats.highScore}</p>
-          <p>Poor Matches (&lt; 50): {lastMonthStats.lowScore}</p>
+          <p>Total Jobs: {allTimeStats.total}</p>
+          <p>Top Matches (≥ 85): {allTimeStats.topMatch || 0}</p>
+          <p>Good Matches (≥ 65): {allTimeStats.goodMatch || 0}</p>
+          <p>OK Matches (≥ 50): {allTimeStats.okMatch || 0}</p>
+          <p>Poor Matches (&lt; 50): {allTimeStats.poorMatch || 0}</p>
         </div>
         
         <!-- Debug Info -->
