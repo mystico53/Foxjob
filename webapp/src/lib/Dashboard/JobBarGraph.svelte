@@ -216,7 +216,11 @@
     }
   </script>
   
-  <div>
+  <div class="flex h-full w-full flex-col">
+    <div class="mb-4 flex items-center justify-between">
+      <h2 class="text-[20px] font-bold">Jobs Matched</h2>
+    </div>
+    
     <div class="space-y-4">
       {#if isLoading}
         <p>Loading job statistics...</p>
@@ -228,12 +232,6 @@
           <div class="h-64 w-full">
             <canvas bind:this={chartCanvas}></canvas>
           </div>
-        </div>
-        
-        <!-- Debug Info - Kept exactly as is -->
-        <div class="mt-4 text-xs text-gray-500">
-          <p>Jobs loaded: {debugInfo.jobsLoaded || 0}</p>
-          <p>Last updated: {debugInfo.lastUpdated ? debugInfo.lastUpdated.toLocaleTimeString() : 'Never'}</p>
         </div>
       {/if}
     </div>

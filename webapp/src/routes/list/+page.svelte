@@ -11,18 +11,13 @@
 		<!-- Left Column -->
 		<div class="card p-4">
 			<!-- Removed fixed aspect ratio -->
-			<JobCountGraph />
+			<JobBarGraph />
 		</div>
 
 		<!-- Right Column -->
 		<div class="card p-4">
 			<CollectionLoader />
 		</div>
-	</div>
-
-	<!-- Added JobBarGraph for debugging -->
-	<div class="card p-4 mb-4">
-		<JobBarGraph />
 	</div>
 
 	<SearchBox/>
