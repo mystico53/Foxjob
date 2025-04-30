@@ -78,38 +78,53 @@
       // Extract labels (dates)
       const labels = reversedStats.map(day => day.label);
       
+      // Create gradients for each category
+      // Using one vertical gradient for each dataset
+      const topMatchGradient = ctx.createLinearGradient(0, 0, 0, 400);
+      topMatchGradient.addColorStop(0, 'rgba(220, 55, 1, 0.9)');
+      topMatchGradient.addColorStop(1, 'rgba(220, 55, 1, 0.7)');
+      
+      const goodMatchGradient = ctx.createLinearGradient(0, 0, 0, 400);
+      goodMatchGradient.addColorStop(0, 'rgba(230, 85, 10, 0.85)');
+      goodMatchGradient.addColorStop(1, 'rgba(230, 85, 10, 0.65)');
+      
+      const okMatchGradient = ctx.createLinearGradient(0, 0, 0, 400);
+      okMatchGradient.addColorStop(0, 'rgba(240, 115, 20, 0.8)');
+      okMatchGradient.addColorStop(1, 'rgba(240, 115, 20, 0.6)');
+      
+      const poorMatchGradient = ctx.createLinearGradient(0, 0, 0, 400);
+      poorMatchGradient.addColorStop(0, 'rgba(255, 156, 0, 0.75)');
+      poorMatchGradient.addColorStop(1, 'rgba(255, 156, 0, 0.55)');
+      
       chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
           labels: labels,
           datasets: [
+            // Order changed to have highest score on top (reversed order in stacked chart)
             {
-              label: 'Top Matches (≥ 85)',
-              data: reversedStats.map(day => day.topMatch || 0),
-              backgroundColor: 'rgba(66, 153, 225, 0.9)', // Darkest blue
-              borderColor: 'rgba(66, 153, 225, 1)',
-              borderWidth: 1
-            },
-            {
-              label: 'Good Matches (≥ 65)',
-              data: reversedStats.map(day => day.goodMatch || 0),
-              backgroundColor: 'rgba(66, 153, 225, 0.7)', // Medium blue
-              borderColor: 'rgba(66, 153, 225, 0.8)',
-              borderWidth: 1
+              label: 'Poor Matches (< 50)',
+              data: reversedStats.map(day => day.poorMatch || 0),
+              backgroundColor: poorMatchGradient,
+              borderWidth: 0
             },
             {
               label: 'OK Matches (≥ 50)',
               data: reversedStats.map(day => day.okMatch || 0),
-              backgroundColor: 'rgba(255, 156, 0, 0.7)', // Medium orange
-              borderColor: 'rgba(255, 156, 0, 0.8)',
-              borderWidth: 1
+              backgroundColor: okMatchGradient,
+              borderWidth: 0
             },
             {
-              label: 'Poor Matches (< 50)',
-              data: reversedStats.map(day => day.poorMatch || 0),
-              backgroundColor: 'rgba(220, 55, 1, 0.7)', // Medium red
-              borderColor: 'rgba(220, 55, 1, 0.8)',
-              borderWidth: 1
+              label: 'Good Matches (≥ 65)',
+              data: reversedStats.map(day => day.goodMatch || 0),
+              backgroundColor: goodMatchGradient,
+              borderWidth: 0
+            },
+            {
+              label: 'Top Matches (≥ 85)',
+              data: reversedStats.map(day => day.topMatch || 0),
+              backgroundColor: topMatchGradient,
+              borderWidth: 0
             }
           ]
         },
@@ -138,7 +153,7 @@
               display: false // Hide the legend
             },
             tooltip: {
-              enabled: false // Disabled as per request
+              enabled: true // Disabled as per request
             }
           }
         }
