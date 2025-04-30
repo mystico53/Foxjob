@@ -72,8 +72,11 @@
       
       const ctx = chartCanvas.getContext('2d');
       
+      // Reverse the array to have today on the right
+      const reversedStats = [...recentDaysStats].reverse();
+      
       // Extract labels (dates)
-      const labels = recentDaysStats.map(day => `${day.label}`);
+      const labels = reversedStats.map(day => day.label);
       
       chartInstance = new Chart(ctx, {
         type: 'bar',
@@ -82,28 +85,28 @@
           datasets: [
             {
               label: 'Top Matches (≥ 85)',
-              data: recentDaysStats.map(day => day.topMatch || 0),
+              data: reversedStats.map(day => day.topMatch || 0),
               backgroundColor: 'rgba(66, 153, 225, 0.9)', // Darkest blue
               borderColor: 'rgba(66, 153, 225, 1)',
               borderWidth: 1
             },
             {
               label: 'Good Matches (≥ 65)',
-              data: recentDaysStats.map(day => day.goodMatch || 0),
+              data: reversedStats.map(day => day.goodMatch || 0),
               backgroundColor: 'rgba(66, 153, 225, 0.7)', // Medium blue
               borderColor: 'rgba(66, 153, 225, 0.8)',
               borderWidth: 1
             },
             {
               label: 'OK Matches (≥ 50)',
-              data: recentDaysStats.map(day => day.okMatch || 0),
+              data: reversedStats.map(day => day.okMatch || 0),
               backgroundColor: 'rgba(255, 156, 0, 0.7)', // Medium orange
               borderColor: 'rgba(255, 156, 0, 0.8)',
               borderWidth: 1
             },
             {
               label: 'Poor Matches (< 50)',
-              data: recentDaysStats.map(day => day.poorMatch || 0),
+              data: reversedStats.map(day => day.poorMatch || 0),
               backgroundColor: 'rgba(220, 55, 1, 0.7)', // Medium red
               borderColor: 'rgba(220, 55, 1, 0.8)',
               borderWidth: 1
@@ -115,15 +118,24 @@
           maintainAspectRatio: false,
           scales: {
             x: {
-              stacked: true
+              stacked: true,
+              grid: {
+                display: false
+              }
             },
             y: {
-              stacked: true
+              stacked: true,
+              grid: {
+                display: false
+              },
+              ticks: {
+                stepSize: 10 // Show ticks at intervals of 10
+              }
             }
           },
           plugins: {
             legend: {
-              position: 'top',
+              display: false // Hide the legend
             },
             tooltip: {
               enabled: false // Disabled as per request
@@ -190,19 +202,36 @@
   </script>
   
   <div>
-    <h3 class="text-lg font-bold mb-4">Job Statistics</h3>
-    
-    {#if isLoading}
-      <p>Loading job statistics...</p>
-    {:else if recentDaysStats.length === 0}
-      <p>No recent job data available</p>
-    {:else}
-      <div class="space-y-4">
+    <div class="space-y-4">
+      {#if isLoading}
+        <p>Loading job statistics...</p>
+      {:else if recentDaysStats.length === 0}
+        <p>No recent job data available</p>
+      {:else}
         <!-- Chart Container -->
-        <div class="border p-2">
-          <h4 class="font-bold mb-2">Recent Job Activity</h4>
+        <div class="p-2">
           <div class="h-64 w-full">
             <canvas bind:this={chartCanvas}></canvas>
+          </div>
+          
+          <!-- Color Legend (manually added instead of chart legend) -->
+          <div class="flex flex-wrap items-center justify-center mt-2 gap-4">
+            <div class="flex items-center">
+              <div class="w-4 h-4 mr-1" style="background-color: rgba(66, 153, 225, 0.9);"></div>
+              <span>Top Matches (≥ 85)</span>
+            </div>
+            <div class="flex items-center">
+              <div class="w-4 h-4 mr-1" style="background-color: rgba(66, 153, 225, 0.7);"></div>
+              <span>Good Matches (≥ 65)</span>
+            </div>
+            <div class="flex items-center">
+              <div class="w-4 h-4 mr-1" style="background-color: rgba(255, 156, 0, 0.7);"></div>
+              <span>OK Matches (≥ 50)</span>
+            </div>
+            <div class="flex items-center">
+              <div class="w-4 h-4 mr-1" style="background-color: rgba(220, 55, 1, 0.7);"></div>
+              <span>Poor Matches (&lt; 50)</span>
+            </div>
           </div>
         </div>
         
@@ -247,6 +276,6 @@
           <p>Jobs loaded: {debugInfo.jobsLoaded || 0}</p>
           <p>Last updated: {debugInfo.lastUpdated ? debugInfo.lastUpdated.toLocaleTimeString() : 'Never'}</p>
         </div>
-      </div>
-    {/if}
+      {/if}
+    </div>
   </div>
