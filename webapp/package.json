@@ -47,6 +47,7 @@
 	"dependencies": {
 		"@floating-ui/dom": "^1.6.12",
 		"@google-cloud/pubsub": "^4.7.2",
+		"chart.js": "^4.4.9",
 		"country-codes-list": "^2.0.0",
 		"dompurify": "^3.2.1",
 		"dotenv": "^16.4.5",
@@ -57,6 +58,7 @@
 		"marked": "^14.1.4",
 		"puppeteer": "^23.11.1",
 		"puppeteer-extra": "^3.3.6",
-		"puppeteer-extra-plugin-stealth": "^2.11.2"
+		"puppeteer-extra-plugin-stealth": "^2.11.2",
+		"svelte-chartjs": "^3.1.5"
 	}
 }

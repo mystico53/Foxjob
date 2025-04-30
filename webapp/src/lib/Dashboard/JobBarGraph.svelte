@@ -2,6 +2,7 @@
     import { onMount, onDestroy } from 'svelte';
     import { jobStatsStore } from '$lib/stores/jobStatsStore';
     import { authStore } from '$lib/stores/authStore';
+    import Chart from 'chart.js/auto';
     
     let userId;
     let unsubscribe;
@@ -9,6 +10,8 @@
     let recentDaysStats = [];
     let isLoading = true;
     let debugInfo = {};
+    let chartInstance;
+    let chartCanvas;
     
     // Helper function to format date consistently (copied from jobStatsStore)
     function formatDate(date) {
@@ -35,6 +38,7 @@
       const recentDaysUnsubscribe = jobStatsStore.recentDays.subscribe(data => {
         console.log('JobBarGraph: Received recent days data', data);
         recentDaysStats = data;
+        updateChart();
       });
       
       // Subscribe to loading state
@@ -53,9 +57,81 @@
         recentDaysUnsubscribe();
         loadingUnsubscribe();
         debugUnsubscribe();
+        if (chartInstance) chartInstance.destroy();
         jobStatsStore.cleanup();
       };
     });
+    
+    // Update or create chart when data changes
+    function updateChart() {
+      if (!chartCanvas || recentDaysStats.length === 0) return;
+      
+      if (chartInstance) {
+        chartInstance.destroy();
+      }
+      
+      const ctx = chartCanvas.getContext('2d');
+      
+      // Extract labels (dates)
+      const labels = recentDaysStats.map(day => `${day.label}`);
+      
+      chartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [
+            {
+              label: 'Top Matches (≥ 85)',
+              data: recentDaysStats.map(day => day.topMatch || 0),
+              backgroundColor: 'rgba(66, 153, 225, 0.9)', // Darkest blue
+              borderColor: 'rgba(66, 153, 225, 1)',
+              borderWidth: 1
+            },
+            {
+              label: 'Good Matches (≥ 65)',
+              data: recentDaysStats.map(day => day.goodMatch || 0),
+              backgroundColor: 'rgba(66, 153, 225, 0.7)', // Medium blue
+              borderColor: 'rgba(66, 153, 225, 0.8)',
+              borderWidth: 1
+            },
+            {
+              label: 'OK Matches (≥ 50)',
+              data: recentDaysStats.map(day => day.okMatch || 0),
+              backgroundColor: 'rgba(255, 156, 0, 0.7)', // Medium orange
+              borderColor: 'rgba(255, 156, 0, 0.8)',
+              borderWidth: 1
+            },
+            {
+              label: 'Poor Matches (< 50)',
+              data: recentDaysStats.map(day => day.poorMatch || 0),
+              backgroundColor: 'rgba(220, 55, 1, 0.7)', // Medium red
+              borderColor: 'rgba(220, 55, 1, 0.8)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            x: {
+              stacked: true
+            },
+            y: {
+              stacked: true
+            }
+          },
+          plugins: {
+            legend: {
+              position: 'top',
+            },
+            tooltip: {
+              enabled: false // Disabled as per request
+            }
+          }
+        }
+      });
+    }
     
     // Calculate aggregated stats for 7 days
     $: last7DaysStats = calculateLast7DaysStats(stats);
@@ -106,6 +182,11 @@
         poorMatch: 0 
       });
     }
+    
+    // Update chart when the canvas is available
+    $: if (chartCanvas && recentDaysStats.length > 0 && !chartInstance) {
+      updateChart();
+    }
   </script>
   
   <div>
@@ -113,13 +194,21 @@
     
     {#if isLoading}
       <p>Loading job statistics...</p>
-    {:else if stats.length === 0}
-      <p>No job data available</p>
+    {:else if recentDaysStats.length === 0}
+      <p>No recent job data available</p>
     {:else}
       <div class="space-y-4">
-        <!-- Past Five Days Stats -->
+        <!-- Chart Container -->
         <div class="border p-2">
-          <h4 class="font-bold">Recent Job Activity</h4>
+          <h4 class="font-bold mb-2">Recent Job Activity</h4>
+          <div class="h-64 w-full">
+            <canvas bind:this={chartCanvas}></canvas>
+          </div>
+        </div>
+        
+        <!-- Text Details (keeping for reference) -->
+        <div class="border p-2">
+          <h4 class="font-bold">Recent Job Activity Details</h4>
           
           {#each recentDaysStats as day}
             <div class="border-b py-2 last:border-b-0">
