@@ -92,9 +92,60 @@ const jobStatsByDay = derived(
   }
 );
 
+// Derived store for past 5 days stats
+const lastFiveDaysStats = derived(
+  jobStatsByDay,
+  ($jobStatsByDay) => {
+    // Get dates for the past 5 days
+    const past5Days = Array(5).fill().map((_, i) => {
+      const d = new Date();
+      d.setDate(today.getDate() - i);
+      return formatDate(d);
+    });
+    
+    // Find stats for each of these days
+    return past5Days.map(dateStr => {
+      const dayStats = $jobStatsByDay.find(item => item.date === dateStr) || {
+        date: dateStr,
+        total: 0,
+        lowScore: 0,
+        highScore: 0
+      };
+      
+      // Add a readable label
+      let label;
+      const todayStr = formatDate(today);
+      
+      if (dateStr === todayStr) {
+        label = 'Today';
+      } else {
+        // Create a date object for comparison
+        const dateObj = new Date(dateStr);
+        const todayObj = new Date(todayStr);
+        
+        // Calculate days difference - important to use new date objects to avoid modifying originals
+        const diffTime = todayObj.getTime() - dateObj.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        
+        if (diffDays === 1) {
+          label = 'Yesterday';
+        } else {
+          label = `${diffDays} days ago`;
+        }
+      }
+      
+      return {
+        ...dayStats,
+        label
+      };
+    });
+  }
+);
+
 // Create and export the store
 export const jobStatsStore = {
   subscribe: jobStatsByDay.subscribe,
+  recentDays: { subscribe: lastFiveDaysStats.subscribe },
   loading: { subscribe: isLoading.subscribe },
   error: { subscribe: error.subscribe },
   debug: writable({

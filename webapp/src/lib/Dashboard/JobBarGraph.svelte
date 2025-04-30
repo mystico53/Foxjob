@@ -6,6 +6,7 @@
     let userId;
     let unsubscribe;
     let stats = [];
+    let recentDaysStats = [];
     let isLoading = true;
     let debugInfo = {};
     
@@ -75,6 +76,12 @@
         stats = data;
       });
       
+      // Subscribe to recent days stats
+      const recentDaysUnsubscribe = jobStatsStore.recentDays.subscribe(data => {
+        console.log('JobBarGraph: Received recent days data', data);
+        recentDaysStats = data;
+      });
+      
       // Subscribe to loading state
       const loadingUnsubscribe = jobStatsStore.loading.subscribe(value => {
         isLoading = value;
@@ -88,6 +95,7 @@
       return () => {
         if (unsubscribe) unsubscribe();
         statsUnsubscribe();
+        recentDaysUnsubscribe();
         loadingUnsubscribe();
         debugUnsubscribe();
         jobStatsStore.cleanup();
@@ -104,12 +112,18 @@
       <p>No job data available</p>
     {:else}
       <div class="space-y-4">
-        <!-- Today's Stats -->
+        <!-- Past Five Days Stats -->
         <div class="border p-2">
-          <h4 class="font-bold">Today</h4>
-          <p>Total Jobs: {todayStats.total}</p>
-          <p>Good Matches (≥ 50): {todayStats.highScore}</p>
-          <p>Poor Matches (&lt; 50): {todayStats.lowScore}</p>
+          <h4 class="font-bold">Recent Job Activity</h4>
+          
+          {#each recentDaysStats as day}
+            <div class="border-b py-2 last:border-b-0">
+              <h5 class="font-semibold">{day.label} ({day.date})</h5>
+              <p>Total Jobs: {day.total}</p>
+              <p>Good Matches (≥ 50): {day.highScore}</p>
+              <p>Poor Matches (&lt; 50): {day.lowScore}</p>
+            </div>
+          {/each}
         </div>
         
         <!-- Last 7 Days Stats -->
