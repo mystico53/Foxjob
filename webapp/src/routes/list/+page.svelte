@@ -1,10 +1,8 @@
 <script>
-
 	import CollectionLoader from '$lib/Dashboard/CollectionLoader.svelte';
 	import JobCountGraph from '$lib/Dashboard/JobCountGraph.svelte';
-
+	import JobBarGraph from '$lib/Dashboard/JobBarGraph.svelte';
 	import SearchBox from '$lib/searchJobs/searchBox.svelte';
-
 </script>
 
 <!-- Parent container -->
@@ -20,6 +18,11 @@
 		<div class="card p-4">
 			<CollectionLoader />
 		</div>
+	</div>
+
+	<!-- Added JobBarGraph for debugging -->
+	<div class="card p-4 mb-4">
+		<JobBarGraph />
 	</div>
 
 	<SearchBox/>
