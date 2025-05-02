@@ -5,21 +5,27 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
+    
+    // Helper function to check if user has admin claim
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
 
     // ADMIN DASHBOARD ACCESS
-    // Allow any authenticated user to read everything for the admin dashboard
-    // Note: In production, you should restrict this with proper admin claims
+    // Allow only users with admin claim to read everything for the admin dashboard
     match /{document=**} {
-      allow read, list: if isAuthenticated();
+      allow read, list: if isAdmin();
     }
     
     // USER-SPECIFIC WRITE PERMISSIONS
     // Allow users to write only to their own data
     match /users/{userId} {
+      allow read: if isAuthenticated();
       allow write, create, update, delete: if isAuthenticated() && request.auth.uid == userId;
       
       // All subcollections under a user's document
       match /{subcollection}/{docId} {
+        allow read: if isAuthenticated();
         allow write, create, update, delete: if isAuthenticated() && request.auth.uid == userId;
       }
     }
@@ -34,24 +40,29 @@ service cloud.firestore {
     
     // Allow write to scrapedJobs collection
     match /scrapedJobs/{jobId} {
+      allow read: if isAuthenticated();
       allow write, create, update, delete: if isAuthenticated();
     }
     
     // UserCollections at top level
     match /UserCollections/{collectionId} {
+      allow read: if isAuthenticated();
       allow write, create, update, delete: if isAuthenticated();
     }
 
     // Other specific collections
     match /pending_users/{pendingId} {
+      allow read: if isAuthenticated();
       allow write, create, update, delete: if isAuthenticated();
     }
 
     match /test/{docId} {
+      allow read: if isAuthenticated();
       allow write, create, update, delete: if isAuthenticated();
     }
 
     match /dev-test/{docId} {
+      allow read: if isAuthenticated();
       allow write, create, update, delete: if isAuthenticated();
     }
   }
