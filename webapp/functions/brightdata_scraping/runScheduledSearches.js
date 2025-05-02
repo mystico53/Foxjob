@@ -197,7 +197,7 @@ async function processScheduledSearches() {
 
 // The scheduled function just calls the core logic
 exports.runScheduledSearches = onSchedule({
-  schedule: 'every 2 minutes',
+  schedule: 'every 5 minutes',
   timeZone: 'America/New_York',
   memory: '512MiB'
 }, async (event) => {
