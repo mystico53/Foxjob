@@ -9,6 +9,13 @@
   import { db } from '$lib/firebase'; 
   import foxIcon from '../../assets/icon128.png';
   import InfoCard from '$lib/searchJobs/InfoCard.svelte';
+  import dayjs from 'dayjs';
+  import utc from 'dayjs/plugin/utc';
+  import timezone from 'dayjs/plugin/timezone';
+  
+  // Initialize dayjs plugins
+  dayjs.extend(utc);
+  dayjs.extend(timezone);
   
   const dispatch = createEventDispatcher();
   
@@ -41,21 +48,23 @@
     return parts.join(' ') || 'Custom search';
   }
   
-  // Format delivery time
+  // Format delivery time - UPDATED to convert from UTC to local time
   function formatDeliveryTime(time) {
     if (!time) return '8:00 AM';
     
-    const [hour, minute] = time.split(':');
-    const hourNum = parseInt(hour);
+    // Parse the time string (HH:MM format in UTC)
+    const [hourStr, minuteStr] = time.split(':');
+    const utcHour = parseInt(hourStr, 10);
+    const utcMinute = parseInt(minuteStr, 10);
     
-    if (hourNum === 0) return '12:00 AM';
-    if (hourNum === 12) return '12:00 PM';
+    // Create a UTC dayjs object with today's date and the specified time
+    const utcTime = dayjs.utc().hour(utcHour).minute(utcMinute).second(0);
     
-    if (hourNum < 12) {
-      return `${hourNum}:${minute} AM`;
-    } else {
-      return `${hourNum-12}:${minute} PM`;
-    }
+    // Convert to local time
+    const localTime = utcTime.local();
+    
+    // Format in 12-hour format with AM/PM
+    return localTime.format('h:mm A');
   }
   
   // Function to delete job agent

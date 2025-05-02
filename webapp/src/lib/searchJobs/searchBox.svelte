@@ -16,6 +16,13 @@
   import { collection, query, where, limit, getDocs, doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
   import { getFirestore } from 'firebase/firestore';
   import * as countryCodes from "country-codes-list";  
+  import dayjs from 'dayjs';
+  import utc from 'dayjs/plugin/utc';
+  import timezone from 'dayjs/plugin/timezone';
+  
+  // Initialize dayjs plugins
+  dayjs.extend(utc);
+  dayjs.extend(timezone);
 
   let uid;
   // Hardcoded to true as requested
@@ -76,15 +83,17 @@
   });
 
   function getTimezoneOffset() {
-    // Get minutes offset (e.g., -420 for PDT which is UTC-7)
-    const offsetMinutes = new Date().getTimezoneOffset();
-    
+    // Get current timezone using Day.js
+    const timezone = dayjs.tz.guess();
+    // Get the offset in minutes
+    const offsetMinutes = dayjs().utcOffset();
     // Convert to hours (e.g., 7 for PDT)
-    // Note: getTimezoneOffset returns the opposite of what we want
-    // so we negate it (e.g., -(-420)/60 = 7)
-    const offsetHours = -offsetMinutes / 60;
+    const offsetHours = offsetMinutes / 60;
     
-    return offsetHours;
+    return {
+      offsetHours,
+      timezone
+    };
   }
 
   function getUnixTimestampForDeliveryTime(timeString) {
@@ -93,12 +102,25 @@
     const hours = parseInt(hoursStr, 10);
     const minutes = parseInt(minutesStr, 10);
     
-    // Create a date for today at the specified local time
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
+    // Create a Day.js object for today at the specified local time
+    const localTime = dayjs().hour(hours).minute(minutes).second(0).millisecond(0);
     
-    // Return the Unix timestamp (milliseconds since epoch)
-    return date.getTime();
+    // Convert to UTC time
+    const utcTime = localTime.utc();
+    
+    // Get the UTC hours and minutes
+    const utcHours = utcTime.hour();
+    const utcMinutes = utcTime.minute();
+    
+    // Format as HH:MM in UTC
+    const utcTimeString = `${utcHours.toString().padStart(2, '0')}:${utcMinutes.toString().padStart(2, '0')}`;
+    
+    return {
+      localTimeString: timeString,
+      utcTimeString: utcTimeString,
+      timestamp: localTime.valueOf(), // Unix timestamp in milliseconds
+      utcTimestamp: utcTime.valueOf() // UTC Unix timestamp in milliseconds
+    };
   }
 
   // Check if user already has an active search query
@@ -244,18 +266,11 @@
   let country = 'US';
   let limitPerInput = '10'; // Changed default to string value "10"
 
-  // Add time options for when to receive results
+  // Add time options for when to receive results - SIMPLIFIED TO 3 OPTIONS
   const timeOptions = [
-    { value: '06:00', label: '6:00 AM' },
-    { value: '07:00', label: '7:00 AM' },
     { value: '08:00', label: '8:00 AM' },
-    { value: '09:00', label: '9:00 AM' },
-    { value: '10:00', label: '10:00 AM' },
     { value: '12:00', label: '12:00 PM' },
-    { value: '14:00', label: '2:00 PM' },
-    { value: '16:00', label: '4:00 PM' },
     { value: '18:00', label: '6:00 PM' },
-    { value: '20:00', label: '8:00 PM' }
   ];
   
   // Default to 8:00 AM
@@ -291,8 +306,34 @@
     
     datePosted = searchParam.time_range || 'Past 24 hours';
     
-    // Make sure to set the proper delivery time
-    deliveryTime = query.deliveryTime || '08:00';
+    // Handle the delivery time conversion from UTC to local
+    if (query.deliveryTime) {
+      // Parse UTC time
+      const [utcHourStr, utcMinuteStr] = query.deliveryTime.split(':');
+      const utcHour = parseInt(utcHourStr, 10);
+      const utcMinute = parseInt(utcMinuteStr, 10);
+      
+      // Create a UTC dayjs object and convert to local
+      const utcTime = dayjs.utc().hour(utcHour).minute(utcMinute);
+      const localTime = utcTime.local();
+      
+      // Get the local hour
+      const localHour = localTime.hour();
+      
+      // Map to closest of our three options
+      if (localHour < 10) {
+        // Before 10 AM -> 8 AM
+        deliveryTime = '08:00';
+      } else if (localHour < 15) {
+        // Between 10 AM and 3 PM -> 12 PM
+        deliveryTime = '12:00';
+      } else {
+        // 3 PM or later -> 6 PM
+        deliveryTime = '18:00';
+      }
+    } else {
+      deliveryTime = '08:00'; // Default to 8:00 AM
+    }
     
     // Convert numeric limit to string for form input - keep limit as string now
     limitPerInput = query.limit ? query.limit.toString() : '10';
@@ -416,6 +457,10 @@
     // Parse the limit from the radio button value
     const limit = parseInt(limitPerInput);
     
+    // Get time information in both local and UTC formats
+    const timeInfo = getUnixTimestampForDeliveryTime(deliveryTime);
+    const timezoneInfo = getTimezoneOffset();
+    
     const requestBody = {
       userId: uid,
       searchParams: searchPayload,
@@ -423,12 +468,16 @@
       schedule: {
         frequency: 'daily',
         runImmediately: true,
-        deliveryTime: deliveryTime,
-        // Include both the string time and a Unix timestamp to ensure accuracy
+        // Send both local and UTC time formats
+        deliveryTime: timeInfo.utcTimeString, // Send the UTC time string
+        // Include both the string time and timestamps to ensure accuracy
         timeInfo: {
-          timezoneOffset: getTimezoneOffset(),
-          timestamp: getUnixTimestampForDeliveryTime(deliveryTime),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone // Include timezone identifier like 'America/Los_Angeles'
+          timezoneOffset: timezoneInfo.offsetHours,
+          timezone: timezoneInfo.timezone,
+          localTime: timeInfo.localTimeString,
+          localTimestamp: timeInfo.timestamp,
+          utcTime: timeInfo.utcTimeString,
+          utcTimestamp: timeInfo.utcTimestamp
         }
       }
     };
@@ -675,17 +724,32 @@
             
             <!-- Delivery settings -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <!-- Delivery Time -->
+              <!-- Simplified Time Picker UI -->
               <div>
                 <label for="deliveryTime" class="block font-bold mb-2">When to Receive Results</label>
-                <select id="deliveryTime" class="w-full px-4 py-2 border rounded-lg" bind:value={deliveryTime}>
-                  {#each timeOptions as option}
-                    <option value={option.value}>{option.label}</option>
-                  {/each}
-                </select>
+                <div class="flex flex-col">
+                  <!-- Time Selection UI -->
+                  <div class="flex justify-center gap-4 mb-2">
+                    {#each timeOptions as option}
+                      <button 
+                        type="button"
+                        class="rounded-lg px-4 py-2.5 text-base font-medium transition-colors duration-150 
+                              {deliveryTime === option.value ? 'bg-orange-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}"
+                        on:click={() => deliveryTime = option.value}
+                        aria-label={option.label}
+                      >
+                        {option.label}
+                      </button>
+                    {/each}
+                  </div>
+                  <!-- Time Display -->
+                  <div class="text-sm text-gray-500 mt-1 text-center">
+                    <span>The agent will send results at {dayjs().hour(parseInt(deliveryTime.split(':')[0])).minute(parseInt(deliveryTime.split(':')[1] || 0)).format('h:mm A')} in your local time.</span>
+                  </div>
+                </div>
               </div>
 
-              <!-- REPLACED: Daily Match Limit with Radio Buttons -->
+              <!-- REPLACED: Daily Match Limit with Radio Buttons - KEEP THIS PART -->
               <div>
                 <label id="job-matches-label" class="block font-bold mb-2">Job matches per day</label>
                 <div class="flex items-center h-11" role="radiogroup" aria-labelledby="job-matches-label"> <!-- Added height to match dropdown -->

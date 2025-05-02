@@ -33,6 +33,10 @@ function generateSearchId(userId, searchParams) {
 
 // Completely new approach using Unix timestamps
 function calculateNextRunTime(frequency, deliveryTime = '08:00', timezoneOffset = 0) {
+  // TODO: This function should be updated to handle UTC time conversion properly
+  // The deliveryTime parameter is now in UTC format (from client)
+  // We should use this UTC time directly to calculate the next run time
+  
   // Parse the delivery time (format: "HH:MM")
   const [hoursStr, minutesStr] = deliveryTime.split(':');
   const hours = parseInt(hoursStr, 10);
@@ -41,13 +45,14 @@ function calculateNextRunTime(frequency, deliveryTime = '08:00', timezoneOffset 
   // Get current date in UTC
   const now = new Date();
   
-  // Create a date object for today at the specified time in user's timezone
-  // by setting hours and minutes in the user's local timezone
-  const localDate = new Date();
-  localDate.setHours(hours, minutes, 0, 0);
+  // Create a date object for today at the specified time in UTC
+  // Note: Since we're getting UTC time from the client now, we don't need
+  // to do timezone conversions here - just use the time as-is in UTC
+  const utcDate = new Date();
+  utcDate.setUTCHours(hours, minutes, 0, 0);
   
-  // Convert user's local time to a unix timestamp (milliseconds since epoch)
-  const targetTimestamp = localDate.getTime();
+  // Convert to unix timestamp (milliseconds since epoch)
+  const targetTimestamp = utcDate.getTime();
   
   // If the target time has already passed today, add one day
   const nowTimestamp = now.getTime();

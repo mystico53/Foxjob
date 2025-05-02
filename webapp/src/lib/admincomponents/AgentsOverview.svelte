@@ -2,6 +2,15 @@
 <script>
     import { onMount } from 'svelte';
     import { collection, collectionGroup, query, orderBy, getDocs, getFirestore } from 'firebase/firestore';
+    import dayjs from 'dayjs';
+    import utc from 'dayjs/plugin/utc';
+    import timezone from 'dayjs/plugin/timezone';
+    import localizedFormat from 'dayjs/plugin/localizedFormat';
+    
+    // Initialize dayjs plugins
+    dayjs.extend(utc);
+    dayjs.extend(timezone);
+    dayjs.extend(localizedFormat);
     
     // Firebase instance
     const db = getFirestore();
@@ -66,13 +75,50 @@
       ? userJobBatches.filter(batch => batch.searchQueryId === selectedQuery.id)
       : userJobBatches;
       
-    // Format timestamp for display
+    // Format timestamp for display using Day.js
     function formatDate(timestamp) {
       if (!timestamp) return 'N/A';
       
-      // Handle Firestore timestamp objects
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return date.toLocaleString();
+      try {
+        // Handle Firestore timestamp objects
+        const firestoreDate = timestamp.toDate ? timestamp.toDate() : timestamp;
+        
+        // Convert to Day.js object
+        const date = dayjs(firestoreDate);
+        
+        // First convert to UTC (assuming timestamps are stored in UTC)
+        const utcDate = date.isUTC() ? date : date.utc();
+        
+        // Then convert to local time for display
+        return utcDate.local().format('MMM D, YYYY h:mm A');
+      } catch (err) {
+        console.error('Error formatting date:', err, timestamp);
+        return 'Invalid date';
+      }
+    }
+    
+    // Format delivery time from UTC to local
+    function formatDeliveryTime(timeString) {
+      if (!timeString) return 'N/A';
+      
+      try {
+        // Parse the time string (HH:MM format in UTC)
+        const [hourStr, minuteStr] = timeString.split(':');
+        const utcHour = parseInt(hourStr, 10);
+        const utcMinute = parseInt(minuteStr, 10);
+        
+        // Create a UTC dayjs object with today's date and the specified time
+        const utcTime = dayjs.utc().hour(utcHour).minute(utcMinute).second(0);
+        
+        // Convert to local time
+        const localTime = utcTime.local();
+        
+        // Format in 12-hour format with AM/PM
+        return localTime.format('h:mm A');
+      } catch (err) {
+        console.error('Error formatting delivery time:', err, timeString);
+        return timeString || 'N/A';
+      }
     }
     
     // User selection handler
@@ -139,6 +185,7 @@
                   <th>ID</th>
                   <th>Search Keywords</th>
                   <th>Frequency</th>
+                  <th>Delivery Time</th>
                   <th>Last Run</th>
                   <th>Next Run</th>
                   <th>Status</th>
@@ -153,6 +200,7 @@
                       {getKeyword(query.searchParams)}
                     </td>
                     <td>{query.frequency || 'N/A'}</td>
+                    <td>{formatDeliveryTime(query.deliveryTime)}</td>
                     <td>{formatDate(query.lastRun)}</td>
                     <td>{formatDate(query.nextRun)}</td>
                     <td class={query.processingStatus === 'processing' ? 'processing' : ''}>

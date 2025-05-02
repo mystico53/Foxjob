@@ -49,6 +49,7 @@
 		"@google-cloud/pubsub": "^4.7.2",
 		"chart.js": "^4.4.9",
 		"country-codes-list": "^2.0.0",
+		"dayjs": "^1.11.13",
 		"dompurify": "^3.2.1",
 		"dotenv": "^16.4.5",
 		"esm-env": "^1.2.1",
