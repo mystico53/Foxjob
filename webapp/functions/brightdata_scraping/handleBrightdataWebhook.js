@@ -429,7 +429,7 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
     let searchPageUrl;
     
     if (config.environment === 'production') {
-      searchPageUrl = 'https://www.foxjob.io/search';
+      searchPageUrl = 'https://www.foxjob.io/list';
       logger.info('Using production search URL');
     } else if (config.environment === 'staging') {
       searchPageUrl = 'https://jobille-45494.web.app/list';
