@@ -631,7 +631,6 @@
                   <div>
                     <label for="datePosted" class="block font-bold mb-2">Date Posted</label>
                     <select id="datePosted" class="w-full px-4 py-2 border rounded-lg" bind:value={datePosted}>
-                      <option value="Past 24 hours">Last 24 hours</option>
                       {#each dateOptions as option}
                         <option value={option.value}>{option.label}</option>
                       {/each}
