@@ -565,8 +565,8 @@
 
             <!-- Workplace Type as Pills - Single Selection Only -->
             <div class="mb-4">
-              <label class="block font-bold mb-2">Workplace Type</label>
-              <div class="flex flex-wrap gap-2">
+              <label id="workplace-type-label" class="block font-bold mb-2">Workplace Type</label>
+              <div class="flex flex-wrap gap-2" role="group" aria-labelledby="workplace-type-label">
                 {#each workplaceTypes as type}
                   <button 
                     type="button"
@@ -688,8 +688,8 @@
 
               <!-- REPLACED: Daily Match Limit with Radio Buttons -->
               <div>
-                <label class="block font-bold mb-2">Job matches per day</label>
-                <div class="flex items-center h-11"> <!-- Added height to match dropdown -->
+                <label id="job-matches-label" class="block font-bold mb-2">Job matches per day</label>
+                <div class="flex items-center h-11" role="radiogroup" aria-labelledby="job-matches-label"> <!-- Added height to match dropdown -->
                     <!-- Radio for 1 -->
                     <div class="flex items-center">
                       <input 
