@@ -199,59 +199,141 @@ exports.handleBrightdataWebhook = onRequest({
       const batchId = req.body.snapshot_id;
       const batchRef = db.collection('jobBatches').doc(batchId);
       
-      // Get Brightdata token and download snapshot
-      const [secretVersion] = await secretManager.accessSecretVersion({
-        name: 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest'
-      });
-      const brightdataToken = secretVersion.payload.data.toString();
-      const snapshotData = await downloadSnapshot(req.body.snapshot_id, brightdataToken);
-      
-      // Process jobs from snapshot
-      const jobs = Array.isArray(snapshotData) ? snapshotData : [snapshotData];
-      
-      // Initialize batch document before processing
-      await batchRef.set({
-        userId,
-        snapshotId: batchId,
-        searchId: searchId, // Add this line to store the search query ID
-        totalJobs: jobs.length,
-        completedJobs: 0,
-        status: 'processing',
-        startedAt: FieldValue.serverTimestamp(),
-        emailSent: false,
-        smallBatch: jobs.length === 1,
-        jobIds: []
-      });
-      
-      // Pass batchId to processing function
-      const results = await processJobsAndPublish(jobs, userId, batchId);
-      
-      // Update batch with job IDs after processing
-      await batchRef.update({
-        jobIds: results.successful.map(job => job.jobId)
-      });
-      
-      logger.info('Batch document created', { 
-        batchId, 
-        totalJobs: jobs.length,
-        successful: results.successful.length
-      });
-      
-      return res.json({
-        success: true,
-        message: 'Snapshot processed successfully',
-        snapshot_id: req.body.snapshot_id,
-        processed: {
-          total: jobs.length,
-          successful: results.successful.length,
-          failed: results.failed.length,
-          jobs: results.successful,
-          errors: results.failed
-        },
-        batchId: batchId, // Include batchId in response
-        userId,
-        timestamp: new Date().toISOString()
-      });
+      try {
+        // Get Brightdata token and download snapshot
+        const [secretVersion] = await secretManager.accessSecretVersion({
+          name: 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest'
+        });
+        const brightdataToken = secretVersion.payload.data.toString();
+        const snapshotData = await downloadSnapshot(req.body.snapshot_id, brightdataToken);
+        
+        // Process jobs from snapshot
+        const jobs = Array.isArray(snapshotData) ? snapshotData : [snapshotData];
+        
+        // Check if jobs array is empty
+        if (!jobs || jobs.length === 0) {
+          logger.info('No jobs found in search, sending email notification', { userId, searchId });
+          
+          // Create batch document for empty search
+          await batchRef.set({
+            userId,
+            snapshotId: batchId,
+            searchId: searchId,
+            totalJobs: 0,
+            completedJobs: 0,
+            status: 'completed',
+            startedAt: FieldValue.serverTimestamp(),
+            completedAt: FieldValue.serverTimestamp(),
+            emailSent: false,
+            noJobsFound: true,
+            jobIds: []
+          });
+          
+          // Send email notification through the Firestore trigger pattern
+          await sendEmptySearchEmailNotification(userId, searchId);
+          
+          // Update batch to indicate email was sent
+          await batchRef.update({
+            emailSent: true,
+            emailSentAt: FieldValue.serverTimestamp()
+          });
+          
+          return res.json({
+            success: true,
+            message: 'No jobs found for search criteria. Email notification sent.',
+            snapshot_id: req.body.snapshot_id,
+            batchId,
+            userId,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // Initialize batch document before processing
+        await batchRef.set({
+          userId,
+          snapshotId: batchId,
+          searchId: searchId,
+          totalJobs: jobs.length,
+          completedJobs: 0,
+          status: 'processing',
+          startedAt: FieldValue.serverTimestamp(),
+          emailSent: false,
+          smallBatch: jobs.length === 1,
+          jobIds: []
+        });
+        
+        // Pass batchId to processing function
+        const results = await processJobsAndPublish(jobs, userId, batchId);
+        
+        // Update batch with job IDs after processing
+        await batchRef.update({
+          jobIds: results.successful.map(job => job.jobId)
+        });
+        
+        logger.info('Batch document created', { 
+          batchId, 
+          totalJobs: jobs.length,
+          successful: results.successful.length
+        });
+        
+        return res.json({
+          success: true,
+          message: 'Snapshot processed successfully',
+          snapshot_id: req.body.snapshot_id,
+          processed: {
+            total: jobs.length,
+            successful: results.successful.length,
+            failed: results.failed.length,
+            jobs: results.successful,
+            errors: results.failed
+          },
+          batchId: batchId, // Include batchId in response
+          userId,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        // Check if the error is due to empty snapshot
+        if (error.message && (error.message.includes('Failed to download snapshot') || 
+                             (error.response && error.response.data === 'Snapshot is empty'))) {
+          logger.info('Snapshot is empty, sending email notification', { userId, searchId });
+          
+          // Create batch document for empty search
+          await batchRef.set({
+            userId,
+            snapshotId: batchId,
+            searchId: searchId,
+            totalJobs: 0,
+            completedJobs: 0,
+            status: 'completed',
+            startedAt: FieldValue.serverTimestamp(),
+            completedAt: FieldValue.serverTimestamp(),
+            emailSent: false,
+            noJobsFound: true,
+            jobIds: []
+          });
+          
+          // Send email notification through the Firestore trigger pattern
+          await sendEmptySearchEmailNotification(userId, searchId);
+          
+          // Update batch to indicate email was sent
+          await batchRef.update({
+            emailSent: true,
+            emailSentAt: FieldValue.serverTimestamp()
+          });
+          
+          return res.json({
+            success: true,
+            message: 'No jobs found for search criteria. Email notification sent.',
+            snapshot_id: req.body.snapshot_id,
+            batchId,
+            userId,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        // If it's not an empty snapshot, rethrow the error
+        throw error;
+      }
     }
     
     // Case 2: Direct job data webhook - verify auth token
@@ -296,3 +378,144 @@ exports.handleBrightdataWebhook = onRequest({
     });
   }
 });
+
+// Function to send an email notification for empty searches
+// This follows the pattern used in batchProcessing.js
+async function sendEmptySearchEmailNotification(userId, searchId) {
+  try {
+    logger.info('Preparing to send empty search email notification', { userId, searchId });
+    
+    // Get search parameters to include in the email
+    let searchParams = [];
+    let searchTerms = {};
+    
+    // If we have a searchId, get the search parameters
+    if (searchId) {
+      const searchDoc = await db.collection('users').doc(userId).collection('searchQueries').doc(searchId).get();
+      if (searchDoc.exists) {
+        const data = searchDoc.data();
+        searchParams = data.searchParams || [];
+        
+        // Extract search terms for the email (from the first search param)
+        if (searchParams.length > 0) {
+          searchTerms = {
+            keyword: searchParams[0].keyword || '',
+            location: searchParams[0].location || '',
+            country: searchParams[0].country || '',
+            remote: searchParams[0].remote || '',
+            experience_level: searchParams[0].experience_level || '',
+            job_type: searchParams[0].job_type || '',
+            time_range: searchParams[0].time_range || ''
+          };
+        }
+      }
+    }
+    
+    // Get user information
+    const userDoc = await db.collection('users').doc(userId).get();
+    const userData = userDoc.exists ? userDoc.data() : {};
+    const userEmail = userData.email || null;
+    
+    // Add logging to check email retrieval
+    logger.info('User email retrieval for empty search notification', { 
+      userId, 
+      emailFound: Boolean(userEmail),
+      emailValue: userEmail || 'Not found',
+      hasSearchTerms: Object.keys(searchTerms).length > 0
+    });
+    
+    // Determine the proper search URL based on environment
+    const config = require('../config');
+    let searchPageUrl;
+    
+    if (config.environment === 'production') {
+      searchPageUrl = 'https://www.foxjob.io/search';
+      logger.info('Using production search URL');
+    } else if (config.environment === 'staging') {
+      searchPageUrl = 'https://jobille-45494.web.app/list';
+      logger.info('Using staging search URL');
+    } else {
+      // Default for development
+      searchPageUrl = 'http://localhost:5000/list';
+      logger.info('Using development search URL');
+    }
+    
+    // Build the email content
+    const htmlContent = `
+      <h2>No Jobs Found For Your Search</h2>
+      <p>We couldn't find any jobs matching your search criteria. Here are a few suggestions:</p>
+      <ul>
+        <li>Try broadening your search terms</li>
+        <li>Consider different locations or remote options</li>
+        <li>Remove some filters like experience level or job type</li>
+        <li>Try using more general keywords</li>
+      </ul>
+      
+      <h3>Your Search Details:</h3>
+      <p><strong>Keywords:</strong> ${searchTerms.keyword || 'N/A'}</p>
+      <p><strong>Location:</strong> ${searchTerms.location || 'N/A'}</p>
+      <p><strong>Country:</strong> ${searchTerms.country || 'N/A'}</p>
+      ${searchTerms.remote ? `<p><strong>Remote Option:</strong> ${searchTerms.remote}</p>` : ''}
+      ${searchTerms.experience_level ? `<p><strong>Experience Level:</strong> ${searchTerms.experience_level}</p>` : ''}
+      ${searchTerms.job_type ? `<p><strong>Job Type:</strong> ${searchTerms.job_type}</p>` : ''}
+      ${searchTerms.time_range ? `<p><strong>Posted Within:</strong> ${searchTerms.time_range}</p>` : ''}
+      
+      <p>You can <a href="${searchPageUrl}">modify your search</a> and try again.</p>
+    `;
+    
+    const textContent = `
+      No Jobs Found For Your Search
+      
+      We couldn't find any jobs matching your search criteria. Here are a few suggestions:
+      
+      - Try broadening your search terms
+      - Consider different locations or remote options
+      - Remove some filters like experience level or job type
+      - Try using more general keywords
+      
+      Your Search Details:
+      Keywords: ${searchTerms.keyword || 'N/A'}
+      Location: ${searchTerms.location || 'N/A'}
+      Country: ${searchTerms.country || 'N/A'}
+      ${searchTerms.remote ? `Remote Option: ${searchTerms.remote}` : ''}
+      ${searchTerms.experience_level ? `Experience Level: ${searchTerms.experience_level}` : ''}
+      ${searchTerms.job_type ? `Job Type: ${searchTerms.job_type}` : ''}
+      ${searchTerms.time_range ? `Posted Within: ${searchTerms.time_range}` : ''}
+      
+      You can modify your search and try again at: ${searchPageUrl}
+    `;
+    
+    // Create an email request document in Firestore to trigger the email processor
+    const emailRequestRef = db.collection('emailRequests').doc();
+    await emailRequestRef.set({
+      userId: userId,
+      to: userEmail,
+      subject: 'No Jobs Found - Try Broadening Your Search',
+      text: textContent,
+      html: htmlContent,
+      status: 'pending',
+      createdAt: FieldValue.serverTimestamp(),
+      searchId: searchId,
+      metadata: {
+        type: 'empty_search_notification',
+        searchParams: searchParams
+      }
+    });
+    
+    logger.info('Empty search email request created', { 
+      userId, 
+      requestId: emailRequestRef.id,
+      recipientEmail: userEmail || 'NULL - fallback will be used'
+    });
+    
+    return true;
+  } catch (error) {
+    logger.error('Failed to create empty search email request', { 
+      userId, 
+      searchId,
+      error: error.message,
+      stack: error.stack 
+    });
+    return false;
+  }
+}
