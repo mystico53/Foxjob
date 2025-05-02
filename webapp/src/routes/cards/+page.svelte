@@ -4,6 +4,7 @@
     import { signOut } from 'firebase/auth';
     import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
     import { goto } from '$app/navigation';
+    import { toastStore } from '$app/stores';
 
     let user = null;
     let jobData = [];
@@ -196,6 +197,45 @@ async function fetchJobData() {
     function openJobLink(url) {
         if (url) {
             window.open(url, '_blank');
+        }
+    }
+
+    // Function to delete all jobs
+    async function deleteAllJobs() {
+        if (!confirm('Are you sure you want to delete all jobs? This action cannot be undone.')) {
+            return;
+        }
+        
+        deleting = true;
+        try {
+            const batch = writeBatch(db);
+            
+            // Get all job documents for the current user
+            const jobsRef = collection(db, 'users', user.uid, 'jobs');
+            const jobsSnapshot = await getDocs(jobsRef);
+            
+            // Add delete operations to batch
+            jobsSnapshot.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+            
+            // Commit the batch
+            await batch.commit();
+            
+            // Update the UI
+            jobData = [];
+            toastStore.trigger({
+                message: 'All jobs have been deleted',
+                background: 'variant-filled-success'
+            });
+        } catch (err) {
+            console.error('Error deleting jobs:', err);
+            toastStore.trigger({
+                message: 'Error deleting jobs: ' + err.message,
+                background: 'variant-filled-error'
+            });
+        } finally {
+            deleting = false;
         }
     }
 </script>

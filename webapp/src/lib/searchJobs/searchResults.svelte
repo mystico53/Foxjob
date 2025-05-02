@@ -855,18 +855,6 @@
         flex: 1;
     }
 
-    .verdict span {
-        font-weight: 500;
-        color: #495057;
-        display: block;
-        margin-bottom: 0.5rem;
-    }
-
-    .verdict p {
-        margin: 0;
-        color: #2c3e50;
-    }
-
     @media (max-width: 768px) {
         .evaluators-grid {
             grid-template-columns: repeat(2, 1fr);

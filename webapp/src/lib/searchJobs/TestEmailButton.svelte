@@ -183,10 +183,24 @@
   <h2 style="font-family: 'Lalezar', cursive; background: linear-gradient(to right, #fd5440 0%, #ff9c00 100%); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 32px;">Foxjob Email Test</h2>
   
   <div class="tabs">
-      <div class="tab {!showPreview ? 'active' : ''}" on:click={() => showPreview = false}>
+      <div 
+          class="tab {!showPreview ? 'active' : ''}" 
+          on:click={() => showPreview = false}
+          on:keydown={e => e.key === 'Enter' && (showPreview = false)}
+          role="tab"
+          tabindex="0"
+          aria-selected={!showPreview}
+      >
           Configuration
       </div>
-      <div class="tab {showPreview ? 'active' : ''}" on:click={() => showPreview = true}>
+      <div 
+          class="tab {showPreview ? 'active' : ''}" 
+          on:click={() => showPreview = true}
+          on:keydown={e => e.key === 'Enter' && (showPreview = true)}
+          role="tab" 
+          tabindex="0"
+          aria-selected={showPreview}
+      >
           Preview
       </div>
   </div>
@@ -497,25 +511,6 @@
       background-color: #f8f9fa;
       height: 600px;
       overflow: hidden;
-  }
-  
-  iframe {
-      width: 100%;
-      height: 100%;
-      border: none;
-  }
-  
-  iframe.desktop {
-      width: 100%;
-  }
-  
-  iframe.mobile {
-      width: 375px;
-      margin: 0 auto;
-      display: block;
-      border-left: 1px solid #ddd;
-      border-right: 1px solid #ddd;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
   }
   
   .preview-frame.mobile {
