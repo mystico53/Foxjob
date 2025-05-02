@@ -405,7 +405,8 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
             remote: searchParams[0].remote || '',
             experience_level: searchParams[0].experience_level || '',
             job_type: searchParams[0].job_type || '',
-            time_range: searchParams[0].time_range || ''
+            time_range: searchParams[0].time_range || '',
+            includeSimilarRoles: searchParams[0].includeSimilarRoles || false
           };
         }
       }
@@ -449,6 +450,7 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
         <li>Consider different locations or remote options</li>
         <li>Remove some filters like experience level or job type</li>
         <li>Try using more general keywords</li>
+        ${!searchTerms.includeSimilarRoles ? '<li><strong>Try enabling "Fuzzy Match" in Advanced Options</strong> for broader job title matching</li>' : ''}
       </ul>
       
       <h3>Your Search Details:</h3>
@@ -459,6 +461,7 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
       ${searchTerms.experience_level ? `<p><strong>Experience Level:</strong> ${searchTerms.experience_level}</p>` : ''}
       ${searchTerms.job_type ? `<p><strong>Job Type:</strong> ${searchTerms.job_type}</p>` : ''}
       ${searchTerms.time_range ? `<p><strong>Posted Within:</strong> ${searchTerms.time_range}</p>` : ''}
+      <p><strong>Fuzzy Match:</strong> ${searchTerms.includeSimilarRoles ? 'Enabled' : 'Disabled'}</p>
       
       <p>You can <a href="${searchPageUrl}">modify your search</a> and try again.</p>
     `;
@@ -472,6 +475,7 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
       - Consider different locations or remote options
       - Remove some filters like experience level or job type
       - Try using more general keywords
+      ${!searchTerms.includeSimilarRoles ? '- Try enabling "Fuzzy Match" in Advanced Options for broader job title matching' : ''}
       
       Your Search Details:
       Keywords: ${searchTerms.keyword || 'N/A'}
@@ -481,6 +485,7 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
       ${searchTerms.experience_level ? `Experience Level: ${searchTerms.experience_level}` : ''}
       ${searchTerms.job_type ? `Job Type: ${searchTerms.job_type}` : ''}
       ${searchTerms.time_range ? `Posted Within: ${searchTerms.time_range}` : ''}
+      Fuzzy Match: ${searchTerms.includeSimilarRoles ? 'Enabled' : 'Disabled'}
       
       You can modify your search and try again at: ${searchPageUrl}
     `;
