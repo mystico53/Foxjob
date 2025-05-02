@@ -225,7 +225,7 @@ exports.searchBright = onRequest({
       const search = searchParams[0];
       
       const requestData = {
-        keyword: `"${search.keyword}"`,
+        keyword: search.includeSimilarRoles ? search.keyword : `"${search.keyword}"`,
         location: search.location,
         country: search.country,
         time_range: search.time_range,
@@ -242,7 +242,8 @@ exports.searchBright = onRequest({
           searchParams,
           requestData, // The cleaned data for BrightData
           limit,
-          deliveryTime: schedule?.deliveryTime
+          deliveryTime: schedule?.deliveryTime,
+          includeSimilarRoles: search.includeSimilarRoles // Log the includeSimilarRoles flag
         }, null, 2)
       );
       

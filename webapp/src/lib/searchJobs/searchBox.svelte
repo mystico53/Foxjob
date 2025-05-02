@@ -265,6 +265,7 @@
   let datePosted = 'Past 24 hours'; // Default to 24 hours
   let country = 'US';
   let limitPerInput = '10'; // Changed default to string value "10"
+  let includeSimilarRoles = false; // New state variable for similar roles checkbox
 
   // Add time options for when to receive results - SIMPLIFIED TO 3 OPTIONS
   const timeOptions = [
@@ -294,6 +295,7 @@
     country = searchParam.country || 'US';
     jobType = searchParam.job_type || '';
     experience = searchParam.experience_level || '';
+    includeSimilarRoles = searchParam.includeSimilarRoles || false; // Set this from the search param
     
     // Set selected workplace type - the API accepts only one value
     if (searchParam.remote) {
@@ -375,6 +377,7 @@
     limitPerInput = '10';
     deliveryTime = '08:00';
     showAdvanced = false;
+    includeSimilarRoles = false; // Reset the checkbox
     
     // Reset preferences
     workPreferences = {
@@ -400,6 +403,7 @@
       limitPerInput = '10';
       deliveryTime = '08:00';
       showAdvanced = false;
+      includeSimilarRoles = false; // Reset the checkbox
       
       // Load current preferences
       loadWorkPreferences();
@@ -449,6 +453,7 @@
       job_type: jobType || '',
       experience_level: experience || '',
       remote: remoteValue, // Use only the first selected value
+      includeSimilarRoles: includeSimilarRoles // Add the new flag to the payload
     }];
 
     // Use the environment config to determine the correct URL
@@ -684,6 +689,22 @@
                         <option value={option.value}>{option.label}</option>
                       {/each}
                     </select>
+                  </div>
+                  
+                  <!-- Include Similar Roles Checkbox - renamed to Fuzzy Match -->
+                  <div class="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      id="includeSimilarRoles" 
+                      bind:checked={includeSimilarRoles}
+                      class="h-5 w-5 text-orange-500"
+                    />
+                    <label for="includeSimilarRoles" class="ml-2 block text-sm font-medium text-gray-700">
+                      Fuzzy Match
+                      <span class="ml-1 inline-block text-gray-500" title="Enables broader job title matching. May include less relevant results, so try exact search first for precision.">
+                        <iconify-icon icon="mdi:information-outline" width="16" height="16"></iconify-icon>
+                      </span>
+                    </label>
                   </div>
                 </div>
               {/if}
