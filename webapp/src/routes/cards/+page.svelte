@@ -4,7 +4,6 @@
     import { signOut } from 'firebase/auth';
     import { collection, getDocs, doc, updateDoc, deleteDoc, writeBatch } from 'firebase/firestore';
     import { goto } from '$app/navigation';
-    import { toastStore } from '$app/stores';
 
     let user = null;
     let jobData = [];
@@ -224,16 +223,9 @@ async function fetchJobData() {
             
             // Update the UI
             jobData = [];
-            toastStore.trigger({
-                message: 'All jobs have been deleted',
-                background: 'variant-filled-success'
-            });
+            console.log('All jobs have been deleted');
         } catch (err) {
             console.error('Error deleting jobs:', err);
-            toastStore.trigger({
-                message: 'Error deleting jobs: ' + err.message,
-                background: 'variant-filled-error'
-            });
         } finally {
             deleting = false;
         }

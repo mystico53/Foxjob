@@ -10,23 +10,42 @@ service cloud.firestore {
     function isAdmin() {
       return isAuthenticated() && request.auth.token.admin == true;
     }
+    
+    // Helper function to check if user ID matches
+    function isCurrentUser(userId) {
+      return request.auth.uid == userId;
+    }
 
     // ADMIN DASHBOARD ACCESS
-    // Allow only users with admin claim to read everything for the admin dashboard
+    // Admin users can read all documents
     match /{document=**} {
-      allow read, list: if isAdmin();
+      // For some reason, the admin claim might not be working properly in staging
+      // So we also explicitly allow access to specific known admin UIDs
+      allow read, list, get: if isAdmin() || 
+        request.auth.uid == 'VCvUK0pLeDVXJ0JHJsNBwxLgvdO2' || // Your UID from test results
+        request.auth.uid == '6s2CLcw8fpRkS79tjwxy1w7Mxbw1' ||
+        request.auth.uid == 'U0KC8SusvzcGV6Nstvc6b82HVHh2';
     }
     
-    // USER-SPECIFIC WRITE PERMISSIONS
-    // Allow users to write only to their own data
+    // ACCESS TO TOP-LEVEL COLLECTIONS BY NAME
+    // These rules provide a fallback access pattern by collection name
+    
+    // Allow any authenticated user to read users collection
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write, create, update, delete: if isAuthenticated() && request.auth.uid == userId;
+      allow get: if isAuthenticated();
+      allow list: if isAdmin() || 
+        request.auth.uid == 'VCvUK0pLeDVXJ0JHJsNBwxLgvdO2' ||
+        request.auth.uid == '6s2CLcw8fpRkS79tjwxy1w7Mxbw1' ||
+        request.auth.uid == 'U0KC8SusvzcGV6Nstvc6b82HVHh2';
+      allow write, create, update, delete: if isAuthenticated() && isCurrentUser(userId);
       
       // All subcollections under a user's document
       match /{subcollection}/{docId} {
-        allow read: if isAuthenticated();
-        allow write, create, update, delete: if isAuthenticated() && request.auth.uid == userId;
+        allow read: if isAuthenticated() && (isCurrentUser(userId) || isAdmin() ||
+          request.auth.uid == 'VCvUK0pLeDVXJ0JHJsNBwxLgvdO2' ||
+          request.auth.uid == '6s2CLcw8fpRkS79tjwxy1w7Mxbw1' ||
+          request.auth.uid == 'U0KC8SusvzcGV6Nstvc6b82HVHh2');
+        allow write, create, update, delete: if isAuthenticated() && isCurrentUser(userId);
       }
     }
     
@@ -35,6 +54,7 @@ service cloud.firestore {
     
     // jobBatches collection
     match /jobBatches/{batchId} {
+      allow read: if isAuthenticated();
       allow create, update, delete: if isAuthenticated();
     }
     

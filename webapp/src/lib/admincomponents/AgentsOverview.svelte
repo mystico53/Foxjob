@@ -1,7 +1,8 @@
 <!-- EnhancedAdminDashboard.svelte -->
 <script>
     import { onMount } from 'svelte';
-    import { collection, collectionGroup, query, orderBy, getDocs, getFirestore } from 'firebase/firestore';
+    import { collection, collectionGroup, query, orderBy, getDocs, getFirestore, doc, getDoc } from 'firebase/firestore';
+    import { auth } from '$lib/firebase';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
     import timezone from 'dayjs/plugin/timezone';
@@ -23,42 +24,133 @@
     let error = null;
     let selectedUser = null;
     let selectedQuery = null;
+    let collectionErrors = {};
+    let adminClaims = null;
     
     // Fetch all data on mount
     onMount(async () => {
       try {
         isLoading = true;
+        error = null;
         
-        // Fetch all users
-        const usersSnapshot = await getDocs(collection(db, 'users'));
-        users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // First check admin claims
+        if (!auth.currentUser) {
+          throw new Error('Not authenticated');
+        }
         
-        // Fetch all search queries
-        const queriesSnapshot = await getDocs(collectionGroup(db, 'searchQueries'));
-        searchQueries = queriesSnapshot.docs.map(doc => {
-          const path = doc.ref.path.split('/');
-          const userId = path[1]; // Extract userId from path
-          return {
-            id: doc.id,
-            userId,
-            path: doc.ref.path,
-            ...doc.data()
-          };
-        });
+        const idTokenResult = await auth.currentUser.getIdTokenResult();
+        adminClaims = idTokenResult.claims;
         
-        // Fetch all job batches
-        const batchesSnapshot = await getDocs(
-          query(collection(db, 'jobBatches'), orderBy('startedAt', 'desc'))
-        );
-        jobBatches = batchesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        if (!adminClaims.admin) {
+          throw new Error('User does not have admin claim');
+        }
+        
+        // Fetch data from each collection independently to isolate errors
+        await fetchUsers();
+        await fetchSearchQueries();
+        await fetchJobBatches();
         
         isLoading = false;
       } catch (err) {
-        console.error('Error fetching data:', err);
+        console.error('Error in dashboard initialization:', err);
         error = err.message;
         isLoading = false;
       }
     });
+    
+    // Fetch users collection
+    async function fetchUsers() {
+      try {
+        const usersSnapshot = await getDocs(collection(db, 'users'));
+        users = usersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log('Successfully fetched users:', users.length);
+      } catch (err) {
+        console.error('Error fetching users:', err);
+        collectionErrors['users'] = err.message;
+      }
+    }
+    
+    // Fetch search queries collection group
+    async function fetchSearchQueries() {
+      try {
+        // First try with collection group
+        try {
+          const queriesSnapshot = await getDocs(collectionGroup(db, 'searchQueries'));
+          searchQueries = queriesSnapshot.docs.map(doc => {
+            const path = doc.ref.path.split('/');
+            const userId = path[1]; // Extract userId from path
+            return {
+              id: doc.id,
+              userId,
+              path: doc.ref.path,
+              ...doc.data()
+            };
+          });
+        } catch (groupErr) {
+          console.error('Error with collection group query:', groupErr);
+          collectionErrors['searchQueries-group'] = groupErr.message;
+          
+          // If collection group fails, try fetching through users collection
+          searchQueries = [];
+          if (users.length > 0) {
+            for (const user of users) {
+              try {
+                const userQueriesSnapshot = await getDocs(collection(db, `users/${user.id}/searchQueries`));
+                const userQueries = userQueriesSnapshot.docs.map(doc => ({
+                  id: doc.id,
+                  userId: user.id,
+                  path: doc.ref.path,
+                  ...doc.data()
+                }));
+                searchQueries = [...searchQueries, ...userQueries];
+              } catch (userQueryErr) {
+                console.error(`Error fetching queries for user ${user.id}:`, userQueryErr);
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching search queries:', err);
+        collectionErrors['searchQueries'] = err.message;
+      }
+    }
+    
+    // Fetch job batches collection
+    async function fetchJobBatches() {
+      try {
+        const batchesSnapshot = await getDocs(
+          query(collection(db, 'jobBatches'), orderBy('startedAt', 'desc'))
+        );
+        jobBatches = batchesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      } catch (err) {
+        console.error('Error fetching job batches:', err);
+        collectionErrors['jobBatches'] = err.message;
+      }
+    }
+    
+    // Refresh all data
+    async function refreshData() {
+      isLoading = true;
+      error = null;
+      collectionErrors = {};
+      
+      try {
+        // Force token refresh
+        await auth.currentUser.getIdToken(true);
+        const idTokenResult = await auth.currentUser.getIdTokenResult();
+        adminClaims = idTokenResult.claims;
+        
+        // Refresh collections
+        await fetchUsers();
+        await fetchSearchQueries();
+        await fetchJobBatches();
+      } catch (err) {
+        console.error('Error refreshing data:', err);
+        error = err.message;
+      }
+      
+      isLoading = false;
+    }
     
     // Filter search queries by user ID
     $: userSearchQueries = selectedUser 
@@ -147,39 +239,87 @@
     }
   </script>
   
-  <main>
-    <h1>Admin Dashboard</h1>
+  <main class="container mx-auto p-4">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="h1">Admin Dashboard</h1>
+      <button class="btn variant-filled-primary" on:click={refreshData}>
+        Refresh Data
+      </button>
+    </div>
     
     {#if isLoading}
-      <div class="loading">Loading data...</div>
+      <div class="card p-4 my-4">Loading data...</div>
     {:else if error}
-      <div class="error">Error: {error}</div>
+      <div class="card variant-filled-error p-4 my-4">
+        <h2 class="h3">Error: {error}</h2>
+        <p>There was a problem loading the dashboard data. This may be due to insufficient permissions.</p>
+        
+        {#if adminClaims}
+          <div class="mt-4">
+            <h3 class="h4">Admin Claims</h3>
+            <pre class="text-sm bg-surface-200-700-token p-2 rounded">{JSON.stringify(adminClaims, null, 2)}</pre>
+          </div>
+        {/if}
+        
+        {#if Object.keys(collectionErrors).length > 0}
+          <div class="mt-4">
+            <h3 class="h4">Collection Errors</h3>
+            <div class="overflow-x-auto">
+              <table class="table table-compact w-full">
+                <thead>
+                  <tr>
+                    <th>Collection</th>
+                    <th>Error</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {#each Object.entries(collectionErrors) as [collection, errorMsg]}
+                    <tr>
+                      <td>{collection}</td>
+                      <td class="text-error-500">{errorMsg}</td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        {/if}
+      </div>
     {:else}
-      <div class="dashboard">
-        <!-- User selector -->
-        <div class="sidebar">
-          <h2>Users ({users.length})</h2>
-          <button on:click={viewAll}>View All</button>
-          <ul class="user-list">
-            {#each users as user}
-              <li class={selectedUser?.id === user.id ? 'selected' : ''}>
-                <button on:click={() => selectUser(user)}>
-                  {user.email || user.id}
+      <div class="grid gap-4">
+        <div class="card p-4">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="h2">Users ({users.length})</h2>
+            
+            <button class="btn btn-sm variant-filled" on:click={viewAll}>
+              View All
+            </button>
+          </div>
+          
+          {#if users.length > 0}
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
+              {#each users as user}
+                <button 
+                  class="btn {selectedUser?.id === user.id ? 'variant-filled-primary' : 'variant-soft'} 
+                         text-left justify-start h-auto py-2 truncate"
+                  on:click={() => selectUser(user)}
+                >
+                  <span class="block truncate">{user.email || user.id}</span>
                 </button>
-              </li>
-            {/each}
-          </ul>
+              {/each}
+            </div>
+          {/if}
         </div>
         
-        <div class="content">
-          <!-- Search queries section -->
-          <section class="queries">
-            <h2>
-              {selectedUser ? `Search Queries for ${selectedUser.email || selectedUser.id}` : 'All Search Queries'}
-              ({userSearchQueries.length})
-            </h2>
-            
-            <table>
+        <!-- Search queries section -->
+        <div class="card p-4">
+          <h2 class="h3 mb-4">
+            {selectedUser ? `Search Queries for ${selectedUser.email || selectedUser.id}` : 'All Search Queries'}
+            ({userSearchQueries.length})
+          </h2>
+          
+          <div class="overflow-x-auto">
+            <table class="table table-compact w-full">
               <thead>
                 <tr>
                   <th>ID</th>
@@ -194,7 +334,7 @@
               </thead>
               <tbody>
                 {#each userSearchQueries as query}
-                  <tr class={selectedQuery?.id === query.id ? 'selected-row' : ''}>
+                  <tr class={selectedQuery?.id === query.id ? 'bg-primary-500/20' : ''}>
                     <td title={query.id}>{query.id.substring(0, 8)}...</td>
                     <td>
                       {getKeyword(query.searchParams)}
@@ -203,11 +343,11 @@
                     <td>{formatDeliveryTime(query.deliveryTime)}</td>
                     <td>{formatDate(query.lastRun)}</td>
                     <td>{formatDate(query.nextRun)}</td>
-                    <td class={query.processingStatus === 'processing' ? 'processing' : ''}>
+                    <td class={query.processingStatus === 'processing' ? 'text-primary-500' : ''}>
                       {query.processingStatus || 'N/A'}
                     </td>
                     <td>
-                      <button on:click={() => selectQuery(query)}>
+                      <button class="btn btn-sm variant-soft" on:click={() => selectQuery(query)}>
                         {selectedQuery?.id === query.id ? 'Show All Batches' : 'Show Related Batches'}
                       </button>
                     </td>
@@ -215,22 +355,24 @@
                 {/each}
               </tbody>
             </table>
-          </section>
+          </div>
+        </div>
+        
+        <!-- Job batches section -->
+        <div class="card p-4">
+          <h2 class="h3 mb-4">
+            {#if selectedQuery}
+              Job Batches for Query "{getKeyword(selectedQuery.searchParams)}"
+            {:else if selectedUser}
+              All Job Batches for {selectedUser.email || selectedUser.id}
+            {:else}
+              All Job Batches
+            {/if}
+            ({filteredJobBatches.length})
+          </h2>
           
-          <!-- Job batches section -->
-          <section class="batches">
-            <h2>
-              {#if selectedQuery}
-                Job Batches for Query "{getKeyword(selectedQuery.searchParams)}"
-              {:else if selectedUser}
-                All Job Batches for {selectedUser.email || selectedUser.id}
-              {:else}
-                All Job Batches
-              {/if}
-              ({filteredJobBatches.length})
-            </h2>
-            
-            <table>
+          <div class="overflow-x-auto">
+            <table class="table table-compact w-full">
               <thead>
                 <tr>
                   <th>Batch ID</th>
@@ -250,7 +392,13 @@
                       {batch.searchQueryId ? batch.searchQueryId.substring(0, 8) + '...' : 'N/A'}
                     </td>
                     <td>{formatDate(batch.startedAt)}</td>
-                    <td class={batch.status}>{batch.status || 'N/A'}</td>
+                    <td class={
+                      batch.status === 'complete' ? 'text-success-500' : 
+                      batch.status === 'processing' ? 'text-primary-500' : 
+                      batch.status === 'timeout' ? 'text-error-500' : ''
+                    }>
+                      {batch.status || 'N/A'}
+                    </td>
                     <td>
                       {batch.completedJobs || 0} / {batch.totalJobs || 0}
                       ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
@@ -261,188 +409,49 @@
                 {/each}
               </tbody>
             </table>
-          </section>
+          </div>
+        </div>
+        
+        <!-- Statistics section -->
+        <div class="card p-4">
+          <h2 class="h3 mb-4">Summary Statistics</h2>
           
-          <!-- Add statistics section -->
-          <section class="stats">
-            <h2>Summary Statistics</h2>
-            
-            <div class="stat-cards">
-              <div class="stat-card">
-                <h3>Search Queries</h3>
-                <div class="stat-value">{userSearchQueries.length}</div>
-                <div class="stat-breakdown">
-                  <div>Active: {userSearchQueries.filter(q => q.isActive).length}</div>
-                  <div>Processing: {userSearchQueries.filter(q => q.processingStatus === 'processing').length}</div>
-                </div>
-              </div>
-              
-              <div class="stat-card">
-                <h3>Job Batches</h3>
-                <div class="stat-value">{userJobBatches.length}</div>
-                <div class="stat-breakdown">
-                  <div>Complete: {userJobBatches.filter(b => b.status === 'complete').length}</div>
-                  <div>Processing: {userJobBatches.filter(b => b.status === 'processing').length}</div>
-                  <div>Timeout: {userJobBatches.filter(b => b.status === 'timeout').length}</div>
-                </div>
-              </div>
-              
-              <div class="stat-card">
-                <h3>Jobs</h3>
-                <div class="stat-value">
-                  {userJobBatches.reduce((sum, batch) => sum + (batch.totalJobs || 0), 0)}
-                </div>
-                <div class="stat-breakdown">
-                  <div>Processed: {userJobBatches.reduce((sum, batch) => sum + (batch.completedJobs || 0), 0)}</div>
-                  <div>Average per Batch: {
-                    userJobBatches.length 
-                      ? Math.round(userJobBatches.reduce((sum, batch) => sum + (batch.totalJobs || 0), 0) / userJobBatches.length) 
-                      : 0
-                  }</div>
-                </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div class="card p-4 variant-soft">
+              <h3 class="h4 mb-2">Search Queries</h3>
+              <div class="text-4xl font-bold mb-2">{userSearchQueries.length}</div>
+              <div class="grid grid-cols-2 gap-2 text-sm">
+                <div>Active: {userSearchQueries.filter(q => q.isActive).length}</div>
+                <div>Processing: {userSearchQueries.filter(q => q.processingStatus === 'processing').length}</div>
               </div>
             </div>
-          </section>
+            
+            <div class="card p-4 variant-soft">
+              <h3 class="h4 mb-2">Job Batches</h3>
+              <div class="text-4xl font-bold mb-2">{userJobBatches.length}</div>
+              <div class="grid grid-cols-3 gap-2 text-sm">
+                <div>Complete: {userJobBatches.filter(b => b.status === 'complete').length}</div>
+                <div>Processing: {userJobBatches.filter(b => b.status === 'processing').length}</div>
+                <div>Timeout: {userJobBatches.filter(b => b.status === 'timeout').length}</div>
+              </div>
+            </div>
+            
+            <div class="card p-4 variant-soft">
+              <h3 class="h4 mb-2">Jobs</h3>
+              <div class="text-4xl font-bold mb-2">
+                {userJobBatches.reduce((sum, batch) => sum + (batch.totalJobs || 0), 0)}
+              </div>
+              <div class="grid grid-cols-2 gap-2 text-sm">
+                <div>Processed: {userJobBatches.reduce((sum, batch) => sum + (batch.completedJobs || 0), 0)}</div>
+                <div>Average per Batch: {
+                  userJobBatches.length 
+                    ? Math.round(userJobBatches.reduce((sum, batch) => sum + (batch.totalJobs || 0), 0) / userJobBatches.length) 
+                    : 0
+                }</div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     {/if}
   </main>
-  
-  <style>
-    main {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      padding: 1rem;
-    }
-    
-    .loading, .error {
-      text-align: center;
-      margin: 2rem 0;
-      font-size: 1.2rem;
-    }
-    
-    .error {
-      color: #e74c3c;
-    }
-    
-    .dashboard {
-      display: flex;
-      gap: 2rem;
-    }
-    
-    .sidebar {
-      flex: 0 0 250px;
-      border-right: 1px solid #ddd;
-      padding-right: 1rem;
-    }
-    
-    .content {
-      flex: 1;
-    }
-    
-    section {
-      margin-bottom: 2rem;
-    }
-    
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 1rem;
-    }
-    
-    th, td {
-      padding: 8px 12px;
-      text-align: left;
-      border-bottom: 1px solid #ddd;
-    }
-    
-    th {
-      background-color: #f5f5f5;
-      font-weight: 600;
-    }
-    
-    tr:hover {
-      background-color: #f9f9f9;
-    }
-    
-    .selected-row {
-      background-color: #e0f2fe;
-    }
-    
-    .selected-row:hover {
-      background-color: #d0e8fb;
-    }
-    
-    .user-list {
-      list-style: none;
-      padding: 0;
-      margin: 1rem 0;
-    }
-    
-    .user-list li {
-      margin-bottom: 0.5rem;
-    }
-    
-    .user-list button {
-      width: 100%;
-      text-align: left;
-      background: none;
-      border: none;
-      padding: 0.5rem;
-      cursor: pointer;
-      border-radius: 4px;
-    }
-    
-    .user-list .selected button {
-      background-color: #e0f2fe;
-      font-weight: bold;
-    }
-    
-    .user-list button:hover {
-      background-color: #f0f0f0;
-    }
-    
-    /* Status styling */
-    .processing {
-      color: #3498db;
-    }
-    
-    .complete {
-      color: #2ecc71;
-    }
-    
-    .timeout {
-      color: #e74c3c;
-    }
-    
-    /* Stats section */
-    .stat-cards {
-      display: flex;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-    
-    .stat-card {
-      flex: 1;
-      padding: 1rem;
-      border-radius: 8px;
-      background-color: #f8f9fa;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    .stat-card h3 {
-      margin-top: 0;
-      margin-bottom: 0.5rem;
-      color: #555;
-    }
-    
-    .stat-value {
-      font-size: 2rem;
-      font-weight: bold;
-      margin-bottom: 0.5rem;
-    }
-    
-    .stat-breakdown {
-      color: #666;
-      font-size: 0.9rem;
-    }
-  </style>
