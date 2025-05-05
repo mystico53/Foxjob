@@ -1,71 +1,66 @@
 {
-  "hosting": [{
-    "target": "staging",
-    "public": "build",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ],
-    "predeploy": []
-  }, {
-    "target": "prod",
-    "public": "build",
-    "ignore": [
-      "firebase.json",
-      "**/.*",
-      "**/node_modules/**"
-    ],
-    "rewrites": [
-      {
-        "source": "**",
-        "destination": "/index.html"
-      }
-    ],
-    "predeploy": []
-  }],
-  "functions": [
-    {
-      "source": "functions",
-      "codebase": "default",
-      "ignore": [],
-      "predeploy": []
-    }
-  ],
-  "emulators": {
-    "auth": {
-      "port": 9099,
-      "host": "localhost"
-    },
-    "functions": {
-      "port": 5001,
-      "host": "localhost"
-    },
-    "firestore": {
-      "port": 8080,
-      "host": "localhost"
-    },
-    "hosting": {
-      "port": 5000,
-      "host": "localhost"
-    },
-    "pubsub": {
-      "port": 8085,
-      "host": "localhost"
-    },
-    "ui": {
-      "enabled": true,
-      "port": 4000
-    }
-  },
-  "firestore": {
-    "rules": "firestore.rules",
-    "indexes": "firestore.indexes.json"
-  }
+	"hosting": [
+		{
+			"target": "staging",
+			"public": "dist",
+			"ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+			"rewrites": [
+				{
+					"source": "**",
+					"destination": "/index.html"
+				}
+			],
+			"predeploy": []
+		},
+		{
+			"target": "prod",
+			"public": "dist",
+			"ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+			"rewrites": [
+				{
+					"source": "**",
+					"destination": "/index.html"
+				}
+			],
+			"predeploy": []
+		}
+	],
+	"functions": [
+		{
+			"source": "functions",
+			"codebase": "default",
+			"ignore": [],
+			"predeploy": []
+		}
+	],
+	"emulators": {
+		"auth": {
+			"port": 9099,
+			"host": "localhost"
+		},
+		"functions": {
+			"port": 5001,
+			"host": "localhost"
+		},
+		"firestore": {
+			"port": 8080,
+			"host": "localhost"
+		},
+		"hosting": {
+			"port": 5000,
+			"host": "localhost"
+		},
+		"pubsub": {
+			"port": 8085,
+			"host": "localhost"
+		},
+		"ui": {
+			"enabled": true,
+			"port": 4000
+		}
+	},
+	"firestore": {
+		"rules": "firestore.rules",
+		"indexes": "firestore.indexes.json"
+	}
 }

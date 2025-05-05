@@ -47,11 +47,23 @@
       dispatch('select', query);
     }
   }
+  
+  // Handle keyboard events
+  function handleKeyDown(e) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      handleCardClick();
+      e.preventDefault();
+    }
+  }
 </script>
 
 <div class="card p-4 bg-white shadow-sm mb-3 rounded-lg hover:bg-gray-50 transition-colors" 
     on:click={handleCardClick} 
-    class:cursor-pointer={!expanded}>
+    on:keydown={handleKeyDown} 
+    class:cursor-pointer={!expanded}
+    role="button"
+    tabindex="0"
+    aria-expanded={expanded}>
   <div class="flex justify-between items-start">
     <div class="flex-1">
       <!-- Header with ID and Status Badge -->
@@ -153,7 +165,8 @@
   
   <!-- Expandable Preferences Section -->
   {#if expanded && hasPreferences}
-    <div class="mt-3 pt-3 border-t border-blue-100 text-sm" on:click|stopPropagation>
+    <div class="mt-3 pt-3 border-t border-blue-100 text-sm"
+         aria-label="Preferences details">
       <div class="bg-blue-50 p-3 rounded-md">
         <!-- Preferences -->
         {#if workPreferences.preferences}
