@@ -8,6 +8,7 @@
     import timezone from 'dayjs/plugin/timezone';
     import localizedFormat from 'dayjs/plugin/localizedFormat';
     import BatchJobsList from '$lib/admincomponents/BatchJobsList.svelte';
+    import SearchQueryCard from '$lib/admincomponents/SearchQueryCard.svelte';
     
     // Initialize dayjs plugins
     dayjs.extend(utc);
@@ -88,6 +89,10 @@
               ...doc.data()
             };
           });
+          
+          // After fetching queries, fetch work preferences for each one
+          await fetchWorkPreferences();
+          
         } catch (groupErr) {
           console.error('Error with collection group query:', groupErr);
           collectionErrors['searchQueries-group'] = groupErr.message;
@@ -109,11 +114,47 @@
                 console.error(`Error fetching queries for user ${user.id}:`, userQueryErr);
               }
             }
+            
+            // After fetching queries this way, fetch work preferences
+            await fetchWorkPreferences();
           }
         }
       } catch (err) {
         console.error('Error fetching search queries:', err);
         collectionErrors['searchQueries'] = err.message;
+      }
+    }
+    
+    // Fetch work preferences for all users with search queries
+    async function fetchWorkPreferences() {
+      // Create a Set of unique user IDs to avoid duplicate fetches
+      const userIds = new Set(searchQueries.map(query => query.userId));
+      
+      for (const userId of userIds) {
+        try {
+          const prefDocRef = doc(db, 'users', userId, 'UserCollections', 'work_preferences');
+          const prefSnap = await getDoc(prefDocRef);
+          
+          if (prefSnap.exists()) {
+            const prefData = prefSnap.data();
+            
+            // Update all queries for this user with their preferences
+            searchQueries = searchQueries.map(query => {
+              if (query.userId === userId) {
+                return {
+                  ...query,
+                  workPreferences: {
+                    preferences: prefData.preferences || null,
+                    avoidance: prefData.avoidance || null
+                  }
+                };
+              }
+              return query;
+            });
+          }
+        } catch (err) {
+          console.error(`Error fetching work preferences for user ${userId}:`, err);
+        }
       }
     }
     
@@ -327,43 +368,16 @@
             ({userSearchQueries.length})
           </h2>
           
-          <div class="overflow-x-auto">
-            <table class="table table-compact w-full">
-              <thead>
-                <tr>
-                  <th>ID</th>
-                  <th>Search Keywords</th>
-                  <th>Frequency</th>
-                  <th>Delivery Time</th>
-                  <th>Last Run</th>
-                  <th>Next Run</th>
-                  <th>Status</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each userSearchQueries as query}
-                  <tr class={selectedQuery?.id === query.id ? 'bg-primary-500/20' : ''}>
-                    <td title={query.id}>{query.id.substring(0, 8)}...</td>
-                    <td>
-                      {getKeyword(query.searchParams)}
-                    </td>
-                    <td>{query.frequency || 'N/A'}</td>
-                    <td>{formatDeliveryTime(query.deliveryTime)}</td>
-                    <td>{formatDate(query.lastRun)}</td>
-                    <td>{formatDate(query.nextRun)}</td>
-                    <td class={query.processingStatus === 'processing' ? 'text-primary-500' : ''}>
-                      {query.processingStatus || 'N/A'}
-                    </td>
-                    <td>
-                      <button class="btn btn-sm variant-soft" on:click={() => selectQuery(query)}>
-                        {selectedQuery?.id === query.id ? 'Show All Batches' : 'Show Related Batches'}
-                      </button>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
+          <!-- Replace table with new card-based layout -->
+          <div class="space-y-3">
+            {#each userSearchQueries as query}
+              <div class="{selectedQuery?.id === query.id ? 'ring-2 ring-primary-500' : ''}">
+                <SearchQueryCard 
+                  {query} 
+                  on:select={(e) => selectQuery(e.detail)}
+                />
+              </div>
+            {/each}
           </div>
         </div>
         
