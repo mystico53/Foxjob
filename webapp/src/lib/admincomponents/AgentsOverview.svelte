@@ -7,6 +7,7 @@
     import utc from 'dayjs/plugin/utc';
     import timezone from 'dayjs/plugin/timezone';
     import localizedFormat from 'dayjs/plugin/localizedFormat';
+    import BatchJobsList from '$lib/admincomponents/BatchJobsList.svelte';
     
     // Initialize dayjs plugins
     dayjs.extend(utc);
@@ -24,6 +25,7 @@
     let error = null;
     let selectedUser = null;
     let selectedQuery = null;
+    let selectedBatch = null;
     let collectionErrors = {};
     let adminClaims = null;
     
@@ -217,17 +219,25 @@
     function selectUser(user) {
       selectedUser = user;
       selectedQuery = null; // Reset query selection
+      selectedBatch = null; // Reset batch selection
     }
     
     // Query selection handler
     function selectQuery(query) {
       selectedQuery = query === selectedQuery ? null : query; // Toggle selection
+      selectedBatch = null; // Reset batch selection
+    }
+    
+    // Batch selection handler
+    function selectBatch(batch) {
+      selectedBatch = batch === selectedBatch ? null : batch; // Toggle selection
     }
     
     // Reset all selections
     function viewAll() {
       selectedUser = null;
       selectedQuery = null;
+      selectedBatch = null;
     }
     
     // Get keyword from search params
@@ -357,58 +367,64 @@
           </div>
         </div>
         
-        <!-- Job batches section -->
-        <div class="card p-4">
-          <h2 class="h3 mb-4">
-            {#if selectedQuery}
-              Job Batches for Query "{getKeyword(selectedQuery.searchParams)}"
-            {:else if selectedUser}
-              All Job Batches for {selectedUser.email || selectedUser.id}
-            {:else}
-              All Job Batches
-            {/if}
-            ({filteredJobBatches.length})
-          </h2>
-          
-          <div class="overflow-x-auto">
-            <table class="table table-compact w-full">
-              <thead>
-                <tr>
-                  <th>Batch ID</th>
-                  <th>Search Query ID</th>
-                  <th>Started</th>
-                  <th>Status</th>
-                  <th>Progress</th>
-                  <th>Jobs</th>
-                  <th>Email Sent</th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each filteredJobBatches as batch}
+        <!-- Two-column layout for batches and jobs -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <!-- Job batches section (left column) -->
+          <div class="card p-4">
+            <h2 class="h3 mb-4">
+              {#if selectedQuery}
+                Job Batches for Query "{getKeyword(selectedQuery.searchParams)}"
+              {:else if selectedUser}
+                All Job Batches for {selectedUser.email || selectedUser.id}
+              {:else}
+                All Job Batches
+              {/if}
+              ({filteredJobBatches.length})
+            </h2>
+            
+            <div class="overflow-x-auto">
+              <table class="table table-compact w-full">
+                <thead>
                   <tr>
-                    <td title={batch.id}>{batch.id.substring(0, 8)}...</td>
-                    <td title={batch.searchQueryId}>
-                      {batch.searchQueryId ? batch.searchQueryId.substring(0, 8) + '...' : 'N/A'}
-                    </td>
-                    <td>{formatDate(batch.startedAt)}</td>
-                    <td class={
-                      batch.status === 'complete' ? 'text-success-500' : 
-                      batch.status === 'processing' ? 'text-primary-500' : 
-                      batch.status === 'timeout' ? 'text-error-500' : ''
-                    }>
-                      {batch.status || 'N/A'}
-                    </td>
-                    <td>
-                      {batch.completedJobs || 0} / {batch.totalJobs || 0}
-                      ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
-                    </td>
-                    <td>{batch.jobIds?.length || 0}</td>
-                    <td>{batch.emailSent ? 'Yes' : 'No'}</td>
+                    <th>Batch ID</th>
+                    <th>Started</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Jobs</th>
+                    <th>Actions</th>
                   </tr>
-                {/each}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {#each filteredJobBatches as batch}
+                    <tr class={selectedBatch?.id === batch.id ? 'bg-primary-500/20' : ''}>
+                      <td title={batch.id}>{batch.id.substring(0, 8)}...</td>
+                      <td>{formatDate(batch.startedAt)}</td>
+                      <td class={
+                        batch.status === 'complete' ? 'text-success-500' : 
+                        batch.status === 'processing' ? 'text-primary-500' : 
+                        batch.status === 'timeout' ? 'text-error-500' : ''
+                      }>
+                        {batch.status || 'N/A'}
+                      </td>
+                      <td>
+                        {batch.completedJobs || 0} / {batch.totalJobs || 0}
+                        ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
+                      </td>
+                      <td>{batch.jobIds?.length || 0}</td>
+                      <td>
+                        <button class="btn btn-sm variant-soft" on:click={() => selectBatch(batch)}>
+                          {selectedBatch?.id === batch.id ? 'Hide Jobs' : 'View Jobs'}
+                        </button>
+                      </td>
+                    </tr>
+                  {/each}
+                </tbody>
+              </table>
+            </div>
           </div>
+          
+          <!-- Jobs list section (right column) -->
+          <BatchJobsList selectedBatch={selectedBatch} userId={selectedUser?.id || selectedBatch?.userId} />
         </div>
       </div>
     {/if}
