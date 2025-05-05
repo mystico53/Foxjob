@@ -1,6 +1,5 @@
 <script>
     import { auth } from '$lib/firebase';
-    import UserTable from '$lib/admincomponents/UserTable.svelte';
     import AgentsOverview from '$lib/admincomponents/AgentsOverview.svelte';
 
     function handleLogout() {
@@ -18,13 +17,7 @@
         
         <div class="grid gap-4">
             <div class="card p-4">
-                <h2 class="h2">Agents Overview</h2>
                 <AgentsOverview />
-            </div> 
-            
-            <div class="card p-4">
-                <h2 class="h2">User Management</h2>
-                <UserTable />
             </div>
         </div>
     </div>

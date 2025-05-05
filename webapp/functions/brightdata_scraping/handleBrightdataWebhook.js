@@ -114,6 +114,54 @@ async function downloadSnapshot(snapshotId, authToken) {
   }
 }
 
+// Exponential backoff retry utility
+const retryOperation = async (operation, options = {}) => {
+  const { 
+    maxRetries = 3, 
+    initialDelay = 300, 
+    maxDelay = 3000, 
+    factor = 2,
+    operationName = 'operation'
+  } = options;
+  
+  let lastError;
+  let delay = initialDelay;
+  
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      
+      if (attempt <= maxRetries) {
+        // Apply jitter to avoid thundering herd
+        const jitter = Math.random() * 0.3 + 0.85; // 0.85-1.15
+        const backoffDelay = Math.min(delay * jitter, maxDelay);
+        
+        logger.warn(`${operationName} failed (attempt ${attempt}/${maxRetries + 1}), retrying in ${Math.round(backoffDelay)}ms`, { 
+          errorCode: error.code,
+          errorMessage: error.message?.substring(0, 150),
+          attempt
+        });
+        
+        // Wait before retrying
+        await new Promise(resolve => setTimeout(resolve, backoffDelay));
+        
+        // Exponential backoff
+        delay = delay * factor;
+      } else {
+        // Final failure, log details
+        logger.error(`${operationName} failed after ${maxRetries + 1} attempts`, {
+          errorCode: error.code,
+          errorMessage: error.message,
+          stack: error.stack?.substring(0, 500)
+        });
+        throw error;
+      }
+    }
+  }
+};
+
 async function processJobsAndPublish(jobs, userId, batchId) {
   const topic = pubsub.topic('job-embedding-requests');
   const batch = db.batch();
@@ -146,9 +194,24 @@ async function processJobsAndPublish(jobs, userId, batchId) {
     }
   }
   
-  // Commit batch to Firestore
+  // Commit batch to Firestore with retry logic
   try {
-    await batch.commit();
+    // Log batch size before committing
+    logger.info('Committing batch to Firestore', { 
+      batchSize: results.successful.length,
+      userId,
+      batchId: batchId || 'undefined' 
+    });
+    
+    await retryOperation(
+      () => batch.commit(), 
+      { 
+        operationName: 'Firestore batch commit',
+        maxRetries: 3,
+        initialDelay: 500
+      }
+    );
+    
     results.processed = results.successful.length;
     
     // Publish messages to PubSub - now including batchId
@@ -174,7 +237,7 @@ async function processJobsAndPublish(jobs, userId, batchId) {
     await Promise.all(pubsubPromises);
     return results;
   } catch (error) {
-    logger.error('Batch commit error:', error);
+    logger.error('Batch commit error after retries:', error);
     throw error;
   }
 }
@@ -355,7 +418,9 @@ exports.handleBrightdataWebhook = onRequest({
     
     // Process jobs from webhook body
     const jobs = Array.isArray(req.body) ? req.body : [req.body];
-    const results = await processJobsAndPublish(jobs, userId);
+    // Create a batchId for direct webhook case
+    const directBatchId = `direct_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+    const results = await processJobsAndPublish(jobs, userId, directBatchId);
     
     return res.json({
       success: true,

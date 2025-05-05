@@ -241,7 +241,6 @@
   
   <main class="container mx-auto p-4">
     <div class="flex justify-between items-center mb-4">
-      <h1 class="h1">Admin Dashboard</h1>
       <button class="btn variant-filled-primary" on:click={refreshData}>
         Refresh Data
       </button>
@@ -409,47 +408,6 @@
                 {/each}
               </tbody>
             </table>
-          </div>
-        </div>
-        
-        <!-- Statistics section -->
-        <div class="card p-4">
-          <h2 class="h3 mb-4">Summary Statistics</h2>
-          
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="card p-4 variant-soft">
-              <h3 class="h4 mb-2">Search Queries</h3>
-              <div class="text-4xl font-bold mb-2">{userSearchQueries.length}</div>
-              <div class="grid grid-cols-2 gap-2 text-sm">
-                <div>Active: {userSearchQueries.filter(q => q.isActive).length}</div>
-                <div>Processing: {userSearchQueries.filter(q => q.processingStatus === 'processing').length}</div>
-              </div>
-            </div>
-            
-            <div class="card p-4 variant-soft">
-              <h3 class="h4 mb-2">Job Batches</h3>
-              <div class="text-4xl font-bold mb-2">{userJobBatches.length}</div>
-              <div class="grid grid-cols-3 gap-2 text-sm">
-                <div>Complete: {userJobBatches.filter(b => b.status === 'complete').length}</div>
-                <div>Processing: {userJobBatches.filter(b => b.status === 'processing').length}</div>
-                <div>Timeout: {userJobBatches.filter(b => b.status === 'timeout').length}</div>
-              </div>
-            </div>
-            
-            <div class="card p-4 variant-soft">
-              <h3 class="h4 mb-2">Jobs</h3>
-              <div class="text-4xl font-bold mb-2">
-                {userJobBatches.reduce((sum, batch) => sum + (batch.totalJobs || 0), 0)}
-              </div>
-              <div class="grid grid-cols-2 gap-2 text-sm">
-                <div>Processed: {userJobBatches.reduce((sum, batch) => sum + (batch.completedJobs || 0), 0)}</div>
-                <div>Average per Batch: {
-                  userJobBatches.length 
-                    ? Math.round(userJobBatches.reduce((sum, batch) => sum + (batch.totalJobs || 0), 0) / userJobBatches.length) 
-                    : 0
-                }</div>
-              </div>
-            </div>
           </div>
         </div>
       </div>
