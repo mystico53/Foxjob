@@ -427,14 +427,6 @@
 		<div class="flex max-w-2xl flex-row flex-wrap">
 			<span
 				class="chip variant-ghost-surface text-base"
-				title={job.companyInfo?.industry || job.details?.jobFunction || 'N/A'}
-			>
-				<iconify-icon icon="solar:buildings-3-bold"></iconify-icon>
-				<span>{truncateText(job.companyInfo?.industry || job.details?.jobFunction)}</span>
-			</span>
-
-			<span
-				class="chip variant-ghost-surface text-base"
 				title={job.basicInfo?.location || job.jobInfo?.location || 'N/A'}
 			>
 				<iconify-icon icon="solar:pin-bold"></iconify-icon>
