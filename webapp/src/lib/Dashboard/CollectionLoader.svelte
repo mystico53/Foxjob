@@ -259,10 +259,6 @@
 			const timestamp = new Date();
 			setResumeStatus(true, currentFileName, timestamp, 'processing');
 			
-			// Reset work preferences status to pending since we uploaded a new resume
-			setQuestionsStatus('pending');
-			setQuestionsAvailable(false);
-			
 			uploadFeedback = `Uploading "${currentFileName}", please wait while processing...`;
 			uploadFeedbackColor = 'variant-filled-surface';
 			resumeUploaded = true;
