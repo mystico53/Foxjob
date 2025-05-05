@@ -479,21 +479,44 @@
 				<span class="font-bold">Your Gaps: </span>
 				{shortGaps}
 			</p>
-			{#if hasPreferenceScore}
-			<div class="mt-6 pt-2 border-t border-surface-300">
-				<p class="mb-2 text-base">
-					<span class="font-bold">Preference Match: </span>
-					<span class="text-primary-500 font-semibold">{preferenceScore}/100</span>
-				</p>
-				<p class="text-base italic">"{preferenceExplanation}"</p>
-			</div>
-			{/if}
 		</div>
 	</div>
 
+	<!-- Preference Match Card Section -->
+	{#if hasPreferenceScore}
+	<div class="card w-full p-4">
+		<h4 class="h4 mb-4 font-bold">Will you enjoy this job?</h4>
+		<Accordion>
+			<AccordionItem class="mb-2">
+				<svelte:fragment slot="summary">
+					<div class="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 w-full">
+						<div class="flex-1 mb-2 md:mb-0">{preferenceExplanation}</div>
+						<div class="w-full md:w-64">
+							<ProgressBar 
+								value={Math.round(preferenceScore)} 
+								max={100}
+								track="bg-surface-800/30"
+								meter="!bg-gradient-to-r from-[#FF9C00] to-[#DC3701]"
+							/>
+						</div>
+					</div>
+				</svelte:fragment>
+				<svelte:fragment slot="content">
+					<div class="rounded-lg space-y-4 p-4 bg-surface-100 border border-surface-300">
+						<div>
+							<span class="font-semibold">Preference Score:</span>
+							<p class="mt-1">{Math.round(preferenceScore)}/100</p>
+						</div>
+					</div>
+				</svelte:fragment>
+			</AccordionItem>
+		</Accordion>
+	</div>
+	{/if}
+
 	<!-- Updated Match Details Section with Accordion -->
 	<div class="card w-full p-4">
-		<h4 class="h4 mb-4 font-bold">Match Details</h4>
+		<h4 class="h4 mb-4 font-bold">Requirements Match</h4>
 		
 		{#if matchDetails.length > 0}
 			<Accordion>
