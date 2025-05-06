@@ -1,7 +1,7 @@
 <!-- EnhancedAdminDashboard.svelte -->
 <script>
     import { onMount } from 'svelte';
-    import { collection, collectionGroup, query, orderBy, getDocs, getFirestore, doc, getDoc } from 'firebase/firestore';
+    import { collection, collectionGroup, query, orderBy, getDocs, getFirestore, doc, getDoc, where } from 'firebase/firestore';
     import { auth } from '$lib/firebase';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
@@ -22,6 +22,7 @@
     let users = [];
     let searchQueries = [];
     let jobBatches = [];
+    let emailRequests = {};
     let isLoading = true;
     let error = null;
     let selectedUser = null;
@@ -52,6 +53,7 @@
         await fetchUsers();
         await fetchSearchQueries();
         await fetchJobBatches();
+        await fetchEmailRequests();
         
         isLoading = false;
       } catch (err) {
@@ -171,11 +173,54 @@
       }
     }
     
+    // Fetch email requests for all batches
+    async function fetchEmailRequests() {
+      try {
+        // Get all batch IDs
+        const batchIds = jobBatches.map(batch => batch.id);
+        
+        if (batchIds.length === 0) {
+          return;
+        }
+        
+        // Process in chunks of 10 to avoid query limitations
+        const chunkSize = 10;
+        for (let i = 0; i < batchIds.length; i += chunkSize) {
+          const batchIdsChunk = batchIds.slice(i, i + chunkSize);
+          
+          // Query emailRequests collection for matching batchId field
+          const emailRequestsQuery = query(
+            collection(db, 'emailRequests'),
+            where('batchId', 'in', batchIdsChunk)
+          );
+          
+          const emailSnapshot = await getDocs(emailRequestsQuery);
+          
+          // Store email requests by batchId for easy lookup
+          emailSnapshot.forEach(doc => {
+            const data = doc.data();
+            if (data.batchId) {
+              emailRequests[data.batchId] = {
+                id: doc.id,
+                ...data
+              };
+            }
+          });
+        }
+        
+        console.log('Fetched email requests:', Object.keys(emailRequests).length);
+      } catch (err) {
+        console.error('Error fetching email requests:', err);
+        collectionErrors['emailRequests'] = err.message;
+      }
+    }
+    
     // Refresh all data
     async function refreshData() {
       isLoading = true;
       error = null;
       collectionErrors = {};
+      emailRequests = {};
       
       try {
         // Force token refresh
@@ -187,6 +232,7 @@
         await fetchUsers();
         await fetchSearchQueries();
         await fetchJobBatches();
+        await fetchEmailRequests();
       } catch (err) {
         console.error('Error refreshing data:', err);
         error = err.message;
@@ -287,6 +333,58 @@
         return 'N/A';
       }
       return searchParams[0].keyword || 'N/A';
+    }
+    
+    // Get email status display for a batch
+    function getEmailStatus(batchId) {
+      const emailData = emailRequests[batchId];
+      if (!emailData) {
+        return { text: 'No email', class: 'text-surface-400' };
+      }
+      
+      if (emailData.status === 'error') {
+        return { text: 'Error: ' + (emailData.error || 'Unknown'), class: 'text-error-500' };
+      }
+      
+      if (emailData.status === 'pending') {
+        return { text: 'Pending', class: 'text-primary-300' };
+      }
+      
+      // Track deliverability status
+      if (emailData.bounced) {
+        return { text: 'Bounced', class: 'text-error-500' };
+      }
+      
+      if (emailData.dropped) {
+        return { text: 'Dropped', class: 'text-error-500' };
+      }
+      
+      if (emailData.delivered) {
+        // If delivered, check engagement
+        if (emailData.opened) {
+          if (emailData.clicked) {
+            return { 
+              text: `Opened (${emailData.openCount || 1}), Clicked (${emailData.clickCount || 1})`, 
+              class: 'text-success-500 font-semibold'
+            };
+          }
+          return { 
+            text: `Opened (${emailData.openCount || 1})`, 
+            class: 'text-success-500'
+          };
+        }
+        return { text: 'Delivered', class: 'text-success-300' };
+      }
+      
+      if (emailData.deferred) {
+        return { text: 'Deferred', class: 'text-warning-500' };
+      }
+      
+      if (emailData.processed) {
+        return { text: 'Processed', class: 'text-primary-500' };
+      }
+      
+      return { text: emailData.status || 'Unknown', class: 'text-surface-400' };
     }
   </script>
   
@@ -405,11 +503,13 @@
                     <th>Status</th>
                     <th>Progress</th>
                     <th>Jobs</th>
+                    <th>Email Status</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
                   {#each filteredJobBatches as batch}
+                    {@const emailStatus = getEmailStatus(batch.id)}
                     <tr class={selectedBatch?.id === batch.id ? 'bg-primary-500/20' : ''}>
                       <td title={batch.id}>{batch.id.substring(0, 8)}...</td>
                       <td>{formatDate(batch.startedAt)}</td>
@@ -425,6 +525,7 @@
                         ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
                       </td>
                       <td>{batch.jobIds?.length || 0}</td>
+                      <td class={emailStatus.class}>{emailStatus.text}</td>
                       <td>
                         <button class="btn btn-sm variant-soft" on:click={() => selectBatch(batch)}>
                           {selectedBatch?.id === batch.id ? 'Hide Jobs' : 'View Jobs'}

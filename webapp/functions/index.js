@@ -82,6 +82,7 @@ const { onBatchUpdate, processStaleJobBatches } = require('./brightdata_scraping
 const { processEmailRequests } = require('./brightdata_scraping/emailProcessor.js');
 const { preferenceMatch } = require('./matchpipeline/preferenceMatch.js');
 const { preferenceMatchTest } = require('./matchpipeline/preferenceMatchTest.js');
+const { trackEmailOpens } = require('./brightdata_scraping/emailTracker.js');
 
 
 logger.info("Application configuration loaded:", { 
@@ -134,3 +135,4 @@ exports.processStaleJobBatches = processStaleJobBatches;
 exports.processEmailRequests = processEmailRequests;
 exports.preferenceMatch = preferenceMatch;
 exports.preferenceMatchTest = preferenceMatchTest;
+exports.trackEmailOpens = trackEmailOpens;

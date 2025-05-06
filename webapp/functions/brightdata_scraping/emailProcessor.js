@@ -24,11 +24,12 @@ exports.processEmailRequests = onDocumentCreated({
   secrets: [sendgridApiKey]
 }, async (event) => {
     const emailData = event.data.data();
+    const requestId = event.params.requestId;
     
     // Skip if already processed
     if (emailData.status !== 'pending') {
       logger.info('Skipping non-pending email request', { 
-        requestId: event.params.requestId,
+        requestId: requestId,
         status: emailData.status
       });
       return;
@@ -36,7 +37,7 @@ exports.processEmailRequests = onDocumentCreated({
     
     try {
       logger.info('Processing email request', { 
-        requestId: event.params.requestId,
+        requestId: requestId,
         userId: emailData.userId 
       });
       
@@ -198,32 +199,69 @@ exports.processEmailRequests = onDocumentCreated({
       const originalHtml = emailData.html || '<p>This is an email from Foxjob.</p>';
       const originalText = emailData.text || 'This is an email from Foxjob.';
       
+      // Add invisible tracking pixel to the email
+      const trackingPixel = `<img src="https://foxjob.io/track-email/${requestId}.png" width="1" height="1" alt="" style="display:none">`;
+      
       // Construct the final email content
-      const finalHtml = originalHtml + jobsHtml;
+      const finalHtml = originalHtml + jobsHtml + trackingPixel;
       const finalText = originalText + jobsText;
       
       logger.info('Email content prepared. Jobs data added:', jobsHtml.length > 0 ? 'Yes' : 'No');
       
-      // Construct the message with jobs appended
+      // Construct the message with jobs appended and tracking parameters
       const msg = {
         to: emailData.to || 'konkaiser@gmail.com',
         from: 'jobs@em6330.www.foxjob.io',
         subject: emailData.subject || 'Email from Foxjob',
         text: finalText,
         html: finalHtml,
+        trackingSettings: {
+          openTracking: {
+            enable: true
+          }
+        },
+        customArgs: {
+          requestId: requestId,
+          batchId: emailData.batchId || null // Include batchId in custom args if available
+        }
       };
       
       logger.info('Sending email to:', msg.to);
       
       // Send the email
       await sgMail.send(msg);
-      logger.info('Email sent successfully', { requestId: event.params.requestId });
+      logger.info('Email sent successfully', { requestId: requestId });
       
       // Update status
-      await event.data.ref.update({
+      const updateData = {
         status: 'sent',
-        sentAt: FieldValue.serverTimestamp()
-      });
+        sentAt: FieldValue.serverTimestamp(),
+        
+        // Store the batchId if it exists in the email data
+        ...(emailData.batchId && { batchId: emailData.batchId }),
+        
+        // Initialize tracking fields
+        // Engagement tracking
+        opened: false,
+        openCount: 0,
+        clicked: false,
+        clickCount: 0,
+        unsubscribed: false,
+        spamReported: false,
+        groupUnsubscribed: false,
+        groupResubscribed: false,
+        
+        // Delivery tracking
+        deliveryStatus: 'processed',
+        processed: true,
+        processedAt: FieldValue.serverTimestamp(),
+        delivered: false,
+        dropped: false,
+        deferred: false,
+        bounced: false
+      };
+      
+      await event.data.ref.update(updateData);
     } catch (error) {
       logger.error('Error sending email:', error);
       
