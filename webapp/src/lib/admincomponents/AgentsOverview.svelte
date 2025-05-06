@@ -1,7 +1,8 @@
 <!-- EnhancedAdminDashboard.svelte -->
 <script>
     import { onMount } from 'svelte';
-    import { collection, collectionGroup, query, orderBy, getDocs, getFirestore, doc, getDoc, where } from 'firebase/firestore';
+    import { collection, collectionGroup, query, orderBy, getDocs, getFirestore, doc, getDoc, where, setDoc, updateDoc } from 'firebase/firestore';
+    import { getFunctions, httpsCallable } from 'firebase/functions';
     import { auth } from '$lib/firebase';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
@@ -30,6 +31,10 @@
     let selectedBatch = null;
     let collectionErrors = {};
     let adminClaims = null;
+    
+    // Add this near the top of your script tag
+    const functions = getFunctions();
+    const fixMissingEmailRequestsFunction = httpsCallable(functions, 'fixMissingEmailRequests');
     
     // Fetch all data on mount
     onMount(async () => {
@@ -176,39 +181,118 @@
     // Fetch email requests for all batches
     async function fetchEmailRequests() {
       try {
+        // Clear existing emailRequests
+        emailRequests = {};
+        
         // Get all batch IDs
         const batchIds = jobBatches.map(batch => batch.id);
         
         if (batchIds.length === 0) {
+          console.log('No batch IDs to fetch email requests for');
           return;
         }
         
-        // Process in chunks of 10 to avoid query limitations
-        const chunkSize = 10;
-        for (let i = 0; i < batchIds.length; i += chunkSize) {
-          const batchIdsChunk = batchIds.slice(i, i + chunkSize);
-          
-          // Query emailRequests collection for matching batchId field
-          const emailRequestsQuery = query(
-            collection(db, 'emailRequests'),
-            where('batchId', 'in', batchIdsChunk)
-          );
-          
-          const emailSnapshot = await getDocs(emailRequestsQuery);
-          
-          // Store email requests by batchId for easy lookup
-          emailSnapshot.forEach(doc => {
-            const data = doc.data();
-            if (data.batchId) {
-              emailRequests[data.batchId] = {
-                id: doc.id,
-                ...data
-              };
-            }
-          });
+        console.log(`Fetching email requests for ${batchIds.length} batches`);
+        
+        // Collect all email request IDs from batches first
+        const emailRequestIds = [];
+        const batchesToEmailMap = {};
+        
+        // Map of emailRequestId -> batchId for easy lookup
+        for (const batch of jobBatches) {
+          if (batch.emailRequestId) {
+            emailRequestIds.push(batch.emailRequestId);
+            batchesToEmailMap[batch.emailRequestId] = batch.id;
+          }
         }
         
-        console.log('Fetched email requests:', Object.keys(emailRequests).length);
+        // If we have email request IDs, fetch them all at once in batches
+        let directEmailRequestsFound = 0;
+        
+        if (emailRequestIds.length > 0) {
+          console.log(`Fetching ${emailRequestIds.length} email requests by direct ID lookup`);
+          
+          // Process in chunks to avoid query limitations
+          const chunkSize = 10;
+          for (let i = 0; i < emailRequestIds.length; i += chunkSize) {
+            const chunk = emailRequestIds.slice(i, i + chunkSize);
+            try {
+              const emailRequestsQuery = query(
+                collection(db, 'emailRequests'),
+                where(admin.firestore.FieldPath.documentId(), 'in', chunk)
+              );
+              
+              const emailsSnapshot = await getDocs(emailRequestsQuery);
+              
+              emailsSnapshot.forEach(doc => {
+                const batchId = batchesToEmailMap[doc.id];
+                if (batchId) {
+                  emailRequests[batchId] = {
+                    id: doc.id,
+                    ...doc.data()
+                  };
+                  directEmailRequestsFound++;
+                }
+              });
+            } catch (chunkErr) {
+              console.error(`Error fetching email request chunk ${i/chunkSize + 1}:`, chunkErr);
+            }
+          }
+          
+          console.log(`Found ${directEmailRequestsFound} email requests via ID lookup`);
+        }
+        
+        // For any remaining batches without matches, try searching by batchId field
+        const remainingBatchIds = jobBatches
+          .filter(batch => !emailRequests[batch.id] && batch.emailSent)
+          .map(batch => batch.id);
+        
+        if (remainingBatchIds.length > 0) {
+          console.log(`Searching for email requests by batchId field for ${remainingBatchIds.length} remaining batches`);
+          
+          // Process in chunks to avoid query limitations
+          const chunkSize = 10;
+          let batchIdMatchesFound = 0;
+          
+          for (let i = 0; i < remainingBatchIds.length; i += chunkSize) {
+            const batchIdsChunk = remainingBatchIds.slice(i, i + chunkSize);
+            
+            try {
+              // Query emailRequests collection for matching batchId field
+              const emailRequestsQuery = query(
+                collection(db, 'emailRequests'),
+                where('batchId', 'in', batchIdsChunk)
+              );
+              
+              const emailSnapshot = await getDocs(emailRequestsQuery);
+              
+              // Store email requests by batchId for easy lookup
+              emailSnapshot.forEach(doc => {
+                const data = doc.data();
+                if (data.batchId) {
+                  emailRequests[data.batchId] = {
+                    id: doc.id,
+                    ...data
+                  };
+                  batchIdMatchesFound++;
+                }
+              });
+            } catch (chunkErr) {
+              console.error(`Error fetching email requests by batchId chunk ${i/chunkSize + 1}:`, chunkErr);
+            }
+          }
+          
+          console.log(`Found ${batchIdMatchesFound} additional email requests via batchId field`);
+        }
+        
+        // Count how many batches have emailSent=true but no email request found
+        const missingEmails = jobBatches.filter(batch => 
+          batch.emailSent && !emailRequests[batch.id]
+        ).length;
+        
+        console.log(`Final email requests map has ${Object.keys(emailRequests).length} entries (${directEmailRequestsFound} via IDs)`);
+        console.log(`${missingEmails} batches still have emailSent=true but no email request was found`);
+        
       } catch (err) {
         console.error('Error fetching email requests:', err);
         collectionErrors['emailRequests'] = err.message;
@@ -339,24 +423,32 @@
     function getEmailStatus(batchId) {
       const emailData = emailRequests[batchId];
       if (!emailData) {
+        // Check if batch.emailSent is true even when no email request found
+        const batch = jobBatches.find(b => b.id === batchId);
+        if (batch && batch.emailSent === true) {
+          return { text: 'Email sent (ID unknown)', class: 'text-warning-500' };
+        }
         return { text: 'No email', class: 'text-surface-400' };
       }
       
+      // Include email request ID in all status returns
+      const emailIdPrefix = `ID: ${emailData.id ? emailData.id.substring(0, 8) : 'unknown'} - `;
+      
       if (emailData.status === 'error') {
-        return { text: 'Error: ' + (emailData.error || 'Unknown'), class: 'text-error-500' };
+        return { text: emailIdPrefix + 'Error: ' + (emailData.error || 'Unknown'), class: 'text-error-500' };
       }
       
       if (emailData.status === 'pending') {
-        return { text: 'Pending', class: 'text-primary-300' };
+        return { text: emailIdPrefix + 'Pending', class: 'text-primary-300' };
       }
       
       // Track deliverability status
       if (emailData.bounced) {
-        return { text: 'Bounced', class: 'text-error-500' };
+        return { text: emailIdPrefix + 'Bounced', class: 'text-error-500' };
       }
       
       if (emailData.dropped) {
-        return { text: 'Dropped', class: 'text-error-500' };
+        return { text: emailIdPrefix + 'Dropped', class: 'text-error-500' };
       }
       
       if (emailData.delivered) {
@@ -364,35 +456,96 @@
         if (emailData.opened) {
           if (emailData.clicked) {
             return { 
-              text: `Opened (${emailData.openCount || 1}), Clicked (${emailData.clickCount || 1})`, 
+              text: emailIdPrefix + `Opened (${emailData.openCount || 1}), Clicked (${emailData.clickCount || 1})`, 
               class: 'text-success-500 font-semibold'
             };
           }
           return { 
-            text: `Opened (${emailData.openCount || 1})`, 
+            text: emailIdPrefix + `Opened (${emailData.openCount || 1})`, 
             class: 'text-success-500'
           };
         }
-        return { text: 'Delivered', class: 'text-success-300' };
+        return { text: emailIdPrefix + 'Delivered', class: 'text-success-300' };
       }
       
       if (emailData.deferred) {
-        return { text: 'Deferred', class: 'text-warning-500' };
+        return { text: emailIdPrefix + 'Deferred', class: 'text-warning-500' };
       }
       
       if (emailData.processed) {
-        return { text: 'Processed', class: 'text-primary-500' };
+        return { text: emailIdPrefix + 'Processed', class: 'text-primary-500' };
       }
       
-      return { text: emailData.status || 'Unknown', class: 'text-surface-400' };
+      return { text: emailIdPrefix + (emailData.status || 'Unknown'), class: 'text-surface-400' };
+    }
+    
+    // Replace the existing fixMissingEmailRequests function with this updated version
+    async function fixMissingEmailRequests() {
+      if (!confirm('This will create email request records for all batches that have emailSent=true but no email request. Continue?')) {
+        return;
+      }
+      
+      // Count how many batches have this issue for user information 
+      const missingCount = jobBatches.filter(batch => 
+        batch.emailSent && !emailRequests[batch.id]
+      ).length;
+      
+      console.log(`${missingCount} batches have emailSent=true but no email request was found`);
+      
+      if (missingCount === 0) {
+        alert('No batches with missing email requests found.');
+        return;
+      }
+      
+      try {
+        // Show loading state
+        isLoading = true;
+        
+        // Call the Cloud Function
+        console.log('Calling fixMissingEmailRequests Cloud Function');
+        console.log('Current user ID:', auth.currentUser?.uid);
+        console.log('Admin claims:', adminClaims);
+        
+        const result = await fixMissingEmailRequestsFunction();
+        
+        console.log('Cloud Function result:', result.data);
+        
+        // Show results to user
+        if (result.data.success) {
+          alert(`Successfully fixed ${result.data.fixed} of ${result.data.total} batches with missing email requests.`);
+        } else {
+          // More detailed error message
+          if (result.data.error === 'Admin privileges required') {
+            alert(`Error: Admin privileges required. Your current admin claims: ${JSON.stringify(adminClaims || {})}`);
+          } else {
+            alert(`Error: ${result.data.error}`);
+          }
+        }
+        
+        // Refresh to load the new data
+        if (result.data.fixed > 0) {
+          refreshData();
+        }
+      } catch (err) {
+        console.error('Error calling fixMissingEmailRequests function:', err);
+        alert(`Error: ${err.message}. This could be due to missing Cloud Function deployment or permissions.`);
+      } finally {
+        isLoading = false;
+      }
     }
   </script>
   
   <main class="container mx-auto p-4">
     <div class="flex justify-between items-center mb-4">
-      <button class="btn variant-filled-primary" on:click={refreshData}>
-        Refresh Data
-      </button>
+      <div class="flex gap-2">
+        <button class="btn variant-filled-primary" on:click={refreshData}>
+          Refresh Data
+        </button>
+        
+        <button class="btn variant-filled-warning" on:click={fixMissingEmailRequests}>
+          Fix Missing Email Requests
+        </button>
+      </div>
     </div>
     
     {#if isLoading}
@@ -503,6 +656,7 @@
                     <th>Status</th>
                     <th>Progress</th>
                     <th>Jobs</th>
+                    <th>Email Sent</th>
                     <th>Email Status</th>
                     <th>Actions</th>
                   </tr>
@@ -525,7 +679,29 @@
                         ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
                       </td>
                       <td>{batch.jobIds?.length || 0}</td>
-                      <td class={emailStatus.class}>{emailStatus.text}</td>
+                      <td class={batch.emailSent ? 'text-success-500' : 'text-surface-400'}>
+                        {batch.emailSent ? 'Yes' : 'No'}
+                      </td>
+                      <td class={emailStatus.class}>
+                        {emailStatus.text}
+                        {#if batch.emailSent && emailRequests[batch.id]}
+                          <button 
+                            class="btn btn-sm variant-ghost-primary ml-2"
+                            on:click={() => {
+                              // Open email details in a dialog or modal
+                              const emailData = emailRequests[batch.id];
+                              if (emailData && emailData.id) {
+                                // Open a new tab with Firestore UI to the document
+                                const projectId = window.location.hostname.split('.')[0];
+                                const firestoreUrl = `https://console.firebase.google.com/project/${projectId}/firestore/data/~2FemailRequests~2F${emailData.id}`;
+                                window.open(firestoreUrl, '_blank');
+                              }
+                            }}
+                          >
+                            View
+                          </button>
+                        {/if}
+                      </td>
                       <td>
                         <button class="btn btn-sm variant-soft" on:click={() => selectBatch(batch)}>
                           {selectedBatch?.id === batch.id ? 'Hide Jobs' : 'View Jobs'}

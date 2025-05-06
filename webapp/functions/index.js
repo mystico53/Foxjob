@@ -136,3 +136,4 @@ exports.processEmailRequests = processEmailRequests;
 exports.preferenceMatch = preferenceMatch;
 exports.preferenceMatchTest = preferenceMatchTest;
 exports.trackEmailOpens = trackEmailOpens;
+exports.fixMissingEmailRequests = require('./brightdata_scraping/batchProcessing').fixMissingEmailRequests;
