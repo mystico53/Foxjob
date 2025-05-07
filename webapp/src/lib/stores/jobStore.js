@@ -164,6 +164,7 @@ function createJobStore() {
                                     // Add URL to generalData as well for maximum compatibility
                                     url: jobDataRaw.generalData?.url || jobDataRaw.url || null
                                 },
+                                salary: jobDataRaw.salary || undefined,
                                 // Rest of your mappings remain the same
                                 match: jobDataRaw.match || {},
                                 Score: {

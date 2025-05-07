@@ -433,10 +433,27 @@
 				<span>{truncateText(job.basicInfo?.location || job.jobInfo?.location)}</span>
 			</span>
 
-			<span class="chip variant-ghost-surface text-base" title={job.compensation || 'N/A'}>
+			{#if job.details?.salary?.range}
+			<span class="chip variant-ghost-surface text-base" title={job.details.salary.range}>
+				<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+				<span>{truncateText(job.details.salary.range)}</span>
+			</span>
+			{:else if job.details?.salary?.base?.range}
+			<span class="chip variant-ghost-surface text-base" title={job.details.salary.base.range}>
+				<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+				<span>{truncateText(job.details.salary.base.range)}</span>
+			</span>
+			{:else if job.compensation && job.compensation !== 'N/A'}
+			<span class="chip variant-ghost-surface text-base" title={job.compensation}>
 				<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
 				<span>{truncateText(job.compensation)}</span>
 			</span>
+			{:else}
+			<span class="chip variant-ghost-surface text-base" title="Not mentioned">
+				<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+				<span>Not mentioned</span>
+			</span>
+			{/if}
 
 			<span
 				class="chip variant-ghost-surface text-base"
@@ -570,6 +587,9 @@
 			</div>
 		{/if}
 	</div>
+
+	<!-- DEBUG: Show job object structure -->
+	<pre class="bg-surface-200 p-2 text-xs overflow-x-auto">{JSON.stringify(job, null, 2)}</pre>
 </div>
 
 <!-- Fixed position action buttons -->
