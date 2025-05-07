@@ -100,11 +100,11 @@ exports.processEmailRequests = onDocumentCreated({
               
               // Add header for jobs section
               jobsHtml = `
-                <div style="margin-top: 30px; border-top: 1px solid #ddd; padding-top: 20px;">
-                  <h2 style="color: #444;">Your Top Matched Jobs</h2>
+                <div style="margin-top: 30px; padding-top: 20px;">
+                </div>
               `;
               
-              jobsText = "\n\n===== YOUR TOP MATCHED JOBS =====\n\n";
+              jobsText = "\n\n===== YOUR PERSONALIZED JOB MATCHES =====\n\n";
               
               // Determine base URL based on environment
               let baseUrl;
@@ -147,21 +147,44 @@ exports.processEmailRequests = onDocumentCreated({
                 
                 logger.info(`Job: ${title} at ${company} - Score: ${score}`);
                 
-                // Add to HTML version with new fields and View Job button
+                // Add to HTML version with improved styling
                 jobsHtml += `
-                <div style="margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9;">
-                  <h3 style="color: #1a73e8; margin-bottom: 5px;">${title} at ${company}</h3>
+                <div style="margin-bottom: 20px; padding: 18px; border-radius: 8px; background-color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #eee; position: relative;">
+                  <!-- Left accent border using single color -->
+                  <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #FF9C00;"></div>
                   
-                  <!-- Add preference score and explanation here -->
-                  <p style="font-style: italic; color: #555; margin-bottom: 12px;">"${preferenceExplanation}"</p>
+                  <!-- Job title and company with padding for the accent border -->
+                  <h3 style="color: #222; font-size: 17px; font-weight: 600; margin: 0 0 5px 8px;">${title}</h3>
+                  <div style="color: #555; font-size: 15px; font-weight: 500; margin: 0 0 15px 8px;">${company}</div>
                   
-                  <p><strong>Match Score:</strong> ${score}</p>
-                  <p><strong>Company:</strong> ${description}</p>
-                  <p><strong>Your Role:</strong> ${responsibility}</p>
-                  <p><strong>Gap Analysis:</strong> ${gaps}</p>
-                  <p style="margin-top: 15px;">
-                    <a href="${jobUrl}" style="background-color: #1a73e8; color: white; padding: 8px 16px; text-decoration: none; border-radius: 4px; font-weight: bold;">View Job</a>
-                  </p>
+                  <!-- Preference explanation in a styled quote box -->
+                  <div style="font-style: italic; color: #666; margin: 12px 0; padding: 10px; background-color: #f9f9f9; border-radius: 4px; border-left: 2px solid #FF9C00;">
+                    "${preferenceExplanation}"
+                  </div>
+                  
+                  <!-- Match score with visual bar -->
+                  <div style="margin: 12px 0; display: flex; align-items: center; flex-wrap: wrap;">
+                    <div style="font-size: 14px; font-weight: 600; color: #555; margin-right: 10px; min-width: 90px;">Match Score:</div>
+                    <div style="flex-grow: 1; height: 8px; background-color: #f0f0f0; border-radius: 4px; overflow: hidden; margin: 0 10px 0 0;">
+                      <div style="height: 100%; border-radius: 4px; background: #FF9C00; width: ${Math.min(Math.max(parseFloat(score) || 0, 0), 100)}%;"></div>
+                    </div>
+                    <div style="font-size: 14px; font-weight: 600; color: #222;">${score}%</div>
+                  </div>
+                  
+                  <!-- Job information with consistent styling -->
+                  <div style="margin: 12px 0 0 8px;">
+                    <div style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px;">Company:</div>
+                    <div style="font-size: 14px; color: #555; margin: 0 0 12px 0;">${description}</div>
+                    
+                    <div style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px;">Your Role:</div>
+                    <div style="font-size: 14px; color: #555; margin: 0 0 12px 0;">${responsibility}</div>
+                    
+                    <div style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px;">Gap Analysis:</div>
+                    <div style="font-size: 14px; color: #555; margin: 0 0 12px 0;">${gaps}</div>
+                  </div>
+                  
+                  <!-- Single color button with better styling -->
+                  <a href="${jobUrl}" style="display: inline-block; padding: 10px 20px; background: #FF9C00; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; margin-top: 6px; text-align: center;">View Job</a>
                 </div>
               `;
 
@@ -202,8 +225,68 @@ exports.processEmailRequests = onDocumentCreated({
       // Add invisible tracking pixel to the email
       const trackingPixel = `<img src="https://foxjob.io/track-email/${requestId}.png" width="1" height="1" alt="" style="display:none">`;
       
-      // Construct the final email content
-      const finalHtml = originalHtml + jobsHtml + trackingPixel;
+      // Construct the final email content with improved email wrapper
+      const finalHtml = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>${emailData.subject || 'Email from Foxjob'}</title>
+          <style>
+            * { transition: none !important; animation: none !important; }
+            a:hover { color: inherit !important; background-color: inherit !important; }
+            @import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
+            .foxjob-title {
+              font-family: 'Lalezar', cursive;
+              font-size: 32px;
+              line-height: 1;
+              letter-spacing: 0.02em;
+              color: #FF9C00;
+              text-transform: uppercase;
+              font-weight: 900;
+            }
+          </style>
+          <!--[if mso]>
+          <style type="text/css">
+            .fallback-font {
+              font-family: Arial, sans-serif !important;
+            }
+          </style>
+          <![endif]-->
+        </head>
+        <body style="margin: 0; padding: 0; font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif; line-height: 1.6; color: #333; background-color: #f5f5f5;">
+          <!-- Email Container -->
+          <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            <!-- Email Header -->
+            <div style="text-align: center; padding: 24px 20px;">
+              <div style="display: inline-flex; align-items: center; justify-content: center;">
+                <img src="https://foxjob.io/images/icon128.png" alt="Foxjob" style="width: 96px; height: 96px;">
+              </div>
+            </div>
+            
+            <!-- Email Content -->
+            <div style="padding: 20px;">
+              <!-- Original message content -->
+              <div style="padding-bottom: 20px;">
+                <p>Your personalized job matches are ready</p>
+              </div>
+              
+              <!-- Job listings section -->
+              ${jobsHtml}
+            </div>
+            
+            <!-- Email Footer -->
+            <div style="margin-top: 30px; padding: 20px; border-top: 1px solid #eee; text-align: center; font-size: 12px; color: #666;">
+              <p>© ${new Date().getFullYear()} Foxjob. All rights reserved.</p>
+              <p><a href="https://www.foxjob.io/unsubscribe" style="color: #555; text-decoration: none;">Unsubscribe</a> | <a href="https://www.foxjob.io/preferences" style="color: #555; text-decoration: none;">Email Preferences</a></p>
+              ${trackingPixel}
+            </div>
+          </div>
+        </body>
+        </html>
+      `;
+      
       const finalText = originalText + jobsText;
       
       logger.info('Email content prepared. Jobs data added:', jobsHtml.length > 0 ? 'Yes' : 'No');

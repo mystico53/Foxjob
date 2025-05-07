@@ -74,7 +74,7 @@
       }
   }
   
-  // Generate a preview locally without calling the Firebase function
+  // Generate a simple local preview without calling the Firebase function
   function generateLocalPreview() {
       console.log('Generating local preview');
       
@@ -83,59 +83,331 @@
           {
               title: "Frontend Developer",
               company: "WebTech Solutions",
-              score: "87%",
+              score: 87,
               description: "WebTech is a digital agency creating cutting-edge websites and applications.",
               responsibility: "Developing responsive user interfaces with React and modern CSS.",
-              gaps: "Consider deepening knowledge of state management and performance optimization."
+              gaps: "Consider deepening knowledge of state management and performance optimization.",
+              preferenceExplanation: "This role aligns well with your preference for UI/UX focused positions."
           },
           {
               title: "Full Stack Engineer",
               company: "GrowthLabs",
-              score: "82%",
+              score: 82,
               description: "GrowthLabs builds SaaS products for startups and growing businesses.",
               responsibility: "Building features across the full stack with Node.js and Vue.",
-              gaps: "Your database skills would benefit from more experience with NoSQL solutions."
+              gaps: "Your database skills would benefit from more experience with NoSQL solutions.",
+              preferenceExplanation: "This role offers the technical challenge you're looking for."
+          },
+          {
+              title: "Senior React Developer",
+              company: "InnovateTech",
+              score: 75,
+              description: "InnovateTech develops enterprise software solutions for global clients.",
+              responsibility: "Leading development of React components and mentoring junior developers.",
+              gaps: "You may need to strengthen your experience with large-scale application architecture.",
+              preferenceExplanation: "This position includes the mentoring opportunity you mentioned wanting."
           }
       ];
       
-      // Generate simple HTML template
+      // Generate improved HTML template with better mobile responsiveness
       previewHtml = `
           <!DOCTYPE html>
           <html>
           <head>
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <title>${subject}</title>
-          </head>
-          <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px;">
-              <header style="text-align: center; padding: 24px; border-bottom: 2px solid #eee;">
-                  <div style="display: inline-block; text-align: center;">
-                      <!-- Logo replacement with styled text -->
-                      <div style="font-family: 'Lalezar', cursive; font-size: 36px; line-height: 1; letter-spacing: 0.02em; background: linear-gradient(to right, #fd5440 0%, #ff9c00 100%); -webkit-background-clip: text; background-clip: text; color: transparent;">FOXJOB</div>
-                  </div>
-              </header>
-              
-              <div style="padding: 15px; border-radius: 5px; background-color: #fff;">
-                  <p>${message}</p>
-              </div>
-              
-              <div style="padding: 24px; padding-top: 20px; border-bottom: 1px solid #eee;">
-                  <h2 style="color: #333; font-size: 22px; margin-bottom: 20px; font-weight: 700; border-bottom: 2px solid #fd5440; padding-bottom: 8px; display: inline-block;">Your Top Matched Jobs</h2>
+              <style>
+                  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+                  @import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
                   
-                  ${mockJobs.map(job => `
-                      <div style="margin-bottom: 20px; padding: 18px; border: 1px solid #eee; border-radius: 8px; background-color: #f9f9f9; border-left: 4px solid #fd5440;">
-                          <h3 style="color: #B45309; margin-bottom: 12px; font-size: 18px; font-weight: 700;">${job.title} at ${job.company}</h3>
-                          <p style="margin: 10px 0;"><strong style="color: #555;">Match Score:</strong> <span style="color: #B45309; font-weight: bold;">${job.score}</span></p>
-                          <p style="margin: 10px 0;"><strong style="color: #555;">Company:</strong> ${job.description}</p>
-                          <p style="margin: 10px 0;"><strong style="color: #555;">Your Role:</strong> ${job.responsibility}</p>
-                          <p style="margin: 10px 0;"><strong style="color: #555;">Gap Analysis:</strong> ${job.gaps}</p>
+                  /* Disable all transitions and animations */
+                  * {
+                      transition: none !important;
+                      animation: none !important;
+                  }
+                  
+                  body {
+                      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                      line-height: 1.6;
+                      color: #333;
+                      margin: 0;
+                      padding: 0;
+                      -webkit-font-smoothing: antialiased;
+                      -moz-osx-font-smoothing: grayscale;
+                  }
+                  
+                  .email-container {
+                      max-width: 600px;
+                      margin: 0 auto;
+                      background-color: #ffffff;
+                  }
+                  
+                  .header {
+                      padding: 24px 20px;
+                      text-align: center;
+                  }
+                  
+                  .header-content {
+                      display: inline-flex;
+                      align-items: center;
+                      justify-content: center;
+                  }
+                  
+                  .logo-img {
+                      width: 48px;
+                      height: 48px;
+                  }
+                  
+                  .content {
+                      padding: 20px;
+                  }
+                  
+                  .message {
+                      padding: 0 0 20px 0;
+                  }
+                  
+                  .section-header {
+                      font-size: 20px;
+                      font-weight: 700;
+                      color: #333;
+                      margin: 24px 0 16px 0;
+                      padding-bottom: 8px;
+                      position: relative;
+                  }
+                  
+                  .section-header:after {
+                      content: "";
+                      position: absolute;
+                      bottom: 0;
+                      left: 0;
+                      width: 60px;
+                      height: 3px;
+                      background: linear-gradient(to right, #FF9C00 0%, #DC3701 100%);
+                      border-radius: 3px;
+                  }
+                  
+                  .job-card {
+                      margin-bottom: 20px;
+                      padding: 18px;
+                      border-radius: 8px;
+                      background-color: #fff;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                      border: 1px solid #eee;
+                      position: relative;
+                      overflow: hidden;
+                  }
+                  
+                  .job-card:before {
+                      content: "";
+                      position: absolute;
+                      top: 0;
+                      left: 0;
+                      width: 4px;
+                      height: 100%;
+                      background: linear-gradient(to bottom, #FF9C00 0%, #DC3701 100%);
+                  }
+                  
+                  .job-title {
+                      font-size: 17px;
+                      font-weight: 600;
+                      color: #222;
+                      margin: 0 0 10px 0;
+                      padding-left: 8px;
+                  }
+                  
+                  .job-company {
+                      font-size: 15px;
+                      font-weight: 500;
+                      color: #555;
+                      margin: 0 0 12px 0;
+                      padding-left: 8px;
+                  }
+                  
+                  .score-container {
+                      margin: 12px 0;
+                      display: flex;
+                      align-items: center;
+                  }
+                  
+                  .score-label {
+                      font-size: 14px;
+                      font-weight: 600;
+                      color: #555;
+                      margin-right: 10px;
+                      min-width: 90px;
+                  }
+                  
+                  .score-bar-container {
+                      flex-grow: 1;
+                      height: 8px;
+                      background-color: #f0f0f0;
+                      border-radius: 4px;
+                      overflow: hidden;
+                  }
+                  
+                  .score-bar {
+                      height: 100%;
+                      border-radius: 4px;
+                      background: linear-gradient(to right, #FF9C00 0%, #DC3701 100%);
+                  }
+                  
+                  .score-value {
+                      font-size: 14px;
+                      font-weight: 600;
+                      color: #222;
+                      margin-left: 10px;
+                  }
+                  
+                  .info-section {
+                      margin: 12px 0;
+                      padding-left: 8px;
+                  }
+                  
+                  .info-label {
+                      font-size: 14px;
+                      font-weight: 600;
+                      color: #444;
+                      margin-bottom: 2px;
+                  }
+                  
+                  .info-text {
+                      font-size: 14px;
+                      color: #555;
+                      margin: 0 0 12px 0;
+                  }
+                  
+                  .preference-explanation {
+                      font-style: italic;
+                      font-size: 14px;
+                      color: #666;
+                      margin: 12px 0;
+                      padding: 10px;
+                      background-color: #f9f9f9;
+                      border-radius: 4px;
+                      border-left: 2px solid #FF9C00;
+                  }
+                  
+                  .action-button {
+                      display: inline-block;
+                      padding: 10px 20px;
+                      background: linear-gradient(to right, #FF9C00 0%, #DC3701 100%);
+                      color: white;
+                      text-decoration: none;
+                      border-radius: 6px;
+                      font-weight: 500;
+                      font-size: 14px;
+                      margin-top: 6px;
+                      text-align: center;
+                  }
+                  
+                  .footer {
+                      margin-top: 30px;
+                      padding: 20px;
+                      border-top: 1px solid #eee;
+                      text-align: center;
+                      font-size: 12px;
+                      color: #666;
+                  }
+                  
+                  .footer a {
+                      color: #555;
+                      text-decoration: none;
+                  }
+                  
+                  /* Mobile Optimizations */
+                  @media only screen and (max-width: 480px) {
+                      .email-container {
+                          width: 100% !important;
+                      }
+                      
+                      .content {
+                          padding: 15px;
+                      }
+                      
+                      .job-card {
+                          padding: 15px;
+                      }
+                      
+                      .job-title {
+                          font-size: 16px;
+                      }
+                      
+                      .score-container {
+                          flex-direction: column;
+                          align-items: flex-start;
+                      }
+                      
+                      .score-bar-container {
+                          width: 100%;
+                          margin: 6px 0;
+                      }
+                      
+                      .score-value {
+                          margin-left: 0;
+                      }
+                      
+                      .action-button {
+                          display: block;
+                          width: 100%;
+                      }
+                  }
+                  
+                  .action-button:hover {
+                      background: #FF9C00;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="email-container">
+                  <div class="header">
+                      <div class="header-content">
+                          <img src="https://foxjob.io/images/icon128.png" alt="Foxjob" class="logo-img">
                       </div>
-                  `).join('')}
+                  </div>
+                  
+                  <div class="content">
+                      <div class="message">
+                          <p>Your personalized job matches are ready.</p>
+                      </div>
+                      
+                      ${mockJobs.map(job => `
+                          <div class="job-card">
+                              <h3 class="job-title">${job.title}</h3>
+                              <div class="job-company">${job.company}</div>
+                              
+                              <div class="preference-explanation">
+                                  "${job.preferenceExplanation}"
+                              </div>
+                              
+                              <div class="score-container">
+                                  <div class="score-label">Match Score:</div>
+                                  <div class="score-bar-container">
+                                      <div class="score-bar" style="width: ${job.score}%;"></div>
+                                  </div>
+                                  <div class="score-value">${job.score}%</div>
+                              </div>
+                              
+                              <div class="info-section">
+                                  <div class="info-label">Company:</div>
+                                  <div class="info-text">${job.description}</div>
+                                  
+                                  <div class="info-label">Your Role:</div>
+                                  <div class="info-text">${job.responsibility}</div>
+                                  
+                                  <div class="info-label">Gap Analysis:</div>
+                                  <div class="info-text">${job.gaps}</div>
+                              </div>
+                              
+                              <a href="#" class="action-button">View Job</a>
+                          </div>
+                      `).join('')}
+                  </div>
+                  
+                  <div class="footer">
+                      <p>© 2023 Foxjob. All rights reserved.</p>
+                      <p><a href="#">Unsubscribe</a> | <a href="#">Email Preferences</a></p>
+                  </div>
               </div>
-              
-              <footer style="margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; text-align: center; font-size: 12px; color: #666;">
-                  <p>© 2025 Foxjob. All rights reserved.</p>
-                  <p><a href="https://www.foxjob.io/unsubscribe" style="color: #1a73e8; text-decoration: none;">Unsubscribe</a> | <a href="https://www.foxjob.io/preferences" style="color: #1a73e8; text-decoration: none;">Email Preferences</a></p>
-              </footer>
           </body>
           </html>
       `;
@@ -180,7 +452,7 @@
 </script>
 
 <div class="email-test-container">
-  <h2 style="font-family: 'Lalezar', cursive; background: linear-gradient(to right, #fd5440 0%, #ff9c00 100%); -webkit-background-clip: text; background-clip: text; color: transparent; font-size: 32px;">Foxjob Email Test</h2>
+  <h2 style="font-family: 'Lalezar', cursive; color: #FF9C00; font-size: 32px;">Foxjob Email Test</h2>
   
   <div class="tabs">
       <div 
@@ -352,11 +624,12 @@
       padding: 10px 20px;
       cursor: pointer;
       border-bottom: 2px solid transparent;
+      transition: none;
   }
   
   .tab.active {
-      border-bottom: 2px solid #fd5440;
-      color: #B45309;
+      border-bottom: 2px solid #FF9C00;
+      color: #FF9C00;
       font-weight: bold;
   }
   
@@ -398,32 +671,33 @@
   }
   
   button {
-      background-color: #fd5440;
+      background: #FF9C00;
       color: white;
       border: none;
       padding: 10px 16px;
       border-radius: 4px;
       cursor: pointer;
       font-weight: bold;
-      transition: background-color 0.2s;
+      transition: none;
   }
   
   button.secondary {
-      background-color: #f8f9fa;
-      color: #B45309;
+      background: #f8f9fa;
+      color: #FF9C00;
       border: 1px solid #dadce0;
   }
   
   button:hover {
-      background-color: #B45309;
+      background: #FF9C00;
   }
   
   button.secondary:hover {
-      background-color: #f1f3f4;
+      background: #f8f9fa;
   }
   
   button:disabled {
-      background-color: #a9c8fa;
+      background: #FFCC80;
+      opacity: 0.7;
       cursor: not-allowed;
   }
   
@@ -485,24 +759,26 @@
       border: none;
       border-radius: 4px;
       cursor: pointer;
+      transition: none;
   }
   
   .preview-tabs button.active {
-      background-color: #fd5440;
+      background: #FF9C00;
       color: white;
   }
   
   .back-button {
       background-color: transparent;
-      color: #B45309;
+      color: #FF9C00;
       border: none;
       cursor: pointer;
       font-weight: normal;
       padding: 8px 12px;
+      transition: none;
   }
   
   .back-button:hover {
-      background-color: #f1f3f4;
+      background-color: transparent;
   }
   
   .preview-frame {
