@@ -256,6 +256,25 @@ exports.matchBasics = onMessagePublished(
                 .doc(jobId)
                 .set(documentData, { merge: true });
 
+            // If the score is below or equal to the threshold, write a placeholder summary
+            if (response.final_score <= CONFIG.minScoreThreshold) {
+                const placeholderSummary = {
+                    match: {
+                        summary: {
+                            short_description: 'Not summarized: Only jobs with a score of 50 or above are summarized.',
+                            short_responsibility: '',
+                            short_gaps: '',
+                            timestamp: FieldValue.serverTimestamp()
+                        }
+                    }
+                };
+                await db.collection('users')
+                    .doc(firebaseUid)
+                    .collection('scrapedJobs')
+                    .doc(jobId)
+                    .set(placeholderSummary, { merge: true });
+            }
+
             // Update batch status for all jobs, regardless of score
             if (batchId) {
                 try {
