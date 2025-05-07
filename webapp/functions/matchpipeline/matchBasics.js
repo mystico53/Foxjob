@@ -256,7 +256,14 @@ exports.matchBasics = onMessagePublished(
                 .doc(jobId)
                 .set(documentData, { merge: true });
 
-            // If the score is below or equal to the threshold, write a placeholder summary
+            // Always publish to basics-completed topic
+            await publishMessage('basics-completed', {
+                firebaseUid,
+                jobId,
+                batchId // Include batchId if it exists
+            });
+
+            // If the score is below or equal to the threshold, write a placeholder summary and update batch
             if (response.final_score <= CONFIG.minScoreThreshold) {
                 const placeholderSummary = {
                     match: {
@@ -273,57 +280,22 @@ exports.matchBasics = onMessagePublished(
                     .collection('scrapedJobs')
                     .doc(jobId)
                     .set(placeholderSummary, { merge: true });
-            }
-
-            // Update batch status for all jobs, regardless of score
-            if (batchId) {
-                try {
+                // Update batch status and counter
+                if (batchId) {
                     const batchRef = db.collection('jobBatches').doc(batchId);
                     await batchRef.update({
                         [`jobStatus.${jobId}`]: 'basic_completed',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed')
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
+                        completedJobs: FieldValue.increment(1)
                     });
-                    logger.info('Updated batch progress', { batchId, jobId });
-                } catch (error) {
-                    logger.error('Failed to update batch', { batchId, error });
-                    // Continue even if batch update fails
                 }
-            }
-
-            if (response.final_score > CONFIG.minScoreThreshold) {
-                // Publish next message only if score meets threshold
-                await publishMessage(CONFIG.topics.outputTopic, {
+                logger.info('Basic match completed and ended at basics (score below threshold)', {
                     firebaseUid,
-                    jobId,
-                    batchId // Include batchId if it exists
-                });
-                
-                logger.info('Basic match completed and forwarded to summary', { 
-                    firebaseUid, 
-                    jobId,
-                    finalScore: response.final_score
-                });
-            } else {
-                // Only increment completedJobs for jobs that DON'T meet the threshold
-                if (batchId) {
-                    try {
-                        const batchRef = db.collection('jobBatches').doc(batchId);
-                        await batchRef.update({
-                            completedJobs: FieldValue.increment(1)
-                        });
-                        logger.info('Incremented completed jobs counter', { batchId, jobId });
-                    } catch (error) {
-                        logger.error('Failed to increment completed jobs counter', { batchId, error });
-                        // Continue even if batch update fails
-                    }
-                }
-                
-                logger.info('Basic match completed but score below threshold', { 
-                    firebaseUid, 
                     jobId,
                     finalScore: response.final_score,
                     threshold: CONFIG.minScoreThreshold
                 });
+                return; // Stop further processing for this job
             }
 
         } catch (error) {

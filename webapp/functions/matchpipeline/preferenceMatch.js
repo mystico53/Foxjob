@@ -3,10 +3,12 @@ const admin = require('firebase-admin');
 const { logger } = require("firebase-functions");
 const { callGeminiAPI } = require('../services/geminiService');
 const { FieldValue } = require("firebase-admin/firestore");
+const { PubSub } = require('@google-cloud/pubsub');
 
 // Initialize Firebase
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
+const pubSubClient = new PubSub();
 
 const CONFIG = {
     instructions: `
@@ -234,10 +236,39 @@ async function adjustFinalScore(firebaseUid, jobId) {
     }
 }
 
+// Helper to publish message (copied from matchBasics.js)
+async function publishMessage(topicName, message) {
+    try {
+        // Check if topic exists first
+        const [topics] = await pubSubClient.getTopics();
+        const topicExists = topics.some(topic => 
+            topic.name.endsWith(`/topics/${topicName}`)
+        );
+
+        if (!topicExists) {
+            logger.info(`Topic ${topicName} does not exist, creating it...`);
+            await pubSubClient.createTopic(topicName);
+            logger.info(`Created topic: ${topicName}`);
+        }
+
+        const messageId = await pubSubClient
+            .topic(topicName)
+            .publishMessage({
+                data: Buffer.from(JSON.stringify(message)),
+            });
+        logger.info(`Message ${messageId} published to ${topicName}`);
+        return messageId;
+    } catch (error) {
+        logger.error(`Failed to publish to ${topicName}:`, error);
+        // Don't throw, just log and continue
+        return null;
+    }
+}
+
 // Main callable function
 exports.preferenceMatch = onMessagePublished(
     { 
-        topic: "basics-matched",
+        topic: "basics-completed",
         timeoutSeconds: 540,
         region: "us-central1" 
     },
@@ -344,36 +375,72 @@ exports.preferenceMatch = onMessagePublished(
                 logger.info('Adjusted final score based on preferences', { firebaseUid, jobId });
             }
 
-            // FINAL STEP: Always update batch counter at the end of processing
-            if (batchId) {
-                try {
-                    const batchRef = db.collection('jobBatches').doc(batchId);
-                    await batchRef.update({
-                        [`jobStatus.${jobId}`]: jobStatus,
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion(jobStatus),
-                        // Always increment completion counter
-                        completedJobs: FieldValue.increment(1)
-                    });
-                    logger.info('Updated batch counter as final step', { 
-                        batchId, 
-                        jobId, 
-                        status: jobStatus
-                    });
-                } catch (error) {
-                    logger.error('Failed to update batch counter', { 
-                        batchId, 
-                        error: error.message 
-                    });
-                    // Even if batch update fails, we consider the job processed
-                }
+            // After adjustFinalScore, fetch the updated job document to get the final score
+            const updatedJobDoc = await db.collection('users')
+                .doc(firebaseUid)
+                .collection('scrapedJobs')
+                .doc(jobId)
+                .get();
+            const updatedJobData = updatedJobDoc.data();
+            const finalScore = updatedJobData.match?.final_score;
+
+            if (finalScore === undefined) {
+                throw new Error('Final score missing after preference adjustment');
             }
 
-            // Return results
-            return {
-                success: true,
-                status: jobStatus,
-                hasPreferences: !!preferences
-            };
+            if (finalScore <= 50) {
+                // Write placeholder summary and update batch counter/status
+                const placeholderSummary = {
+                    match: {
+                        summary: {
+                            short_description: 'Not summarized: Only jobs with a score of 50 or above are summarized.',
+                            short_responsibility: '',
+                            short_gaps: '',
+                            timestamp: FieldValue.serverTimestamp()
+                        }
+                    }
+                };
+                await db.collection('users')
+                    .doc(firebaseUid)
+                    .collection('scrapedJobs')
+                    .doc(jobId)
+                    .set(placeholderSummary, { merge: true });
+                if (batchId) {
+                    const batchRef = db.collection('jobBatches').doc(batchId);
+                    await batchRef.update({
+                        [`jobStatus.${jobId}`]: 'preference_completed',
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('preference_completed'),
+                        completedJobs: FieldValue.increment(1)
+                    });
+                }
+                logger.info('Preference match completed and ended at preference (score below threshold)', {
+                    firebaseUid,
+                    jobId,
+                    finalScore
+                });
+                return {
+                    success: true,
+                    status: 'preference_completed',
+                    hasPreferences: !!preferences
+                };
+            } else {
+                // Publish to preference-matched for summary generation
+                await publishMessage('preference-matched', {
+                    firebaseUid,
+                    jobId,
+                    batchId
+                });
+                logger.info('Preference match completed and forwarded to summary', {
+                    firebaseUid,
+                    jobId,
+                    finalScore
+                });
+                return {
+                    success: true,
+                    status: 'preference_forwarded',
+                    hasPreferences: !!preferences
+                };
+            }
 
         } catch (error) {
             logger.error('Preference matching failed:', error);

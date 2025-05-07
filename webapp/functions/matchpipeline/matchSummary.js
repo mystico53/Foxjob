@@ -55,7 +55,7 @@ async function getResumeText(firebaseUid) {
 
 // Main function
 exports.matchSummary = onMessagePublished(
-    { topic: 'basics-matched', timeoutSeconds: 540 },
+    { topic: 'preference-matched', timeoutSeconds: 540 },
     
     async (event) => {
         try {
@@ -154,7 +154,8 @@ exports.matchSummary = onMessagePublished(
                     const batchRef = db.collection('jobBatches').doc(batchId);
                     await batchRef.update({
                         [`jobStatus.${jobId}`]: 'summary_completed',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('summary_completed')
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('summary_completed'),
+                        completedJobs: FieldValue.increment(1)
                     });
                     logger.info('Updated batch status', { batchId, jobId });
                 } catch (error) {
