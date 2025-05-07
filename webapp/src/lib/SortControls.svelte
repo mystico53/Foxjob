@@ -126,5 +126,6 @@
     >
         <option value="AccumulatedScores.accumulatedScore">Highest Score</option>
         <option value="generalData.timestamp">Most recent</option>
+        <option value="bookmarked">Bookmarked</option>
     </select>
 </div>

@@ -34,37 +34,48 @@ const sortedJobs = derived(
             });
         }
 
-        // Sorting
-        // Sorting
-return [...filteredJobs].sort((a, b) => {
-    if ($sortConfig.column === 'generalData.timestamp') {
-        // Get posted dates from details
-        const aDate = a.details?.postedDate || a.jobInfo?.postedDate || a.generalData?.timestamp;
-        const bDate = b.details?.postedDate || b.jobInfo?.postedDate || b.generalData?.timestamp;
-        
-        // Convert string dates to Date objects for comparison
-        let dateA, dateB;
-        
-        if (aDate && typeof aDate === 'string') {
-            dateA = new Date(aDate);
-        } else if (aDate && aDate.toDate) {
-            dateA = aDate.toDate();
-        } else {
-            dateA = new Date(0); // Default to epoch if no date
+        // Bookmarked filter and sort
+        if ($sortConfig.column === 'bookmarked') {
+            // Only jobs with status 'bookmarked', sorted by accumulatedScore desc
+            return [...filteredJobs]
+                .filter(job => (job.generalData?.status || '').toLowerCase() === 'bookmarked')
+                .sort((a, b) => {
+                    const scoreA = a.AccumulatedScores?.accumulatedScore || 0;
+                    const scoreB = b.AccumulatedScores?.accumulatedScore || 0;
+                    return scoreB - scoreA;
+                });
         }
-        
-        if (bDate && typeof bDate === 'string') {
-            dateB = new Date(bDate);
-        } else if (bDate && bDate.toDate) {
-            dateB = bDate.toDate();
-        } else {
-            dateB = new Date(0); // Default to epoch if no date
-        }
-        
-        // Sort descending (newest first) for "Most recent"
-        return $sortConfig.direction === 'desc' ? 
-            dateB.getTime() - dateA.getTime() : 
-            dateA.getTime() - dateB.getTime();
+
+        // Sorting
+        return [...filteredJobs].sort((a, b) => {
+            if ($sortConfig.column === 'generalData.timestamp') {
+                // Get posted dates from details
+                const aDate = a.details?.postedDate || a.jobInfo?.postedDate || a.generalData?.timestamp;
+                const bDate = b.details?.postedDate || b.jobInfo?.postedDate || b.generalData?.timestamp;
+                
+                // Convert string dates to Date objects for comparison
+                let dateA, dateB;
+                
+                if (aDate && typeof aDate === 'string') {
+                    dateA = new Date(aDate);
+                } else if (aDate && aDate.toDate) {
+                    dateA = aDate.toDate();
+                } else {
+                    dateA = new Date(0); // Default to epoch if no date
+                }
+                
+                if (bDate && typeof bDate === 'string') {
+                    dateB = new Date(bDate);
+                } else if (bDate && bDate.toDate) {
+                    dateB = bDate.toDate();
+                } else {
+                    dateB = new Date(0); // Default to epoch if no date
+                }
+                
+                // Sort descending (newest first) for "Most recent"
+                return $sortConfig.direction === 'desc' ? 
+                    dateB.getTime() - dateA.getTime() : 
+                    dateA.getTime() - dateB.getTime();
             }
 
             const aValue = getNestedValue(a, $sortConfig.column);
