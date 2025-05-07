@@ -587,9 +587,6 @@
 			</div>
 		{/if}
 	</div>
-
-	<!-- DEBUG: Show job object structure -->
-	<pre class="bg-surface-200 p-2 text-xs overflow-x-auto">{JSON.stringify(job, null, 2)}</pre>
 </div>
 
 <!-- Fixed position action buttons -->
