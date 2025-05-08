@@ -1,4 +1,23 @@
 {
-  "indexes": [],
-  "fieldOverrides": []
+	"indexes": [
+		{
+			"collectionGroup": "jobBatches",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "emailSent", "order": "ASCENDING" },
+				{ "fieldPath": "status", "order": "ASCENDING" },
+				{ "fieldPath": "startedAt", "order": "ASCENDING" }
+			]
+		},
+		{
+			"collectionGroup": "searchQueries",
+			"queryScope": "COLLECTION",
+			"fields": [
+				{ "fieldPath": "isActive", "order": "ASCENDING" },
+				{ "fieldPath": "processingStatus", "order": "ASCENDING" },
+				{ "fieldPath": "nextRun", "order": "ASCENDING" }
+			]
+		}
+	],
+	"fieldOverrides": []
 }

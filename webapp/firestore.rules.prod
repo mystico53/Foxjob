@@ -10,6 +10,11 @@ service cloud.firestore {
     function isOwner(userId) {
       return isAuthenticated() && request.auth.uid == userId;
     }
+    
+    // Helper function to check if user has admin claim
+    function isAdmin() {
+      return isAuthenticated() && request.auth.token.admin == true;
+    }
 
     // Rules for the users collection and subcollections
     match /users/{userId} {
@@ -30,6 +35,16 @@ service cloud.firestore {
       match /processed/{docId} {
         allow read, write, list: if isOwner(userId);
       }
+      
+      // Rules for searchQueries subcollection
+      match /searchQueries/{queryId} {
+        allow read, write, list: if isOwner(userId);
+      }
+      
+      // Allow access to all other subcollections under user's document
+      match /{subcollection}/{docId} {
+        allow read, write: if isOwner(userId);
+      }
     }
 
     // Rest of your rules remain the same
@@ -48,6 +63,15 @@ service cloud.firestore {
 
     match /dev-test/{docId} {
       allow read, write: if isAuthenticated();
+    }
+    
+    // Allow read access to job-related collections
+    match /jobBatches/{batchId} {
+      allow read: if isAuthenticated();
+    }
+    
+    match /scrapedJobs/{jobId} {
+      allow read: if isAuthenticated();
     }
 
     // Default deny
