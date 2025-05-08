@@ -49,3 +49,7 @@ functions/.env*
 
 serviceAccountKey.json
 keys/
+
+# Environment URL scripts with sensitive information
+update-env-urls.ps1
+update-webhook.ps1

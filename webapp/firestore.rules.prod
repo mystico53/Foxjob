@@ -18,65 +18,70 @@ service cloud.firestore {
 
     // Rules for the users collection and subcollections
     match /users/{userId} {
-      // Allow users to read/write their own documents
-      allow read, write: if isOwner(userId);
+      // Allow users to read/write their own documents and admins to access all user data
+      allow read, write: if isOwner(userId) || isAdmin();
       
       // Rules for UserCollections subcollection
       match /UserCollections/{document=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isAdmin();
       }
       
       // Rules for jobs subcollection - explicitly allow listing
       match /jobs/{jobId} {
-        allow read, write, list: if isOwner(userId);
+        allow read, write, list: if isOwner(userId) || isAdmin();
       }
 
       // Rules for processed subcollection - explicitly allow listing
       match /processed/{docId} {
-        allow read, write, list: if isOwner(userId);
+        allow read, write, list: if isOwner(userId) || isAdmin();
       }
       
       // Rules for searchQueries subcollection
       match /searchQueries/{queryId} {
-        allow read, write, list: if isOwner(userId);
+        allow read, write, list: if isOwner(userId) || isAdmin();
       }
       
       // Allow access to all other subcollections under user's document
       match /{subcollection}/{docId} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if isOwner(userId) || isAdmin();
       }
     }
 
     // Rest of your rules remain the same
     match /googleSubToUid/{googleSubId} {
-      allow read: if false;
-      allow write: if request.auth != null && request.auth.token.admin == true;
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
 
     match /pending_users/{pendingId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated() || isAdmin();
     }
 
     match /test/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated() || isAdmin();
     }
 
     match /dev-test/{docId} {
-      allow read, write: if isAuthenticated();
+      allow read, write: if isAuthenticated() || isAdmin();
     }
     
     // Allow read access to job-related collections
     match /jobBatches/{batchId} {
-      allow read: if isAuthenticated();
+      allow read, write: if isAuthenticated() || isAdmin();
     }
     
     match /scrapedJobs/{jobId} {
-      allow read: if isAuthenticated();
+      allow read, write: if isAuthenticated() || isAdmin();
+    }
+
+    // Allow admin access to email requests collection
+    match /emailRequests/{requestId} {
+      allow read, write: if isAdmin();
     }
 
     // Default deny
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isAdmin();
     }
   }
 }
