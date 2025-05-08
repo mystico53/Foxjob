@@ -16,6 +16,16 @@ const CONFIG = {
   SEARCH_FUNCTION_URL: process.env.SEARCH_FUNCTION_URL || 'https://searchbright-kvshkfhmua-uc.a.run.app'
 };
 
+/**
+ * Important: This query requires a composite index on the 'searchQueries' collection with:
+ * - isActive (Ascending)
+ * - processingStatus (Ascending)
+ * - nextRun (Ascending)
+ * - __name__ (Ascending)
+ * 
+ * Create this index at: 
+ * https://console.firebase.google.com/v1/r/project/foxjob-prod/firestore/indexes?create_composite=ClFwcm9qZWN0cy9mb3hqb2ItcHJvZC9kYXRhYmFzZXMvKGRlZmF1bHQpL2NvbGxlY3Rpb25Hcm91cHMvc2VhcmNoUXVlcmllcy9pbmRleGVzL18QAhoMCghpc0FjdGl2ZRABGhQKEHByb2Nlc3NpbmdTdGF0dXMQARoLCgduZXh0UnVuEAEaDAoIX19uYW1lX18QAQ
+ */
 // The core logic function - independent of the trigger
 async function processScheduledSearches() {
   try {

@@ -809,7 +809,28 @@
                       bind:group={limitPerInput}
                       class="mr-2 h-5 w-5"
                     />
-                    <label for="limit50" class="text-base mr-2">50</label>
+                    <label for="limit50" class="text-base mr-4">50</label>
+                    
+                    <!-- Upgrade button with dark grey styling -->
+                    <button 
+                      type="button"
+                      class="py-1 px-3 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg ml-2"
+                    >
+                      upgrade
+                    </button>
+                  </div>
+                  
+                  <!-- New Radio for 100 -->
+                  <div class="flex items-center">
+                    <input 
+                      type="radio" 
+                      id="limit100" 
+                      name="limitPerInput" 
+                      value="100" 
+                      bind:group={limitPerInput}
+                      class="mr-2 h-5 w-5"
+                    />
+                    <label for="limit100" class="text-base mr-2">100</label>
                     
                     <!-- Upgrade button with dark grey styling -->
                     <button 
