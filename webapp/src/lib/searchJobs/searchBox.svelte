@@ -55,6 +55,9 @@
     avoidance: ''
   };
   
+  // Additional job titles array
+  let additionalJobTitles = [''];
+  
   // Subscribe to the job agent store
   const unsubJobAgent = jobAgentStore.subscribe(state => {
     hasActiveAgent = state.hasActiveAgent;
@@ -121,6 +124,24 @@
       timestamp: localTime.valueOf(), // Unix timestamp in milliseconds
       utcTimestamp: utcTime.valueOf() // UTC Unix timestamp in milliseconds
     };
+  }
+
+  // Add new additional job title field
+  function addJobTitleField() {
+    if (additionalJobTitles.length < 5) {
+      additionalJobTitles = [...additionalJobTitles, ''];
+    }
+  }
+  
+  // Remove additional job title field
+  function removeJobTitleField(index) {
+    additionalJobTitles = additionalJobTitles.filter((_, i) => i !== index);
+  }
+  
+  // Update job title at specific index
+  function updateJobTitle(index, value) {
+    additionalJobTitles[index] = value;
+    additionalJobTitles = [...additionalJobTitles]; // Trigger reactivity
   }
 
   // Check if user already has an active search query
@@ -289,8 +310,26 @@
       ? query.searchParams[0] 
       : {};
     
+    // Extract metadata if it exists
+    const metadata = searchParam.metadata || {};
+    
     // Populate the form fields with query data
     keywords = searchParam.keyword || '';
+    
+    // Handle additional job titles if they exist in metadata
+    if (metadata.additionalJobTitles) {
+      try {
+        const parsedTitles = JSON.parse(metadata.additionalJobTitles);
+        additionalJobTitles = Array.isArray(parsedTitles) ? parsedTitles : [''];
+        includeSimilarRoles = true; // Enable fuzzy match if we have additional titles
+      } catch (e) {
+        console.error('Error parsing additional job titles:', e);
+        additionalJobTitles = [''];
+      }
+    } else {
+      additionalJobTitles = [''];
+    }
+    
     location = searchParam.location || '';
     country = searchParam.country || 'US';
     jobType = searchParam.job_type || '';
@@ -340,8 +379,8 @@
     // Convert numeric limit to string for form input - keep limit as string now
     limitPerInput = query.limit ? query.limit.toString() : '10';
     
-    // Open advanced section if any of those fields are filled
-    showAdvanced = !!(jobType || experience || datePosted !== 'Past 24 hours');
+    // Open advanced section if any of those fields are filled or if we have additional job titles
+    showAdvanced = !!(jobType || experience || datePosted !== 'Past 24 hours' || additionalJobTitles.length > 1 || includeSimilarRoles);
     
     // Force a UI update by scheduling a microtask
     setTimeout(() => {
@@ -378,6 +417,7 @@
     deliveryTime = '08:00';
     showAdvanced = false;
     includeSimilarRoles = false; // Reset the checkbox
+    additionalJobTitles = [''];
     
     // Reset preferences
     workPreferences = {
@@ -404,6 +444,7 @@
       deliveryTime = '08:00';
       showAdvanced = false;
       includeSimilarRoles = false; // Reset the checkbox
+      additionalJobTitles = [''];
       
       // Load current preferences
       loadWorkPreferences();
@@ -413,6 +454,41 @@
   // Toggle advanced options visibility
   function toggleAdvanced() {
     showAdvanced = !showAdvanced;
+  }
+  
+  // Store additional job titles in hidden format
+  function storeAdditionalJobTitles() {
+    const validTitles = additionalJobTitles.filter(title => title.trim() !== '');
+    if (validTitles.length === 0) return null;
+    return JSON.stringify(validTitles);
+  }
+  
+  // Format keywords for search - keep full query with OR for actual search
+  function formatKeywordsForSearch(mainKeyword, additionalKeywords) {
+    let validAdditionalKeywords = additionalKeywords.filter(title => title.trim() !== '');
+    
+    if (validAdditionalKeywords.length === 0) {
+      return mainKeyword.trim();
+    }
+    
+    let formattedKeywords = `"${mainKeyword.trim()}"`;
+    
+    validAdditionalKeywords.forEach(title => {
+      formattedKeywords += ` OR "${title.trim()}"`;
+    });
+    
+    return formattedKeywords;
+  }
+  
+  // For display in UI - use simplified format (main term + count)
+  function formatKeywordsForDisplay(mainKeyword, additionalKeywords) {
+    let validAdditionalKeywords = additionalKeywords.filter(title => title.trim() !== '');
+    
+    if (validAdditionalKeywords.length === 0) {
+      return mainKeyword.trim();
+    }
+    
+    return `${mainKeyword.trim()} + ${validAdditionalKeywords.length} more`;
   }
   
   async function searchJobs() {
@@ -445,15 +521,32 @@
     // Use only the first selected workplace type - API doesn't accept multiple values
     const remoteValue = selectedWorkplaceTypes.length > 0 ? selectedWorkplaceTypes[0] : '';
     
+    // Determine which format to use based on whether we have additional titles
+    let hasAdditionalTitles = includeSimilarRoles && additionalJobTitles.some(title => title.trim() !== '');
+    
+    // Format keyword for display in the UI (what the user will see in the list)
+    const keywordForDisplay = hasAdditionalTitles
+      ? formatKeywordsForDisplay(keywords, additionalJobTitles)
+      : keywords.trim();
+    
+    // Store the actual query string in a metadata field for searching
+    const searchMetadata = {
+      additionalJobTitles: hasAdditionalTitles ? storeAdditionalJobTitles() : null,
+      searchQuery: hasAdditionalTitles 
+        ? formatKeywordsForSearch(keywords, additionalJobTitles)
+        : null
+    };
+    
     const searchPayload = [{
-      keyword: keywords.trim(),
+      keyword: keywordForDisplay, // Use the display format as the primary keyword
       location: location?.trim() || '',
       country: country || 'US', 
       time_range: datePosted || 'Past 24 hours',
       job_type: jobType || '',
       experience_level: experience || '',
-      remote: remoteValue, // Use only the first selected value
-      includeSimilarRoles: includeSimilarRoles // Add the new flag to the payload
+      remote: remoteValue,
+      includeSimilarRoles: includeSimilarRoles,
+      metadata: searchMetadata // Store the full search query and additional titles in metadata
     }];
 
     // Use the environment config to determine the correct URL
@@ -473,9 +566,7 @@
       schedule: {
         frequency: 'daily',
         runImmediately: true,
-        // Send both local and UTC time formats
-        deliveryTime: timeInfo.utcTimeString, // Send the UTC time string
-        // Include both the string time and timestamps to ensure accuracy
+        deliveryTime: timeInfo.utcTimeString,
         timeInfo: {
           timezoneOffset: timezoneInfo.offsetHours,
           timezone: timezoneInfo.timezone,
@@ -706,6 +797,50 @@
                       </span>
                     </label>
                   </div>
+                  
+                  <!-- Additional Job Titles section - only show when Fuzzy Match is checked -->
+                  {#if includeSimilarRoles}
+                    <div class="mt-3 pl-7">
+                      <label class="block font-bold mb-2">Additional Job Titles</label>
+                      
+                      {#each additionalJobTitles as title, index}
+                        <div class="flex items-center mb-2">
+                          <input
+                            type="text"
+                            placeholder="Include additional job title"
+                            bind:value={additionalJobTitles[index]}
+                            on:input={(e) => updateJobTitle(index, e.target.value)}
+                            class="flex-grow px-4 py-2 border rounded-lg mr-2"
+                          />
+                          
+                          <!-- Add button for the first field, or fields that aren't the last one -->
+                          {#if index === additionalJobTitles.length - 1 && additionalJobTitles.length < 5}
+                            <button 
+                              type="button"
+                              on:click={addJobTitleField}
+                              class="p-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg"
+                              title="Add another job title"
+                            >
+                              <span class="flex items-center justify-center w-5 h-5">+</span>
+                            </button>
+                          {:else if additionalJobTitles.length > 1}
+                            <!-- Remove button for extra fields -->
+                            <button 
+                              type="button"
+                              on:click={() => removeJobTitleField(index)}
+                              class="p-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg"
+                              title="Remove job title"
+                            >
+                              <span class="flex items-center justify-center w-5 h-5">×</span>
+                            </button>
+                          {:else}
+                            <!-- Empty spacer to maintain alignment -->
+                            <div class="w-9 h-9"></div>
+                          {/if}
+                        </div>
+                      {/each}
+                    </div>
+                  {/if}
                 </div>
               {/if}
             </div>
