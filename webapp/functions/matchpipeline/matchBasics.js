@@ -194,12 +194,16 @@ exports.matchBasics = onMessagePublished(
                 .get();
 
             if (!jobDoc.exists) {
-                throw new Error('Job not found');
+                logger.warn(`Job not found for jobId: ${jobId}, firebaseUid: ${firebaseUid}`);
+                // Gracefully skip this job
+                return;
             }
 
             const jobDescription = jobDoc.data().details?.description;
             if (!jobDescription) {
-                throw new Error('Job has no description');
+                logger.warn(`Job has no description for jobId: ${jobId}, firebaseUid: ${firebaseUid}`);
+                // Gracefully skip this job
+                return;
             }
 
             // Get resume text

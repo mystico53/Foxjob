@@ -66,20 +66,11 @@
     function updateChart() {
       if (!chartCanvas || recentDaysStats.length === 0) return;
       
-      if (chartInstance) {
-        chartInstance.destroy();
-      }
-      
       const ctx = chartCanvas.getContext('2d');
-      
-      // Reverse the array to have today on the right
       const reversedStats = [...recentDaysStats].reverse();
-      
-      // Extract labels (dates)
       const labels = reversedStats.map(day => day.label);
       
       // Create gradients for each category
-      // Using one vertical gradient for each dataset
       const topMatchGradient = ctx.createLinearGradient(0, 0, 0, 400);
       topMatchGradient.addColorStop(0, 'rgba(220, 55, 1, 0.9)');
       topMatchGradient.addColorStop(1, 'rgba(220, 55, 1, 0.7)');
@@ -96,68 +87,79 @@
       poorMatchGradient.addColorStop(0, 'rgba(255, 156, 0, 0.75)');
       poorMatchGradient.addColorStop(1, 'rgba(255, 156, 0, 0.55)');
       
-      chartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-          labels: labels,
-          datasets: [
-            // Order changed to have highest score on top (reversed order in stacked chart)
-            {
-              label: 'Poor Matches (< 50)',
-              data: reversedStats.map(day => day.poorMatch || 0),
-              backgroundColor: poorMatchGradient,
-              borderWidth: 0
-            },
-            {
-              label: 'OK Matches (≥ 50)',
-              data: reversedStats.map(day => day.okMatch || 0),
-              backgroundColor: okMatchGradient,
-              borderWidth: 0
-            },
-            {
-              label: 'Good Matches (≥ 65)',
-              data: reversedStats.map(day => day.goodMatch || 0),
-              backgroundColor: goodMatchGradient,
-              borderWidth: 0
-            },
-            {
-              label: 'Top Matches (≥ 85)',
-              data: reversedStats.map(day => day.topMatch || 0),
-              backgroundColor: topMatchGradient,
-              borderWidth: 0
-            }
-          ]
+      // Prepare datasets
+      const datasets = [
+        {
+          label: 'Poor Matches (< 50)',
+          data: reversedStats.map(day => day.poorMatch || 0),
+          backgroundColor: poorMatchGradient,
+          borderWidth: 0
         },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          scales: {
-            x: {
-              stacked: true,
-              grid: {
-                display: false
-              }
-            },
-            y: {
-              stacked: true,
-              grid: {
-                display: false
-              },
-              ticks: {
-                stepSize: 10 // Show ticks at intervals of 10
-              }
-            }
+        {
+          label: 'OK Matches (≥ 50)',
+          data: reversedStats.map(day => day.okMatch || 0),
+          backgroundColor: okMatchGradient,
+          borderWidth: 0
+        },
+        {
+          label: 'Good Matches (≥ 65)',
+          data: reversedStats.map(day => day.goodMatch || 0),
+          backgroundColor: goodMatchGradient,
+          borderWidth: 0
+        },
+        {
+          label: 'Top Matches (≥ 85)',
+          data: reversedStats.map(day => day.topMatch || 0),
+          backgroundColor: topMatchGradient,
+          borderWidth: 0
+        }
+      ];
+      
+      if (!chartInstance) {
+        chartInstance = new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: labels,
+            datasets: datasets
           },
-          plugins: {
-            legend: {
-              display: false // Hide the legend
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              x: {
+                stacked: true,
+                grid: {
+                  display: false
+                }
+              },
+              y: {
+                stacked: true,
+                grid: {
+                  display: false
+                },
+                ticks: {
+                  stepSize: 10 // Show ticks at intervals of 10
+                }
+              }
             },
-            tooltip: {
-              enabled: true // Disabled as per request
+            plugins: {
+              legend: {
+                display: false // Hide the legend
+              },
+              tooltip: {
+                enabled: true // Disabled as per request
+              }
             }
           }
-        }
-      });
+        });
+      } else {
+        chartInstance.data.labels = labels;
+        chartInstance.data.datasets.forEach((dataset, i) => {
+          dataset.data = datasets[i].data;
+          dataset.backgroundColor = datasets[i].backgroundColor;
+        });
+        chartInstance.update();
+      }
     }
     
     // Calculate aggregated stats for 7 days

@@ -310,26 +310,16 @@
       ? query.searchParams[0] 
       : {};
     
-    // Extract metadata if it exists
-    const metadata = searchParam.metadata || {};
-    
-    // Populate the form fields with query data
-    keywords = searchParam.keyword || '';
-    
-    // Handle additional job titles if they exist in metadata
-    if (metadata.additionalJobTitles) {
-      try {
-        const parsedTitles = JSON.parse(metadata.additionalJobTitles);
-        additionalJobTitles = Array.isArray(parsedTitles) ? parsedTitles : [''];
-        includeSimilarRoles = true; // Enable fuzzy match if we have additional titles
-      } catch (e) {
-        console.error('Error parsing additional job titles:', e);
-        additionalJobTitles = [''];
-      }
+    // Use mainKeyword if present, otherwise parse the first quoted term from keyword
+    if (searchParam.mainKeyword) {
+      keywords = searchParam.mainKeyword;
+    } else if (searchParam.keyword) {
+      // Try to extract the first quoted term
+      const match = searchParam.keyword.match(/"([^"]+)"/);
+      keywords = match ? match[1] : searchParam.keyword;
     } else {
-      additionalJobTitles = [''];
+      keywords = '';
     }
-    
     location = searchParam.location || '';
     country = searchParam.country || 'US';
     jobType = searchParam.job_type || '';
@@ -376,11 +366,18 @@
       deliveryTime = '08:00'; // Default to 8:00 AM
     }
     
+    // Populate additional job titles if present, else default to ['']
+    if (Array.isArray(searchParam.additionalJobTitles) && searchParam.additionalJobTitles.length > 0) {
+      additionalJobTitles = [...searchParam.additionalJobTitles];
+    } else {
+      additionalJobTitles = [''];
+    }
+    
     // Convert numeric limit to string for form input - keep limit as string now
     limitPerInput = query.limit ? query.limit.toString() : '10';
     
-    // Open advanced section if any of those fields are filled or if we have additional job titles
-    showAdvanced = !!(jobType || experience || datePosted !== 'Past 24 hours' || additionalJobTitles.length > 1 || includeSimilarRoles);
+    // Open advanced section if any of those fields are filled
+    showAdvanced = !!(jobType || experience || datePosted !== 'Past 24 hours');
     
     // Force a UI update by scheduling a microtask
     setTimeout(() => {
@@ -456,31 +453,21 @@
     showAdvanced = !showAdvanced;
   }
   
-  // Store additional job titles in hidden format
-  function storeAdditionalJobTitles() {
-    const validTitles = additionalJobTitles.filter(title => title.trim() !== '');
-    if (validTitles.length === 0) return null;
-    return JSON.stringify(validTitles);
-  }
-  
-  // Format keywords for search - keep full query with OR for actual search
-  function formatKeywordsForSearch(mainKeyword, additionalKeywords) {
+  // Generate the formatted keyword string with "OR" operators for search
+  function formatKeywords(mainKeyword, additionalKeywords) {
     let validAdditionalKeywords = additionalKeywords.filter(title => title.trim() !== '');
-    
-    if (validAdditionalKeywords.length === 0) {
-      return mainKeyword.trim();
-    }
-    
-    let formattedKeywords = `"${mainKeyword.trim()}"`;
-    
+    const trimmedMain = mainKeyword.trim();
+    // Only quote the main keyword if not already quoted
+    let formattedKeywords = trimmedMain.startsWith('"') && trimmedMain.endsWith('"')
+      ? trimmedMain
+      : `"${trimmedMain}"`;
     validAdditionalKeywords.forEach(title => {
       formattedKeywords += ` OR "${title.trim()}"`;
     });
-    
     return formattedKeywords;
   }
   
-  // For display in UI - use simplified format (main term + count)
+  // Generate the display format for the saved job agent (main term + count)
   function formatKeywordsForDisplay(mainKeyword, additionalKeywords) {
     let validAdditionalKeywords = additionalKeywords.filter(title => title.trim() !== '');
     
@@ -521,32 +508,30 @@
     // Use only the first selected workplace type - API doesn't accept multiple values
     const remoteValue = selectedWorkplaceTypes.length > 0 ? selectedWorkplaceTypes[0] : '';
     
-    // Determine which format to use based on whether we have additional titles
-    let hasAdditionalTitles = includeSimilarRoles && additionalJobTitles.some(title => title.trim() !== '');
-    
-    // Format keyword for display in the UI (what the user will see in the list)
-    const keywordForDisplay = hasAdditionalTitles
+    // Format the keywords with OR operators if fuzzy match is enabled and additional titles exist
+    const formattedKeywords = includeSimilarRoles 
+      ? formatKeywords(keywords, additionalJobTitles)
+      : keywords.trim();
+      
+    // Format display keywords for the UI (simpler version with count)
+    const displayKeywords = includeSimilarRoles && additionalJobTitles.some(title => title.trim() !== '')
       ? formatKeywordsForDisplay(keywords, additionalJobTitles)
       : keywords.trim();
     
-    // Store the actual query string in a metadata field for searching
-    const searchMetadata = {
-      additionalJobTitles: hasAdditionalTitles ? storeAdditionalJobTitles() : null,
-      searchQuery: hasAdditionalTitles 
-        ? formatKeywordsForSearch(keywords, additionalJobTitles)
-        : null
-    };
-    
     const searchPayload = [{
-      keyword: keywordForDisplay, // Use the display format as the primary keyword
+      keyword: formattedKeywords,
+      displayKeyword: displayKeywords, // Add the display version
       location: location?.trim() || '',
       country: country || 'US', 
       time_range: datePosted || 'Past 24 hours',
       job_type: jobType || '',
       experience_level: experience || '',
-      remote: remoteValue,
-      includeSimilarRoles: includeSimilarRoles,
-      metadata: searchMetadata // Store the full search query and additional titles in metadata
+      remote: remoteValue, // Use only the first selected value
+      includeSimilarRoles: includeSimilarRoles, // Add the new flag to the payload
+      // Add additionalJobTitles only if fuzzy match is enabled
+      ...(includeSimilarRoles ? { additionalJobTitles: additionalJobTitles.filter(title => title.trim() !== '') } : {}),
+      // Always save the main keyword for reliable editing
+      mainKeyword: keywords
     }];
 
     // Use the environment config to determine the correct URL
@@ -566,7 +551,9 @@
       schedule: {
         frequency: 'daily',
         runImmediately: true,
-        deliveryTime: timeInfo.utcTimeString,
+        // Send both local and UTC time formats
+        deliveryTime: timeInfo.utcTimeString, // Send the UTC time string
+        // Include both the string time and timestamps to ensure accuracy
         timeInfo: {
           timezoneOffset: timezoneInfo.offsetHours,
           timezone: timezoneInfo.timezone,

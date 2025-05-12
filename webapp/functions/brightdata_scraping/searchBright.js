@@ -224,8 +224,22 @@ exports.searchBright = onRequest({
       // Get first search param
       const search = searchParams[0];
       
+      // For BrightData, only the formatted keyword is used.
+      // If fuzzy match is enabled, use as-is. If not, wrap in quotes if not already quoted.
+      let keywordForBrightData;
+      if (search.includeSimilarRoles) {
+        keywordForBrightData = search.keyword;
+      } else {
+        // Only wrap in quotes if not already quoted
+        const trimmed = (search.keyword || '').trim();
+        if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+          keywordForBrightData = trimmed;
+        } else {
+          keywordForBrightData = `"${trimmed}"`;
+        }
+      }
       const requestData = {
-        keyword: search.includeSimilarRoles ? search.keyword : `"${search.keyword}"`,
+        keyword: keywordForBrightData,
         location: search.location,
         country: search.country,
         time_range: search.time_range,
@@ -233,6 +247,7 @@ exports.searchBright = onRequest({
         experience_level: search.experience_level || undefined,
         remote: search.remote && search.remote !== "" ? search.remote : undefined,
         company: search.company && search.company !== "" ? search.company : undefined,
+        // Do NOT send additionalJobTitles to BrightData; it's only for internal use
       };
 
       console.log("DETAILED_DEBUG - Search origin:", 
