@@ -202,27 +202,51 @@ async function adjustFinalScore(firebaseUid, jobId) {
         // Round to whole number
         const roundedAdjustedScore = Math.round(adjustedScore);
         
-        // Update the document with both scores
-        await db.collection('users')
-            .doc(firebaseUid)
-            .collection('scrapedJobs')
-            .doc(jobId)
-            .set({
-                match: {
-                    basic_score: originalScore, // Store original for documentation
-                    final_score: roundedAdjustedScore, // Update the final score
-                    score_adjusted_timestamp: FieldValue.serverTimestamp()
-                }
-            }, { merge: true });
-        
-        logger.info('Successfully adjusted final score', {
-            firebaseUid,
-            jobId,
-            originalScore,
-            preferenceScore,
-            adjustment,
-            adjustedScore: roundedAdjustedScore
-        });
+        // Try to update only the match fields (faster, less data written)
+        try {
+            await db.collection('users')
+                .doc(firebaseUid)
+                .collection('scrapedJobs')
+                .doc(jobId)
+                .update({
+                    'match.basic_score': originalScore, // Store original for documentation
+                    'match.final_score': roundedAdjustedScore, // Update the final score
+                    'match.score_adjusted_timestamp': FieldValue.serverTimestamp()
+                });
+            logger.info('Successfully adjusted final score with update()', {
+                firebaseUid,
+                jobId,
+                originalScore,
+                preferenceScore,
+                adjustment,
+                adjustedScore: roundedAdjustedScore
+            });
+        } catch (updateError) {
+            logger.warn('Update failed, falling back to set with merge', {
+                firebaseUid,
+                jobId,
+                error: updateError.message
+            });
+            await db.collection('users')
+                .doc(firebaseUid)
+                .collection('scrapedJobs')
+                .doc(jobId)
+                .set({
+                    match: {
+                        basic_score: originalScore, // Store original for documentation
+                        final_score: roundedAdjustedScore, // Update the final score
+                        score_adjusted_timestamp: FieldValue.serverTimestamp()
+                    }
+                }, { merge: true });
+            logger.info('Successfully adjusted final score with set()', {
+                firebaseUid,
+                jobId,
+                originalScore,
+                preferenceScore,
+                adjustment,
+                adjustedScore: roundedAdjustedScore
+            });
+        }
         
         return true;
     } catch (error) {

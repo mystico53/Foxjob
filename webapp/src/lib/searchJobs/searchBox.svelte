@@ -788,11 +788,12 @@
                   <!-- Additional Job Titles section - only show when Fuzzy Match is checked -->
                   {#if includeSimilarRoles}
                     <div class="mt-3 pl-7">
-                      <label class="block font-bold mb-2">Additional Job Titles</label>
+                      <label class="block font-bold mb-2" for="additionalJobTitle-0">Additional Job Titles</label>
                       
                       {#each additionalJobTitles as title, index}
                         <div class="flex items-center mb-2">
                           <input
+                            id={`additionalJobTitle-${index}`}
                             type="text"
                             placeholder="Include additional job title"
                             bind:value={additionalJobTitles[index]}
