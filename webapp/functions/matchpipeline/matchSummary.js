@@ -152,11 +152,32 @@ exports.matchSummary = onMessagePublished(
             if (batchId) {
                 try {
                     const batchRef = db.collection('jobBatches').doc(batchId);
-                    await batchRef.update({
-                        [`jobStatus.${jobId}`]: 'summary_completed',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('summary_completed'),
-                        completedJobs: FieldValue.increment(1)
-                    });
+                    const batchSnap = await batchRef.get();
+                    const batchData = batchSnap.data() || {};
+                    if (
+                        batchData.status === 'complete' ||
+                        batchData.completedJobs >= batchData.totalJobs ||
+                        (Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
+                    ) {
+                        logger.info(`Skipping batch update for jobId=${jobId} - already counted or batch complete`);
+                    } else {
+                        await batchRef.update({
+                            [`jobStatus.${jobId}`]: 'summary_completed',
+                            [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('summary_completed'),
+                            completedJobs: FieldValue.increment(1),
+                            completedJobIds: FieldValue.arrayUnion(jobId)
+                        });
+                        // Debug log for completedJobs increment
+                        const batchSnap2 = await batchRef.get();
+                        const batchData2 = batchSnap2.data() || {};
+                        // Fetch job score
+                        let jobScore = '?';
+                        try {
+                            const jobSnap = await db.collection('users').doc(firebaseUid).collection('scrapedJobs').doc(jobId).get();
+                            jobScore = jobSnap.exists && jobSnap.data().match && typeof jobSnap.data().match.final_score !== 'undefined' ? jobSnap.data().match.final_score : '?';
+                        } catch (e) {}
+                        logger.debug(`[matchSummary] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`);
+                    }
                     logger.info('Updated batch status', { batchId, jobId });
                 } catch (error) {
                     logger.error('Failed to update batch', { batchId, error });

@@ -205,11 +205,32 @@ exports.matchBasics = onMessagePublished(
                 // Gracefully skip this job, but increment batch counter if batchId exists
                 if (batchId) {
                     const batchRef = db.collection('jobBatches').doc(batchId);
-                    await batchRef.update({
-                        [`jobStatus.${jobId}`]: 'basic_completed',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
-                        completedJobs: FieldValue.increment(1)
-                    });
+                    const batchSnap = await batchRef.get();
+                    const batchData = batchSnap.data() || {};
+                    if (
+                        batchData.status === 'complete' ||
+                        batchData.completedJobs >= batchData.totalJobs ||
+                        (Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
+                    ) {
+                        logger.info(`Skipping batch update for jobId=${jobId} - already counted or batch complete`);
+                    } else {
+                        await batchRef.update({
+                            [`jobStatus.${jobId}`]: 'basic_completed',
+                            [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
+                            completedJobs: FieldValue.increment(1),
+                            completedJobIds: FieldValue.arrayUnion(jobId)
+                        });
+                        // Debug log for completedJobs increment
+                        const batchSnap2 = await batchRef.get();
+                        const batchData2 = batchSnap2.data() || {};
+                        // Fetch job score
+                        let jobScore = '?';
+                        try {
+                            const jobSnap = await db.collection('users').doc(firebaseUid).collection('scrapedJobs').doc(jobId).get();
+                            jobScore = jobSnap.exists && jobSnap.data().match && typeof jobSnap.data().match.final_score !== 'undefined' ? jobSnap.data().match.final_score : '?';
+                        } catch (e) {}
+                        logger.debug(`[matchBasics] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`);
+                    }
                 }
                 return;
             }
@@ -268,15 +289,15 @@ exports.matchBasics = onMessagePublished(
                 .doc(jobId)
                 .set(documentData, { merge: true });
 
-            // Always publish to basics-completed topic
-            await publishMessage('basics-completed', {
-                firebaseUid,
-                jobId,
-                batchId // Include batchId if it exists
-            });
-
-            // If the score is below or equal to the threshold, write a placeholder summary and update batch
-            if (response.final_score <= CONFIG.minScoreThreshold) {
+            // Only publish to basics-completed if score is above threshold
+            if (response.final_score > CONFIG.minScoreThreshold) {
+                await publishMessage('basics-completed', {
+                    firebaseUid,
+                    jobId,
+                    batchId // Include batchId if it exists
+                });
+            } else {
+                // If the score is below or equal to the threshold, write a placeholder summary and update batch
                 const placeholderSummary = {
                     match: {
                         summary: {
@@ -292,14 +313,35 @@ exports.matchBasics = onMessagePublished(
                     .collection('scrapedJobs')
                     .doc(jobId)
                     .set(placeholderSummary, { merge: true });
-                // Update batch status and counter
+                // Update batch status and counter with job-level tracking
                 if (batchId) {
                     const batchRef = db.collection('jobBatches').doc(batchId);
-                    await batchRef.update({
-                        [`jobStatus.${jobId}`]: 'basic_completed',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
-                        completedJobs: FieldValue.increment(1)
-                    });
+                    const batchSnap = await batchRef.get();
+                    const batchData = batchSnap.data() || {};
+                    if (
+                        batchData.status === 'complete' ||
+                        batchData.completedJobs >= batchData.totalJobs ||
+                        (Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
+                    ) {
+                        logger.info(`Skipping batch update for jobId=${jobId} - already counted or batch complete`);
+                    } else {
+                        await batchRef.update({
+                            [`jobStatus.${jobId}`]: 'basic_completed',
+                            [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
+                            completedJobs: FieldValue.increment(1),
+                            completedJobIds: FieldValue.arrayUnion(jobId)
+                        });
+                        // Debug log for completedJobs increment
+                        const batchSnap2 = await batchRef.get();
+                        const batchData2 = batchSnap2.data() || {};
+                        // Fetch job score
+                        let jobScore = '?';
+                        try {
+                            const jobSnap = await db.collection('users').doc(firebaseUid).collection('scrapedJobs').doc(jobId).get();
+                            jobScore = jobSnap.exists && jobSnap.data().match && typeof jobSnap.data().match.final_score !== 'undefined' ? jobSnap.data().match.final_score : '?';
+                        } catch (e) {}
+                        logger.debug(`[matchBasics] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`);
+                    }
                 }
                 logger.info('Basic match completed and ended at basics (score below threshold)', {
                     firebaseUid,

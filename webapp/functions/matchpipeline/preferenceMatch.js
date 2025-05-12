@@ -431,11 +431,32 @@ exports.preferenceMatch = onMessagePublished(
                     .set(placeholderSummary, { merge: true });
                 if (batchId) {
                     const batchRef = db.collection('jobBatches').doc(batchId);
-                    await batchRef.update({
-                        [`jobStatus.${jobId}`]: 'preference_completed',
-                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('preference_completed'),
-                        completedJobs: FieldValue.increment(1)
-                    });
+                    const batchSnap = await batchRef.get();
+                    const batchData = batchSnap.data() || {};
+                    if (
+                        batchData.status === 'complete' ||
+                        batchData.completedJobs >= batchData.totalJobs ||
+                        (Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
+                    ) {
+                        logger.info(`Skipping batch update for jobId=${jobId} - already counted or batch complete`);
+                    } else {
+                        await batchRef.update({
+                            [`jobStatus.${jobId}`]: 'preference_completed',
+                            [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('preference_completed'),
+                            completedJobs: FieldValue.increment(1),
+                            completedJobIds: FieldValue.arrayUnion(jobId)
+                        });
+                        // Debug log for completedJobs increment
+                        const batchSnap2 = await batchRef.get();
+                        const batchData2 = batchSnap2.data() || {};
+                        // Fetch job score
+                        let jobScore = '?';
+                        try {
+                            const jobSnap = await db.collection('users').doc(firebaseUid).collection('scrapedJobs').doc(jobId).get();
+                            jobScore = jobSnap.exists && jobSnap.data().match && typeof jobSnap.data().match.final_score !== 'undefined' ? jobSnap.data().match.final_score : '?';
+                        } catch (e) {}
+                        logger.debug(`[preferenceMatch] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`);
+                    }
                 }
                 logger.info('Preference match completed and ended at preference (score below threshold)', {
                     firebaseUid,
@@ -448,7 +469,7 @@ exports.preferenceMatch = onMessagePublished(
                     hasPreferences: !!preferences
                 };
             } else {
-                // Publish to preference-matched for summary generation
+                // Only publish to preference-matched for summary generation if score is above 50
                 await publishMessage('preference-matched', {
                     firebaseUid,
                     jobId,
