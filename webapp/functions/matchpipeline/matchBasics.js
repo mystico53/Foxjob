@@ -202,7 +202,15 @@ exports.matchBasics = onMessagePublished(
             const jobDescription = jobDoc.data().details?.description;
             if (!jobDescription) {
                 logger.warn(`Job has no description for jobId: ${jobId}, firebaseUid: ${firebaseUid}`);
-                // Gracefully skip this job
+                // Gracefully skip this job, but increment batch counter if batchId exists
+                if (batchId) {
+                    const batchRef = db.collection('jobBatches').doc(batchId);
+                    await batchRef.update({
+                        [`jobStatus.${jobId}`]: 'basic_completed',
+                        [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
+                        completedJobs: FieldValue.increment(1)
+                    });
+                }
                 return;
             }
 
