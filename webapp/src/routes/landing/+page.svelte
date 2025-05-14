@@ -14,6 +14,11 @@
     <ProblemAmplification />
     <Features />
     <Testimonials />
+    <div class="my-16 flex flex-col items-center justify-center">
+      <blockquote class="text-2xl italic text-center text-gray-800 dark:text-gray-200 max-w-2xl font-medium">
+        "It's like having someone who actually read your resume doing the searching."
+      </blockquote>
+    </div>
     <CallToAction />
     <Footer />
   </div>

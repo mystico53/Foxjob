@@ -2,21 +2,24 @@
 	const features = [
 		{
 			icon: 'ph:hand-heart-light',
-			title: 'Scans daily for new jobs'
+			title: 'The search happens without you',
+			description: 'We scan up to 50 jobs daily while you live your life.'
 		},
 		{
 			icon: 'ion:flash-outline',
-			title: 'LLM compares jobs with your resume'
+			title: 'Your resume does the talking',
+			description: 'LLMs understand what you can do, and read between the lines.'
 		},
 		{
 			icon: 'qlementine-icons:jump-over-16',
-			title: 'Focuses on best matches'
+			title: 'Only the good stuff',
+			description: 'Get jobs worth your attention directly send to your inbox'
 		}
 	];
 </script>
 
 <div class="pb-22 container mx-auto px-4 py-16">
-	<h2 class="h2 mb-12 py-8 text-center font-bold">How GenAI can automate your jobsearch</h2>
+	<h2 class="h2 mb-12 py-8 text-center font-bold">GenAI job search: better matches, less work</h2>
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
 		{#each features as feature}
@@ -25,6 +28,7 @@
 			>
 				<iconify-icon icon={feature.icon} class="text-6xl"></iconify-icon>
 				<h3 class="font-base min-h-[3rem] py-4 font-bold">{feature.title}</h3>
+				<p class="text-gray-700">{feature.description}</p>
 			</div>
 		{/each}
 	</div>
