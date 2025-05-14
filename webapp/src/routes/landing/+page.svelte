@@ -1,6 +1,7 @@
 <script>
     
     import Hero from '$lib/landing/Hero.svelte';
+    import ProblemAmplification from '$lib/landing/ProblemAmplification.svelte';
     import Features from '$lib/landing/ValueDistinguisher.svelte';
     import Testimonials from '$lib/landing/HowItWorks.svelte';
     import CallToAction from '$lib/landing/FinalCTA.svelte';
@@ -10,6 +11,7 @@
   <div class="container mx-auto px-4 max-w-6xl">
     
     <Hero />
+    <ProblemAmplification />
     <Features />
     <Testimonials />
     <CallToAction />
