@@ -20,9 +20,9 @@
 
 <div class="card w-full bg-white px-4 py-16">
 	<div class="container mx-auto max-w-3xl text-center">
-		<h2 class="mb-4 text-4xl font-bold text-slate-900">Start finding jobs based on your skills</h2>
+		<h2 class="mb-4 text-4xl font-bold text-slate-900">Let your agent do the lifting</h2>
 
-		<p class="mb-8 text-lg text-slate-600">Use Foxjob to focus on jobs that matter</p>
+		<p class="mb-8 text-lg text-slate-600">Start finding jobs based on your skills</p>
 
 		<button
 			type="button"
@@ -30,7 +30,7 @@
 			style="background-color: #DC3701; border-radius: 0.250rem;"
 			on:click={handleStartJobMatching}
 		>
-			Create my job search agent
+			Create Your Job Agent
 		</button>
 	</div>
 </div>

@@ -3,23 +3,23 @@
 		{
 			icon: 'ph:hand-heart-light',
 			title: 'The search happens without you',
-			description: 'We scan up to 50 jobs daily while you live your life.'
+			description: 'Your agent scans up to 50 jobs daily while you live your life.'
 		},
 		{
 			icon: 'ion:flash-outline',
 			title: 'Your resume does the talking',
-			description: 'LLMs understand what you can do, and read between the lines.'
+			description: 'Your agent understands your skills, not just keywords.'
 		},
 		{
 			icon: 'qlementine-icons:jump-over-16',
 			title: 'Only the good stuff',
-			description: 'Get jobs worth your attention directly send to your inbox'
+			description: 'Your agent delivers only jobs worth your attention to your inbox'
 		}
 	];
 </script>
 
 <div class="pb-22 container mx-auto px-4 py-16">
-	<h2 class="h2 mb-12 py-8 text-center font-bold">GenAI job search: better matches, less work</h2>
+	<h2 class="h2 mb-12 py-8 text-center font-bold">Create an AI agent to handle the boring parts</h2>
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
 		{#each features as feature}

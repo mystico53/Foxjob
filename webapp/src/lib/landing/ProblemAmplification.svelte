@@ -50,7 +50,7 @@
 </script>
 
 <div bind:this={sectionRef} class="py-16">
-  <h2 class="h2 mb-12 pt-8 text-center font-bold">Reading Job Descriptions Sucks</h2>
+    <h2 class="h2 mb-12 pt-8 pb-0 text-center font-bold">Job descriptions: the part nobody enjoys</h2>
   <div class="flex flex-col md:flex-row items-center justify-center w-full">
     <!-- Left: Donut Chart -->
     <div class="flex items-center p-12">
