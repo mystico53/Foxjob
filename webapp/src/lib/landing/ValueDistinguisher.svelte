@@ -19,7 +19,7 @@
 </script>
 
 <div class="pb-22 container mx-auto px-4 py-16">
-	<h2 class="h2 mb-12 py-8 text-center font-bold">An AI agent for passive job search</h2>
+	<h2 class="h2 mb-12 py-8 text-center font-bold">An AI agent that searches while you don't</h2>
 
 	<div class="grid grid-cols-1 gap-6 md:grid-cols-3">
 		{#each features as feature}

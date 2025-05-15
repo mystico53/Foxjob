@@ -57,6 +57,10 @@
 			console.error('Error signing out:', err);
 		}
 	}
+
+	$: if (!$authStore) {
+		handleLogout();
+	}
 </script>
 
 <AppBar

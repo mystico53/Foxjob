@@ -285,7 +285,7 @@
   let workplaceType = '';
   let datePosted = 'Past 24 hours'; // Default to 24 hours
   let country = 'US';
-  let limitPerInput = '10'; // Changed default to string value "10"
+  let limitPerInput = '50'; // Changed default to string value "50"
   let includeSimilarRoles = false; // New state variable for similar roles checkbox
 
   // Add time options for when to receive results - SIMPLIFIED TO 3 OPTIONS
@@ -374,7 +374,7 @@
     }
     
     // Convert numeric limit to string for form input - keep limit as string now
-    limitPerInput = query.limit ? query.limit.toString() : '10';
+    limitPerInput = query.limit ? query.limit.toString() : '50';
     
     // Open advanced section if any of those fields are filled
     showAdvanced = !!(jobType || experience || datePosted !== 'Past 24 hours');
@@ -410,7 +410,7 @@
     selectedWorkplaceTypes = [];
     datePosted = 'Past 24 hours';
     country = 'US';
-    limitPerInput = '10';
+    limitPerInput = '50';
     deliveryTime = '08:00';
     showAdvanced = false;
     includeSimilarRoles = false; // Reset the checkbox
@@ -437,7 +437,7 @@
       selectedWorkplaceTypes = [];
       datePosted = 'Past 24 hours';
       country = 'US';
-      limitPerInput = '10';
+      limitPerInput = '50';
       deliveryTime = '08:00';
       showAdvanced = false;
       includeSimilarRoles = false; // Reset the checkbox
@@ -895,7 +895,7 @@
 
               <!-- REPLACED: Daily Match Limit with Radio Buttons - KEEP THIS PART -->
               <div>
-                <label id="job-matches-label" class="block font-bold mb-2" for="job-matches-group">Job matches per day</label>
+                <label id="job-matches-label" class="block font-bold mb-2" for="job-matches-group">Max Job matches per day</label>
                 <div id="job-matches-group" class="flex items-center h-11" role="radiogroup" aria-labelledby="job-matches-label"> <!-- Added height to match dropdown -->      
                     <!-- Radio for 1 -->
                     <div class="flex items-center">
@@ -934,33 +934,12 @@
                     />
                     <label for="limit50" class="text-base mr-4">50</label>
                     
-                    <!-- Upgrade button with dark grey styling -->
+                    <!-- Beta Test button with dark grey styling -->
                     <button 
                       type="button"
                       class="py-1 px-3 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg ml-2"
                     >
-                      upgrade
-                    </button>
-                  </div>
-                  
-                  <!-- New Radio for 100 -->
-                  <div class="flex items-center">
-                    <input 
-                      type="radio" 
-                      id="limit100" 
-                      name="limitPerInput" 
-                      value="100" 
-                      bind:group={limitPerInput}
-                      class="mr-2 h-5 w-5"
-                    />
-                    <label for="limit100" class="text-base mr-2">100</label>
-                    
-                    <!-- Upgrade button with dark grey styling -->
-                    <button 
-                      type="button"
-                      class="py-1 px-3 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg ml-2"
-                    >
-                      upgrade
+                      (Beta Test)
                     </button>
                   </div>
                 </div>

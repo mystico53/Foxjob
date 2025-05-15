@@ -23,9 +23,14 @@
 <div class="gradient-background">
 	<div class="container px-4 pb-16">
 		<LandingNav />
-		<div class="grid grid-cols-1 gap-8 pl-14 pt-12 md:grid-cols-2">
-			<!-- Left Column: Content -->
-			<div class="space-y-6">
+		<div class="grid grid-cols-1 gap-8 pt-8 md:pl-14 md:pt-12 md:grid-cols-2">
+			<!-- Right Column: Image (on mobile, appears first) -->
+			<div class="flex justify-center order-1 md:order-2">
+				<img src="/images/fox-hero.png" alt="Fox hero illustration" class="h-32 w-32 md:h-72 md:w-72 rounded-lg" />
+			</div>
+
+			<!-- Left Column: Content (on mobile, appears second) -->
+			<div class="space-y-6 order-2 md:order-1">
 				<h1 class="h1 font-bold" style="line-height: 1.3;">Life's too short for job boards</h1>
 				<h2 class="h4 pb-20 font-normal">Don't search harder, let your resume work smarter.</h2>
 				<button
@@ -36,11 +41,6 @@
 				>
 					Create Your Job Agent
 				</button>
-			</div>
-
-			<!-- Right Column: Image -->
-			<div class="flex justify-center">
-				<img src="/images/fox-hero.png" alt="Fox hero illustration" class="h-72 w-72 rounded-lg" />
 			</div>
 		</div>
 	</div>
