@@ -21,7 +21,7 @@
 </script>
 
 <div class="gradient-background">
-	<div class="container px-4 pb-16">
+	<div class="container mx-auto max-w-6xl px-4 pb-0 sm:pb-16">
 		<LandingNav />
 		<div class="grid grid-cols-1 gap-8 pt-8 md:pl-14 md:pt-12 md:grid-cols-2">
 			<!-- Right Column: Image (on mobile, appears first) -->
@@ -60,7 +60,29 @@
 			rgba(255, 156, 0, 0.15) 54%,
 			rgba(66, 153, 225, 0.15) 100%
 		);
-		width: 100%;
+		width: 100vw;
+		position: relative;
+		left: 50%;
+		transform: translateX(-50%);
+	}
+
+	@media (max-width: 640px) {
+		.gradient-background {
+			min-height: 98vh;
+		}
+		.space-y-6 h1 {
+			margin-top: 1.5rem;
+		}
+		.space-y-6 h2 {
+			padding-top: 1.25rem;
+			padding-bottom: 0.75rem;
+		}
+		.space-y-6 button {
+			margin-bottom: 0.5rem;
+		}
+		.space-y-6 {
+			text-align: center;
+		}
 	}
 
 	:global(body) {
