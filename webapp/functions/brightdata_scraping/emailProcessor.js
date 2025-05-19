@@ -47,6 +47,7 @@ exports.processEmailRequests = onDocumentCreated({
       const uid = emailData.userId;
       let jobsHtml = '';
       let jobsText = '';
+      let hasJobsToSend = false; // Flag to track if we have jobs to send
       
       // Process top jobs if we have a user ID
       if (uid) {
@@ -129,6 +130,7 @@ exports.processEmailRequests = onDocumentCreated({
 
             if (jobsSnapshot.empty) {
               logger.info('No jobs with scores above threshold found');
+              // We won't set hasJobsToSend to true since no jobs were found
             } else {
               // Convert to array for in-memory sorting
               const allRecentJobs = [];
@@ -143,121 +145,125 @@ exports.processEmailRequests = onDocumentCreated({
                 return scoreB - scoreA;
               });
               
-              // Take only the top 3
+              // Take only the top 5
               const topJobs = allRecentJobs.slice(0, 5);
               
-              logger.info(`Sorted jobs by score, top 3 selected out of ${allRecentJobs.length}`);
+              logger.info(`Sorted jobs by score, top 5 selected out of ${allRecentJobs.length}`);
               
-              // Add header for jobs section
-              jobsHtml = `
-                <div style="margin-top: 30px; padding-top: 20px;">
-                </div>
-              `;
-              
-              jobsText = "\n\n===== YOUR PERSONALIZED JOB MATCHES =====\n\n";
-              
-              // Determine base URL based on environment
-              let baseUrl;
-              if (config.environment === 'production') {
-                baseUrl = 'https://foxjob.io/workflow/';
-                logger.info('Using production job URL format');
-              } else if (config.environment === 'staging') {
-                baseUrl = 'https://jobille-45494.web.app/workflow/';
-                logger.info('Using staging job URL format');
-              } else if (config.environment === 'development') {
-                baseUrl = 'http://localhost:5000/workflow/';
-                logger.info('Using development job URL format');
-              } else {
-                // Default to staging as fallback
-                baseUrl = 'https://jobille-45494.web.app/workflow/';
-                logger.info('Using staging job URL format as fallback');
-              }
-              
-              // Format the jobs for the email
-              topJobs.forEach((job, index) => {
-                const doc = job.doc;
-                logger.info(`Processing job ${index + 1} with ID ${doc.id}, score: ${doc.data().match?.final_score || 'N/A'}`);
-                const jobData = doc.data();
+              if (topJobs.length > 0) {
+                hasJobsToSend = true; // We have jobs to send
                 
-                // Get score from either location
-                const score = jobData.match?.final_score || jobData.match?.finalScore || 'N/A';
-                const title = jobData.basicInfo?.title || 'Untitled Position';
-                const company = jobData.basicInfo?.company || 'Unnamed Company';
-                
-                // Get the new summary fields
-                const description = jobData.match?.summary?.short_description || 'No company description available';
-                const responsibility = jobData.match?.summary?.short_responsibility || 'No responsibility description available';
-                const gaps = jobData.match?.summary?.short_gaps || 'No gaps information available';
-                const preferenceScore = jobData.match?.preferenceScore?.score || 'N/A';
-                const preferenceExplanation = jobData.match?.preferenceScore?.explanation || 'No preference data available';
-                
-                // Create job URL using document ID
-                const jobUrl = `${baseUrl}${doc.id}`;
-                logger.info(`Job URL: ${jobUrl}`);
-                
-                logger.info(`Job: ${title} at ${company} - Score: ${score}`);
-                
-                // Add to HTML version with improved styling
-                jobsHtml += `
-                <div style="margin-bottom: 20px; padding: 18px; border-radius: 8px; background-color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #eee; position: relative;">
-                  <!-- Left accent border using single color -->
-                  <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #FF9C00;"></div>
-                  
-                  <!-- Job title and company with padding for the accent border -->
-                  <h3 style="color: #222; font-size: 17px; font-weight: 600; margin: 0 0 5px 8px;">${title}</h3>
-                  <div style="color: #555; font-size: 15px; font-weight: 500; margin: 0 0 15px 8px;">${company}</div>
-                  
-                  <!-- Preference explanation in a styled quote box -->
-                  <div style="font-style: italic; color: #666; margin: 12px 0; padding: 10px; background-color: #f9f9f9; border-radius: 4px; border-left: 2px solid #FF9C00;">
-                    "${preferenceExplanation}"
+                // Add header for jobs section
+                jobsHtml = `
+                  <div style="margin-top: 30px; padding-top: 20px;">
                   </div>
+                `;
+                
+                jobsText = "\n\n===== YOUR PERSONALIZED JOB MATCHES =====\n\n";
+                
+                // Determine base URL based on environment
+                let baseUrl;
+                if (config.environment === 'production') {
+                  baseUrl = 'https://foxjob.io/workflow/';
+                  logger.info('Using production job URL format');
+                } else if (config.environment === 'staging') {
+                  baseUrl = 'https://jobille-45494.web.app/workflow/';
+                  logger.info('Using staging job URL format');
+                } else if (config.environment === 'development') {
+                  baseUrl = 'http://localhost:5000/workflow/';
+                  logger.info('Using development job URL format');
+                } else {
+                  // Default to staging as fallback
+                  baseUrl = 'https://jobille-45494.web.app/workflow/';
+                  logger.info('Using staging job URL format as fallback');
+                }
+                
+                // Format the jobs for the email
+                topJobs.forEach((job, index) => {
+                  const doc = job.doc;
+                  logger.info(`Processing job ${index + 1} with ID ${doc.id}, score: ${doc.data().match?.final_score || 'N/A'}`);
+                  const jobData = doc.data();
                   
-                  <!-- Match score with visual bar -->
-                  <div style="margin: 12px 0; display: flex; align-items: center; flex-wrap: wrap;">
-                    <div style="font-size: 14px; font-weight: 600; color: #555; margin-right: 10px; min-width: 90px;">Match Score:</div>
-                    <div style="flex-grow: 1; height: 8px; background-color: #f0f0f0; border-radius: 4px; overflow: hidden; margin: 0 10px 0 0;">
-                      <div style="height: 100%; border-radius: 4px; background: #FF9C00; width: ${Math.min(Math.max(parseFloat(score) || 0, 0), 100)}%;"></div>
+                  // Get score from either location
+                  const score = jobData.match?.final_score || jobData.match?.finalScore || 'N/A';
+                  const title = jobData.basicInfo?.title || 'Untitled Position';
+                  const company = jobData.basicInfo?.company || 'Unnamed Company';
+                  
+                  // Get the new summary fields
+                  const description = jobData.match?.summary?.short_description || 'No company description available';
+                  const responsibility = jobData.match?.summary?.short_responsibility || 'No responsibility description available';
+                  const gaps = jobData.match?.summary?.short_gaps || 'No gaps information available';
+                  const preferenceScore = jobData.match?.preferenceScore?.score || 'N/A';
+                  const preferenceExplanation = jobData.match?.preferenceScore?.explanation || 'No preference data available';
+                  
+                  // Create job URL using document ID
+                  const jobUrl = `${baseUrl}${doc.id}`;
+                  logger.info(`Job URL: ${jobUrl}`);
+                  
+                  logger.info(`Job: ${title} at ${company} - Score: ${score}`);
+                  
+                  // Add to HTML version with improved styling
+                  jobsHtml += `
+                  <div style="margin-bottom: 20px; padding: 18px; border-radius: 8px; background-color: #fff; box-shadow: 0 2px 8px rgba(0,0,0,0.06); border: 1px solid #eee; position: relative;">
+                    <!-- Left accent border using single color -->
+                    <div style="position: absolute; top: 0; left: 0; width: 4px; height: 100%; background: #FF9C00;"></div>
+                    
+                    <!-- Job title and company with padding for the accent border -->
+                    <h3 style="color: #222; font-size: 17px; font-weight: 600; margin: 0 0 5px 8px;">${title}</h3>
+                    <div style="color: #555; font-size: 15px; font-weight: 500; margin: 0 0 15px 8px;">${company}</div>
+                    
+                    <!-- Preference explanation in a styled quote box -->
+                    <div style="font-style: italic; color: #666; margin: 12px 0; padding: 10px; background-color: #f9f9f9; border-radius: 4px; border-left: 2px solid #FF9C00;">
+                      "${preferenceExplanation}"
                     </div>
-                    <div style="font-size: 14px; font-weight: 600; color: #222;">${score}%</div>
-                  </div>
-                  
-                  <!-- Job information with consistent styling -->
-                  <div style="margin: 12px 0 0 8px;">
-                    <div style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px;">Company:</div>
-                    <div style="font-size: 14px; color: #555; margin: 0 0 12px 0;">${description}</div>
                     
-                    <div style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px;">Your Role:</div>
-                    <div style="font-size: 14px; color: #555; margin: 0 0 12px 0;">${responsibility}</div>
+                    <!-- Match score with visual bar -->
+                    <div style="margin: 12px 0; display: flex; align-items: center; flex-wrap: wrap;">
+                      <div style="font-size: 14px; font-weight: 600; color: #555; margin-right: 10px; min-width: 90px;">Match Score:</div>
+                      <div style="flex-grow: 1; height: 8px; background-color: #f0f0f0; border-radius: 4px; overflow: hidden; margin: 0 10px 0 0;">
+                        <div style="height: 100%; border-radius: 4px; background: #FF9C00; width: ${Math.min(Math.max(parseFloat(score) || 0, 0), 100)}%;"></div>
+                      </div>
+                      <div style="font-size: 14px; font-weight: 600; color: #222;">${score}%</div>
+                    </div>
                     
-                    <div style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px;">Gap Analysis:</div>
-                    <div style="font-size: 14px; color: #555; margin: 0 0 12px 0;">${gaps}</div>
+                    <!-- Job information with consistent styling -->
+                    <div style="margin: 12px 0 0 8px;">
+                      <div style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px;">Company:</div>
+                      <div style="font-size: 14px; color: #555; margin: 0 0 12px 0;">${description}</div>
+                      
+                      <div style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px;">Your Role:</div>
+                      <div style="font-size: 14px; color: #555; margin: 0 0 12px 0;">${responsibility}</div>
+                      
+                      <div style="font-size: 14px; font-weight: 600; color: #444; margin-bottom: 2px;">Gap Analysis:</div>
+                      <div style="font-size: 14px; color: #555; margin: 0 0 12px 0;">${gaps}</div>
+                    </div>
+                    
+                    <!-- Single color button with better styling -->
+                    <a href="${jobUrl}" style="display: inline-block; padding: 10px 20px; background: #FF9C00; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; margin-top: 6px; text-align: center;">View Job</a>
                   </div>
-                  
-                  <!-- Single color button with better styling -->
-                  <a href="${jobUrl}" style="display: inline-block; padding: 10px 20px; background: #FF9C00; color: white; text-decoration: none; border-radius: 6px; font-weight: 500; font-size: 14px; margin-top: 6px; text-align: center;">View Job</a>
-                </div>
-              `;
+                `;
 
-              // Also update the text version
-              jobsText += `
-              ${title} at ${company}
-              "${preferenceExplanation}"
+                // Also update the text version
+                jobsText += `
+                ${title} at ${company}
+                "${preferenceExplanation}"
 
-              Match Score: ${score}
-              Company: ${description}
-              Your Role: ${responsibility} 
-              Gap Analysis: ${gaps}
-              View Job: ${jobUrl}
+                Match Score: ${score}
+                Company: ${description}
+                Your Role: ${responsibility} 
+                Gap Analysis: ${gaps}
+                View Job: ${jobUrl}
 
-              ----------------------------------------
+                ----------------------------------------
 
-              `;
-              });
-              
-              // Close the jobs HTML section
-              jobsHtml += '</div>';
-              
-              logger.info('Job data formatting complete');
+                `;
+                });
+                
+                // Close the jobs HTML section
+                jobsHtml += '</div>';
+                
+                logger.info('Job data formatting complete');
+              }
             }
           }
         } catch (error) {
@@ -266,6 +272,18 @@ exports.processEmailRequests = onDocumentCreated({
         }
       } else {
         logger.info('No user ID available, skipping job data fetch');
+      }
+      
+      // Check if we have jobs to send
+      if (!hasJobsToSend) {
+        // If no jobs above threshold were found, update status and exit
+        logger.info('No jobs above threshold found, skipping email send');
+        await event.data.ref.update({
+          status: 'skipped',
+          reason: 'no_jobs_above_threshold',
+          updatedAt: FieldValue.serverTimestamp()
+        });
+        return; // Exit the function
       }
       
       // Original HTML and text from the request are in emailData
