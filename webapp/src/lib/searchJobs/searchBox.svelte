@@ -287,6 +287,7 @@
   let country = 'US';
   let limitPerInput = '50'; // Changed default to string value "50"
   let includeSimilarRoles = false; // New state variable for similar roles checkbox
+  let minimumScore = 70; // Default threshold for email delivery (could be interesting)
 
   // Add time options for when to receive results - SIMPLIFIED TO 3 OPTIONS
   const timeOptions = [
@@ -325,6 +326,7 @@
     jobType = searchParam.job_type || '';
     experience = searchParam.experience_level || '';
     includeSimilarRoles = searchParam.includeSimilarRoles || false; // Set this from the search param
+    minimumScore = query.minimumScore || 70; // Load minimumScore with default if not present
     
     // Set selected workplace type - the API accepts only one value
     if (searchParam.remote) {
@@ -415,6 +417,7 @@
     showAdvanced = false;
     includeSimilarRoles = false; // Reset the checkbox
     additionalJobTitles = [''];
+    minimumScore = 70; // Reset the minimum score threshold to default
     
     // Reset preferences
     workPreferences = {
@@ -442,6 +445,7 @@
       showAdvanced = false;
       includeSimilarRoles = false; // Reset the checkbox
       additionalJobTitles = [''];
+      minimumScore = 70; // Reset minimum score threshold to default
       
       // Load current preferences
       loadWorkPreferences();
@@ -548,6 +552,7 @@
       userId: uid,
       searchParams: searchPayload,
       limit: limit,
+      minimumScore: minimumScore, // Add minimumScore at the top level of the request
       schedule: {
         frequency: 'daily',
         runImmediately: true,
@@ -942,6 +947,73 @@
                       (Beta Test)
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Email Delivery Section - Score Threshold Slider -->
+            <div class="mb-6">
+              <h3 class="text-xl font-bold mb-3">Email Delivery</h3>
+              <p class="mb-4">Send me jobs with a match above</p>
+              
+              <!-- Score Threshold Slider -->
+              <div class="mt-2">
+                <!-- Track container with track points -->
+                <div class="relative h-2 bg-gray-200 rounded-full w-full mb-6">
+                  <!-- Track fill -->
+                  <div class="absolute h-full bg-orange-500 rounded-full"
+                      style="width: {(minimumScore - 50) * 2.5}%"></div>
+                  
+                  <!-- Track points -->
+                  {#each [50, 60, 70, 80, 90] as point, i}
+                    <div 
+                      class="absolute h-4 w-4 rounded-full -top-1 -ml-2 cursor-pointer" 
+                      style="left: {(point - 50) * 2.5}%; background-color: {minimumScore >= point ? '#f97316' : '#e5e7eb'}"
+                      on:click={() => minimumScore = point}
+                    ></div>
+                  {/each}
+                </div>
+                
+                <!-- Labels -->
+                <div class="flex justify-between">
+                  <div class="text-center">
+                    <div class="font-semibold text-gray-700">50</div>
+                    <div class="text-xs text-gray-500">(desperate)</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="font-semibold text-gray-700">60</div>
+                    <div class="text-xs text-gray-500">(willing to transition)</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="font-semibold text-gray-700">70</div>
+                    <div class="text-xs text-gray-500">(could be interesting)</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="font-semibold text-gray-700">80</div>
+                    <div class="text-xs text-gray-500">(consider)</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="font-semibold text-gray-700">90</div>
+                    <div class="text-xs text-gray-500">(great fit)</div>
+                  </div>
+                </div>
+                
+                <!-- Value display -->
+                <div class="text-center mt-3">
+                  <span class="font-bold text-lg">{minimumScore}</span>
+                  <span class="text-gray-500 ml-2">
+                    {#if minimumScore === 50}
+                      (desperate)
+                    {:else if minimumScore === 60}
+                      (willing to transition)
+                    {:else if minimumScore === 70}
+                      (could be interesting)
+                    {:else if minimumScore === 80}
+                      (consider)
+                    {:else if minimumScore === 90}
+                      (great fit)
+                    {/if}
+                  </span>
                 </div>
               </div>
             </div>

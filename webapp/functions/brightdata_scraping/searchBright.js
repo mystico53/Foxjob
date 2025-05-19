@@ -140,6 +140,13 @@ exports.searchBright = onRequest({
           // Use provided searchId or generate a deterministic one
           searchId = schedule.searchId || generateSearchId(userId, searchParams);
           
+          // Get the minimumScore from the request body (default to 70 if not provided)
+          const minimumScore = req.body.minimumScore !== undefined ? parseInt(req.body.minimumScore, 10) : 70;
+          
+          // Validate the minimumScore to ensure it's within the allowed range and increment
+          const validScores = [50, 60, 70, 80, 90];
+          const validatedScore = validScores.includes(minimumScore) ? minimumScore : 70;
+          
           // Reference to the search document
           const searchRef = db.collection('users')
             .doc(userId)
@@ -156,6 +163,7 @@ exports.searchBright = onRequest({
               limit: limit || 100,
               frequency,
               deliveryTime, // Store the delivery time
+              minimumScore: validatedScore, // Store the validated minimum score
               isActive: isActive ?? true,
               updatedAt: FieldValue.serverTimestamp(),
               nextRun: calculateNextRunTime(frequency, deliveryTime)
@@ -165,7 +173,8 @@ exports.searchBright = onRequest({
               userId, 
               searchId: searchRef.id,
               frequency,
-              deliveryTime
+              deliveryTime,
+              minimumScore: validatedScore
             });
           } else {
             // Create new document with the deterministic ID
@@ -174,6 +183,7 @@ exports.searchBright = onRequest({
               limit: limit || 100,
               frequency,
               deliveryTime, // Store the delivery time
+              minimumScore: validatedScore, // Store the validated minimum score
               isActive: isActive ?? true,
               createdAt: FieldValue.serverTimestamp(),
               lastRun: null,
@@ -186,7 +196,8 @@ exports.searchBright = onRequest({
               userId, 
               searchId: searchRef.id,
               frequency,
-              deliveryTime
+              deliveryTime,
+              minimumScore: validatedScore
             });
           }
           

@@ -68,17 +68,67 @@ exports.processEmailRequests = onDocumentCreated({
             
             logger.info(`Filtering jobs newer than: ${twentyFourHoursAgo.toISOString()}`);
             
-            // Query Firestore for all jobs from last 24 hours with a score > 0
+            // Get the search query to retrieve the minimum score threshold
+            let minimumScore = 0; // Default to 0 if no threshold is found
+            
+            if (emailData.searchId) {
+              try {
+                // Get the search query document if we have a searchId
+                const searchQueryRef = db.collection('users').doc(uid).collection('searchQueries').doc(emailData.searchId);
+                const searchQueryDoc = await searchQueryRef.get();
+                
+                if (searchQueryDoc.exists) {
+                  // Get the minimumScore from the search query document (default to 0 if not set)
+                  minimumScore = searchQueryDoc.data().minimumScore || 0;
+                  logger.info(`Retrieved minimum score threshold for search query: ${minimumScore}`, {
+                    userId: uid,
+                    searchId: emailData.searchId
+                  });
+                }
+              } catch (error) {
+                logger.error('Error retrieving search query document:', error);
+                // Continue with default minimumScore
+              }
+            } else if (emailData.batchId) {
+              // If we have a batchId but no searchId, try to get the searchId from the batch
+              try {
+                const batchRef = db.collection('jobBatches').doc(emailData.batchId);
+                const batchDoc = await batchRef.get();
+                
+                if (batchDoc.exists && batchDoc.data().searchId) {
+                  const searchId = batchDoc.data().searchId;
+                  const searchQueryRef = db.collection('users').doc(uid).collection('searchQueries').doc(searchId);
+                  const searchQueryDoc = await searchQueryRef.get();
+                  
+                  if (searchQueryDoc.exists) {
+                    // Get the minimumScore from the search query document
+                    minimumScore = searchQueryDoc.data().minimumScore || 0;
+                    logger.info(`Retrieved minimum score threshold from batch's search query: ${minimumScore}`, {
+                      userId: uid,
+                      batchId: emailData.batchId,
+                      searchId: searchId
+                    });
+                  }
+                }
+              } catch (error) {
+                logger.error('Error retrieving batch document or associated search query:', error);
+                // Continue with default minimumScore
+              }
+            }
+            
+            logger.info(`Using minimum score threshold of ${minimumScore} for filtering jobs`);
+            
+            // Query Firestore for all jobs from last 24 hours with a score >= minimumScore
             const jobsSnapshot = await jobsRef
-              .where('match.final_score', '>', 0)
+              .where('match.final_score', '>=', minimumScore)
               .where('searchMetadata.snapshotDate', '>=', twentyFourHoursAgo.toISOString())
               .orderBy('searchMetadata.snapshotDate', 'desc')
               .get();
 
-            logger.info(`Query returned ${jobsSnapshot.size} documents`);
+            logger.info(`Query returned ${jobsSnapshot.size} documents after filtering with minimum score ${minimumScore}`);
 
             if (jobsSnapshot.empty) {
-              logger.info('No jobs with scores found');
+              logger.info('No jobs with scores above threshold found');
             } else {
               // Convert to array for in-memory sorting
               const allRecentJobs = [];

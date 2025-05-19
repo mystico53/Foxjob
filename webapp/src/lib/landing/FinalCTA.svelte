@@ -1,20 +1,22 @@
 <script>
 	import { goto } from '$app/navigation';
-	import ConsentDialog from '$lib/landing/ConsentDialog.svelte';
+	import { signInWithGoogle } from '$lib/firebase';
 
-	let showConsentDialog = false;
+	let isLoading = false;
+	let error = null;
 
-	function handleStartJobMatching() {
-		showConsentDialog = true;
-	}
-
-	function handleDialogClose() {
-		showConsentDialog = false;
-	}
-
-	async function handleSignInSuccess() {
-		showConsentDialog = false;
-		await goto('/list');
+	async function handleStartJobMatching() {
+		isLoading = true;
+		error = null;
+		try {
+			await signInWithGoogle();
+			// Auth state listener in LandingNav will handle the redirect
+		} catch (err) {
+			console.error(`[${new Date().toISOString()}] Error starting job matching:`, err);
+			error = err.message;
+		} finally {
+			isLoading = false;
+		}
 	}
 </script>
 
@@ -29,15 +31,19 @@
 			class="btn px-4 font-bold text-white shadow-lg shadow-[#DC3701]/20 transition-all hover:-translate-y-0.5 hover:brightness-110"
 			style="background-color: #DC3701; border-radius: 0.250rem;"
 			on:click={handleStartJobMatching}
+			disabled={isLoading}
 		>
-			Create Your Job Agent
+			{#if isLoading}
+				Loading...
+			{:else}
+				Create Your Job Agent
+			{/if}
 		</button>
+		{#if error}
+			<div class="text-red-600 text-sm mt-4">{error}</div>
+		{/if}
 	</div>
 </div>
-
-{#if showConsentDialog}
-	<ConsentDialog onClose={handleDialogClose} onSuccess={handleSignInSuccess} />
-{/if}
 
 <style>
 	/* Add a subtle shadow effect to the container */

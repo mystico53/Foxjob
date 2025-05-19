@@ -7,6 +7,7 @@ import {
     browserLocalPersistence, 
     GoogleAuthProvider, 
     signInWithPopup,
+    signOut,
     connectAuthEmulator
 } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
@@ -14,8 +15,13 @@ import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getAnalytics } from "firebase/analytics";
 import { browser } from '$app/environment';
 import { getFirebaseConfig } from '$lib/config/firebase.config';
+import { writable } from 'svelte/store';
 
 const firebaseConfig = getFirebaseConfig();
+
+// Create a Svelte store for auth state
+export const authState = writable(null);
+let authStateUnsubscribe = null;
 
 function initializeFirebase() {
   if (!getApps().length) {
@@ -29,13 +35,27 @@ function initializeFirebase() {
     const auth = getAuth(app);
 
     auth.onAuthStateChanged((user) => {
-      console.log('Auth state changed, user:', user?.uid || 'null');
+      console.log(`[${new Date().toISOString()}] Auth state changed:`, user?.uid || 'null');
     });
 
     const db = getFirestore(app);
     const functions = getFunctions(app);
 
+    // Set up the auth state listener
     if (browser) {
+      authStateUnsubscribe = auth.onAuthStateChanged((user) => {
+        const timestamp = new Date().toISOString();
+        console.log(`[${timestamp}] Firebase auth state changed:`, {
+          uid: user?.uid || 'null',
+          email: user?.email,
+          emailVerified: user?.emailVerified,
+          provider: user?.providerData?.[0]?.providerId
+        });
+        
+        // Update the Svelte store
+        authState.set(user);
+      });
+
       // Connect to emulators in development mode
       if (import.meta.env.MODE === 'development') {
         //connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
@@ -59,65 +79,54 @@ function initializeFirebase() {
 export const firebase = browser ? initializeFirebase() : {};
 export const { app, auth, db, functions, analytics } = firebase;
 
-// Enhanced sign-in function with better error handling
-export async function signInWithGoogle() {
-  console.log("Google sign-in flow started");
-  if (!auth) throw new Error('Firebase auth not initialized');
-  
-  // Log current Firebase config (without sensitive data)
-  console.log('Current Firebase config:', {
-    authDomain: auth.app.options.authDomain,
-    projectId: auth.app.options.projectId,
-    isApiKeyPresent: !!auth.app.options.apiKey
+// Clean up auth state listener on app termination
+if (browser) {
+  window.addEventListener('unload', () => {
+    if (authStateUnsubscribe) {
+      authStateUnsubscribe();
+    }
   });
+}
 
-  const provider = new GoogleAuthProvider();
-  provider.addScope('https://www.googleapis.com/auth/userinfo.email');
-  provider.addScope('https://www.googleapis.com/auth/userinfo.profile');
-
+export async function signInWithGoogle() {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] Google sign-in flow started`);
+  
   try {
-    const result = await signInWithPopup(auth, provider);
-    return result.user;
-  } catch (error) {
-    console.error("Detailed sign-in error:", {
-      code: error.code,
-      message: error.message,
-      customData: error.customData,
-      credential: error.credential
+    const provider = new GoogleAuthProvider();
+    // Force popup mode and select account prompt
+    provider.setCustomParameters({
+      prompt: 'select_account'
     });
     
-    // Handle API key specific errors
-    if (error.code === 'auth/api-key-expired' || 
-        error.message?.includes('API key expired')) {
-      throw new Error('Authentication configuration error. Please contact support.');
-    }
-
-    // Your existing error handling...
-    switch (error.code) {
-      case 'auth/popup-blocked':
-        throw new Error('Please enable popups for this site to sign in with Google');
-      case 'auth/popup-closed-by-user':
-        throw new Error('Sign-in cancelled');
-      case 'auth/cancelled-popup-request':
-        throw new Error('Sign-in cancelled');
-      case 'auth/network-request-failed':
-        throw new Error('Network error. Please check your internet connection.');
-      case 'auth/too-many-requests':
-        throw new Error('Too many sign-in attempts. Please try again later.');
-      default:
-        throw new Error('Unable to sign in with Google. Please try again.');
-    }
+    const result = await signInWithPopup(auth, provider);
+    console.log(`[${timestamp}] Google sign-in successful:`, {
+      uid: result.user.uid,
+      email: result.user.email,
+      provider: result.user.providerData[0]?.providerId
+    });
+    return result.user;
+  } catch (error) {
+    console.error(`[${timestamp}] Google sign-in error:`, {
+      code: error.code,
+      message: error.message,
+      email: error.email,
+      credential: error.credential
+    });
+    throw error;
   }
 }
 
 export async function signOutUser() {
+  if (!auth) return;
   try {
     await signOut(auth);
-    console.log("User signed out successfully");
+    console.log(`[${new Date().toISOString()}] User signed out successfully`);
   } catch (error) {
-    console.error("Error signing out:", error);
+    console.error(`[${new Date().toISOString()}] Error signing out:`, error);
+    throw error;
   }
 }
 
-console.log('Current environment:', import.meta.env.MODE);
-console.log('Using auth domain:', firebaseConfig.authDomain);
+console.log(`[${new Date().toISOString()}] Current environment:`, import.meta.env.MODE);
+console.log(`[${new Date().toISOString()}] Using auth domain:`, firebaseConfig.authDomain);

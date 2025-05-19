@@ -23,42 +23,54 @@ const createSearchQueriesStore = () => {
     update(state => ({ ...state, loading: true, error: null }));
 
     try {
-      // Create a reference to the search queries subcollection
-      const queriesRef = collection(db, 'users', userId, 'searchQueries');
-      
-      // Set up the listener
-      const unsubscribeFunc = onSnapshot(queriesRef, (snapshot) => {
-        const queries = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            // Convert Firestore timestamps to JS dates if they exist
-            createdAt: data.createdAt?.toDate() || null,
-            updatedAt: data.updatedAt?.toDate() || null,
-            lastRun: data.lastRun?.toDate() || null,
-            nextRun: data.nextRun?.toDate() || null
-          };
-        });
+      // Delay Firestore operations to ensure authentication is fully established
+      setTimeout(() => {
+        try {
+          // Create a reference to the search queries subcollection
+          const queriesRef = collection(db, 'users', userId, 'searchQueries');
+          
+          // Set up the listener
+          const unsubscribeFunc = onSnapshot(queriesRef, (snapshot) => {
+            const queries = snapshot.docs.map(doc => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                ...data,
+                // Convert Firestore timestamps to JS dates if they exist
+                createdAt: data.createdAt?.toDate() || null,
+                updatedAt: data.updatedAt?.toDate() || null,
+                lastRun: data.lastRun?.toDate() || null,
+                nextRun: data.nextRun?.toDate() || null
+              };
+            });
 
-        update(state => ({ 
-          ...state, 
-          queries, 
-          loading: false 
-        }));
-      }, (err) => {
-        console.error("Error getting search queries:", err);
-        update(state => ({ 
-          ...state, 
-          error: err.message, 
-          loading: false 
-        }));
-      });
+            update(state => ({ 
+              ...state, 
+              queries, 
+              loading: false 
+            }));
+          }, (err) => {
+            console.warn("Error getting search queries:", err);
+            update(state => ({ 
+              ...state, 
+              error: err.message, 
+              loading: false 
+            }));
+          });
 
-      // Store the unsubscribe function
-      update(state => ({ ...state, unsubscribe: unsubscribeFunc }));
+          // Store the unsubscribe function
+          update(state => ({ ...state, unsubscribe: unsubscribeFunc }));
+        } catch (err) {
+          console.warn("Error initializing search queries listener:", err);
+          update(state => ({ 
+            ...state, 
+            error: err.message, 
+            loading: false 
+          }));
+        }
+      }, 1500); // 1.5 second delay
     } catch (err) {
-      console.error("Error initializing search queries listener:", err);
+      console.warn("Error initializing search queries (outer):", err);
       update(state => ({ 
         ...state, 
         error: err.message, 
