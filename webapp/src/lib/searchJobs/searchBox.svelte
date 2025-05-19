@@ -19,6 +19,8 @@
   import dayjs from 'dayjs';
   import utc from 'dayjs/plugin/utc';
   import timezone from 'dayjs/plugin/timezone';
+  import Range from './Range.svelte';
+  import EmailDelivery from './EmailDelivery.svelte';
   
   // Initialize dayjs plugins
   dayjs.extend(utc);
@@ -287,18 +289,15 @@
   let country = 'US';
   let limitPerInput = '50'; // Changed default to string value "50"
   let includeSimilarRoles = false; // New state variable for similar roles checkbox
-  let minimumScore = 70; // Default threshold for email delivery (could be interesting)
-
-  // Add time options for when to receive results - SIMPLIFIED TO 3 OPTIONS
+  let jobEmailsEnabled = true;
+  let deliveryTime = '08:00';
+  let minimumScore = 70;
   const timeOptions = [
     { value: '08:00', label: '8:00 AM' },
     { value: '12:00', label: '12:00 PM' },
     { value: '18:00', label: '6:00 PM' },
   ];
-  
-  // Default to 8:00 AM
-  let deliveryTime = '08:00';
-  
+
   // Function to handle the edit event from JobAgentList
   function handleEditAgent(event) {
     const query = event.detail;
@@ -607,7 +606,134 @@
     isLoading.set(false);
   }
 }
+
+function setJobEmailsEnabled(val) { jobEmailsEnabled = val; }
+function setDeliveryTime(val) { deliveryTime = val; }
+function setMinimumScore(val) { minimumScore = val; }
 </script>
+
+<style>
+  .range-container {
+    width: 100%;
+    margin: 20px 0;
+  }
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    outline: none;
+    background: linear-gradient(to right, #d1d5db 0%, #d1d5db var(--percentage), #f97316 var(--percentage), #f97316 100%);
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #f97316;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 4px #f9731633;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #f97316;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 4px #f9731633;
+  }
+  input[type="range"]::-ms-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #f97316;
+    cursor: pointer;
+    border: 2px solid #fff;
+    box-shadow: 0 0 0 4px #f9731633;
+  }
+  input[type="range"]::-ms-fill-lower {
+    background: #d1d5db;
+  }
+  input[type="range"]::-ms-fill-upper {
+    background: #f97316;
+  }
+  input[type="range"]:focus {
+    outline: none;
+  }
+  .pips {
+    position: relative;
+    width: 100%;
+    height: 30px;
+    margin-top: 10px;
+  }
+  .pip {
+    position: absolute;
+    width: 2px;
+    height: 10px;
+    background: #aaa;
+    transform: translateX(-50%);
+  }
+  .pip-text {
+    position: absolute;
+    top: 12px;
+    transform: translateX(-50%);
+    font-size: 12px;
+    color: #666;
+  }
+  .toggle-checkbox {
+    width: 2rem;
+    height: 1rem;
+    border-radius: 1rem;
+    background: #e5e7eb;
+    appearance: none;
+    outline: none;
+    cursor: pointer;
+    position: relative;
+    transition: background 0.2s;
+  }
+  .toggle-checkbox:checked {
+    background: #f97316;
+  }
+  .toggle-checkbox:before {
+    content: '';
+    position: absolute;
+    left: 0.15rem;
+    top: 0.15rem;
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: #fff;
+    transition: transform 0.2s;
+  }
+  .toggle-checkbox:checked:before {
+    transform: translateX(1rem);
+  }
+  .clean-slider input[type="range"] {
+    background: linear-gradient(to right, #f97316 0%, #f97316 var(--percentage), #e5e7eb var(--percentage), #e5e7eb 100%);
+    box-shadow: none;
+    height: 6px;
+  }
+  .clean-slider input[type="range"]::-webkit-slider-thumb {
+    background: #f97316;
+    box-shadow: none;
+    border: 2px solid #fff;
+  }
+  .clean-slider input[type="range"]::-moz-range-thumb {
+    background: #f97316;
+    box-shadow: none;
+    border: 2px solid #fff;
+  }
+  .clean-slider input[type="range"]::-ms-thumb {
+    background: #f97316;
+    box-shadow: none;
+    border: 2px solid #fff;
+  }
+  .clean-slider .pips, .clean-slider .pip, .clean-slider .pip-text {
+    display: none;
+  }
+</style>
 
 <!-- Main container that holds all components -->
 <div class="mb-4">
@@ -868,158 +994,70 @@
               </div>
             </div>
             
-            <!-- Divider Line -->
-            <hr class="my-6 border-gray-300" />
+            <EmailDelivery
+              {jobEmailsEnabled}
+              setJobEmailsEnabled={setJobEmailsEnabled}
+              {deliveryTime}
+              setDeliveryTime={setDeliveryTime}
+              {timeOptions}
+              {minimumScore}
+              setMinimumScore={setMinimumScore}
+            />
             
-            <!-- Delivery settings -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <!-- Simplified Time Picker UI -->
-              <div>
-                <label for="deliveryTime" class="block font-bold mb-2">When to Receive Results</label>
-                <div class="flex flex-col">
-                  <!-- Time Selection UI -->
-                  <div class="flex justify-center gap-4 mb-2">
-                    {#each timeOptions as option}
-                      <button 
-                        type="button"
-                        class="rounded-lg px-4 py-2.5 text-base font-medium transition-colors duration-150 
-                              {deliveryTime === option.value ? 'bg-orange-500 text-white' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'}"
-                        on:click={() => deliveryTime = option.value}
-                        aria-label={option.label}
-                      >
-                        {option.label}
-                      </button>
-                    {/each}
-                  </div>
-                  <!-- Time Display -->
-                  <div class="text-sm text-gray-500 mt-1 text-center">
-                    <span>The agent will send results at {dayjs().hour(parseInt(deliveryTime.split(':')[0])).minute(parseInt(deliveryTime.split(':')[1] || 0)).format('h:mm A')} in your local time.</span>
-                  </div>
-                </div>
-              </div>
-
-              <!-- REPLACED: Daily Match Limit with Radio Buttons - KEEP THIS PART -->
-              <div>
-                <label id="job-matches-label" class="block font-bold mb-2" for="job-matches-group">Max Job matches per day</label>
-                <div id="job-matches-group" class="flex items-center h-11" role="radiogroup" aria-labelledby="job-matches-label"> <!-- Added height to match dropdown -->      
-                    <!-- Radio for 1 -->
-                    <div class="flex items-center">
-                      <input 
-                        type="radio" 
-                        id="limit1" 
-                        name="limitPerInput" 
-                        value="1" 
-                        bind:group={limitPerInput}
-                        class="mr-2 h-5 w-5"
-                      />
-                      <label for="limit1" class="text-base mr-4">1</label>
-                    </div>
-                  <!-- Radio for 10 -->
+            <!-- REPLACED: Daily Match Limit with Radio Buttons - KEEP THIS PART -->
+            <div>
+              <label id="job-matches-label" class="block font-bold mb-2" for="job-matches-group">You'll get matched with max jobs per day</label>
+              <div id="job-matches-group" class="flex items-center h-11" role="radiogroup" aria-labelledby="job-matches-label">      
+                  <!-- Radio for 1 -->
                   <div class="flex items-center">
                     <input 
                       type="radio" 
-                      id="limit10" 
+                      id="limit1" 
                       name="limitPerInput" 
-                      value="10" 
+                      value="1" 
                       bind:group={limitPerInput}
                       class="mr-2 h-5 w-5"
                     />
-                    <label for="limit10" class="text-base mr-4">10</label>
+                    <label for="limit1" class="text-base mr-4">1</label>
                   </div>
+                <!-- Radio for 10 -->
+                <div class="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="limit10" 
+                    name="limitPerInput" 
+                    value="10" 
+                    bind:group={limitPerInput}
+                    class="mr-2 h-5 w-5"
+                  />
+                  <label for="limit10" class="text-base mr-4">10</label>
+                </div>
+                
+                <!-- Radio for 50 -->
+                <div class="flex items-center">
+                  <input 
+                    type="radio" 
+                    id="limit50" 
+                    name="limitPerInput" 
+                    value="50" 
+                    bind:group={limitPerInput}
+                    class="mr-2 h-5 w-5"
+                  />
+                  <label for="limit50" class="text-base mr-4">50</label>
                   
-                  <!-- Radio for 50 -->
-                  <div class="flex items-center">
-                    <input 
-                      type="radio" 
-                      id="limit50" 
-                      name="limitPerInput" 
-                      value="50" 
-                      bind:group={limitPerInput}
-                      class="mr-2 h-5 w-5"
-                    />
-                    <label for="limit50" class="text-base mr-4">50</label>
-                    
-                    <!-- Beta Test button with dark grey styling -->
-                    <button 
-                      type="button"
-                      class="py-1 px-3 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg ml-2"
-                    >
-                      (Beta Test)
-                    </button>
-                  </div>
+                  <!-- Beta Test button with dark grey styling -->
+                  <button 
+                    type="button"
+                    class="py-1 px-3 bg-gray-700 hover:bg-gray-800 text-white text-sm rounded-lg ml-2"
+                  >
+                    Beta Test
+                  </button>
                 </div>
               </div>
             </div>
-
-            <!-- Email Delivery Section - Score Threshold Slider -->
-            <div class="mb-6">
-              <h3 class="text-xl font-bold mb-3">Email Delivery</h3>
-              <p class="mb-4">Send me jobs with a match above</p>
-              
-              <!-- Score Threshold Slider -->
-              <div class="mt-2">
-                <!-- Track container with track points -->
-                <div class="relative h-2 bg-gray-200 rounded-full w-full mb-6">
-                  <!-- Track fill -->
-                  <div class="absolute h-full bg-orange-500 rounded-full"
-                      style="width: {(minimumScore - 50) * 2.5}%"></div>
-                  
-                  <!-- Track points -->
-                  {#each [50, 60, 70, 80, 90] as point, i}
-                    <div 
-                      class="absolute h-4 w-4 rounded-full -top-1 -ml-2 cursor-pointer" 
-                      style="left: {(point - 50) * 2.5}%; background-color: {minimumScore >= point ? '#f97316' : '#e5e7eb'}"
-                      on:click={() => minimumScore = point}
-                    ></div>
-                  {/each}
-                </div>
-                
-                <!-- Labels -->
-                <div class="flex justify-between">
-                  <div class="text-center">
-                    <div class="font-semibold text-gray-700">50</div>
-                    <div class="text-xs text-gray-500">(desperate)</div>
-                  </div>
-                  <div class="text-center">
-                    <div class="font-semibold text-gray-700">60</div>
-                    <div class="text-xs text-gray-500">(willing to transition)</div>
-                  </div>
-                  <div class="text-center">
-                    <div class="font-semibold text-gray-700">70</div>
-                    <div class="text-xs text-gray-500">(could be interesting)</div>
-                  </div>
-                  <div class="text-center">
-                    <div class="font-semibold text-gray-700">80</div>
-                    <div class="text-xs text-gray-500">(consider)</div>
-                  </div>
-                  <div class="text-center">
-                    <div class="font-semibold text-gray-700">90</div>
-                    <div class="text-xs text-gray-500">(great fit)</div>
-                  </div>
-                </div>
-                
-                <!-- Value display -->
-                <div class="text-center mt-3">
-                  <span class="font-bold text-lg">{minimumScore}</span>
-                  <span class="text-gray-500 ml-2">
-                    {#if minimumScore === 50}
-                      (desperate)
-                    {:else if minimumScore === 60}
-                      (willing to transition)
-                    {:else if minimumScore === 70}
-                      (could be interesting)
-                    {:else if minimumScore === 80}
-                      (consider)
-                    {:else if minimumScore === 90}
-                      (great fit)
-                    {/if}
-                  </span>
-                </div>
-              </div>
-            </div>
-
+            
             <!-- Action Buttons -->
-            <div class="flex items-center space-x-4">
+            <div class="flex items-center space-x-4 mt-8">
               <!-- Cancel button -->
               <button
                 type="button"
@@ -1029,7 +1067,6 @@
               >
                 Cancel
               </button>
-              
               <!-- Create/Update Job Agent Button -->
               <button
                 type="submit"
