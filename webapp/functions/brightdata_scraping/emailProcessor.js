@@ -48,9 +48,52 @@ exports.processEmailRequests = onDocumentCreated({
       let jobsHtml = '';
       let jobsText = '';
       let hasJobsToSend = false; // Flag to track if we have jobs to send
+      let userFirstName = 'there'; // Default greeting if name can't be found
+      let totalJobsCount = 0; // Will store the total jobs count from batch document
       
-      // Process top jobs if we have a user ID
+      // Get user's display name if we have a user ID
       if (uid) {
+        try {
+          // Fetch the user document to get the user's display name
+          const userDoc = await db.collection('users').doc(uid).get();
+          
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            if (userData.displayName) {
+              // Extract first name from display name
+              const displayNameParts = userData.displayName.split(' ');
+              userFirstName = displayNameParts[0]; // Get the first part as first name
+              logger.info(`Retrieved user's first name: ${userFirstName}`);
+            } else {
+              logger.info('User document exists but no display name found');
+            }
+          } else {
+            logger.info(`No user document found for user ID: ${uid}`);
+          }
+        } catch (error) {
+          logger.error('Error fetching user document:', error);
+          // Continue with default greeting
+        }
+        
+        // Get totalJobs count from batch if batchId is provided
+        if (emailData.batchId) {
+          try {
+            const batchRef = db.collection('jobBatches').doc(emailData.batchId);
+            const batchDoc = await batchRef.get();
+            
+            if (batchDoc.exists) {
+              // Extract totalJobs count from the batch document
+              totalJobsCount = batchDoc.data().totalJobs || 0;
+              logger.info(`Retrieved totalJobs count from batch: ${totalJobsCount}`);
+            } else {
+              logger.warn(`No batch document found for batch ID: ${emailData.batchId}`);
+            }
+          } catch (error) {
+            logger.error('Error fetching batch document:', error);
+            // Continue with default total jobs count
+          }
+        }
+        
         try {
           logger.info(`Starting Firestore query for user: ${uid}`);
           
@@ -127,6 +170,12 @@ exports.processEmailRequests = onDocumentCreated({
               .get();
 
             logger.info(`Query returned ${jobsSnapshot.size} documents after filtering with minimum score ${minimumScore}`);
+            
+            // If we didn't get totalJobs from a batch, use the snapshot size as a fallback
+            if (totalJobsCount === 0) {
+              totalJobsCount = jobsSnapshot.size;
+              logger.info(`Using query result count for totalJobs: ${totalJobsCount}`);
+            }
 
             if (jobsSnapshot.empty) {
               logger.info('No jobs with scores above threshold found');
@@ -335,9 +384,10 @@ exports.processEmailRequests = onDocumentCreated({
             
             <!-- Email Content -->
             <div style="padding: 20px;">
-              <!-- Original message content -->
+              <!-- Personalized greeting with total jobs count -->
               <div style="padding-bottom: 20px;">
-                <p>Your personalized job matches are ready</p>
+                <h2 style="color: #222; font-size: 20px; font-weight: 600; margin: 0 0 15px 0;">Hello ${userFirstName},</h2>
+                <p>We have matched you with ${totalJobsCount} jobs today. These are our top picks:</p>
               </div>
               
               <!-- Job listings section -->
@@ -355,7 +405,12 @@ exports.processEmailRequests = onDocumentCreated({
         </html>
       `;
       
-      const finalText = originalText + jobsText;
+      // Add personalized greeting with total jobs count to the text version as well
+      const finalText = `Hello ${userFirstName},
+
+We have matched you with ${totalJobsCount} jobs today. These are our top picks:
+
+${jobsText}`;
       
       logger.info('Email content prepared. Jobs data added:', jobsHtml.length > 0 ? 'Yes' : 'No');
       

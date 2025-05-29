@@ -13,7 +13,7 @@ const db = admin.firestore();
 
 // Configuration
 const CONFIG = {
-  SEARCH_FUNCTION_URL: process.env.SEARCH_FUNCTION_URL || 'https://searchbright-kvshkfhmua-uc.a.run.app'
+  SEARCH_FUNCTION_URL: process.env.SEARCH_FUNCTION_URL || 'https://searchbright-fy7t4rjjwa-uc.a.run.app'
 };
 
 /**
@@ -30,6 +30,8 @@ const CONFIG = {
 async function processScheduledSearches() {
   try {
     logger.info('Starting scheduled search run');
+    logger.info('CONFIG.SEARCH_FUNCTION_URL:', CONFIG.SEARCH_FUNCTION_URL); // Add this line
+    logger.info('process.env.SEARCH_FUNCTION_URL:', process.env.SEARCH_FUNCTION_URL); // Add this line
     
     // Calculate current time
     const now = Timestamp.now();
