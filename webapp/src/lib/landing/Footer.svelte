@@ -18,7 +18,7 @@
         </a>
     </p>
     <p class="text-sm text-gray-500">
-        Version: 1.5 (
+        Version: 1.53 (
         <a
             class="patchnotes"
             href="https://spiritual-chicken-5d2.notion.site/Foxjob-Patch-Notes-1e3370f58e75805ebbd4e914235b4436"

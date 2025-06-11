@@ -797,6 +797,65 @@ function setMinimumScore(val) { minimumScore = val; }
               />
             </div>
 
+            <!-- Add Additional Job Title Checkbox -->
+            <div class="flex items-center mb-4">
+              <input 
+                type="checkbox" 
+                id="includeSimilarRoles" 
+                bind:checked={includeSimilarRoles}
+                class="h-5 w-5 text-orange-500"
+              />
+              <label for="includeSimilarRoles" class="ml-2 block text-sm font-medium text-gray-700">
+                Add additional job titles
+                <span class="ml-1 inline-block text-gray-500" title="This feature is still in development">
+                  <iconify-icon icon="mdi:information-outline" width="16" height="16"></iconify-icon>
+                </span>
+              </label>
+            </div>
+
+            <!-- Additional Job Titles section - only show when checkbox is checked -->
+            {#if includeSimilarRoles}
+              <div class="mb-4">
+                {#each additionalJobTitles as title, index}
+                  <div class="flex items-center mb-2">
+                    <input
+                      id={`additionalJobTitle-${index}`}
+                      type="text"
+                      placeholder="Include additional job title"
+                      bind:value={additionalJobTitles[index]}
+                      on:input={(e) => updateJobTitle(index, e.target.value)}
+                      class="flex-grow px-4 py-2 border rounded-lg mr-2"
+                    />
+                    
+                    <!-- Add button for the first field, or fields that aren't the last one -->
+                    {#if index === additionalJobTitles.length - 1 && additionalJobTitles.length < 5}
+                      <button 
+                        type="button"
+                        on:click={addJobTitleField}
+                        class="p-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg"
+                        title="Add another job title"
+                      >
+                        <span class="flex items-center justify-center w-5 h-5">+</span>
+                      </button>
+                    {:else if additionalJobTitles.length > 1}
+                      <!-- Remove button for extra fields -->
+                      <button 
+                        type="button"
+                        on:click={() => removeJobTitleField(index)}
+                        class="p-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg"
+                        title="Remove job title"
+                      >
+                        <span class="flex items-center justify-center w-5 h-5">×</span>
+                      </button>
+                    {:else}
+                      <!-- Empty spacer to maintain alignment -->
+                      <div class="w-9 h-9"></div>
+                    {/if}
+                  </div>
+                {/each}
+              </div>
+            {/if}
+
             <!-- Two column layout for Location and Country -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               <!-- Location -->
@@ -899,67 +958,6 @@ function setMinimumScore(val) { minimumScore = val; }
                       {/each}
                     </select>
                   </div>
-                  
-                  <!-- Include Similar Roles Checkbox - renamed to Fuzzy Match -->
-                  <div class="flex items-center">
-                    <input 
-                      type="checkbox" 
-                      id="includeSimilarRoles" 
-                      bind:checked={includeSimilarRoles}
-                      class="h-5 w-5 text-orange-500"
-                    />
-                    <label for="includeSimilarRoles" class="ml-2 block text-sm font-medium text-gray-700">
-                      Fuzzy Match
-                      <span class="ml-1 inline-block text-gray-500" title="Enables broader job title matching. May include less relevant results, so try exact search first for precision.">
-                        <iconify-icon icon="mdi:information-outline" width="16" height="16"></iconify-icon>
-                      </span>
-                    </label>
-                  </div>
-                  
-                  <!-- Additional Job Titles section - only show when Fuzzy Match is checked -->
-                  {#if includeSimilarRoles}
-                    <div class="mt-3 pl-7">
-                      <label class="block font-bold mb-2" for="additionalJobTitle-0">Optional: Add Additional Job Titles</label>
-                      
-                      {#each additionalJobTitles as title, index}
-                        <div class="flex items-center mb-2">
-                          <input
-                            id={`additionalJobTitle-${index}`}
-                            type="text"
-                            placeholder="Include additional job title"
-                            bind:value={additionalJobTitles[index]}
-                            on:input={(e) => updateJobTitle(index, e.target.value)}
-                            class="flex-grow px-4 py-2 border rounded-lg mr-2"
-                          />
-                          
-                          <!-- Add button for the first field, or fields that aren't the last one -->
-                          {#if index === additionalJobTitles.length - 1 && additionalJobTitles.length < 5}
-                            <button 
-                              type="button"
-                              on:click={addJobTitleField}
-                              class="p-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg"
-                              title="Add another job title"
-                            >
-                              <span class="flex items-center justify-center w-5 h-5">+</span>
-                            </button>
-                          {:else if additionalJobTitles.length > 1}
-                            <!-- Remove button for extra fields -->
-                            <button 
-                              type="button"
-                              on:click={() => removeJobTitleField(index)}
-                              class="p-2 bg-gray-300 hover:bg-gray-400 text-gray-700 rounded-lg"
-                              title="Remove job title"
-                            >
-                              <span class="flex items-center justify-center w-5 h-5">×</span>
-                            </button>
-                          {:else}
-                            <!-- Empty spacer to maintain alignment -->
-                            <div class="w-9 h-9"></div>
-                          {/if}
-                        </div>
-                      {/each}
-                    </div>
-                  {/if}
                 </div>
               {/if}
             </div>

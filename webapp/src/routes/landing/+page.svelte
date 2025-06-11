@@ -15,7 +15,7 @@
     <ProblemAmplification />
     <Features />
     <Testimonials />
-    <TestimonialClassic text="Imagine someone actually cares to read your resume before suggesting jobs." name="Elowen Khouri, UX-Designer" avatar="/images/Elowen%20Khouri.png" />
+    <TestimonialClassic text="Imagine someone actually cares to read your resume before suggesting jobs to you." name="Elowen Khouri, UX-Designer" avatar="/images/Elowen%20Khouri.png" />
     <CallToAction />
     <Footer />
   </div>

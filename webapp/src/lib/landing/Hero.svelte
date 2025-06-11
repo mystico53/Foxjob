@@ -33,8 +33,8 @@
 
 			<!-- Left Column: Content (on mobile, appears second) -->
 			<div class="space-y-6 order-2 md:order-1">
-				<h1 class="h1 font-bold" style="line-height: 1.3;">Life's too short for job boards</h1>
-				<h2 class="h4 pb-20 font-normal">Don't search harder, let your resume work smarter.</h2>
+				<h1 class="h1 font-bold" style="line-height: 1.3;">Stop reading <br> job descriptions</h1>
+				<h2 class="h4 pb-20 font-normal">An AI agent that knows you personally finds jobs that actually fit.</h2>
 				<button
 					type="button"
 					class="btn px-4 font-bold text-white shadow-lg shadow-[#DC3701]/20 transition-all hover:-translate-y-0.5 hover:brightness-110"
