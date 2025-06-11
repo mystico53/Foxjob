@@ -285,13 +285,13 @@
   let jobType = '';
   let experience = '';
   let workplaceType = '';
-  let datePosted = 'Past 24 hours'; // Default to 24 hours
+  let datePosted = 'Past month'; // Changed default to 30 days
   let country = 'US';
   let limitPerInput = '50'; // Changed default to string value "50"
   let includeSimilarRoles = false; // New state variable for similar roles checkbox
   let jobEmailsEnabled = true;
   let deliveryTime = '08:00';
-  let minimumScore = 70;
+  let minimumScore = 50;
   const timeOptions = [
     { value: '08:00', label: '8:00 AM' },
     { value: '12:00', label: '12:00 PM' },
@@ -325,7 +325,7 @@
     jobType = searchParam.job_type || '';
     experience = searchParam.experience_level || '';
     includeSimilarRoles = searchParam.includeSimilarRoles || false; // Set this from the search param
-    minimumScore = query.minimumScore || 70; // Load minimumScore with default if not present
+    minimumScore = query.minimumScore || 50; // Load minimumScore with default if not present
     
     // Set selected workplace type - the API accepts only one value
     if (searchParam.remote) {
@@ -416,7 +416,7 @@
     showAdvanced = false;
     includeSimilarRoles = false; // Reset the checkbox
     additionalJobTitles = [''];
-    minimumScore = 70; // Reset the minimum score threshold to default
+    minimumScore = 50; // Reset the minimum score threshold to default
     
     // Reset preferences
     workPreferences = {
@@ -444,7 +444,7 @@
       showAdvanced = false;
       includeSimilarRoles = false; // Reset the checkbox
       additionalJobTitles = [''];
-      minimumScore = 70; // Reset minimum score threshold to default
+      minimumScore = 50; // Reset minimum score threshold to default
       
       // Load current preferences
       loadWorkPreferences();
@@ -795,6 +795,11 @@ function setMinimumScore(val) { minimumScore = val; }
                 required
                 class="w-full px-4 py-2 border rounded-lg"
               />
+              {#if keywords && /(AND|OR|,|&)/i.test(keywords)}
+                <p class="mt-2 text-red-600 text-sm">
+                  ⚠ Do not use AND OR COMMA in your job title. To add additional job titles, use the checkbox below 
+                </p>
+              {/if}
             </div>
 
             <!-- Add Additional Job Title Checkbox -->
@@ -1068,8 +1073,8 @@ function setMinimumScore(val) { minimumScore = val; }
               <!-- Create/Update Job Agent Button -->
               <button
                 type="submit"
-                class="flex-grow py-3 px-4 {$isLoading ? 'bg-orange-400' : 'bg-orange-500 hover:bg-orange-600'} text-white font-bold rounded-lg flex items-center justify-center"
-                disabled={$isLoading}
+                class="flex-grow py-3 px-4 {$isLoading ? 'bg-orange-400' : (keywords && /(AND|OR|,|&)/i.test(keywords) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600')} text-white font-bold rounded-lg flex items-center justify-center"
+                disabled={$isLoading || (keywords && /(AND|OR|,|&)/i.test(keywords))}
               >
                 {#if $isLoading}
                   <iconify-icon icon="svg-spinners:pulse" width="24" height="24" class="mr-2"></iconify-icon>
@@ -1081,13 +1086,19 @@ function setMinimumScore(val) { minimumScore = val; }
                 {/if}
               </button>
             </div>
-          </form>
 
-          {#if error}
-            <div class="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
-              {error}
-            </div>
-          {/if}
+            {#if keywords && /(AND|OR|,|&)/i.test(keywords)}
+              <p class="mt-4 text-red-600 text-sm">
+                ⚠ Do not use AND OR , etc. To add additional job titles, use the checkbox below
+              </p>
+            {/if}
+
+            {#if error}
+              <div class="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
+                {error}
+              </div>
+            {/if}
+          </form>
         {/if}
       </div>
     {/if}
