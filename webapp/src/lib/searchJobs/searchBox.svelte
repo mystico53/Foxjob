@@ -795,7 +795,7 @@ function setMinimumScore(val) { minimumScore = val; }
                 required
                 class="w-full px-4 py-2 border rounded-lg"
               />
-              {#if keywords && /(AND|OR|,|&)/i.test(keywords)}
+              {#if keywords && /(AND|OR|,|&)(?!\s)/i.test(keywords)}
                 <p class="mt-2 text-red-600 text-sm">
                   ⚠ Do not use AND OR COMMA in your job title. To add additional job titles, use the checkbox below 
                 </p>
@@ -893,7 +893,7 @@ function setMinimumScore(val) { minimumScore = val; }
             <!-- Workplace Type as Pills - Single Selection Only -->
             <div class="mb-4">
               <label id="workplace-type-label" class="block font-bold mb-2" for="workplace-type-group">Workplace Type</label>
-              <div id="workplace-type-group" class="flex flex-wrap gap-2" role="group" aria-labelledby="workplace-type-label">
+              <div id="workplace-type-group" class="flex flex-wrap gap-2 items-center" role="group" aria-labelledby="workplace-type-label">
                 {#each workplaceTypes as type}
                   <button 
                     type="button"
@@ -916,6 +916,9 @@ function setMinimumScore(val) { minimumScore = val; }
                 >
                   Any
                 </button>
+                {#if selectedWorkplaceTypes.length > 0}
+                  <span class="text-gray-500 text-sm ml-2">Heads up: This might result in less results, select ANY for more results</span>
+                {/if}
               </div>
             </div>
 
@@ -1073,8 +1076,8 @@ function setMinimumScore(val) { minimumScore = val; }
               <!-- Create/Update Job Agent Button -->
               <button
                 type="submit"
-                class="flex-grow py-3 px-4 {$isLoading ? 'bg-orange-400' : (keywords && /(AND|OR|,|&)/i.test(keywords) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600')} text-white font-bold rounded-lg flex items-center justify-center"
-                disabled={$isLoading || (keywords && /(AND|OR|,|&)/i.test(keywords))}
+                class="flex-grow py-3 px-4 {$isLoading ? 'bg-orange-400' : (keywords && /(AND|OR|,|&)(?!\s)/i.test(keywords) ? 'bg-gray-400 cursor-not-allowed' : 'bg-orange-500 hover:bg-orange-600')} text-white font-bold rounded-lg flex items-center justify-center"
+                disabled={$isLoading || (keywords && /(AND|OR|,|&)(?!\s)/i.test(keywords))}
               >
                 {#if $isLoading}
                   <iconify-icon icon="svg-spinners:pulse" width="24" height="24" class="mr-2"></iconify-icon>
@@ -1087,7 +1090,7 @@ function setMinimumScore(val) { minimumScore = val; }
               </button>
             </div>
 
-            {#if keywords && /(AND|OR|,|&)/i.test(keywords)}
+            {#if keywords && /(AND|OR|,|&)(?!\s)/i.test(keywords)}
               <p class="mt-4 text-red-600 text-sm">
                 ⚠ Do not use AND OR , etc. To add additional job titles, use the checkbox below
               </p>
