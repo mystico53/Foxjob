@@ -35,10 +35,15 @@
     onMount(() => {
         // Initialize PostHog
         if (browser) {
+            if (!import.meta.env.VITE_POSTHOG_API_KEY) {
+                console.error('PostHog API Key is not defined in environment variables');
+                return;
+            }
+
             posthog.init(
-                'phc_LruGXtYxqYUoLnK7O39t3q6l6LX5KlHclJwX3J59yuH',
+                import.meta.env.VITE_POSTHOG_API_KEY,
                 {
-                    api_host: 'https://us.i.posthog.com',
+                    api_host: import.meta.env.VITE_POSTHOG_HOST,
                     person_profiles: 'identified_only',
                 }
             );
