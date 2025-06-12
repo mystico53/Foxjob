@@ -535,7 +535,7 @@
     }
   </script>
   
-  <main class="container mx-auto p-4">
+  <main class="container mx-auto">
     {#if isLoading}
       <div class="card p-4 my-4">Loading data...</div>
     {:else if error}
@@ -576,31 +576,6 @@
       </div>
     {:else}
       <div class="grid gap-4">
-        <!-- Users section -->
-        <div class="card p-4">
-          <div class="flex items-center justify-between mb-4">
-            <h2 class="h2">Users ({users.length})</h2>
-            
-            <button class="btn btn-sm variant-filled" on:click={viewAll}>
-              View All
-            </button>
-          </div>
-          
-          {#if users.length > 0}
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4">
-              {#each users as user}
-                <button 
-                  class="btn {selectedUser?.id === user.id ? 'variant-filled-primary' : 'variant-soft'} 
-                         text-left justify-start h-auto py-2 truncate"
-                  on:click={() => selectUser(user)}
-                >
-                  <span class="block truncate">{user.email || user.id}</span>
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-
         <!-- Job batches section (full width) -->
         <div class="card p-4 mb-4">
           <h2 class="h3 mb-4">
