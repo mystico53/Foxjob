@@ -5,9 +5,16 @@
     import { page } from '$app/stores';
 
     let currentView = 'batches'; // Default view
+    let selectedBatchId = null;
     
     function setView(view) {
         currentView = view;
+    }
+
+    function handleBatchSelect(event) {
+        const { batchId } = event.detail;
+        selectedBatchId = batchId;
+        currentView = 'batches';
     }
 </script>
 
@@ -37,9 +44,9 @@
     <div class="flex-1 overflow-auto">
         <div class="p-4">
             {#if currentView === 'batches'}
-                <AgentsOverview />
+                <AgentsOverview selectedBatchId={selectedBatchId} />
             {:else if currentView === 'users'}
-                <AdminUsers />
+                <AdminUsers on:selectBatch={handleBatchSelect} />
             {/if}
         </div>
     </div>

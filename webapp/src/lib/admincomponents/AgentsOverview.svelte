@@ -10,6 +10,9 @@
     import localizedFormat from 'dayjs/plugin/localizedFormat';
     import BatchJobsList from '$lib/admincomponents/BatchJobsList.svelte';
     
+    // Props
+    export let selectedBatchId = null;
+    
     // Initialize dayjs plugins
     dayjs.extend(utc);
     dayjs.extend(timezone);
@@ -527,9 +530,24 @@
         isLoading = false;
       }
     }
-  </script>
+
+    $: if (selectedBatchId && jobBatches.length > 0) {
+        const batch = jobBatches.find(b => b.id === selectedBatchId);
+        if (batch) {
+            selectedBatch = batch;
+            // Scroll the batch into view
+            setTimeout(() => {
+                const element = document.getElementById(`batch-${batch.id}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }, 100);
+        }
+        selectedBatchId = null; // Reset after handling
+    }
+</script>
   
-  <main class="container mx-auto">
+<main class="container mx-auto">
     {#if isLoading}
       <div class="card p-4 my-4">Loading data...</div>
     {:else if error}
@@ -588,7 +606,10 @@
               {@const emailStatus = getEmailStatus(batch.id)}
               {@const batchUser = users.find(u => u.id === batch.userId)}
               {@const query = searchQueries.find(q => q.id === batch.searchId)}
-              <div class="card variant-soft p-4 {selectedBatch?.id === batch.id ? 'ring-2 ring-primary-500' : ''}">
+              <div 
+                id="batch-{batch.id}"
+                class="card variant-soft p-4 {selectedBatch?.id === batch.id ? 'ring-2 ring-primary-500' : ''}"
+              >
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                   <!-- Column 1: Basic Info -->
                   <div class="text-black">
@@ -753,4 +774,4 @@
         </div>
       </div>
     {/if}
-  </main>
+</main>

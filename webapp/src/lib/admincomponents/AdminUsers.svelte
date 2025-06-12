@@ -7,6 +7,7 @@
     import utc from 'dayjs/plugin/utc';
     import timezone from 'dayjs/plugin/timezone';
     import localizedFormat from 'dayjs/plugin/localizedFormat';
+    import { createEventDispatcher } from 'svelte';
 
     // Initialize dayjs plugins
     dayjs.extend(utc);
@@ -25,6 +26,8 @@
     let userDetails = null;
     let activeTab = 'info'; // 'info', 'resume', 'preferences', or 'queries'
     let emailRequests = {};
+
+    const dispatch = createEventDispatcher();
 
     // Fetch all data on mount
     onMount(async () => {
@@ -235,15 +238,19 @@
         }
         return { text: emailIdPrefix + (emailData.status || 'Unknown'), class: 'text-surface-400' };
     }
+
+    function navigateToBatch(batchId) {
+        dispatch('selectBatch', { batchId });
+    }
 </script>
 
-<main class="container mx-auto">
+<main class="container mx-auto text-black">
     {#if isLoading}
-        <div class="card p-4 my-4">Loading users data...</div>
+        <div class="card p-4 my-4 text-black">Loading users data...</div>
     {:else if error}
         <div class="card variant-filled-error p-4 my-4">
-            <h2 class="h3">Error: {error}</h2>
-            <p>There was a problem loading the users data. This may be due to insufficient permissions.</p>
+            <h2 class="h3 text-black">Error: {error}</h2>
+            <p class="text-black">There was a problem loading the users data. This may be due to insufficient permissions.</p>
 
             {#if adminClaims}
                 <div class="mt-4">
@@ -256,17 +263,17 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <!-- Users List -->
             <div class="card p-4">
-                <h2 class="h3 mb-4">Users ({users.length})</h2>
+                <h2 class="h3 mb-4 text-black">Users ({users.length})</h2>
                 <div class="space-y-2">
                     {#each users as user}
                         <button 
-                            class="btn w-full {selectedUser?.id === user.id ? 'variant-filled-primary' : 'variant-soft'} 
-                                   text-left justify-start h-auto py-2"
+                            class="btn w-full {selectedUser?.id === user.id ? 'variant-filled-primary' : 'variant-ghost'} 
+                                   text-left justify-start h-auto py-2 text-black"
                             on:click={() => selectUser(user)}
                         >
                             <div class="flex flex-col">
-                                <span class="font-semibold">{user.displayName || 'No Name'}</span>
-                                <span class="text-sm">{user.email || user.id}</span>
+                                <span class="font-semibold text-black">{user.displayName || 'No Name'}</span>
+                                <span class="text-sm text-black">{user.email || user.id}</span>
                             </div>
                         </button>
                     {/each}
@@ -280,187 +287,200 @@
                         <!-- Tabs -->
                         <div class="flex space-x-2 mb-4">
                             <button 
-                                class="btn {activeTab === 'info' ? 'variant-filled' : 'variant-soft'}"
+                                class="btn {activeTab === 'info' ? 'variant-filled' : 'variant-ghost'} text-black"
                                 on:click={() => activeTab = 'info'}
                             >
                                 Info
                             </button>
                             <button 
-                                class="btn {activeTab === 'queries' ? 'variant-filled' : 'variant-soft'}"
-                                on:click={() => activeTab = 'queries'}
+                                class="btn {activeTab === 'collections' ? 'variant-filled' : 'variant-ghost'} text-black"
+                                on:click={() => activeTab = 'collections'}
                             >
-                                Search Queries
-                            </button>
-                            <button 
-                                class="btn {activeTab === 'resume' ? 'variant-filled' : 'variant-soft'}"
-                                on:click={() => activeTab = 'resume'}
-                            >
-                                Resume
-                            </button>
-                            <button 
-                                class="btn {activeTab === 'preferences' ? 'variant-filled' : 'variant-soft'}"
-                                on:click={() => activeTab = 'preferences'}
-                            >
-                                Work Preferences
+                                Collections
                             </button>
                         </div>
 
                         <!-- Tab Content -->
                         {#if activeTab === 'info'}
-                            <div class="space-y-2">
-                                <p><span class="font-medium">Name:</span> {selectedUser.displayName || 'Not set'}</p>
-                                <p><span class="font-medium">Email:</span> {selectedUser.email}</p>
-                                <p><span class="font-medium">Last Sign In:</span> {selectedUser.lastSignIn || 'Never'}</p>
-                            </div>
-                        {:else if activeTab === 'queries' && userDetails && !userDetails.loading}
-                            <div class="space-y-6">
-                                {#if userDetails.searchQueries && userDetails.searchQueries.length > 0}
-                                    {#each userDetails.searchQueries as query}
-                                        <div class="card variant-soft p-4">
-                                            <!-- Search Parameters -->
-                                            <div class="mb-4">
-                                                <h4 class="font-semibold mb-2">Search Parameters</h4>
-                                                {#if query.searchParams && query.searchParams.length > 0}
-                                                    <div class="grid grid-cols-2 gap-2">
-                                                        <div>
-                                                            <span class="font-medium">Keywords:</span>
-                                                            <span class="ml-2">{query.searchParams[0].keyword || 'N/A'}</span>
-                                                        </div>
-                                                        <div>
-                                                            <span class="font-medium">Location:</span>
-                                                            <span class="ml-2">{query.searchParams[0].location || 'N/A'}</span>
-                                                        </div>
-                                                        {#if query.searchParams[0].remote}
-                                                            <div>
-                                                                <span class="font-medium">Remote:</span>
-                                                                <span class="ml-2">{query.searchParams[0].remote}</span>
-                                                            </div>
-                                                        {/if}
-                                                        {#if query.searchParams[0].experience_level}
-                                                            <div>
-                                                                <span class="font-medium">Experience:</span>
-                                                                <span class="ml-2">{query.searchParams[0].experience_level}</span>
-                                                            </div>
-                                                        {/if}
-                                                    </div>
-                                                {:else}
-                                                    <p class="text-surface-400">No search parameters defined</p>
-                                                {/if}
-                                            </div>
+                            <div class="space-y-8">
+                                <!-- Basic Info -->
+                                <div>
+                                    <h3 class="h3 mb-4 text-black">Basic Information</h3>
+                                    <div class="card variant-ghost p-4 space-y-2">
+                                        <p class="text-black"><span class="font-medium text-black">Name:</span> {selectedUser.displayName || 'Not set'}</p>
+                                        <p class="text-black"><span class="font-medium text-black">Email:</span> {selectedUser.email}</p>
+                                        <p class="text-black"><span class="font-medium text-black">Last Sign In:</span> {selectedUser.lastSignIn || 'Never'}</p>
+                                    </div>
+                                </div>
 
-                                            <!-- Delivery Settings -->
-                                            <div class="mb-4">
-                                                <h4 class="font-semibold mb-2">Delivery Settings</h4>
-                                                <div class="grid grid-cols-2 gap-2">
-                                                    <div>
-                                                        <span class="font-medium">Delivery Time:</span>
-                                                        <span class="ml-2">{formatDeliveryTime(query.deliveryTime)}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span class="font-medium">Frequency:</span>
-                                                        <span class="ml-2">{query.frequency || 'N/A'}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span class="font-medium">Job Limit:</span>
-                                                        <span class="ml-2">{query.limit || 'N/A'}</span>
-                                                    </div>
-                                                    <div>
-                                                        <span class="font-medium">Status:</span>
-                                                        <span class="ml-2 {query.isActive ? 'text-success-500' : 'text-surface-400'}">
-                                                            {query.isActive ? 'Active' : 'Inactive'}
-                                                        </span>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Associated Job Batches -->
-                                            <div>
-                                                <h4 class="font-semibold mb-2">Job Batches ({query.batches?.length || 0})</h4>
-                                                <div class="space-y-2">
-                                                    {#if query.batches && query.batches.length > 0}
-                                                        {#each query.batches as batch}
-                                                            {@const emailStatus = getEmailStatus(batch, query.emailRequests)}
-                                                            <div class="card variant-ghost p-3">
+                                <!-- Search Queries -->
+                                {#if userDetails && !userDetails.loading}
+                                    <div>
+                                        <h3 class="h3 mb-4 text-black">Search Queries ({userDetails.searchQueries?.length || 0})</h3>
+                                        <div class="space-y-4">
+                                            {#if userDetails.searchQueries && userDetails.searchQueries.length > 0}
+                                                {#each userDetails.searchQueries as query}
+                                                    <div class="card variant-ghost p-4">
+                                                        <!-- Search Parameters -->
+                                                        <div class="mb-4">
+                                                            <h4 class="font-medium mb-2 text-black">Search Parameters</h4>
+                                                            {#if query.searchParams && query.searchParams.length > 0}
                                                                 <div class="grid grid-cols-2 gap-2">
-                                                                    <div>
-                                                                        <span class="font-medium">Started:</span>
-                                                                        <span class="ml-2">{formatDate(batch.startedAt)}</span>
+                                                                    <div class="text-black">
+                                                                        <span class="font-medium text-black">Keywords:</span>
+                                                                        <span class="ml-2">{query.searchParams[0].keyword || 'N/A'}</span>
                                                                     </div>
-                                                                    <div>
-                                                                        <span class="font-medium">Status:</span>
-                                                                        <span class="ml-2 {
-                                                                            batch.status === 'complete' ? 'text-success-500' : 
-                                                                            batch.status === 'processing' ? 'text-primary-500' : 
-                                                                            batch.status === 'timeout' ? 'text-error-500' : ''
-                                                                        }">
-                                                                            {batch.status || 'N/A'}
-                                                                        </span>
+                                                                    <div class="text-black">
+                                                                        <span class="font-medium text-black">Location:</span>
+                                                                        <span class="ml-2">{query.searchParams[0].location || 'N/A'}</span>
                                                                     </div>
-                                                                    <div>
-                                                                        <span class="font-medium">Progress:</span>
-                                                                        <span class="ml-2">
-                                                                            {batch.completedJobs || 0} / {batch.totalJobs || 0}
-                                                                            ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
-                                                                        </span>
-                                                                    </div>
-                                                                    <div>
-                                                                        <span class="font-medium">Email:</span>
-                                                                        <span class={emailStatus.class}>
-                                                                            {emailStatus.text}
-                                                                        </span>
-                                                                    </div>
+                                                                    {#if query.searchParams[0].remote}
+                                                                        <div class="text-black">
+                                                                            <span class="font-medium text-black">Remote:</span>
+                                                                            <span class="ml-2">{query.searchParams[0].remote}</span>
+                                                                        </div>
+                                                                    {/if}
+                                                                    {#if query.searchParams[0].experience_level}
+                                                                        <div class="text-black">
+                                                                            <span class="font-medium text-black">Experience:</span>
+                                                                            <span class="ml-2">{query.searchParams[0].experience_level}</span>
+                                                                        </div>
+                                                                    {/if}
+                                                                </div>
+                                                            {:else}
+                                                                <p class="text-black">No search parameters defined</p>
+                                                            {/if}
+                                                        </div>
+
+                                                        <!-- Delivery Settings -->
+                                                        <div class="mb-4">
+                                                            <h4 class="font-medium mb-2 text-black">Delivery Settings</h4>
+                                                            <div class="grid grid-cols-2 gap-2">
+                                                                <div class="text-black">
+                                                                    <span class="font-medium text-black">Delivery Time:</span>
+                                                                    <span class="ml-2">{formatDeliveryTime(query.deliveryTime)}</span>
+                                                                </div>
+                                                                <div class="text-black">
+                                                                    <span class="font-medium text-black">Frequency:</span>
+                                                                    <span class="ml-2">{query.frequency || 'N/A'}</span>
+                                                                </div>
+                                                                <div class="text-black">
+                                                                    <span class="font-medium text-black">Job Limit:</span>
+                                                                    <span class="ml-2">{query.limit || 'N/A'}</span>
+                                                                </div>
+                                                                <div class="text-black">
+                                                                    <span class="font-medium text-black">Status:</span>
+                                                                    <span class="ml-2">{query.isActive ? 'Active' : 'Inactive'}</span>
                                                                 </div>
                                                             </div>
-                                                        {/each}
-                                                    {:else}
-                                                        <p class="text-surface-400">No job batches found</p>
-                                                    {/if}
+                                                        </div>
+
+                                                        <!-- Associated Job Batches -->
+                                                        <div>
+                                                            <h4 class="font-medium mb-2 text-black">Job Batches ({query.batches?.length || 0})</h4>
+                                                            <div class="space-y-2">
+                                                                {#if query.batches && query.batches.length > 0}
+                                                                    {#each query.batches as batch}
+                                                                        {@const emailStatus = getEmailStatus(batch, query.emailRequests)}
+                                                                        <div 
+                                                                            class="card variant-ghost p-3 hover:variant-soft cursor-pointer transition-colors text-black"
+                                                                            on:click={() => navigateToBatch(batch.id)}
+                                                                            role="button"
+                                                                            tabindex="0"
+                                                                            on:keypress={(e) => e.key === 'Enter' && navigateToBatch(batch.id)}
+                                                                        >
+                                                                            <div class="grid grid-cols-2 gap-2">
+                                                                                <div class="col-span-2 text-black">
+                                                                                    <span class="font-medium text-black">Batch ID:</span>
+                                                                                    <span class="ml-2 font-mono text-sm">{batch.id}</span>
+                                                                                    <span class="ml-2 text-sm">(click to view in Batches tab)</span>
+                                                                                </div>
+                                                                                <div class="text-black">
+                                                                                    <span class="font-medium text-black">Started:</span>
+                                                                                    <span class="ml-2">{formatDate(batch.startedAt)}</span>
+                                                                                </div>
+                                                                                <div class="text-black">
+                                                                                    <span class="font-medium text-black">Status:</span>
+                                                                                    <span class="ml-2">{batch.status || 'N/A'}</span>
+                                                                                </div>
+                                                                                <div class="text-black">
+                                                                                    <span class="font-medium text-black">Progress:</span>
+                                                                                    <span class="ml-2">
+                                                                                        {batch.completedJobs || 0} / {batch.totalJobs || 0}
+                                                                                        ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
+                                                                                    </span>
+                                                                                </div>
+                                                                                <div class="text-black">
+                                                                                    <span class="font-medium text-black">Email:</span>
+                                                                                    <span class="ml-2">{emailStatus.text}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    {/each}
+                                                                {:else}
+                                                                    <p class="text-black">No job batches found</p>
+                                                                {/if}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                {/each}
+                                            {:else}
+                                                <p class="text-black">No search queries found</p>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                {/if}
+                            </div>
+                        {:else if activeTab === 'collections' && userDetails && !userDetails.loading}
+                            <div class="space-y-8">
+                                <!-- Work Preferences -->
+                                <div>
+                                    <h3 class="h3 mb-4 text-black">Work Preferences</h3>
+                                    <div class="card variant-ghost p-4">
+                                        {#if userDetails.workPreferences}
+                                            <div class="space-y-4">
+                                                <div>
+                                                    <h4 class="font-medium mb-2 text-black">Preferences</h4>
+                                                    <p class="text-black">{userDetails.workPreferences.preferences || 'None'}</p>
+                                                </div>
+                                                <div>
+                                                    <h4 class="font-medium mb-2 text-black">Avoidance</h4>
+                                                    <p class="text-black">{userDetails.workPreferences.avoidance || 'None'}</p>
                                                 </div>
                                             </div>
-                                        </div>
-                                    {/each}
-                                {:else}
-                                    <p class="text-surface-400">No search queries found</p>
-                                {/if}
-                            </div>
-                        {:else if activeTab === 'resume' && userDetails && !userDetails.loading}
-                            <div class="space-y-2">
-                                {#if userDetails.resume}
-                                    <div class="mb-2">
-                                        <p><span class="font-medium">Document ID:</span> {userDetails.resume.id}</p>
-                                        <p><span class="font-medium">File Name:</span> {userDetails.resume.fileName || 'N/A'}</p>
-                                        <p><span class="font-medium">Status:</span> {userDetails.resume.status || 'N/A'}</p>
+                                        {:else}
+                                            <p class="text-black">No work preferences found</p>
+                                        {/if}
                                     </div>
-                                    {#if userDetails.resume.extractedText}
-                                        <div class="whitespace-pre-wrap font-mono text-sm mt-4 p-4 bg-surface-100-800-token rounded">
-                                            {userDetails.resume.extractedText}
+                                </div>
+
+                                <!-- Resume -->
+                                <div>
+                                    <h3 class="h3 mb-4 text-black">Resume</h3>
+                                    {#if userDetails.resume}
+                                        <div class="card variant-ghost p-4">
+                                            <div class="mb-4">
+                                                <p class="text-black"><span class="font-medium text-black">Document ID:</span> {userDetails.resume.id}</p>
+                                                <p class="text-black"><span class="font-medium text-black">File Name:</span> {userDetails.resume.fileName || 'N/A'}</p>
+                                                <p class="text-black"><span class="font-medium text-black">Status:</span> {userDetails.resume.status || 'N/A'}</p>
+                                            </div>
+                                            {#if userDetails.resume.extractedText}
+                                                <div class="whitespace-pre-wrap font-mono text-sm mt-4 p-4 bg-surface-100-800-token rounded text-black">
+                                                    {userDetails.resume.extractedText}
+                                                </div>
+                                            {:else}
+                                                <p class="text-black">No extracted text available</p>
+                                            {/if}
                                         </div>
                                     {:else}
-                                        <p class="text-surface-400">No extracted text available</p>
+                                        <p class="text-black">No resume found</p>
                                     {/if}
-                                {:else}
-                                    <p class="text-surface-400">No resume found</p>
-                                {/if}
-                            </div>
-                        {:else if activeTab === 'preferences' && userDetails && !userDetails.loading}
-                            <div class="space-y-4">
-                                {#if userDetails.workPreferences}
-                                    <div>
-                                        <h4 class="font-medium mb-2">Work Preferences</h4>
-                                        <p>{userDetails.workPreferences.preferences || 'None'}</p>
-                                    </div>
-                                    <div>
-                                        <h4 class="font-medium mb-2">Avoidance</h4>
-                                        <p>{userDetails.workPreferences.avoidance || 'None'}</p>
-                                    </div>
-                                {:else}
-                                    <p class="text-surface-400">No work preferences found</p>
-                                {/if}
+                                </div>
                             </div>
                         {/if}
 
                         {#if userDetails?.loading}
-                            <div class="p-4 text-center">Loading details...</div>
+                            <div class="p-4 text-center text-black">Loading details...</div>
                         {:else if userDetails?.error}
                             <div class="p-4 text-error-500">Error loading details: {userDetails.error}</div>
                         {/if}
