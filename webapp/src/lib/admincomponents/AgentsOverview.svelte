@@ -337,7 +337,7 @@
       
     // Further filter job batches by search query ID if selected
     $: filteredJobBatches = selectedQuery 
-      ? userJobBatches.filter(batch => batch.searchQueryId === selectedQuery.id)
+      ? userJobBatches.filter(batch => batch.searchId === selectedQuery.id)
       : userJobBatches;
       
     // Format timestamp for display using Day.js
@@ -536,18 +536,6 @@
   </script>
   
   <main class="container mx-auto p-4">
-    <div class="flex justify-between items-center mb-4">
-      <div class="flex gap-2">
-        <button class="btn variant-filled-primary" on:click={refreshData}>
-          Refresh Data
-        </button>
-        
-        <button class="btn variant-filled-warning" on:click={fixMissingEmailRequests}>
-          Fix Missing Email Requests
-        </button>
-      </div>
-    </div>
-    
     {#if isLoading}
       <div class="card p-4 my-4">Loading data...</div>
     {:else if error}
@@ -588,6 +576,7 @@
       </div>
     {:else}
       <div class="grid gap-4">
+        <!-- Users section -->
         <div class="card p-4">
           <div class="flex items-center justify-between mb-4">
             <h2 class="h2">Users ({users.length})</h2>
@@ -611,15 +600,191 @@
             </div>
           {/if}
         </div>
-        
-        <!-- Search queries section -->
+
+        <!-- Job batches section (full width) -->
+        <div class="card p-4 mb-4">
+          <h2 class="h3 mb-4">
+            {#if selectedQuery}
+              Job Batches for Query "{getKeyword(selectedQuery.searchParams)}"
+            {:else if selectedUser}
+              All Job Batches for {selectedUser.email || selectedUser.id}
+            {:else}
+              All Job Batches
+            {/if}
+            ({filteredJobBatches.length})
+          </h2>
+          
+          <div class="grid gap-4">
+            {#each filteredJobBatches as batch}
+              {@const emailStatus = getEmailStatus(batch.id)}
+              {@const batchUser = users.find(u => u.id === batch.userId)}
+              {@const query = searchQueries.find(q => q.id === batch.searchId)}
+              <div class="card variant-soft p-4 {selectedBatch?.id === batch.id ? 'ring-2 ring-primary-500' : ''}">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <!-- Column 1: Basic Info -->
+                  <div class="text-black">
+                    <div class="mb-2">
+                      <span class="font-semibold">User:</span> 
+                      <span>{batchUser?.displayName || batchUser?.id || 'Unknown'}</span>
+                    </div>
+                    <div class="mb-2">
+                      <span class="font-semibold">Batch ID:</span> 
+                      <span class="font-mono text-sm">{batch.id}</span>
+                    </div>
+                    <div>
+                      <span class="font-semibold">Started:</span> 
+                      <span>{formatDate(batch.startedAt)}</span>
+                    </div>
+                  </div>
+                  
+                  <!-- Column 2: Status & Progress -->
+                  <div class="text-black">
+                    <div class="mb-2">
+                      <span class="font-semibold">Status:</span> 
+                      <span class={
+                        batch.status === 'complete' ? 'text-success-500' : 
+                        batch.status === 'processing' ? 'text-primary-500' : 
+                        batch.status === 'timeout' ? 'text-error-500' : ''
+                      }>
+                        {batch.status || 'N/A'}
+                      </span>
+                    </div>
+                    <div class="mb-2">
+                      <span class="font-semibold">Progress:</span> 
+                      <span>
+                        {batch.completedJobs || 0} / {batch.totalJobs || 0}
+                        ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
+                      </span>
+                    </div>
+                    <div>
+                      <span class="font-semibold">Email:</span> 
+                      <span class={batch.emailSent ? 'text-success-500' : 'text-surface-400'}>
+                        {batch.emailSent ? 'Sent' : 'Not Sent'}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <!-- Column 3: Email Status & Actions -->
+                  <div class="text-black">
+                    <div class="mb-2">
+                      <span class="font-semibold">Email Status:</span><br/>
+                      <span class={emailStatus.class}>{emailStatus.text}</span>
+                      {#if batch.emailSent && emailRequests[batch.id]}
+                        <button 
+                          class="btn btn-sm variant-ghost-primary ml-2"
+                          on:click={() => {
+                            const emailData = emailRequests[batch.id];
+                            if (emailData && emailData.id) {
+                              const projectId = window.location.hostname.split('.')[0];
+                              const firestoreUrl = `https://console.firebase.google.com/project/${projectId}/firestore/data/~2FemailRequests~2F${emailData.id}`;
+                              window.open(firestoreUrl, '_blank');
+                            }
+                          }}
+                        >
+                          View Email
+                        </button>
+                      {/if}
+                    </div>
+                    <div>
+                      <button class="btn btn-sm variant-filled-primary" on:click={() => selectBatch(batch)}>
+                        {selectedBatch?.id === batch.id ? 'Hide Jobs' : 'View Jobs'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Query Information Row -->
+                <div class="border-t border-surface-300-600-token pt-4">
+                  <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Batch Query Information -->
+                    <div class="space-y-2">
+                      <h3 class="font-semibold text-lg">Search Parameters</h3>
+                      {#if query?.searchParams && query.searchParams.length > 0}
+                        <div class="card variant-ghost p-3 text-black">
+                          <div class="mb-1">
+                            <span class="font-semibold">Keywords:</span>
+                            <span class="ml-2">{query.searchParams[0].keyword || 'N/A'}</span>
+                          </div>
+                          <div class="mb-1">
+                            <span class="font-semibold">Location:</span>
+                            <span class="ml-2">{query.searchParams[0].location || 'N/A'}</span>
+                          </div>
+                          {#if query.searchParams[0].country}
+                            <div class="mb-1">
+                              <span class="font-semibold">Country:</span>
+                              <span class="ml-2">({query.searchParams[0].country})</span>
+                            </div>
+                          {/if}
+                          {#if query.searchParams[0].time_range}
+                            <div>
+                              <span class="font-semibold">Time Range:</span>
+                              <span class="ml-2">{query.searchParams[0].time_range}</span>
+                            </div>
+                          {/if}
+                          {#if query.searchParams[0].remote}
+                            <div>
+                              <span class="font-semibold">Remote:</span>
+                              <span class="ml-2">{query.searchParams[0].remote}</span>
+                            </div>
+                          {/if}
+                          {#if query.searchParams[0].experience_level}
+                            <div>
+                              <span class="font-semibold">Experience Level:</span>
+                              <span class="ml-2">{query.searchParams[0].experience_level}</span>
+                            </div>
+                          {/if}
+                          {#if query.searchParams[0].job_type}
+                            <div>
+                              <span class="font-semibold">Job Type:</span>
+                              <span class="ml-2">{query.searchParams[0].job_type}</span>
+                            </div>
+                          {/if}
+                        </div>
+                      {:else}
+                        <div class="text-surface-400">No search parameters defined</div>
+                      {/if}
+                    </div>
+                    
+                    <!-- Delivery Settings -->
+                    {#if query}
+                      <div class="space-y-2">
+                        <h3 class="font-semibold text-lg">Delivery Settings</h3>
+                        <div class="card variant-ghost p-3 text-black">
+                          <div class="mb-1">
+                            <span class="font-semibold">Delivery Time:</span>
+                            <span class="ml-2">{formatDeliveryTime(query.deliveryTime) || 'N/A'}</span>
+                          </div>
+                          <div class="mb-1">
+                            <span class="font-semibold">Frequency:</span>
+                            <span class="ml-2">{query.frequency || 'N/A'}</span>
+                          </div>
+                          <div class="mb-1">
+                            <span class="font-semibold">Job Limit:</span>
+                            <span class="ml-2">{query.limit || 'N/A'}</span>
+                          </div>
+                          <div>
+                            <span class="font-semibold">Status:</span>
+                            <span class="ml-2 {query.isActive ? 'text-success-500' : 'text-surface-400'}">
+                              {query.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+            {/each}
+          </div>
+        </div>
+
+        <!-- Search queries section (full width) -->
         <div class="card p-4">
           <h2 class="h3 mb-4">
             {selectedUser ? `Search Queries for ${selectedUser.email || selectedUser.id}` : 'All Search Queries'}
             ({userSearchQueries.length})
           </h2>
           
-          <!-- Replace table with new card-based layout -->
           <div class="space-y-3">
             {#each userSearchQueries as query}
               <div class="{selectedQuery?.id === query.id ? 'ring-2 ring-primary-500' : ''}">
@@ -632,89 +797,8 @@
           </div>
         </div>
         
-        <!-- Two-column layout for batches and jobs -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <!-- Job batches section (left column) -->
-          <div class="card p-4">
-            <h2 class="h3 mb-4">
-              {#if selectedQuery}
-                Job Batches for Query "{getKeyword(selectedQuery.searchParams)}"
-              {:else if selectedUser}
-                All Job Batches for {selectedUser.email || selectedUser.id}
-              {:else}
-                All Job Batches
-              {/if}
-              ({filteredJobBatches.length})
-            </h2>
-            
-            <div class="overflow-x-auto">
-              <table class="table table-compact w-full">
-                <thead>
-                  <tr>
-                    <th>Batch ID</th>
-                    <th>Started</th>
-                    <th>Status</th>
-                    <th>Progress</th>
-                    <th>Jobs</th>
-                    <th>Email Sent</th>
-                    <th>Email Status</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {#each filteredJobBatches as batch}
-                    {@const emailStatus = getEmailStatus(batch.id)}
-                    <tr class={selectedBatch?.id === batch.id ? 'bg-primary-500/20' : ''}>
-                      <td title={batch.id}>{batch.id.substring(0, 8)}...</td>
-                      <td>{formatDate(batch.startedAt)}</td>
-                      <td class={
-                        batch.status === 'complete' ? 'text-success-500' : 
-                        batch.status === 'processing' ? 'text-primary-500' : 
-                        batch.status === 'timeout' ? 'text-error-500' : ''
-                      }>
-                        {batch.status || 'N/A'}
-                      </td>
-                      <td>
-                        {batch.completedJobs || 0} / {batch.totalJobs || 0}
-                        ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
-                      </td>
-                      <td>{batch.jobIds?.length || 0}</td>
-                      <td class={batch.emailSent ? 'text-success-500' : 'text-surface-400'}>
-                        {batch.emailSent ? 'Yes' : 'No'}
-                      </td>
-                      <td class={emailStatus.class}>
-                        {emailStatus.text}
-                        {#if batch.emailSent && emailRequests[batch.id]}
-                          <button 
-                            class="btn btn-sm variant-ghost-primary ml-2"
-                            on:click={() => {
-                              // Open email details in a dialog or modal
-                              const emailData = emailRequests[batch.id];
-                              if (emailData && emailData.id) {
-                                // Open a new tab with Firestore UI to the document
-                                const projectId = window.location.hostname.split('.')[0];
-                                const firestoreUrl = `https://console.firebase.google.com/project/${projectId}/firestore/data/~2FemailRequests~2F${emailData.id}`;
-                                window.open(firestoreUrl, '_blank');
-                              }
-                            }}
-                          >
-                            View
-                          </button>
-                        {/if}
-                      </td>
-                      <td>
-                        <button class="btn btn-sm variant-soft" on:click={() => selectBatch(batch)}>
-                          {selectedBatch?.id === batch.id ? 'Hide Jobs' : 'View Jobs'}
-                        </button>
-                      </td>
-                    </tr>
-                  {/each}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          
-          <!-- Jobs list section (right column) -->
+        <!-- Jobs list section (full width) -->
+        <div class="card p-4">
           <BatchJobsList selectedBatch={selectedBatch} userId={selectedUser?.id || selectedBatch?.userId} />
         </div>
       </div>
