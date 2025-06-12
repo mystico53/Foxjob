@@ -8,6 +8,8 @@
     import 'iconify-icon';
     import { computePosition, autoUpdate, offset, shift, flip, arrow } from '@floating-ui/dom';
     import { storePopup, initializeStores } from '@skeletonlabs/skeleton';
+    import posthog from 'posthog-js';
+    import { browser } from '$app/environment';
     
     // Initialize stores first
     initializeStores();
@@ -27,10 +29,21 @@
         '/privacy',
         '/terms/',
         '/privacy/',
-        '/test'  // Add this line
+        '/test'
     ];
     
     onMount(() => {
+        // Initialize PostHog
+        if (browser) {
+            posthog.init(
+                'phc_LruGXtYxqYUoLnK7O39t3q6l6LX5KlHclJwX3J59yuH',
+                {
+                    api_host: 'https://us.i.posthog.com',
+                    person_profiles: 'identified_only',
+                }
+            );
+        }
+
         const unsubscribe = auth.onAuthStateChanged((user) => {
             isAuthenticated = !!user;
             isLoading = false;
