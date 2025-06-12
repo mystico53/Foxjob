@@ -244,6 +244,32 @@
     }
 </script>
 
+<style>
+    .section-title {
+        @apply text-xl font-bold mb-4 text-black;
+    }
+    
+    .subsection-title {
+        @apply text-lg font-semibold mb-3 text-black;
+    }
+    
+    .info-grid {
+        @apply grid grid-cols-2 gap-x-8 gap-y-2;
+    }
+    
+    .info-label {
+        @apply font-medium text-black;
+    }
+    
+    .info-value {
+        @apply text-black;
+    }
+    
+    .divider {
+        @apply border-t border-surface-300 my-4;
+    }
+</style>
+
 <main class="container mx-auto text-black">
     {#if isLoading}
         <div class="card p-4 my-4 text-black">Loading users data...</div>
@@ -283,7 +309,7 @@
             <!-- User Details -->
             {#if selectedUser}
                 <div class="col-span-2">
-                    <div class="card p-4">
+                    <div class="card p-6">
                         <!-- Tabs -->
                         <div class="flex space-x-2 mb-4">
                             <button 
@@ -305,45 +331,56 @@
                             <div class="space-y-8">
                                 <!-- Basic Info -->
                                 <div>
-                                    <h3 class="h3 mb-4 text-black">Basic Information</h3>
-                                    <div class="card variant-ghost p-4 space-y-2">
-                                        <p class="text-black"><span class="font-medium text-black">Name:</span> {selectedUser.displayName || 'Not set'}</p>
-                                        <p class="text-black"><span class="font-medium text-black">Email:</span> {selectedUser.email}</p>
-                                        <p class="text-black"><span class="font-medium text-black">Last Sign In:</span> {selectedUser.lastSignIn || 'Never'}</p>
+                                    <h3 class="section-title">Basic Information</h3>
+                                    <div class="card variant-ghost p-6">
+                                        <div class="info-grid">
+                                            <div>
+                                                <span class="info-label">Name</span>
+                                                <p class="info-value">{selectedUser.displayName || 'Not set'}</p>
+                                            </div>
+                                            <div>
+                                                <span class="info-label">Email</span>
+                                                <p class="info-value">{selectedUser.email}</p>
+                                            </div>
+                                            <div>
+                                                <span class="info-label">Last Sign In</span>
+                                                <p class="info-value">{selectedUser.lastSignIn || 'Never'}</p>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <!-- Search Queries -->
                                 {#if userDetails && !userDetails.loading}
                                     <div>
-                                        <h3 class="h3 mb-4 text-black">Search Queries ({userDetails.searchQueries?.length || 0})</h3>
-                                        <div class="space-y-4">
+                                        <h3 class="section-title">Search Queries ({userDetails.searchQueries?.length || 0})</h3>
+                                        <div class="space-y-6">
                                             {#if userDetails.searchQueries && userDetails.searchQueries.length > 0}
                                                 {#each userDetails.searchQueries as query}
-                                                    <div class="card variant-ghost p-4">
+                                                    <div class="card variant-ghost p-6">
                                                         <!-- Search Parameters -->
-                                                        <div class="mb-4">
-                                                            <h4 class="font-medium mb-2 text-black">Search Parameters</h4>
+                                                        <div class="mb-6">
+                                                            <h4 class="subsection-title">Search Parameters</h4>
                                                             {#if query.searchParams && query.searchParams.length > 0}
-                                                                <div class="grid grid-cols-2 gap-2">
-                                                                    <div class="text-black">
-                                                                        <span class="font-medium text-black">Keywords:</span>
-                                                                        <span class="ml-2">{query.searchParams[0].keyword || 'N/A'}</span>
+                                                                <div class="info-grid">
+                                                                    <div>
+                                                                        <span class="info-label">Keywords</span>
+                                                                        <p class="info-value">{query.searchParams[0].keyword || 'N/A'}</p>
                                                                     </div>
-                                                                    <div class="text-black">
-                                                                        <span class="font-medium text-black">Location:</span>
-                                                                        <span class="ml-2">{query.searchParams[0].location || 'N/A'}</span>
+                                                                    <div>
+                                                                        <span class="info-label">Location</span>
+                                                                        <p class="info-value">{query.searchParams[0].location || 'N/A'}</p>
                                                                     </div>
                                                                     {#if query.searchParams[0].remote}
-                                                                        <div class="text-black">
-                                                                            <span class="font-medium text-black">Remote:</span>
-                                                                            <span class="ml-2">{query.searchParams[0].remote}</span>
+                                                                        <div>
+                                                                            <span class="info-label">Remote</span>
+                                                                            <p class="info-value">{query.searchParams[0].remote}</p>
                                                                         </div>
                                                                     {/if}
                                                                     {#if query.searchParams[0].experience_level}
-                                                                        <div class="text-black">
-                                                                            <span class="font-medium text-black">Experience:</span>
-                                                                            <span class="ml-2">{query.searchParams[0].experience_level}</span>
+                                                                        <div>
+                                                                            <span class="info-label">Experience</span>
+                                                                            <p class="info-value">{query.searchParams[0].experience_level}</p>
                                                                         </div>
                                                                     {/if}
                                                                 </div>
@@ -352,67 +389,73 @@
                                                             {/if}
                                                         </div>
 
+                                                        <div class="divider"></div>
+
                                                         <!-- Delivery Settings -->
-                                                        <div class="mb-4">
-                                                            <h4 class="font-medium mb-2 text-black">Delivery Settings</h4>
-                                                            <div class="grid grid-cols-2 gap-2">
-                                                                <div class="text-black">
-                                                                    <span class="font-medium text-black">Delivery Time:</span>
-                                                                    <span class="ml-2">{formatDeliveryTime(query.deliveryTime)}</span>
+                                                        <div class="mb-6">
+                                                            <h4 class="subsection-title">Delivery Settings</h4>
+                                                            <div class="info-grid">
+                                                                <div>
+                                                                    <span class="info-label">Delivery Time</span>
+                                                                    <p class="info-value">{formatDeliveryTime(query.deliveryTime)}</p>
                                                                 </div>
-                                                                <div class="text-black">
-                                                                    <span class="font-medium text-black">Frequency:</span>
-                                                                    <span class="ml-2">{query.frequency || 'N/A'}</span>
+                                                                <div>
+                                                                    <span class="info-label">Frequency</span>
+                                                                    <p class="info-value">{query.frequency || 'N/A'}</p>
                                                                 </div>
-                                                                <div class="text-black">
-                                                                    <span class="font-medium text-black">Job Limit:</span>
-                                                                    <span class="ml-2">{query.limit || 'N/A'}</span>
+                                                                <div>
+                                                                    <span class="info-label">Job Limit</span>
+                                                                    <p class="info-value">{query.limit || 'N/A'}</p>
                                                                 </div>
-                                                                <div class="text-black">
-                                                                    <span class="font-medium text-black">Status:</span>
-                                                                    <span class="ml-2">{query.isActive ? 'Active' : 'Inactive'}</span>
+                                                                <div>
+                                                                    <span class="info-label">Status</span>
+                                                                    <p class="info-value font-semibold">{query.isActive ? 'Active' : 'Inactive'}</p>
                                                                 </div>
                                                             </div>
                                                         </div>
 
+                                                        <div class="divider"></div>
+
                                                         <!-- Associated Job Batches -->
                                                         <div>
-                                                            <h4 class="font-medium mb-2 text-black">Job Batches ({query.batches?.length || 0})</h4>
-                                                            <div class="space-y-2">
+                                                            <h4 class="subsection-title">Job Batches ({query.batches?.length || 0})</h4>
+                                                            <div class="space-y-3">
                                                                 {#if query.batches && query.batches.length > 0}
                                                                     {#each query.batches as batch}
                                                                         {@const emailStatus = getEmailStatus(batch, query.emailRequests)}
                                                                         <div 
-                                                                            class="card variant-ghost p-3 hover:variant-soft cursor-pointer transition-colors text-black"
+                                                                            class="card variant-ghost-secondary p-4 hover:variant-soft cursor-pointer transition-colors text-black"
                                                                             on:click={() => navigateToBatch(batch.id)}
                                                                             role="button"
                                                                             tabindex="0"
                                                                             on:keypress={(e) => e.key === 'Enter' && navigateToBatch(batch.id)}
                                                                         >
-                                                                            <div class="grid grid-cols-2 gap-2">
-                                                                                <div class="col-span-2 text-black">
-                                                                                    <span class="font-medium text-black">Batch ID:</span>
-                                                                                    <span class="ml-2 font-mono text-sm">{batch.id}</span>
-                                                                                    <span class="ml-2 text-sm">(click to view in Batches tab)</span>
+                                                                            <div class="info-grid">
+                                                                                <div class="col-span-2 mb-2">
+                                                                                    <span class="info-label">Batch ID</span>
+                                                                                    <p class="info-value">
+                                                                                        <span class="font-mono">{batch.id}</span>
+                                                                                        <span class="text-sm ml-2 opacity-75">(click to view in Batches tab)</span>
+                                                                                    </p>
                                                                                 </div>
-                                                                                <div class="text-black">
-                                                                                    <span class="font-medium text-black">Started:</span>
-                                                                                    <span class="ml-2">{formatDate(batch.startedAt)}</span>
+                                                                                <div>
+                                                                                    <span class="info-label">Started</span>
+                                                                                    <p class="info-value">{formatDate(batch.startedAt)}</p>
                                                                                 </div>
-                                                                                <div class="text-black">
-                                                                                    <span class="font-medium text-black">Status:</span>
-                                                                                    <span class="ml-2">{batch.status || 'N/A'}</span>
+                                                                                <div>
+                                                                                    <span class="info-label">Status</span>
+                                                                                    <p class="info-value font-semibold">{batch.status || 'N/A'}</p>
                                                                                 </div>
-                                                                                <div class="text-black">
-                                                                                    <span class="font-medium text-black">Progress:</span>
-                                                                                    <span class="ml-2">
+                                                                                <div>
+                                                                                    <span class="info-label">Progress</span>
+                                                                                    <p class="info-value">
                                                                                         {batch.completedJobs || 0} / {batch.totalJobs || 0}
-                                                                                        ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
-                                                                                    </span>
+                                                                                        <span class="font-semibold">({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)</span>
+                                                                                    </p>
                                                                                 </div>
-                                                                                <div class="text-black">
-                                                                                    <span class="font-medium text-black">Email:</span>
-                                                                                    <span class="ml-2">{emailStatus.text}</span>
+                                                                                <div>
+                                                                                    <span class="info-label">Email</span>
+                                                                                    <p class="info-value">{emailStatus.text}</p>
                                                                                 </div>
                                                                             </div>
                                                                         </div>
