@@ -9,7 +9,6 @@
     import timezone from 'dayjs/plugin/timezone';
     import localizedFormat from 'dayjs/plugin/localizedFormat';
     import BatchJobsList from '$lib/admincomponents/BatchJobsList.svelte';
-    import SearchQueryCard from '$lib/admincomponents/SearchQueryCard.svelte';
     
     // Initialize dayjs plugins
     dayjs.extend(utc);
@@ -325,11 +324,6 @@
       isLoading = false;
     }
     
-    // Filter search queries by user ID
-    $: userSearchQueries = selectedUser 
-      ? searchQueries.filter(query => query.userId === selectedUser.id)
-      : searchQueries;
-      
     // Filter job batches by user ID
     $: userJobBatches = selectedUser 
       ? jobBatches.filter(batch => batch.userId === selectedUser.id)
@@ -748,25 +742,6 @@
                     {/if}
                   </div>
                 </div>
-              </div>
-            {/each}
-          </div>
-        </div>
-
-        <!-- Search queries section (full width) -->
-        <div class="card p-4">
-          <h2 class="h3 mb-4">
-            {selectedUser ? `Search Queries for ${selectedUser.email || selectedUser.id}` : 'All Search Queries'}
-            ({userSearchQueries.length})
-          </h2>
-          
-          <div class="space-y-3">
-            {#each userSearchQueries as query}
-              <div class="{selectedQuery?.id === query.id ? 'ring-2 ring-primary-500' : ''}">
-                <SearchQueryCard 
-                  {query} 
-                  on:select={(e) => selectQuery(e.detail)}
-                />
               </div>
             {/each}
           </div>
