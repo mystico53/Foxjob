@@ -1,7 +1,7 @@
 <!-- AdminUsers.svelte -->
 <script>
     import { onMount } from 'svelte';
-    import { collection, getDocs, getFirestore, doc, getDoc, query, where } from 'firebase/firestore';
+    import { collection, getDocs, getFirestore, doc, getDoc, query, where, orderBy } from 'firebase/firestore';
     import { auth } from '$lib/firebase';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
@@ -23,7 +23,8 @@
     let selectedUser = null;
     let adminClaims = null;
     let userDetails = null;
-    let activeTab = 'info'; // 'info', 'resume', or 'preferences'
+    let activeTab = 'info'; // 'info', 'resume', 'preferences', or 'queries'
+    let emailRequests = {};
 
     // Fetch all data on mount
     onMount(async () => {
@@ -109,10 +110,54 @@
                 }
             }
 
+            // Fetch search queries
+            const queriesSnapshot = await getDocs(collection(db, `users/${user.id}/searchQueries`));
+            const searchQueries = await Promise.all(queriesSnapshot.docs.map(async doc => {
+                const queryData = { id: doc.id, ...doc.data() };
+                
+                // Fetch job batches for this query
+                const batchesQuery = query(
+                    collection(db, 'jobBatches'),
+                    where('userId', '==', user.id),
+                    where('searchId', '==', doc.id),
+                    orderBy('startedAt', 'desc')
+                );
+                const batchesSnapshot = await getDocs(batchesQuery);
+                const batches = batchesSnapshot.docs.map(batchDoc => ({
+                    id: batchDoc.id,
+                    ...batchDoc.data()
+                }));
+
+                // Fetch email requests for these batches
+                const emailRequestsForBatches = {};
+                for (const batch of batches) {
+                    if (batch.emailRequestId) {
+                        try {
+                            const emailRequestDoc = await getDoc(doc(db, 'emailRequests', batch.emailRequestId));
+                            if (emailRequestDoc.exists()) {
+                                emailRequestsForBatches[batch.id] = {
+                                    id: emailRequestDoc.id,
+                                    ...emailRequestDoc.data()
+                                };
+                            }
+                        } catch (err) {
+                            console.error(`Error fetching email request for batch ${batch.id}:`, err);
+                        }
+                    }
+                }
+
+                return {
+                    ...queryData,
+                    batches,
+                    emailRequests: emailRequestsForBatches
+                };
+            }));
+
             userDetails = {
                 loading: false,
                 workPreferences: userCollections.work_preferences || null,
-                resume: resumeDoc
+                resume: resumeDoc,
+                searchQueries
             };
 
             console.log('User details loaded:', userDetails);
@@ -127,10 +172,68 @@
         if (!timestamp) return 'N/A';
         try {
             const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-            return dayjs(date).format('MMM D, YYYY h:mm A');
+            return date.toLocaleString();
         } catch (err) {
             return 'Invalid date';
         }
+    }
+
+    function formatDeliveryTime(timeString) {
+        if (!timeString) return 'N/A';
+        try {
+            const [hours, minutes] = timeString.split(':').map(Number);
+            const date = new Date();
+            date.setHours(hours, minutes);
+            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } catch (err) {
+            return timeString;
+        }
+    }
+
+    function getEmailStatus(batch, emailRequests) {
+        const emailData = emailRequests[batch.id];
+        if (!emailData) {
+            return batch.emailSent ? 
+                { text: 'Email sent (ID unknown)', class: 'text-warning-500' } :
+                { text: 'No email', class: 'text-surface-400' };
+        }
+
+        const emailIdPrefix = `ID: ${emailData.id ? emailData.id.substring(0, 8) : 'unknown'} - `;
+
+        if (emailData.status === 'error') {
+            return { text: emailIdPrefix + 'Error: ' + (emailData.error || 'Unknown'), class: 'text-error-500' };
+        }
+        if (emailData.status === 'pending') {
+            return { text: emailIdPrefix + 'Pending', class: 'text-primary-300' };
+        }
+        if (emailData.bounced) {
+            return { text: emailIdPrefix + 'Bounced', class: 'text-error-500' };
+        }
+        if (emailData.dropped) {
+            return { text: emailIdPrefix + 'Dropped', class: 'text-error-500' };
+        }
+        if (emailData.delivered) {
+            if (emailData.opened) {
+                if (emailData.clicked) {
+                    return { 
+                        text: emailIdPrefix + `Opened (${emailData.openCount || 1}), Clicked (${emailData.clickCount || 1})`, 
+                        class: 'text-success-500 font-semibold'
+                    };
+                }
+                return { 
+                    text: emailIdPrefix + `Opened (${emailData.openCount || 1})`, 
+                    class: 'text-success-500'
+                };
+            }
+            return { text: emailIdPrefix + 'Delivered', class: 'text-success-300' };
+        }
+        if (emailData.deferred) {
+            return { text: emailIdPrefix + 'Deferred', class: 'text-warning-500' };
+        }
+        if (emailData.processed) {
+            return { text: emailIdPrefix + 'Processed', class: 'text-primary-500' };
+        }
+        return { text: emailIdPrefix + (emailData.status || 'Unknown'), class: 'text-surface-400' };
     }
 </script>
 
@@ -183,6 +286,12 @@
                                 Info
                             </button>
                             <button 
+                                class="btn {activeTab === 'queries' ? 'variant-filled' : 'variant-soft'}"
+                                on:click={() => activeTab = 'queries'}
+                            >
+                                Search Queries
+                            </button>
+                            <button 
                                 class="btn {activeTab === 'resume' ? 'variant-filled' : 'variant-soft'}"
                                 on:click={() => activeTab = 'resume'}
                             >
@@ -202,6 +311,117 @@
                                 <p><span class="font-medium">Name:</span> {selectedUser.displayName || 'Not set'}</p>
                                 <p><span class="font-medium">Email:</span> {selectedUser.email}</p>
                                 <p><span class="font-medium">Last Sign In:</span> {selectedUser.lastSignIn || 'Never'}</p>
+                            </div>
+                        {:else if activeTab === 'queries' && userDetails && !userDetails.loading}
+                            <div class="space-y-6">
+                                {#if userDetails.searchQueries && userDetails.searchQueries.length > 0}
+                                    {#each userDetails.searchQueries as query}
+                                        <div class="card variant-soft p-4">
+                                            <!-- Search Parameters -->
+                                            <div class="mb-4">
+                                                <h4 class="font-semibold mb-2">Search Parameters</h4>
+                                                {#if query.searchParams && query.searchParams.length > 0}
+                                                    <div class="grid grid-cols-2 gap-2">
+                                                        <div>
+                                                            <span class="font-medium">Keywords:</span>
+                                                            <span class="ml-2">{query.searchParams[0].keyword || 'N/A'}</span>
+                                                        </div>
+                                                        <div>
+                                                            <span class="font-medium">Location:</span>
+                                                            <span class="ml-2">{query.searchParams[0].location || 'N/A'}</span>
+                                                        </div>
+                                                        {#if query.searchParams[0].remote}
+                                                            <div>
+                                                                <span class="font-medium">Remote:</span>
+                                                                <span class="ml-2">{query.searchParams[0].remote}</span>
+                                                            </div>
+                                                        {/if}
+                                                        {#if query.searchParams[0].experience_level}
+                                                            <div>
+                                                                <span class="font-medium">Experience:</span>
+                                                                <span class="ml-2">{query.searchParams[0].experience_level}</span>
+                                                            </div>
+                                                        {/if}
+                                                    </div>
+                                                {:else}
+                                                    <p class="text-surface-400">No search parameters defined</p>
+                                                {/if}
+                                            </div>
+
+                                            <!-- Delivery Settings -->
+                                            <div class="mb-4">
+                                                <h4 class="font-semibold mb-2">Delivery Settings</h4>
+                                                <div class="grid grid-cols-2 gap-2">
+                                                    <div>
+                                                        <span class="font-medium">Delivery Time:</span>
+                                                        <span class="ml-2">{formatDeliveryTime(query.deliveryTime)}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="font-medium">Frequency:</span>
+                                                        <span class="ml-2">{query.frequency || 'N/A'}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="font-medium">Job Limit:</span>
+                                                        <span class="ml-2">{query.limit || 'N/A'}</span>
+                                                    </div>
+                                                    <div>
+                                                        <span class="font-medium">Status:</span>
+                                                        <span class="ml-2 {query.isActive ? 'text-success-500' : 'text-surface-400'}">
+                                                            {query.isActive ? 'Active' : 'Inactive'}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Associated Job Batches -->
+                                            <div>
+                                                <h4 class="font-semibold mb-2">Job Batches ({query.batches?.length || 0})</h4>
+                                                <div class="space-y-2">
+                                                    {#if query.batches && query.batches.length > 0}
+                                                        {#each query.batches as batch}
+                                                            {@const emailStatus = getEmailStatus(batch, query.emailRequests)}
+                                                            <div class="card variant-ghost p-3">
+                                                                <div class="grid grid-cols-2 gap-2">
+                                                                    <div>
+                                                                        <span class="font-medium">Started:</span>
+                                                                        <span class="ml-2">{formatDate(batch.startedAt)}</span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span class="font-medium">Status:</span>
+                                                                        <span class="ml-2 {
+                                                                            batch.status === 'complete' ? 'text-success-500' : 
+                                                                            batch.status === 'processing' ? 'text-primary-500' : 
+                                                                            batch.status === 'timeout' ? 'text-error-500' : ''
+                                                                        }">
+                                                                            {batch.status || 'N/A'}
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span class="font-medium">Progress:</span>
+                                                                        <span class="ml-2">
+                                                                            {batch.completedJobs || 0} / {batch.totalJobs || 0}
+                                                                            ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
+                                                                        </span>
+                                                                    </div>
+                                                                    <div>
+                                                                        <span class="font-medium">Email:</span>
+                                                                        <span class={emailStatus.class}>
+                                                                            {emailStatus.text}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        {/each}
+                                                    {:else}
+                                                        <p class="text-surface-400">No job batches found</p>
+                                                    {/if}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    {/each}
+                                {:else}
+                                    <p class="text-surface-400">No search queries found</p>
+                                {/if}
                             </div>
                         {:else if activeTab === 'resume' && userDetails && !userDetails.loading}
                             <div class="space-y-2">
