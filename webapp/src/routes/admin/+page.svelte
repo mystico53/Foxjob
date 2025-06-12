@@ -3,7 +3,9 @@
     import AgentsOverview from '$lib/admincomponents/AgentsOverview.svelte';
     import AdminUsers from '$lib/admincomponents/AdminUsers.svelte';
     import { page } from '$app/stores';
+    import AdminDashboard from '$lib/admincomponents/AdminDashboard.svelte';
 
+    let activeTab = 'dashboard';
     let currentView = 'batches'; // Default view
     let selectedBatchId = null;
     
@@ -18,34 +20,47 @@
     }
 </script>
 
-<div class="flex h-screen">
-    <!-- Sidebar -->
-    <div class="w-64 bg-surface-100-800-token border-r border-surface-300-600-token">
-        <div class="p-4">
-            <h1 class="h3 mb-6">Admin Dashboard</h1>
-            <nav class="space-y-2">
-                <button 
-                    class="w-full text-left px-4 py-2 rounded {currentView === 'batches' ? 'bg-primary-500 text-white' : 'hover:bg-surface-200-700-token'}"
-                    on:click={() => setView('batches')}
-                >
-                    Batches
-                </button>
-                <button 
-                    class="w-full text-left px-4 py-2 rounded {currentView === 'users' ? 'bg-primary-500 text-white' : 'hover:bg-surface-200-700-token'}"
-                    on:click={() => setView('users')}
-                >
-                    Users
-                </button>
+<div class="container mx-auto p-4">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Sidebar -->
+        <div class="card p-4">
+            <nav class="list-nav">
+                <ul>
+                    <li>
+                        <button
+                            class="btn w-full justify-start {activeTab === 'dashboard' ? 'variant-filled-primary' : 'variant-ghost'}"
+                            on:click={() => activeTab = 'dashboard'}
+                        >
+                            Dashboard
+                        </button>
+                    </li>
+                    <li>
+                        <button
+                            class="btn w-full justify-start {activeTab === 'batches' ? 'variant-filled-primary' : 'variant-ghost'}"
+                            on:click={() => activeTab = 'batches'}
+                        >
+                            Batches
+                        </button>
+                    </li>
+                    <li>
+                        <button
+                            class="btn w-full justify-start {activeTab === 'users' ? 'variant-filled-primary' : 'variant-ghost'}"
+                            on:click={() => activeTab = 'users'}
+                        >
+                            Users
+                        </button>
+                    </li>
+                </ul>
             </nav>
         </div>
-    </div>
 
-    <!-- Main Content -->
-    <div class="flex-1 overflow-auto">
-        <div class="p-4">
-            {#if currentView === 'batches'}
+        <!-- Content -->
+        <div class="md:col-span-3">
+            {#if activeTab === 'dashboard'}
+                <AdminDashboard />
+            {:else if activeTab === 'batches'}
                 <AgentsOverview selectedBatchId={selectedBatchId} />
-            {:else if currentView === 'users'}
+            {:else if activeTab === 'users'}
                 <AdminUsers on:selectBatch={handleBatchSelect} />
             {/if}
         </div>
