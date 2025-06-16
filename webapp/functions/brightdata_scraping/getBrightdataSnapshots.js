@@ -9,8 +9,7 @@ exports.getBrightdataSnapshots = onRequest({
   maxInstances: 10,
   secrets: ["BRIGHTDATA_API_TOKEN"] 
 }, async (req, res) => {
-  console.log('Starting getBrightdataSnapshots function');
-  console.log('Dataset ID:', req.query.datasetId);
+  //console.log('Dataset ID:', req.query.datasetId);
   
   try {
     const [apiTokenVersion] = await secretManager.accessSecretVersion({

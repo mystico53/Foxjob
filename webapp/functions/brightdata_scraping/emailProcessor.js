@@ -10,9 +10,9 @@ const config = require('../config'); // Import the config module from parent dir
 // Initialize if needed
 if (!admin.apps.length) {
   admin.initializeApp();
-  console.log('Firebase initialized');
+  //console.log('Firebase initialized');
 } else {
-  console.log('Firebase already initialized');
+  //console.log('Firebase already initialized');
 }
 const db = admin.firestore();
 
@@ -52,6 +52,7 @@ exports.processEmailRequests = onDocumentCreated({
       let userFirstName = 'there'; // Default greeting if name can't be found
       let totalJobsCount = 0; // Will store the total jobs count from batch document
       let dynamicSubject = ''; // Default empty subject line
+      let customToken = ''; // Initialize customToken variable
       
       // Check if this is an empty search notification
       const isEmptySearchNotification = emailData.metadata?.type === 'empty_search_notification';
@@ -63,6 +64,11 @@ exports.processEmailRequests = onDocumentCreated({
       // Get user's display name if we have a user ID
       if (uid) {
         try {
+          // Create a custom token for unsubscribe link
+          const auth = admin.auth();
+          customToken = await auth.createCustomToken(uid);
+          logger.info('Created custom token for unsubscribe link');
+
           // Fetch the user document to get the user's display name
           const userDoc = await db.collection('users').doc(uid).get();
           
@@ -447,7 +453,12 @@ exports.processEmailRequests = onDocumentCreated({
             <!-- Email Footer -->
             <div style="margin-top: 30px; padding: 20px; border-top: 1px solid #eee; text-align: center; font-size: 12px; color: #666;">
               <p>© ${new Date().getFullYear()} Foxjob. All rights reserved.</p>
-              <p><a href="https://www.foxjob.io/unsubscribe" style="color: #555; text-decoration: none;">Unsubscribe</a> | <a href="https://www.foxjob.io/preferences" style="color: #555; text-decoration: none;">Email Preferences</a></p>
+              <p>
+                ${emailData.searchId ? 
+                  `<a href="https://www.foxjob.io/unsubscribe/${emailData.searchId}?token=${customToken}" style="color: #666; text-decoration: underline;">unsubscribe</a>` 
+                  : ''
+                }
+              </p>
               ${trackingPixel}
             </div>
           </div>

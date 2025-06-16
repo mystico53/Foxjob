@@ -32,17 +32,17 @@ const configs = {
 
 export const getFirebaseConfig = () => {
   const mode = import.meta.env.MODE;
-  console.log('Current environment:', mode);
-  console.log('Available env variables:', {
-    hasApiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID
-  });
+  // console.log('Current environment:', mode);
+  // console.log('Available env variables:', {
+  //   hasApiKey: !!import.meta.env.VITE_FIREBASE_API_KEY,
+  //   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  //   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID
+  // });
   const config = configs[mode] || configs.staging;
-  console.log('Using Firebase config:', {
+  /*console.log('Using Firebase config:', {
     authDomain: config.authDomain,
     projectId: config.projectId,
     mode: mode
-  });
+  });*/
   return config;
 };

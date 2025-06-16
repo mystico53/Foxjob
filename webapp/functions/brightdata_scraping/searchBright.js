@@ -85,12 +85,6 @@ function calculateNextRunTime(frequency, deliveryTime = '08:00', timezoneOffset 
   // Convert the final unix timestamp back to a Firebase Timestamp
   const nextRunDate = new Date(finalTimestamp);
   
-  // Debug logs
-  console.log(`Input delivery time: ${deliveryTime}`);
-  console.log(`Calculated next run (local): ${nextRunDate.toLocaleString()}`);
-  console.log(`Calculated next run (UTC): ${nextRunDate.toUTCString()}`);
-  console.log(`Unix timestamp: ${finalTimestamp}`);
-  
   // Return a Firebase Timestamp from the calculated date
   return Timestamp.fromMillis(finalTimestamp);
 }
@@ -100,6 +94,7 @@ exports.searchBright = onRequest({
   memory: "1GiB",
   secrets: ["BRIGHTDATA_API_TOKEN", "WEBHOOK_SECRET"],
 }, async (req, res) => {
+  /*
   console.log("ENTRY_POINT_DEBUG - searchBright request received:", {
     method: req.method,
     hasBody: !!req.body,
@@ -111,7 +106,7 @@ exports.searchBright = onRequest({
     contentType: req.headers['content-type'],
     bodySize: req.body ? JSON.stringify(req.body).length : 0,
     isScheduled: req.body && req.body.schedule ? "YES" : "NO"
-  });
+  });*/
   
   // Wrap the entire function with CORS middleware
   return cors(req, res, async () => {
@@ -260,7 +255,7 @@ exports.searchBright = onRequest({
         company: search.company && search.company !== "" ? search.company : undefined,
         // Do NOT send additionalJobTitles to BrightData; it's only for internal use
       };
-
+      /*
       console.log("DETAILED_DEBUG - Search origin:", 
         schedule ? "SCHEDULED" : "MANUAL", 
         "Full request data:", JSON.stringify({
@@ -271,13 +266,13 @@ exports.searchBright = onRequest({
           deliveryTime: schedule?.deliveryTime,
           includeSimilarRoles: search.includeSimilarRoles // Log the includeSimilarRoles flag
         }, null, 2)
-      );
+      );*/
       
       // Remove empty fields
       Object.keys(requestData).forEach(key => 
         requestData[key] === undefined && delete requestData[key]
       );
-      console.log("Full request to BrightData:", JSON.stringify(requestData));
+      //console.log("Full request to BrightData:", JSON.stringify(requestData));
 
       const webhookUrl = `${CONFIG.WEBHOOK_BASE_URL}?userId=${encodeURIComponent(userId)}&searchId=${encodeURIComponent(searchId)}`;
 
@@ -299,7 +294,7 @@ exports.searchBright = onRequest({
 
       const enforced_limit = Math.min(limit || 101, 101);
       url.searchParams.append('limit_per_input', enforced_limit.toString());
-
+      /*
       // Add the detailed logging
       console.log("Final Brightdata URL:", url.toString());
       console.log("Request headers:", {
@@ -308,7 +303,7 @@ exports.searchBright = onRequest({
       });
       console.log("Raw request data:", requestData);
       console.log("Stringified request data:", JSON.stringify(requestData));
-      console.log("Quoted keyword:", requestData.keyword);
+      console.log("Quoted keyword:", requestData.keyword);*/
 
       const response = await axios({
         method: 'post',
