@@ -484,12 +484,6 @@
     border: none;
   }
   
-  iframe.mobile-view {
-    width: 375px;
-    margin: 0 auto;
-    display: block;
-  }
-  
   .raw-html {
     border: 1px solid #ddd;
     border-radius: 4px;

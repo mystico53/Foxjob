@@ -5,7 +5,6 @@
   export let jobEmailsEnabled = true;
   export let setJobEmailsEnabled = null;
   export let deliveryTime = '08:00';
-  export let setDeliveryTime = null;
   export let minimumScore = 50;
   export let setMinimumScore = null;
 

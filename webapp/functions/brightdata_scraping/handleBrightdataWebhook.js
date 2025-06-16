@@ -269,6 +269,21 @@ exports.handleBrightdataWebhook = onRequest({
         });
         const brightdataToken = secretVersion.payload.data.toString();
         const snapshotData = await downloadSnapshot(req.body.snapshot_id, brightdataToken);
+        logger.info('Snapshot download details', { 
+          snapshotId: req.body.snapshot_id, 
+          rawDataType: typeof snapshotData, 
+          rawDataLength: snapshotData?.length || 'N/A', 
+          isArray: Array.isArray(snapshotData), 
+          firstItem: snapshotData?.[0] ? { 
+            hasJobId: Boolean(snapshotData[0].job_posting_id), 
+            jobId: snapshotData[0].job_posting_id, 
+            title: snapshotData[0].job_title 
+          } : 'N/A',
+          // Let's also check if the data is wrapped in another object
+          dataKeys: typeof snapshotData === 'object' ? Object.keys(snapshotData) : 'N/A',
+          // And check the raw structure
+          dataStructure: JSON.stringify(snapshotData).substring(0, 500) + '...'
+        });
         
         // Process jobs from snapshot
         const jobs = Array.isArray(snapshotData) ? snapshotData : [snapshotData];

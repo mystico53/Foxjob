@@ -70,11 +70,6 @@
     border-color: #f97316;
     box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
   }
-  label {
-    font-size: 14px;
-    color: #555;
-    margin-right: 5px;
-  }
 </style>
 
 <div class="time-picker">
