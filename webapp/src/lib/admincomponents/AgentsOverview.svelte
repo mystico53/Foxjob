@@ -242,7 +242,7 @@
         
         console.log(`Fetching email requests for ${batchIds.length} batches`);
         
-        // Collect all email request IDs from batches first
+        // First, collect all email request IDs from batches
         const emailRequestIds = [];
         const batchesToEmailMap = {};
         
@@ -333,13 +333,27 @@
           console.log(`Found ${batchIdMatchesFound} additional email requests via batchId field`);
         }
         
-        // Count how many batches have emailSent=true but no email request found
-        const missingEmails = jobBatches.filter(batch => 
-          batch.emailSent && !emailRequests[batch.id]
-        ).length;
+        // For any batches that still have emailSent=true but no email request,
+        // only create a placeholder if we're certain no email request exists
+        const missingEmailBatches = jobBatches.filter(batch => 
+          batch.emailSent && !emailRequests[batch.id] && !batch.emailRequestId
+        );
         
-        console.log(`Final email requests map has ${Object.keys(emailRequests).length} entries (${directEmailRequestsFound} via IDs)`);
-        console.log(`${missingEmails} batches still have emailSent=true but no email request was found`);
+        if (missingEmailBatches.length > 0) {
+          console.log(`Creating placeholder email requests for ${missingEmailBatches.length} batches`);
+          
+          for (const batch of missingEmailBatches) {
+            emailRequests[batch.id] = {
+              id: 'unknown',
+              status: 'sent',
+              sentAt: batch.emailSentAt || batch.completedAt,
+              batchId: batch.id,
+              userId: batch.userId
+            };
+          }
+        }
+        
+        console.log(`Final email requests map has ${Object.keys(emailRequests).length} entries`);
         
       } catch (err) {
         console.error('Error fetching email requests:', err);

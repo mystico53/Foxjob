@@ -64,13 +64,21 @@ async function triggerEmailSending(userId, batchId) {
         text: 'We\'ve analyzed your job matches and found some great opportunities for you.',
         html: '<p>We\'ve analyzed your job matches and found some great opportunities for you.</p><p>Check out your top matches below:</p>',
         status: 'pending',
-        createdAt: FieldValue.serverTimestamp()
+        createdAt: FieldValue.serverTimestamp(),
+        // Add metadata for better tracking
+        metadata: {
+          batchId: batchId,
+          batchStatus: batchData.status,
+          totalJobs: batchData.totalJobs || 0,
+          completedJobs: batchData.completedJobs || 0
+        }
       });
       
       // Update the batch with the email request ID in the same transaction
       transaction.update(batchRef, {
         emailRequestId: emailRequestId,
-        emailRequestCreatedAt: FieldValue.serverTimestamp()
+        emailRequestCreatedAt: FieldValue.serverTimestamp(),
+        emailSent: true // Mark as sent since we're creating the request
       });
       
       logger.info('Created email request and updated batch in transaction', {
@@ -137,14 +145,7 @@ exports.onBatchUpdate = onDocumentUpdated("jobBatches/{batchId}", async (event) 
       
       logger.info('Batch completed, preparing to send email', { batchId });
       
-      // Mark batch as complete first to prevent duplicate emails
-      await event.data.after.ref.update({
-        status: 'complete',
-        emailSent: true,
-        completedAt: FieldValue.serverTimestamp()
-      });
-      
-      // Trigger email sending
+      // Trigger email sending first
       const userId = afterData.userId;
       if (!userId) {
         logger.error('Cannot send email for batch without userId', { batchId });
@@ -159,19 +160,16 @@ exports.onBatchUpdate = onDocumentUpdated("jobBatches/{batchId}", async (event) 
         emailRequestId: emailResult.emailRequestId || 'Unknown'
       });
       
-      // If we get an emailRequestId back, update the batch to add it if it's not already set
+      // Only mark as complete and emailSent if we got an emailRequestId
       if (emailResult.success && emailResult.emailRequestId) {
-        // Use get() to ensure we have the latest data
-        const batchSnapshot = await event.data.after.ref.get();
-        if (batchSnapshot.exists && !batchSnapshot.data().emailRequestId) {
-          await event.data.after.ref.update({
-            emailRequestId: emailResult.emailRequestId
-          });
-          logger.info('Updated batch with emailRequestId after successful email sending', {
-            batchId,
-            emailRequestId: emailResult.emailRequestId
-          });
-        }
+        await event.data.after.ref.update({
+          status: 'complete',
+          emailSent: true,
+          emailRequestId: emailResult.emailRequestId,
+          completedAt: FieldValue.serverTimestamp()
+        });
+      } else {
+        logger.error('Failed to create email request for completed batch', { batchId });
       }
     }
     // Handle case where batch is already marked as complete or timeout, but doesn't have emailSent

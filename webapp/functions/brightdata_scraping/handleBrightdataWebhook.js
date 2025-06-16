@@ -6,6 +6,7 @@ const { SecretManagerServiceClient } = require('@google-cloud/secret-manager');
 const { PubSub } = require('@google-cloud/pubsub');
 const pubsub = new PubSub();
 const { logger } = require('firebase-functions');
+const { collection, query, where, orderBy, limit, getDocs } = require('firebase-admin/firestore');
 
 // Initialize Firebase
 if (!admin.apps.length) {
@@ -354,6 +355,37 @@ exports.handleBrightdataWebhook = onRequest({
           successful: results.successful.length
         });
         
+        // If no jobs found, mark batch as complete and email sent
+        if (jobs.length === 0) {
+          logger.info('No jobs found for batch, marking as complete', { batchId });
+          
+          // Create email request first
+          const emailRequestRef = await db.collection('emailRequests').add({
+            batchId,
+            userId: userId,
+            status: 'skipped',
+            reason: 'No jobs found above threshold',
+            createdAt: FieldValue.serverTimestamp()
+          });
+          
+          // Then update batch with email request ID
+          await batchRef.update({
+            status: 'complete',
+            emailSent: true,
+            emailRequestId: emailRequestRef.id,
+            completedAt: FieldValue.serverTimestamp()
+          });
+          
+          return res.json({
+            success: true,
+            message: 'No jobs found for batch, marking as complete',
+            snapshot_id: req.body.snapshot_id,
+            batchId,
+            userId,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         return res.json({
           success: true,
           message: 'Snapshot processed successfully',
@@ -463,47 +495,47 @@ exports.handleBrightdataWebhook = onRequest({
 // This follows the pattern used in batchProcessing.js
 async function sendEmptySearchEmailNotification(userId, searchId) {
   try {
-    logger.info('Preparing to send empty search email notification', { userId, searchId });
-    
-    // Get search parameters to include in the email
-    let searchParams = [];
-    let searchTerms = {};
-    
-    // If we have a searchId, get the search parameters
-    if (searchId) {
-      const searchDoc = await db.collection('users').doc(userId).collection('searchQueries').doc(searchId).get();
-      if (searchDoc.exists) {
-        const data = searchDoc.data();
-        searchParams = data.searchParams || [];
-        
-        // Extract search terms for the email (from the first search param)
-        if (searchParams.length > 0) {
-          searchTerms = {
-            keyword: searchParams[0].keyword || '',
-            location: searchParams[0].location || '',
-            country: searchParams[0].country || '',
-            remote: searchParams[0].remote || '',
-            experience_level: searchParams[0].experience_level || '',
-            job_type: searchParams[0].job_type || '',
-            time_range: searchParams[0].time_range || '',
-            includeSimilarRoles: searchParams[0].includeSimilarRoles || false
-          };
-        }
-      }
-    }
+    logger.info('Preparing to send empty search notification', { userId, searchId });
     
     // Get user information
     const userDoc = await db.collection('users').doc(userId).get();
-    const userData = userDoc.exists ? userDoc.data() : {};
-    const userEmail = userData.email || null;
+    if (!userDoc.exists) {
+      logger.error('User not found for empty search notification', { userId });
+      return false;
+    }
     
-    // Add logging to check email retrieval
-    logger.info('User email retrieval for empty search notification', { 
-      userId, 
-      emailFound: Boolean(userEmail),
-      emailValue: userEmail || 'Not found',
-      hasSearchTerms: Object.keys(searchTerms).length > 0
-    });
+    const userData = userDoc.data();
+    const userEmail = userData.email;
+    
+    // Get search query details
+    const searchQueryRef = db.collection('users').doc(userId).collection('searchQueries').doc(searchId);
+    const searchQueryDoc = await searchQueryRef.get();
+    
+    if (!searchQueryDoc.exists) {
+      logger.error('Search query not found for empty search notification', { searchId });
+      return false;
+    }
+    
+    const searchParams = searchQueryDoc.data();
+    const searchTerms = searchParams.searchParams[0] || {};
+    
+    // Get the latest batch for this search
+    const batchesQuery = db.collection('jobBatches')
+      .where('searchId', '==', searchId)
+      .where('userId', '==', userId)
+      .orderBy('startedAt', 'desc')
+      .limit(1);
+    
+    const batchesSnapshot = await batchesQuery.get();
+    let batchId = null;
+    
+    if (!batchesSnapshot.empty) {
+      const latestBatch = batchesSnapshot.docs[0];
+      batchId = latestBatch.id;
+      logger.info('Found latest batch for empty search notification', { batchId });
+    } else {
+      logger.warn('No batch found for empty search notification', { searchId });
+    }
     
     // Determine the proper search URL based on environment
     const config = require('../config');
@@ -521,7 +553,7 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
       logger.info('Using development search URL');
     }
     
-    // Build the email content
+    // Create email content
     const htmlContent = `
       <h2>No Jobs Found For Your Search</h2>
       <p>We couldn't find any jobs matching your search criteria. Here are a few suggestions:</p>
@@ -532,7 +564,6 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
         <li>Try using more general keywords</li>
         ${!searchTerms.includeSimilarRoles ? '<li><strong>Try enabling "Fuzzy Match" in Advanced Options</strong> for broader job title matching</li>' : ''}
       </ul>
-      
       <h3>Your Search Details:</h3>
       <p><strong>Keywords:</strong> ${searchTerms.keyword || 'N/A'}</p>
       <p><strong>Location:</strong> ${searchTerms.location || 'N/A'}</p>
@@ -542,7 +573,6 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
       ${searchTerms.job_type ? `<p><strong>Job Type:</strong> ${searchTerms.job_type}</p>` : ''}
       ${searchTerms.time_range ? `<p><strong>Posted Within:</strong> ${searchTerms.time_range}</p>` : ''}
       <p><strong>Fuzzy Match:</strong> ${searchTerms.includeSimilarRoles ? 'Enabled' : 'Disabled'}</p>
-      
       <p>You can <a href="${searchPageUrl}">modify your search</a> and try again.</p>
     `;
     
@@ -581,26 +611,34 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
       status: 'pending',
       createdAt: FieldValue.serverTimestamp(),
       searchId: searchId,
+      batchId: batchId, // Add the batch ID if we found one
       metadata: {
         type: 'empty_search_notification',
-        searchParams: searchParams
+        searchParams: searchParams,
+        batchId: batchId // Include batch ID in metadata too
       }
     });
+    
+    // If we found a batch, update it with the email request ID
+    if (batchId) {
+      const batchRef = db.collection('jobBatches').doc(batchId);
+      await batchRef.update({
+        emailRequestId: emailRequestRef.id,
+        emailSent: true,
+        emailSentAt: FieldValue.serverTimestamp()
+      });
+    }
     
     logger.info('Empty search email request created', { 
       userId, 
       requestId: emailRequestRef.id,
+      batchId: batchId || 'No batch found',
       recipientEmail: userEmail || 'NULL - fallback will be used'
     });
     
     return true;
   } catch (error) {
-    logger.error('Failed to create empty search email request', { 
-      userId, 
-      searchId,
-      error: error.message,
-      stack: error.stack 
-    });
+    logger.error('Error sending empty search notification:', error);
     return false;
   }
 }
