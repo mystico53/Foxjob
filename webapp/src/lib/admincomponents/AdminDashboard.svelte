@@ -1,14 +1,17 @@
 <script>
-    import { onMount, createEventDispatcher } from 'svelte';
+    import { onMount, createEventDispatcher, onDestroy } from 'svelte';
     import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
     import { formatDate } from '$lib/utilities/dateUtils';
     import { auth, db } from '$lib/firebase';
+    import Chart from 'chart.js/auto';
 
     let loading = true;
     let error = null;
     let batchesByDay = new Map();
     let chartData = [];
     let selectedStatus = 'all';
+    let chartInstance;
+    let chartCanvas;
     const dispatch = createEventDispatcher();
 
     // Make the filtered batches reactive
@@ -27,33 +30,136 @@
         });
     })();
 
-    function filterBatches(batches) {
-        if (selectedStatus === 'all') return batches;
-        return batches.filter(batch => {
-            if (selectedStatus === 'empty') {
-                return batch.status === 'empty' || batch.status === 'completed';
+    function updateChart() {
+        if (!chartCanvas || chartData.length === 0) return;
+        
+        const ctx = chartCanvas.getContext('2d');
+        const labels = chartData.map(day => day.date);
+        
+        // Create gradients for each status
+        const completedGradient = ctx.createLinearGradient(0, 0, 0, 300);
+        completedGradient.addColorStop(0, 'rgba(34, 197, 94, 0.9)');
+        completedGradient.addColorStop(1, 'rgba(34, 197, 94, 0.7)');
+        
+        const emptyGradient = ctx.createLinearGradient(0, 0, 0, 300);
+        emptyGradient.addColorStop(0, 'rgba(34, 197, 94, 0.5)');
+        emptyGradient.addColorStop(1, 'rgba(34, 197, 94, 0.3)');
+        
+        const inProgressGradient = ctx.createLinearGradient(0, 0, 0, 300);
+        inProgressGradient.addColorStop(0, 'rgba(59, 130, 246, 0.8)');
+        inProgressGradient.addColorStop(1, 'rgba(59, 130, 246, 0.6)');
+        
+        const timeoutGradient = ctx.createLinearGradient(0, 0, 0, 300);
+        timeoutGradient.addColorStop(0, 'rgba(245, 158, 11, 0.8)');
+        timeoutGradient.addColorStop(1, 'rgba(245, 158, 11, 0.6)');
+        
+        const errorGradient = ctx.createLinearGradient(0, 0, 0, 300);
+        errorGradient.addColorStop(0, 'rgba(239, 68, 68, 0.8)');
+        errorGradient.addColorStop(1, 'rgba(239, 68, 68, 0.6)');
+        
+        const datasets = [
+            {
+                label: 'Completed',
+                data: chartData.map(day => day.completed || 0),
+                backgroundColor: completedGradient,
+                borderWidth: 0
+            },
+            {
+                label: 'Empty',
+                data: chartData.map(day => day.empty || 0),
+                backgroundColor: emptyGradient,
+                borderWidth: 0
+            },
+            {
+                label: 'In Progress',
+                data: chartData.map(day => day.inProgress || 0),
+                backgroundColor: inProgressGradient,
+                borderWidth: 0
+            },
+            {
+                label: 'Timeout',
+                data: chartData.map(day => day.timeout || 0),
+                backgroundColor: timeoutGradient,
+                borderWidth: 0
+            },
+            {
+                label: 'Error',
+                data: chartData.map(day => day.error || 0),
+                backgroundColor: errorGradient,
+                borderWidth: 0
             }
-            return batch.status === selectedStatus;
-        });
+        ];
+        
+        if (!chartInstance) {
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            stacked: true,
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            stacked: true,
+                            grid: {
+                                display: false
+                            },
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: true,
+                            callbacks: {
+                                afterBody: function(context) {
+                                    const dayIndex = context[0].dataIndex;
+                                    const dayData = chartData[dayIndex];
+                                    return `Progress: ${dayData.progress}%`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        } else {
+            chartInstance.data.labels = labels;
+            chartInstance.data.datasets.forEach((dataset, i) => {
+                dataset.data = datasets[i].data;
+                dataset.backgroundColor = datasets[i].backgroundColor;
+            });
+            chartInstance.update();
+        }
     }
 
     async function fetchBatchData() {
         try {
             console.log('Fetching batch data...');
             
-            // Ensure user is authenticated
             if (!auth.currentUser) {
                 console.log('No authenticated user found');
                 throw new Error('User not authenticated');
             }
             console.log('User authenticated:', auth.currentUser.uid);
             
-            // Get batches from the last 7 days
             const sevenDaysAgo = new Date();
             sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
             console.log('Fetching batches since:', sevenDaysAgo.toISOString());
             
-            const batchesRef = collection(db, 'jobBatches'); // Changed from job_batches to jobBatches
+            const batchesRef = collection(db, 'jobBatches');
             const q = query(
                 batchesRef,
                 where('startedAt', '>=', Timestamp.fromDate(sevenDaysAgo)),
@@ -69,7 +175,7 @@
             }
             
             // Initialize the last 7 days with 0 batches
-            batchesByDay = new Map(); // Reset the map
+            batchesByDay = new Map();
             for (let i = 0; i < 7; i++) {
                 const date = new Date();
                 date.setDate(date.getDate() - i);
@@ -124,13 +230,11 @@
                 const dayStats = batchesByDay.get(dateKey);
                 dayStats.total++;
                 
-                // Only add to job counts if not an empty batch
                 if (batch.status !== 'empty' && batch.status !== 'completed') {
                     dayStats.totalJobs += batch.totalJobs || 0;
                     dayStats.completedJobs += batch.completedJobs || 0;
                 }
                 
-                // Enhanced status tracking
                 if (batch.status === 'complete') {
                     dayStats.completed++;
                 } else if (batch.status === 'empty' || batch.status === 'completed') {
@@ -147,22 +251,12 @@
                     id: doc.id,
                     ...batch
                 });
-
-                console.log(`Updated stats for ${dateKey}:`, {
-                    total: dayStats.total,
-                    completed: dayStats.completed,
-                    empty: dayStats.empty,
-                    inProgress: dayStats.inProgress,
-                    totalJobs: dayStats.totalJobs,
-                    completedJobs: dayStats.completedJobs
-                });
             });
 
-            // Convert to chart data format with enhanced statuses
+            // Convert to chart data format
             chartData = Array.from(batchesByDay.entries())
                 .sort((a, b) => a[0].localeCompare(b[0]))
                 .map(([date, stats]) => {
-                    // Calculate progress based on completed vs total snapshots
                     const progress = stats.total > 0
                         ? Math.round((stats.completed / stats.total) * 100)
                         : 0;
@@ -180,6 +274,9 @@
                 });
 
             console.log('Final chart data:', chartData);
+            
+            // Update chart after data is ready
+            updateChart();
             loading = false;
         } catch (err) {
             console.error('Error fetching batch data:', err);
@@ -190,7 +287,6 @@
 
     onMount(() => {
         console.log('Component mounted, checking auth state...');
-        // Wait for auth to initialize
         const unsubscribe = auth.onAuthStateChanged((user) => {
             console.log('Auth state changed:', user ? `User ${user.uid} logged in` : 'No user');
             if (user) {
@@ -201,8 +297,24 @@
             }
         });
 
-        return () => unsubscribe();
+        return () => {
+            unsubscribe();
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+        };
     });
+
+    onDestroy(() => {
+        if (chartInstance) {
+            chartInstance.destroy();
+        }
+    });
+
+    // Update chart when canvas is available and data is ready
+    $: if (chartCanvas && chartData.length > 0) {
+        updateChart();
+    }
 </script>
 
 <div class="container mx-auto p-4">
@@ -243,72 +355,14 @@
             {/if}
         </div>
 
-        <!-- Batch History Graph -->
+        <!-- Batch History Graph with Chart.js -->
         <div class="card p-6">
             <h3 class="h3 mb-6">Batch History (Last 7 Days)</h3>
-            <div class="h-[400px]">
-                <!-- Bar Chart -->
-                <div class="w-full h-full relative">
-                    <!-- Y-axis labels -->
-                    <div class="absolute left-0 top-0 bottom-0 w-12 flex flex-col justify-between text-sm">
-                        {#each Array(6) as _, i}
-                            <span class="text-right w-full">{(5 - i) * 20}</span>
-                        {/each}
-                    </div>
-
-                    <!-- Chart area with improved alignment -->
-                    <div class="ml-12 h-full flex items-end">
-                        {#each chartData as day, index}
-                            <div class="flex-1 flex flex-col items-center min-w-0">
-                                <!-- Bar container with consistent spacing -->
-                                <div class="w-4/5 max-w-[60px] mx-auto mb-2">
-                                    <div class="relative w-full bg-surface-200 rounded-t" style="height: {Math.max(day.total * 40, 4)}px">
-                                        <!-- Completed -->
-                                        <div 
-                                            class="absolute bottom-0 w-full bg-success-500 rounded-t"
-                                            style="height: {Math.max(day.completed * 40, 0)}px"
-                                        ></div>
-                                        <!-- Empty -->
-                                        <div 
-                                            class="absolute bottom-0 w-full bg-success-500 opacity-50"
-                                            style="height: {Math.max(day.empty * 40, 0)}px; transform: translateY(-{Math.max(day.completed * 40, 0)}px)"
-                                        ></div>
-                                        <!-- In Progress -->
-                                        <div 
-                                            class="absolute bottom-0 w-full bg-primary-500 opacity-75"
-                                            style="height: {Math.max(day.inProgress * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.empty) * 40, 0)}px)"
-                                        ></div>
-                                        <!-- Timeout -->
-                                        <div 
-                                            class="absolute bottom-0 w-full bg-warning-500 opacity-75"
-                                            style="height: {Math.max(day.timeout * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.empty + day.inProgress) * 40, 0)}px)"
-                                        ></div>
-                                        <!-- Error -->
-                                        <div 
-                                            class="absolute bottom-0 w-full bg-error-500 opacity-75"
-                                            style="height: {Math.max(day.error * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.empty + day.inProgress + day.timeout) * 40, 0)}px)"
-                                        ></div>
-                                    </div>
-                                </div>
-                                
-                                <!-- Labels with consistent alignment -->
-                                <div class="text-center w-full">
-                                    <!-- Date label -->
-                                    <div class="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis px-1">
-                                        {day.date}
-                                    </div>
-                                    <!-- Progress label -->
-                                    <div class="text-xs opacity-75 mt-1">
-                                        {day.progress}%
-                                    </div>
-                                </div>
-                            </div>
-                        {/each}
-                    </div>
-                </div>
+            <div class="h-[400px] w-full">
+                <canvas bind:this={chartCanvas}></canvas>
             </div>
 
-            <!-- Legend remains the same -->
+            <!-- Legend -->
             <div class="flex justify-center items-center gap-4 mt-6">
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 bg-success-500"></div>
