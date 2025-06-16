@@ -122,13 +122,17 @@
 
                 const dayStats = batchesByDay.get(dateKey);
                 dayStats.total++;
-                dayStats.totalJobs += batch.totalJobs || 0;
-                dayStats.completedJobs += batch.completedJobs || 0;
+                
+                // Only add to job counts if not an empty batch
+                if (batch.status !== 'empty' && batch.status !== 'completed') {
+                    dayStats.totalJobs += batch.totalJobs || 0;
+                    dayStats.completedJobs += batch.completedJobs || 0;
+                }
                 
                 // Enhanced status tracking
                 if (batch.status === 'complete') {
                     dayStats.completed++;
-                } else if (batch.status === 'empty') {
+                } else if (batch.status === 'empty' || batch.status === 'completed') {
                     dayStats.empty++;
                 } else if (batch.status === 'processing') {
                     dayStats.inProgress++;
@@ -156,16 +160,23 @@
             // Convert to chart data format with enhanced statuses
             chartData = Array.from(batchesByDay.entries())
                 .sort((a, b) => a[0].localeCompare(b[0]))
-                .map(([date, stats]) => ({
-                    date: formatDate(new Date(date)),
-                    total: stats.total,
-                    completed: stats.completed,
-                    empty: stats.empty,
-                    inProgress: stats.inProgress,
-                    timeout: stats.timeout,
-                    error: stats.error,
-                    progress: stats.totalJobs ? Math.round((stats.completedJobs / stats.totalJobs) * 100) : 0
-                }));
+                .map(([date, stats]) => {
+                    // Calculate progress based on completed vs total snapshots
+                    const progress = stats.total > 0
+                        ? Math.round((stats.completed / stats.total) * 100)
+                        : 0;
+
+                    return {
+                        date: formatDate(new Date(date)),
+                        total: stats.total,
+                        completed: stats.completed,
+                        empty: stats.empty,
+                        inProgress: stats.inProgress,
+                        timeout: stats.timeout,
+                        error: stats.error,
+                        progress: progress
+                    };
+                });
 
             console.log('Final chart data:', chartData);
             loading = false;
@@ -224,9 +235,9 @@
                     <p class="opacity-75">Batches completed today</p>
                 </div>
                 <div class="card variant-filled-tertiary p-6">
-                    <h3 class="h3 mb-2">Average Progress</h3>
+                    <h3 class="h3 mb-2">Completion Rate</h3>
                     <p class="text-4xl font-bold">{today.progress}%</p>
-                    <p class="opacity-75">Average completion rate</p>
+                    <p class="opacity-75">Percentage of completed batches</p>
                 </div>
             {/if}
         </div>
@@ -256,20 +267,25 @@
                                             class="absolute bottom-0 w-full bg-success-500 rounded-t"
                                             style="height: {Math.max(day.completed * 40, 0)}px"
                                         ></div>
+                                        <!-- Empty -->
+                                        <div 
+                                            class="absolute bottom-0 w-full bg-success-500 opacity-50"
+                                            style="height: {Math.max(day.empty * 40, 0)}px; transform: translateY(-{Math.max(day.completed * 40, 0)}px)"
+                                        ></div>
                                         <!-- In Progress -->
                                         <div 
                                             class="absolute bottom-0 w-full bg-primary-500 opacity-75"
-                                            style="height: {Math.max(day.inProgress * 40, 0)}px; transform: translateY(-{Math.max(day.completed * 40, 0)}px)"
+                                            style="height: {Math.max(day.inProgress * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.empty) * 40, 0)}px)"
                                         ></div>
                                         <!-- Timeout -->
                                         <div 
                                             class="absolute bottom-0 w-full bg-warning-500 opacity-75"
-                                            style="height: {Math.max(day.timeout * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.inProgress) * 40, 0)}px)"
+                                            style="height: {Math.max(day.timeout * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.empty + day.inProgress) * 40, 0)}px)"
                                         ></div>
                                         <!-- Error -->
                                         <div 
                                             class="absolute bottom-0 w-full bg-error-500 opacity-75"
-                                            style="height: {Math.max(day.error * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.inProgress + day.timeout) * 40, 0)}px)"
+                                            style="height: {Math.max(day.error * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.empty + day.inProgress + day.timeout) * 40, 0)}px)"
                                         ></div>
                                     </div>
                                 </div>
@@ -296,6 +312,10 @@
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 bg-success-500"></div>
                     <span>Completed</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 bg-success-500 opacity-50"></div>
+                    <span>Empty</span>
                 </div>
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 bg-primary-500 opacity-75"></div>
