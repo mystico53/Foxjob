@@ -8,6 +8,33 @@
     let error = null;
     let batchesByDay = new Map();
     let chartData = [];
+    let selectedStatus = 'all';
+
+    // Make the filtered batches reactive
+    $: filteredBatches = (() => {
+        if (!chartData.length) return [];
+        const todayKey = new Date().toISOString().split('T')[0];
+        const todayData = batchesByDay.get(todayKey);
+        if (!todayData || !todayData.batches) return [];
+
+        if (selectedStatus === 'all') return todayData.batches;
+        return todayData.batches.filter(batch => {
+            if (selectedStatus === 'empty') {
+                return batch.status === 'empty' || batch.status === 'completed';
+            }
+            return batch.status === selectedStatus;
+        });
+    })();
+
+    function filterBatches(batches) {
+        if (selectedStatus === 'all') return batches;
+        return batches.filter(batch => {
+            if (selectedStatus === 'empty') {
+                return batch.status === 'empty' || batch.status === 'completed';
+            }
+            return batch.status === selectedStatus;
+        });
+    }
 
     async function fetchBatchData() {
         try {
@@ -49,6 +76,7 @@
                 batchesByDay.set(dateKey, {
                     total: 0,
                     completed: 0,
+                    empty: 0,
                     inProgress: 0,
                     timeout: 0,
                     error: 0,
@@ -82,6 +110,7 @@
                     batchesByDay.set(dateKey, {
                         total: 0,
                         completed: 0,
+                        empty: 0,
                         inProgress: 0,
                         timeout: 0,
                         error: 0,
@@ -97,8 +126,10 @@
                 dayStats.completedJobs += batch.completedJobs || 0;
                 
                 // Enhanced status tracking
-                if (batch.status === 'complete' || batch.status === 'completed') {
+                if (batch.status === 'complete') {
                     dayStats.completed++;
+                } else if (batch.status === 'empty') {
+                    dayStats.empty++;
                 } else if (batch.status === 'processing') {
                     dayStats.inProgress++;
                 } else if (batch.status === 'timeout') {
@@ -115,6 +146,7 @@
                 console.log(`Updated stats for ${dateKey}:`, {
                     total: dayStats.total,
                     completed: dayStats.completed,
+                    empty: dayStats.empty,
                     inProgress: dayStats.inProgress,
                     totalJobs: dayStats.totalJobs,
                     completedJobs: dayStats.completedJobs
@@ -128,6 +160,7 @@
                     date: formatDate(new Date(date)),
                     total: stats.total,
                     completed: stats.completed,
+                    empty: stats.empty,
                     inProgress: stats.inProgress,
                     timeout: stats.timeout,
                     error: stats.error,
@@ -211,16 +244,16 @@
                         {/each}
                     </div>
 
-                    <!-- Chart area -->
-                    <div class="ml-12 h-full flex items-end justify-between">
-                        {#each chartData as day}
-                            <div class="flex-1 flex flex-col items-center">
-                                <!-- Bar -->
-                                <div class="w-full px-1">
-                                    <div class="relative w-full" style="height: {Math.max(day.total * 40, 4)}px">
+                    <!-- Chart area with improved alignment -->
+                    <div class="ml-12 h-full flex items-end">
+                        {#each chartData as day, index}
+                            <div class="flex-1 flex flex-col items-center min-w-0">
+                                <!-- Bar container with consistent spacing -->
+                                <div class="w-4/5 max-w-[60px] mx-auto mb-2">
+                                    <div class="relative w-full bg-surface-200 rounded-t" style="height: {Math.max(day.total * 40, 4)}px">
                                         <!-- Completed -->
                                         <div 
-                                            class="absolute bottom-0 w-full bg-success-500"
+                                            class="absolute bottom-0 w-full bg-success-500 rounded-t"
                                             style="height: {Math.max(day.completed * 40, 0)}px"
                                         ></div>
                                         <!-- In Progress -->
@@ -240,17 +273,25 @@
                                         ></div>
                                     </div>
                                 </div>
-                                <!-- Date label -->
-                                <span class="text-sm mt-2">{day.date}</span>
-                                <!-- Progress label -->
-                                <span class="text-xs opacity-75">{day.progress}%</span>
+                                
+                                <!-- Labels with consistent alignment -->
+                                <div class="text-center w-full">
+                                    <!-- Date label -->
+                                    <div class="text-sm font-medium whitespace-nowrap overflow-hidden text-ellipsis px-1">
+                                        {day.date}
+                                    </div>
+                                    <!-- Progress label -->
+                                    <div class="text-xs opacity-75 mt-1">
+                                        {day.progress}%
+                                    </div>
+                                </div>
                             </div>
                         {/each}
                     </div>
                 </div>
             </div>
 
-            <!-- Enhanced Legend -->
+            <!-- Legend remains the same -->
             <div class="flex justify-center items-center gap-4 mt-6">
                 <div class="flex items-center gap-2">
                     <div class="w-4 h-4 bg-success-500"></div>
@@ -274,12 +315,71 @@
         <!-- Detailed Today's Batches -->
         {#if chartData.length > 0}
             {@const today = chartData[chartData.length - 1]}
-            {@const todayData = Array.from(batchesByDay.values())[batchesByDay.size - 1]}
-            {#if todayData.batches.length > 0}
-                <div class="card p-6 mt-8">
-                    <h3 class="h3 mb-4">Today's Batch Details</h3>
+            {@const todayKey = new Date().toISOString().split('T')[0]}
+            {@const todayData = batchesByDay.get(todayKey)}
+            <div class="card p-6 mt-8">
+                <h3 class="h3 mb-4">Today's Batch Details</h3>
+                {#if todayData && todayData.batches && todayData.batches.length > 0}
+                    <!-- Status Filter Pills -->
+                    <div class="flex flex-wrap gap-2 mb-6">
+                        <button
+                            class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                                {selectedStatus === 'all' 
+                                    ? 'bg-primary-500 text-white' 
+                                    : 'bg-surface-200 hover:bg-surface-300'}"
+                            on:click={() => selectedStatus = 'all'}
+                        >
+                            All ({todayData.batches.length})
+                        </button>
+                        <button
+                            class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                                {selectedStatus === 'complete' 
+                                    ? 'bg-success-500 text-white' 
+                                    : 'bg-surface-200 hover:bg-surface-300'}"
+                            on:click={() => selectedStatus = 'complete'}
+                        >
+                            Complete ({todayData.batches.filter(b => b.status === 'complete').length})
+                        </button>
+                        <button
+                            class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                                {selectedStatus === 'empty' 
+                                    ? 'bg-success-500 text-white' 
+                                    : 'bg-surface-200 hover:bg-surface-300'}"
+                            on:click={() => selectedStatus = 'empty'}
+                        >
+                            Empty Search ({todayData.batches.filter(b => b.status === 'empty' || b.status === 'completed').length})
+                        </button>
+                        <button
+                            class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                                {selectedStatus === 'processing' 
+                                    ? 'bg-primary-500 text-white' 
+                                    : 'bg-surface-200 hover:bg-surface-300'}"
+                            on:click={() => selectedStatus = 'processing'}
+                        >
+                            In Progress ({todayData.batches.filter(b => b.status === 'processing').length})
+                        </button>
+                        <button
+                            class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                                {selectedStatus === 'timeout' 
+                                    ? 'bg-warning-500 text-white' 
+                                    : 'bg-surface-200 hover:bg-surface-300'}"
+                            on:click={() => selectedStatus = 'timeout'}
+                        >
+                            Timeout ({todayData.batches.filter(b => b.status === 'timeout').length})
+                        </button>
+                        <button
+                            class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                                {selectedStatus === 'error' 
+                                    ? 'bg-error-500 text-white' 
+                                    : 'bg-surface-200 hover:bg-surface-300'}"
+                            on:click={() => selectedStatus = 'error'}
+                        >
+                            Error ({todayData.batches.filter(b => b.status === 'error').length})
+                        </button>
+                    </div>
+
                     <div class="space-y-4">
-                        {#each todayData.batches as batch}
+                        {#each filteredBatches as batch}
                             <div class="card variant-ghost p-4">
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div>
@@ -288,16 +388,34 @@
                                     </div>
                                     <div>
                                         <span class="font-medium">Status</span>
-                                        <p class="capitalize">{batch.status}</p>
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-3 h-3 rounded-full {batch.status === 'complete' ? 'bg-success-500' : 
+                                                batch.status === 'empty' || batch.status === 'completed' ? 'bg-success-500' :
+                                                batch.status === 'processing' ? 'bg-primary-500' : 
+                                                batch.status === 'timeout' ? 'bg-warning-500' : 
+                                                batch.status === 'error' ? 'bg-error-500' : 'bg-surface-500'}"></div>
+                                            <p class="capitalize">{batch.status === 'completed' ? 'empty' : batch.status}</p>
+                                        </div>
                                     </div>
                                     <div>
                                         <span class="font-medium">Progress</span>
-                                        <p>
-                                            {batch.completedJobs || 0} / {batch.totalJobs || 0}
-                                            <span class="font-semibold">
-                                                ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-full bg-surface-200 rounded-full h-2">
+                                                <div class="h-2 rounded-full {batch.status === 'complete' ? 'bg-success-500' : 
+                                                    batch.status === 'empty' || batch.status === 'completed' ? 'bg-success-500' :
+                                                    batch.status === 'processing' ? 'bg-primary-500' : 
+                                                    batch.status === 'timeout' ? 'bg-warning-500' : 
+                                                    batch.status === 'error' ? 'bg-error-500' : 'bg-surface-500'}"
+                                                    style="width: {batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%">
+                                                </div>
+                                            </div>
+                                            <span class="text-sm whitespace-nowrap">
+                                                {batch.completedJobs || 0} / {batch.totalJobs || 0}
+                                                <span class="font-semibold">
+                                                    ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
+                                                </span>
                                             </span>
-                                        </p>
+                                        </div>
                                     </div>
                                     <div>
                                         <span class="font-medium">Started</span>
@@ -307,8 +425,10 @@
                             </div>
                         {/each}
                     </div>
-                </div>
-            {/if}
+                {:else}
+                    <p class="text-center opacity-75">No batches found for today</p>
+                {/if}
+            </div>
         {/if}
     {/if}
 </div> 

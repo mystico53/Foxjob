@@ -45,6 +45,12 @@
     // Add new state for tracking which batches have loaded jobs
     let loadedBatchJobs = new Set();
     
+    // Add new state for status filtering
+    let selectedStatus = 'all';
+    
+    // Add new state for showing all batches
+    let showAllBatches = false;
+    
     // Fetch all data on mount
     onMount(async () => {
       try {
@@ -367,16 +373,35 @@
       isLoading = false;
     }
     
-    // Filter job batches by user ID
-    $: userJobBatches = selectedUser 
-      ? jobBatches.filter(batch => batch.userId === selectedUser.id)
-      : jobBatches;
-      
-    // Further filter job batches by search query ID if selected
-    $: filteredJobBatches = selectedQuery 
-      ? userJobBatches.filter(batch => batch.searchId === selectedQuery.id)
-      : userJobBatches;
-      
+    // Add filtered batches computation
+    $: filteredJobBatches = (() => {
+        let batches = selectedUser 
+            ? jobBatches.filter(batch => batch.userId === selectedUser.id)
+            : jobBatches;
+            
+        batches = selectedQuery 
+            ? batches.filter(batch => batch.searchId === selectedQuery.id)
+            : batches;
+
+        // Filter by last 3 days if not showing all batches
+        if (!showAllBatches) {
+            const threeDaysAgo = new Date();
+            threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+            batches = batches.filter(batch => {
+                const batchDate = batch.startedAt?.toDate?.() || batch.startedAt;
+                return batchDate >= threeDaysAgo;
+            });
+        }
+
+        if (selectedStatus === 'all') return batches;
+        return batches.filter(batch => {
+            if (selectedStatus === 'empty') {
+                return batch.status === 'empty' || batch.status === 'completed';
+            }
+            return batch.status === selectedStatus;
+        });
+    })();
+    
     // Format timestamp for display using Day.js
     function formatDate(timestamp) {
       if (!timestamp) return 'N/A';
@@ -471,7 +496,7 @@
         if (batch && batch.emailSent === true) {
           return { text: 'Email sent (ID unknown)', class: 'text-warning-500' };
         }
-        return { text: 'No email', class: 'text-surface-400' };
+        return { text: 'No email', class: 'text-black' };
       }
       
       // Include email request ID in all status returns
@@ -519,7 +544,7 @@
         return { text: emailIdPrefix + 'Processed', class: 'text-primary-500' };
       }
       
-      return { text: emailIdPrefix + (emailData.status || 'Unknown'), class: 'text-surface-400' };
+      return { text: emailIdPrefix + (emailData.status || 'Unknown'), class: 'text-black' };
     }
     
     // Replace the existing fixMissingEmailRequests function with this updated version
@@ -667,16 +692,88 @@
       <div class="grid gap-8">
         <!-- Job batches section -->
         <div class="card p-4 mb-4">
-            <h2 class="h3 mb-4">
-              {#if selectedQuery}
-                Job Batches for Query "{getKeyword(selectedQuery.searchParams)}"
-              {:else if selectedUser}
-                All Job Batches for {selectedUser.email || selectedUser.id}
-              {:else}
-                All Job Batches
-              {/if}
-              ({filteredJobBatches.length})
-            </h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="h3">
+                    {#if selectedQuery}
+                        Job Batches for Query "{getKeyword(selectedQuery.searchParams)}"
+                    {:else if selectedUser}
+                        All Job Batches for {selectedUser.email || selectedUser.id}
+                    {:else}
+                        All Job Batches
+                    {/if}
+                    ({filteredJobBatches.length})
+                </h2>
+                <button
+                    class="btn variant-ghost-primary"
+                    on:click={() => showAllBatches = !showAllBatches}
+                >
+                    {showAllBatches ? 'Show Last 3 Days' : 'Load All Batches'}
+                </button>
+            </div>
+            
+            <!-- Divider above filter pills -->
+            <div class="h-[1px] bg-black mb-6"></div>
+
+            <!-- Status Filter Pills -->
+            <div class="flex flex-wrap gap-2 mb-6">
+                <button
+                    class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                        {selectedStatus === 'all' 
+                            ? 'bg-primary-500 text-white' 
+                            : 'bg-surface-200 hover:bg-surface-300'}"
+                    on:click={() => selectedStatus = 'all'}
+                >
+                    All ({jobBatches.length})
+                </button>
+                <button
+                    class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                        {selectedStatus === 'complete' 
+                            ? 'bg-success-500 text-white' 
+                            : 'bg-surface-200 hover:bg-surface-300'}"
+                    on:click={() => selectedStatus = 'complete'}
+                >
+                    Complete ({jobBatches.filter(b => b.status === 'complete').length})
+                </button>
+                <button
+                    class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                        {selectedStatus === 'empty' 
+                            ? 'bg-success-500 text-white' 
+                            : 'bg-surface-200 hover:bg-surface-300'}"
+                    on:click={() => selectedStatus = 'empty'}
+                >
+                    Empty Search ({jobBatches.filter(b => b.status === 'empty' || b.status === 'completed').length})
+                </button>
+                <button
+                    class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                        {selectedStatus === 'processing' 
+                            ? 'bg-primary-500 text-white' 
+                            : 'bg-surface-200 hover:bg-surface-300'}"
+                    on:click={() => selectedStatus = 'processing'}
+                >
+                    In Progress ({jobBatches.filter(b => b.status === 'processing').length})
+                </button>
+                <button
+                    class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                        {selectedStatus === 'timeout' 
+                            ? 'bg-warning-500 text-white' 
+                            : 'bg-surface-200 hover:bg-surface-300'}"
+                    on:click={() => selectedStatus = 'timeout'}
+                >
+                    Timeout ({jobBatches.filter(b => b.status === 'timeout').length})
+                </button>
+                <button
+                    class="px-4 py-2 rounded-full text-sm font-medium transition-colors
+                        {selectedStatus === 'error' 
+                            ? 'bg-error-500 text-white' 
+                            : 'bg-surface-200 hover:bg-surface-300'}"
+                    on:click={() => selectedStatus = 'error'}
+                >
+                    Error ({jobBatches.filter(b => b.status === 'error').length})
+                </button>
+            </div>
+
+            <!-- Divider below filter pills -->
+            <div class="h-[1px] bg-black mb-6"></div>
             
             <div class="grid gap-8">
                 {#each filteredJobBatches as batch}
@@ -685,8 +782,11 @@
                     {@const query = searchQueries.find(q => q.id === batch.searchId)}
                     <div 
                         id="batch-{batch.id}"
-                        class="card variant-soft p-6 shadow-lg {selectedBatch?.id === batch.id ? 'ring-2 ring-primary-500' : ''}"
+                        class="card variant-soft p-6 shadow-lg border border-black {selectedBatch?.id === batch.id ? 'ring-2 ring-primary-500' : ''}"
                     >
+                        <!-- Batch ID as h3 -->
+                        <h3 class="text-black text-lg font-mono font-bold mb-4">{batch.id}</h3>
+
                         <!-- Main batch info -->
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                             <!-- Column 1: Basic Info -->
@@ -694,10 +794,6 @@
                                 <div class="mb-2">
                                     <span class="font-semibold">User:</span> 
                                     <span>{batchUser?.displayName || batchUser?.id || 'Unknown'}</span>
-                                </div>
-                                <div class="mb-2">
-                                    <span class="font-semibold">Batch ID:</span> 
-                                    <span class="font-mono text-sm">{batch.id}</span>
                                 </div>
                                 <div>
                                     <span class="font-semibold">Started:</span> 
@@ -711,10 +807,11 @@
                                     <span class="font-semibold">Status:</span> 
                                     <span class={
                                         batch.status === 'complete' ? 'text-success-500' : 
+                                        batch.status === 'empty' || batch.status === 'completed' ? 'text-success-500' :
                                         batch.status === 'processing' ? 'text-primary-500' : 
                                         batch.status === 'timeout' ? 'text-error-500' : ''
                                     }>
-                                        {batch.status || 'N/A'}
+                                        {batch.status === 'completed' ? 'empty' : batch.status || 'N/A'}
                                     </span>
                                 </div>
                                 <div class="mb-2">
@@ -724,43 +821,22 @@
                                         ({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)
                                     </span>
                                 </div>
-                                <div>
-                                    <span class="font-semibold">Email:</span> 
-                                    <span class={batch.emailSent ? 'text-success-500' : 'text-surface-400'}>
-                                        {batch.emailSent ? 'Sent' : 'Not Sent'}
-                                    </span>
-                                </div>
                             </div>
                             
                             <!-- Column 3: Email Status & Actions -->
                             <div class="text-black">
                                 <div class="mb-2">
+                                    <span class="font-semibold">Email:</span> 
+                                    <span class={batch.emailSent ? 'text-success-500' : 'text-surface-400'}>
+                                        {batch.emailSent ? 'Sent' : 'Not Sent'}
+                                    </span>
+                                </div>
+                                <div class="mb-2">
                                     <span class="font-semibold">Email Status:</span><br/>
                                     <span class={emailStatus.class}>{emailStatus.text}</span>
-                                    {#if batch.emailSent && emailRequests[batch.id]}
-                                        <button 
-                                            class="btn btn-sm variant-ghost-primary ml-2"
-                                            on:click={() => {
-                                                const emailData = emailRequests[batch.id];
-                                                if (emailData && emailData.id) {
-                                                    const projectId = window.location.hostname.split('.')[0];
-                                                    const firestoreUrl = `https://console.firebase.google.com/project/${projectId}/firestore/data/~2FemailRequests~2F${emailData.id}`;
-                                                    window.open(firestoreUrl, '_blank');
-                                                }
-                                            }}
-                                        >
-                                            View Email
-                                        </button>
-                                    {/if}
                                 </div>
                                 <div class="mt-2">
-                                    <button 
-                                        class="btn btn-sm variant-filled-error"
-                                        on:click={() => deleteBatch(batch.id)}
-                                        disabled={isLoading}
-                                    >
-                                        {isLoading ? 'Deleting...' : 'Delete Batch'}
-                                    </button>
+                                    <!-- Remove the delete button from here since it's now next to View Jobs -->
                                 </div>
                             </div>
                         </div>
@@ -847,7 +923,26 @@
                         </div>
 
                         <!-- View Jobs Button - Positioned at bottom right -->
-                        <div class="flex justify-end mt-4">
+                        <div class="flex justify-end gap-2 mt-4">
+                            <button 
+                                class="btn btn-sm variant-ghost"
+                                on:click={() => deleteBatch(batch.id)}
+                                disabled={isLoading}
+                                title="Delete Batch"
+                            >
+                                {#if isLoading}
+                                    <svg class="w-4 h-4 animate-spin" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                {:else}
+                                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M3 6h18"></path>
+                                        <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                                        <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                                    </svg>
+                                {/if}
+                            </button>
                             <button 
                                 class="btn variant-filled-primary"
                                 on:click={() => selectBatch(batch)}
