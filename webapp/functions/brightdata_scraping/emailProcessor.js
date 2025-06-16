@@ -52,6 +52,13 @@ exports.processEmailRequests = onDocumentCreated({
       let userFirstName = 'there'; // Default greeting if name can't be found
       let totalJobsCount = 0; // Will store the total jobs count from batch document
       
+      // Check if this is an empty search notification
+      const isEmptySearchNotification = emailData.metadata?.type === 'empty_search_notification';
+      logger.info('Email request type:', { 
+        type: isEmptySearchNotification ? 'empty_search_notification' : 'regular_job_email',
+        requestId: requestId
+      });
+      
       // Get user's display name if we have a user ID
       if (uid) {
         try {
@@ -104,9 +111,6 @@ exports.processEmailRequests = onDocumentCreated({
             // Continue with default total jobs count
           }
         }
-        
-        // Check if this is an empty search notification
-        const isEmptySearchNotification = emailData.metadata?.type === 'empty_search_notification';
         
         if (isEmptySearchNotification) {
           // For empty search notifications, use the provided HTML and text content
