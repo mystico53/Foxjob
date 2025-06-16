@@ -1,7 +1,7 @@
 <!-- EnhancedAdminDashboard.svelte -->
 <script>
     import { onMount } from 'svelte';
-    import { collection, collectionGroup, query, orderBy, getDocs, getFirestore, doc, getDoc, where, setDoc, updateDoc, limit } from 'firebase/firestore';
+    import { collection, collectionGroup, query, orderBy, getDocs, getFirestore, doc, getDoc, where, setDoc, updateDoc, limit, deleteDoc } from 'firebase/firestore';
     import { getFunctions, httpsCallable } from 'firebase/functions';
     import { auth } from '$lib/firebase';
     import dayjs from 'dayjs';
@@ -577,6 +577,37 @@
       }
     }
 
+    // Add delete batch function
+    async function deleteBatch(batchId) {
+        if (!confirm('Are you sure you want to delete this batch? This action cannot be undone.')) {
+            return;
+        }
+
+        try {
+            isLoading = true;
+            const batchRef = doc(db, 'jobBatches', batchId);
+            await deleteDoc(batchRef);
+            
+            // Remove from local state
+            jobBatches = jobBatches.filter(batch => batch.id !== batchId);
+            
+            // If there's an associated email request, delete it too
+            const emailRequest = emailRequests[batchId];
+            if (emailRequest?.id) {
+                const emailRef = doc(db, 'emailRequests', emailRequest.id);
+                await deleteDoc(emailRef);
+                delete emailRequests[batchId];
+            }
+            
+            alert('Batch deleted successfully');
+        } catch (err) {
+            console.error('Error deleting batch:', err);
+            alert(`Error deleting batch: ${err.message}`);
+        } finally {
+            isLoading = false;
+        }
+    }
+
     $: if (selectedBatchId && jobBatches.length > 0) {
         const batch = jobBatches.find(b => b.id === selectedBatchId);
         if (batch) {
@@ -721,6 +752,15 @@
                                             View Email
                                         </button>
                                     {/if}
+                                </div>
+                                <div class="mt-2">
+                                    <button 
+                                        class="btn btn-sm variant-filled-error"
+                                        on:click={() => deleteBatch(batch.id)}
+                                        disabled={isLoading}
+                                    >
+                                        {isLoading ? 'Deleting...' : 'Delete Batch'}
+                                    </button>
                                 </div>
                             </div>
                         </div>

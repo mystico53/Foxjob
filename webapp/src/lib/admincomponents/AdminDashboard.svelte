@@ -50,6 +50,8 @@
                     total: 0,
                     completed: 0,
                     inProgress: 0,
+                    timeout: 0,
+                    error: 0,
                     totalJobs: 0,
                     completedJobs: 0,
                     batches: []
@@ -81,6 +83,8 @@
                         total: 0,
                         completed: 0,
                         inProgress: 0,
+                        timeout: 0,
+                        error: 0,
                         totalJobs: 0,
                         completedJobs: 0,
                         batches: []
@@ -92,10 +96,15 @@
                 dayStats.totalJobs += batch.totalJobs || 0;
                 dayStats.completedJobs += batch.completedJobs || 0;
                 
-                if (batch.status === 'complete') {
+                // Enhanced status tracking
+                if (batch.status === 'complete' || batch.status === 'completed') {
                     dayStats.completed++;
                 } else if (batch.status === 'processing') {
                     dayStats.inProgress++;
+                } else if (batch.status === 'timeout') {
+                    dayStats.timeout++;
+                } else if (batch.status === 'error') {
+                    dayStats.error++;
                 }
 
                 dayStats.batches.push({
@@ -112,7 +121,7 @@
                 });
             });
 
-            // Convert to chart data format
+            // Convert to chart data format with enhanced statuses
             chartData = Array.from(batchesByDay.entries())
                 .sort((a, b) => a[0].localeCompare(b[0]))
                 .map(([date, stats]) => ({
@@ -120,6 +129,8 @@
                     total: stats.total,
                     completed: stats.completed,
                     inProgress: stats.inProgress,
+                    timeout: stats.timeout,
+                    error: stats.error,
                     progress: stats.totalJobs ? Math.round((stats.completedJobs / stats.totalJobs) * 100) : 0
                 }));
 
@@ -207,13 +218,25 @@
                                 <!-- Bar -->
                                 <div class="w-full px-1">
                                     <div class="relative w-full" style="height: {Math.max(day.total * 40, 4)}px">
+                                        <!-- Completed -->
                                         <div 
-                                            class="absolute bottom-0 w-full bg-primary-500"
+                                            class="absolute bottom-0 w-full bg-success-500"
                                             style="height: {Math.max(day.completed * 40, 0)}px"
                                         ></div>
+                                        <!-- In Progress -->
                                         <div 
-                                            class="absolute bottom-0 w-full bg-tertiary-500 opacity-50"
+                                            class="absolute bottom-0 w-full bg-primary-500 opacity-75"
                                             style="height: {Math.max(day.inProgress * 40, 0)}px; transform: translateY(-{Math.max(day.completed * 40, 0)}px)"
+                                        ></div>
+                                        <!-- Timeout -->
+                                        <div 
+                                            class="absolute bottom-0 w-full bg-warning-500 opacity-75"
+                                            style="height: {Math.max(day.timeout * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.inProgress) * 40, 0)}px)"
+                                        ></div>
+                                        <!-- Error -->
+                                        <div 
+                                            class="absolute bottom-0 w-full bg-error-500 opacity-75"
+                                            style="height: {Math.max(day.error * 40, 0)}px; transform: translateY(-{Math.max((day.completed + day.inProgress + day.timeout) * 40, 0)}px)"
                                         ></div>
                                     </div>
                                 </div>
@@ -227,15 +250,23 @@
                 </div>
             </div>
 
-            <!-- Legend -->
+            <!-- Enhanced Legend -->
             <div class="flex justify-center items-center gap-4 mt-6">
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 bg-primary-500"></div>
+                    <div class="w-4 h-4 bg-success-500"></div>
                     <span>Completed</span>
                 </div>
                 <div class="flex items-center gap-2">
-                    <div class="w-4 h-4 bg-tertiary-500 opacity-50"></div>
+                    <div class="w-4 h-4 bg-primary-500 opacity-75"></div>
                     <span>In Progress</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 bg-warning-500 opacity-75"></div>
+                    <span>Timeout</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <div class="w-4 h-4 bg-error-500 opacity-75"></div>
+                    <span>Error</span>
                 </div>
             </div>
         </div>
