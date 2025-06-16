@@ -3,6 +3,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { getFirestore, collection, getDocs, doc, getDoc, where, query } from 'firebase/firestore';
   import { fade } from 'svelte/transition';
+  import EmailRequestDetails from './EmailRequestDetails.svelte';
   
   // Props
   export let selectedBatch = null;
@@ -13,6 +14,7 @@
   let isLoading = false;
   let error = null;
   let emailRequest = null;
+  let isEmailExpanded = false;
   
   // Initialize DB
   const db = getFirestore();
@@ -137,115 +139,87 @@
 </script>
 
 <div class="card p-4">
-  <h2 class="h3 mb-4">
-    {selectedBatch ? `Jobs in Batch ${selectedBatch.id.substring(0, 8)}...` : 'Select a Batch to View Jobs'}
-    {selectedBatch ? `(${jobs.length} of ${selectedBatch.jobIds?.length || 0})` : ''}
-  </h2>
+  <div class="flex justify-between items-center mb-4">
+    <h2 class="h3">
+      {selectedBatch ? `Jobs in Batch ${selectedBatch.id.substring(0, 8)}...` : 'Select a Batch to View Jobs'}
+      {selectedBatch ? `(${jobs.length} of ${selectedBatch.jobIds?.length || 0})` : ''}
+    </h2>
+    
+    {#if selectedBatch && selectedBatch.emailSent}
+      <button 
+        class="btn variant-soft-primary"
+        on:click={() => isEmailExpanded = !isEmailExpanded}
+      >
+        {isEmailExpanded ? 'Hide Email' : 'Show Email'}
+      </button>
+    {/if}
+  </div>
   
   <!-- Add email request info section -->
-  {#if selectedBatch && selectedBatch.emailSent}
-    <div class="card variant-soft-primary p-4 mb-4">
-      <h3 class="h4 mb-2">Email Status</h3>
-      {#if emailRequest}
-        <div class="grid grid-cols-2 gap-2 text-sm">
-          <div><strong>Email ID:</strong></div>
-          <div>{emailRequest.id}</div>
-          
-          <div><strong>Status:</strong></div>
-          <div class={
-            emailRequest.status === 'sent' ? 'text-success-500' :
-            emailRequest.status === 'error' ? 'text-error-500' :
-            emailRequest.status === 'pending' ? 'text-warning-500' :
-            'text-surface-900-50-token'
-          }>
-            {emailRequest.status || 'Unknown'}
-          </div>
-          
-          <div><strong>Recipient:</strong></div>
-          <div>{emailRequest.to || 'Unknown'}</div>
-          
-          <div><strong>Sent At:</strong></div>
-          <div>{emailRequest.sentAt ? new Date(emailRequest.sentAt.toDate()).toLocaleString() : 'N/A'}</div>
-          
-          <div><strong>Opened:</strong></div>
-          <div class={emailRequest.opened ? 'text-success-500' : 'text-surface-900-50-token'}>
-            {emailRequest.opened ? `Yes (${emailRequest.openCount || 1} times)` : 'No'}
-          </div>
-          
-          <div><strong>Clicked:</strong></div>
-          <div class={emailRequest.clicked ? 'text-success-500' : 'text-surface-900-50-token'}>
-            {emailRequest.clicked ? `Yes (${emailRequest.clickCount || 1} times)` : 'No'}
-          </div>
-          
-          <div><strong>Delivery:</strong></div>
-          <div class={
-            emailRequest.bounced ? 'text-error-500' :
-            emailRequest.delivered ? 'text-success-500' :
-            'text-surface-900-50-token'
-          }>
-            {emailRequest.bounced ? 'Bounced' : 
-             emailRequest.dropped ? 'Dropped' :
-             emailRequest.delivered ? 'Delivered' :
-             emailRequest.deferred ? 'Deferred' :
-             emailRequest.processed ? 'Processed' : 'Unknown'}
-          </div>
-        </div>
-      {:else}
-        <p>Email was sent, but no email record found.</p>
-      {/if}
-    </div>
+  {#if selectedBatch && selectedBatch.emailSent && isEmailExpanded}
+    <EmailRequestDetails 
+      emailRequest={emailRequest} 
+      isExpanded={true}
+    />
   {/if}
   
+  <!-- Jobs list -->
   {#if isLoading}
-    <div class="p-4 text-center">Loading jobs...</div>
+    <div class="text-center py-4">
+      <div class="spinner"></div>
+      <p class="mt-2">Loading jobs...</p>
+    </div>
   {:else if error}
-    <div class="p-4 bg-error-500/20 text-error-500 rounded">
+    <div class="alert alert-error">
       {error}
     </div>
-  {:else if !selectedBatch}
-    <div class="p-4 text-center">
-      <p>Select a batch from the table to view its jobs.</p>
-    </div>
   {:else if jobs.length === 0}
-    <div class="p-4 text-center">
-      <p>No jobs found in this batch.</p>
+    <div class="text-center py-4">
+      <p class="text-surface-900-50-token">No jobs found in this batch.</p>
     </div>
   {:else}
-    <div class="overflow-x-auto">
-      <table class="table table-compact w-full">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Job Title</th>
-            <th>Company</th>
-            <th>Location</th>
-            <th>Match Score</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each jobs as job}
-            <tr transition:fade={{duration: 200}}>
-              <td title={job.id}>{job.id.substring(0, 8)}...</td>
-              <td>{job.title}</td>
-              <td>{job.company}</td>
-              <td>{job.location}</td>
-              <td class="font-semibold {job.finalScore >= 80 ? 'text-success-500' : 
-                          job.finalScore >= 60 ? 'text-warning-500' : 'text-error-500'}">
-                {Math.round(job.finalScore * 100) / 100}
-              </td>
-              <td>
-                {#if job.url}
-                  <a href={job.url} target="_blank" rel="noopener noreferrer" 
-                     class="btn btn-sm variant-soft">
-                    View Job
-                  </a>
-                {/if}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
+    <div class="space-y-4">
+      {#each jobs as job}
+        <div class="card variant-soft p-4">
+          <h3 class="h4 mb-2">{job.title}</h3>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <div><strong>Company:</strong></div>
+            <div>{job.company}</div>
+            
+            <div><strong>Location:</strong></div>
+            <div>{job.location}</div>
+            
+            <div><strong>Match Score:</strong></div>
+            <div class="text-success-500">{job.finalScore}%</div>
+            
+            {#if job.url}
+              <div><strong>URL:</strong></div>
+              <div>
+                <a href={job.url} target="_blank" rel="noopener noreferrer" class="text-primary-500 hover:underline">
+                  View Job
+                </a>
+              </div>
+            {/if}
+          </div>
+        </div>
+      {/each}
     </div>
   {/if}
-</div> 
+</div>
+
+<style>
+  .spinner {
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #3498db;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+  }
+  
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+</style> 

@@ -9,6 +9,7 @@
     import timezone from 'dayjs/plugin/timezone';
     import localizedFormat from 'dayjs/plugin/localizedFormat';
     import BatchJobsList from '$lib/admincomponents/BatchJobsList.svelte';
+    import EmailRequestDetails from '$lib/admincomponents/EmailRequestDetails.svelte';
     
     // Props
     export let selectedBatchId = null;
@@ -50,6 +51,9 @@
     
     // Add new state for showing all batches
     let showAllBatches = false;
+    
+    // Add new state for email expansion - default to false
+    let isEmailExpanded = false;
     
     // Fetch all data on mount
     onMount(async () => {
@@ -475,14 +479,43 @@
       selectedBatch = null; // Reset batch selection
     }
     
-    // Modify batch selection handler to track loaded jobs
-    function selectBatch(batch) {
+    // Modify batch selection handler to track loaded jobs and load email request
+    async function selectBatch(batch) {
         if (selectedBatch?.id === batch.id) {
             selectedBatch = null;
+            isEmailExpanded = false;
         } else {
             selectedBatch = batch;
             loadedBatchJobs.add(batch.id);
             loadedBatchJobs = loadedBatchJobs; // trigger reactivity
+            
+            // Load email request data if the batch has an email
+            if (batch.emailSent) {
+                try {
+                    // First try to get emailRequestId directly from batch
+                    if (batch.emailRequestId) {
+                        const emailDoc = await getDoc(doc(db, 'emailRequests', batch.emailRequestId));
+                        if (emailDoc.exists()) {
+                            emailRequests[batch.id] = { id: emailDoc.id, ...emailDoc.data() };
+                        }
+                    } else {
+                        // If no emailRequestId, query by batchId
+                        const emailQuery = query(
+                            collection(db, 'emailRequests'),
+                            where('batchId', '==', batch.id)
+                        );
+                        const querySnapshot = await getDocs(emailQuery);
+                        if (!querySnapshot.empty) {
+                            const emailDoc = querySnapshot.docs[0];
+                            emailRequests[batch.id] = { id: emailDoc.id, ...emailDoc.data() };
+                        }
+                    }
+                    // Force reactivity update
+                    emailRequests = { ...emailRequests };
+                } catch (err) {
+                    console.error('Error loading email request:', err);
+                }
+            }
         }
     }
     
@@ -957,6 +990,14 @@
                                     </svg>
                                 {/if}
                             </button>
+                            {#if batch.emailSent}
+                                <button 
+                                    class="btn variant-soft-primary"
+                                    on:click={() => isEmailExpanded = !isEmailExpanded}
+                                >
+                                    {isEmailExpanded ? 'Hide Email' : 'Show Email'}
+                                </button>
+                            {/if}
                             <button 
                                 class="btn variant-filled-primary"
                                 on:click={() => selectBatch(batch)}
@@ -965,6 +1006,16 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- Email details - Independent container -->
+                    {#if batch.emailSent && isEmailExpanded && emailRequests[batch.id]}
+                        <div class="card p-4 mb-4">
+                            <EmailRequestDetails 
+                                emailRequest={emailRequests[batch.id]} 
+                                isExpanded={true}
+                            />
+                        </div>
+                    {/if}
 
                     <!-- Jobs list - Only show if batch is selected and jobs are loaded -->
                     {#if selectedBatch?.id === batch.id && loadedBatchJobs.has(batch.id)}
