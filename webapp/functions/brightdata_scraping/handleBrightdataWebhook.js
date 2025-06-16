@@ -585,7 +585,7 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
       - Consider different locations or remote options
       - Remove some filters like experience level or job type
       - Try using more general keywords
-      ${!searchTerms.includeSimilarRoles ? '- Try enabling "Fuzzy Match" in Advanced Options for broader job title matching' : ''}
+      ${!searchTerms.includeSimilarRoles ? '- Try adding additional job titles for a broader job title matching' : ''}
       
       Your Search Details:
       Keywords: ${searchTerms.keyword || 'N/A'}

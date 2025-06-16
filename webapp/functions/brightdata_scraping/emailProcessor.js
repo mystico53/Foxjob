@@ -51,6 +51,7 @@ exports.processEmailRequests = onDocumentCreated({
       let hasJobsToSend = false; // Flag to track if we have jobs to send
       let userFirstName = 'there'; // Default greeting if name can't be found
       let totalJobsCount = 0; // Will store the total jobs count from batch document
+      let dynamicSubject = ''; // Default empty subject line
       
       // Check if this is an empty search notification
       const isEmptySearchNotification = emailData.metadata?.type === 'empty_search_notification';
@@ -227,6 +228,24 @@ exports.processEmailRequests = onDocumentCreated({
                 
                 if (topJobs.length > 0) {
                   hasJobsToSend = true; // We have jobs to send
+                  
+                  // Create dynamic subject line from top 2 jobs
+                  if (topJobs.length >= 2) {
+                    const job1 = topJobs[0].doc.data();
+                    const job2 = topJobs[1].doc.data();
+                    const score1 = Math.round(job1.match?.final_score || 0);
+                    const score2 = Math.round(job2.match?.final_score || 0);
+                    const company1 = job1.basicInfo?.company || 'Company';
+                    const company2 = job2.basicInfo?.company || 'Company';
+                    const remainingJobs = totalJobsCount - 2;
+                    dynamicSubject = `${score1}% match at "${company1}" & ${score2}% at "${company2}"${remainingJobs > 0 ? ` and ${remainingJobs} more matched` : ''}`;
+                  } else if (topJobs.length === 1) {
+                    const job1 = topJobs[0].doc.data();
+                    const score1 = Math.round(job1.match?.final_score || 0);
+                    const company1 = job1.basicInfo?.company || 'Company';
+                    const remainingJobs = totalJobsCount - 1;
+                    dynamicSubject = `${score1}% match at "${company1}"${remainingJobs > 0 ? ` (${remainingJobs} more matched)` : ''}`;
+                  }
                   
                   // Add header for jobs section
                   jobsHtml = `
@@ -448,8 +467,8 @@ ${jobsText}`;
       // Construct the message with jobs appended and tracking parameters
       const msg = {
         to: emailData.to || 'konkaiser@gmail.com',
-        from: 'jobs@em6330.www.foxjob.io',
-        subject: emailData.subject || 'Email from Foxjob',
+        from: 'Foxjob<jobs@em6330.www.foxjob.io>',
+        subject: isEmptySearchNotification ? (emailData.subject || 'Email from Foxjob') : dynamicSubject,
         text: finalText,
         html: finalHtml,
         trackingSettings: {
