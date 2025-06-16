@@ -1,5 +1,5 @@
 <script>
-    import { onMount } from 'svelte';
+    import { onMount, createEventDispatcher } from 'svelte';
     import { collection, query, where, getDocs, orderBy, Timestamp } from 'firebase/firestore';
     import { formatDate } from '$lib/utilities/dateUtils';
     import { auth, db } from '$lib/firebase';
@@ -9,6 +9,7 @@
     let batchesByDay = new Map();
     let chartData = [];
     let selectedStatus = 'all';
+    const dispatch = createEventDispatcher();
 
     // Make the filtered batches reactive
     $: filteredBatches = (() => {
@@ -404,7 +405,12 @@
                                 <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                                     <div>
                                         <span class="font-medium">Batch ID</span>
-                                        <p class="font-mono text-sm">{batch.id}</p>
+                                        <button
+                                          class="font-mono text-sm text-primary-500 hover:underline cursor-pointer"
+                                          on:click={() => dispatch('jumpToBatch', { batchId: batch.id })}
+                                        >
+                                          {batch.id}
+                                        </button>
                                     </div>
                                     <div>
                                         <span class="font-medium">Status</span>

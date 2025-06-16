@@ -680,19 +680,14 @@
         }
     }
 
+    // Watch for changes to selectedBatchId and auto-select the batch
     $: if (selectedBatchId && jobBatches.length > 0) {
         const batch = jobBatches.find(b => b.id === selectedBatchId);
         if (batch) {
             selectedBatch = batch;
-            // Scroll the batch into view
-            setTimeout(() => {
-                const element = document.getElementById(`batch-${batch.id}`);
-                if (element) {
-                    element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                }
-            }, 100);
+            loadedBatchJobs.add(batch.id);
+            loadedBatchJobs = loadedBatchJobs; // trigger reactivity
         }
-        selectedBatchId = null; // Reset after handling
     }
 </script>
   

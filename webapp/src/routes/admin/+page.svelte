@@ -16,7 +16,7 @@
     function handleBatchSelect(event) {
         const { batchId } = event.detail;
         selectedBatchId = batchId;
-        currentView = 'batches';
+        activeTab = 'batches';
     }
 </script>
 
@@ -57,7 +57,7 @@
         <!-- Content -->
         <div class="md:col-span-3">
             {#if activeTab === 'dashboard'}
-                <AdminDashboard />
+                <AdminDashboard on:jumpToBatch={handleBatchSelect} />
             {:else if activeTab === 'batches'}
                 <AgentsOverview selectedBatchId={selectedBatchId} />
             {:else if activeTab === 'users'}
