@@ -64,6 +64,10 @@
   const unsubJobAgent = jobAgentStore.subscribe(state => {
     hasActiveAgent = state.hasActiveAgent;
     isCheckingAgent = state.isLoading;
+    // Sync jobEmailsEnabled with agent's isActive state
+    if (state.hasActiveAgent) {
+      jobEmailsEnabled = state.hasActiveAgent.isActive;
+    }
   });
   
   // Subscribe to the userStateStore to get resume status
@@ -154,21 +158,24 @@
       const queriesRef = collection(db, 'users', uid, 'searchQueries');
       
       // Query for active queries
-      // Note: Firebase v9 modular API requires a separate query constructor
       const q = query(queriesRef, where('isActive', '==', true), limit(1));
       const snapshot = await getDocs(q);
       
       if (!snapshot.empty) {
         // User has an active query
         const doc = snapshot.docs[0];
-        setJobAgentStatus(true, doc.id);
+        const queryData = doc.data();
+        setJobAgentStatus(true, doc.id, queryData.isActive);
+        jobEmailsEnabled = queryData.isActive;
       } else {
         // No active queries found
         setJobAgentStatus(false, null);
+        jobEmailsEnabled = true; // Default to true for new queries
       }
     } catch (error) {
       console.error("Error checking queries:", error);
       setJobAgentStatus(false, null);
+      jobEmailsEnabled = true; // Default to true on error
     } finally {
       setJobAgentLoading(false);
     }
@@ -290,6 +297,7 @@
   let limitPerInput = '50'; // Changed default to string value "50"
   let includeSimilarRoles = false; // New state variable for similar roles checkbox
   let jobEmailsEnabled = true;
+  let jobEmailsLoading = false;
   let deliveryTime = '08:00';
   let minimumScore = 50;
   const timeOptions = [
@@ -304,6 +312,9 @@
     editingAgentId = query.id;
     isEditing = true;
     showForm = true;  // Show the form when editing
+    
+    // Set jobEmailsEnabled based on query's isActive state
+    jobEmailsEnabled = query.isActive;
     
     // Extract search parameters from the first item in the array
     const searchParam = query.searchParams && query.searchParams.length > 0 
@@ -482,134 +493,157 @@
   }
   
   async function searchJobs() {
-  isLoading.set(true);
-  error = null;
+    isLoading.set(true);
+    error = null;
 
-  // Validate required fields
-  if (!keywords) {
-    error = 'Please enter a job title to search';
-    isLoading.set(false);
-    return;
-  }
-  
-  if (!location) {
-    error = 'Please enter a location';
-    isLoading.set(false);
-    return;
-  }
-  
-  if (!country) {
-    error = 'Please enter a country code';
-    isLoading.set(false);
-    return;
-  }
+    // Validate required fields
+    if (!keywords) {
+      error = 'Please enter a job title to search';
+      isLoading.set(false);
+      return;
+    }
+    
+    if (!location) {
+      error = 'Please enter a location';
+      isLoading.set(false);
+      return;
+    }
+    
+    if (!country) {
+      error = 'Please enter a country code';
+      isLoading.set(false);
+      return;
+    }
 
-  try {
-    // Save work preferences first
-    await saveWorkPreferences();
-    
-    // Use only the first selected workplace type - API doesn't accept multiple values
-    const remoteValue = selectedWorkplaceTypes.length > 0 ? selectedWorkplaceTypes[0] : '';
-    
-    // Format the keywords with OR operators if fuzzy match is enabled and additional titles exist
-    const formattedKeywords = includeSimilarRoles 
-      ? formatKeywords(keywords, additionalJobTitles)
-      : keywords.trim();
+    try {
+      // Save work preferences first
+      await saveWorkPreferences();
       
-    // Format display keywords for the UI (simpler version with count)
-    const displayKeywords = includeSimilarRoles && additionalJobTitles.some(title => title.trim() !== '')
-      ? formatKeywordsForDisplay(keywords, additionalJobTitles)
-      : keywords.trim();
-    
-    const searchPayload = [{
-      keyword: formattedKeywords,
-      displayKeyword: displayKeywords, // Add the display version
-      location: location?.trim() || '',
-      country: country || 'US', 
-      time_range: datePosted || 'Past 24 hours',
-      job_type: jobType || '',
-      experience_level: experience || '',
-      remote: remoteValue, // Use only the first selected value
-      includeSimilarRoles: includeSimilarRoles, // Add the new flag to the payload
-      // Add additionalJobTitles only if fuzzy match is enabled
-      ...(includeSimilarRoles ? { additionalJobTitles: additionalJobTitles.filter(title => title.trim() !== '') } : {}),
-      // Always save the main keyword for reliable editing
-      mainKeyword: keywords
-    }];
+      // Use only the first selected workplace type - API doesn't accept multiple values
+      const remoteValue = selectedWorkplaceTypes.length > 0 ? selectedWorkplaceTypes[0] : '';
+      
+      // Format the keywords with OR operators if fuzzy match is enabled and additional titles exist
+      const formattedKeywords = includeSimilarRoles 
+        ? formatKeywords(keywords, additionalJobTitles)
+        : keywords.trim();
+        
+      // Format display keywords for the UI (simpler version with count)
+      const displayKeywords = includeSimilarRoles && additionalJobTitles.some(title => title.trim() !== '')
+        ? formatKeywordsForDisplay(keywords, additionalJobTitles)
+        : keywords.trim();
+      
+      const searchPayload = [{
+        keyword: formattedKeywords,
+        displayKeyword: displayKeywords, // Add the display version
+        location: location?.trim() || '',
+        country: country || 'US', 
+        time_range: datePosted || 'Past 24 hours',
+        job_type: jobType || '',
+        experience_level: experience || '',
+        remote: remoteValue, // Use only the first selected value
+        includeSimilarRoles: includeSimilarRoles, // Add the new flag to the payload
+        // Add additionalJobTitles only if fuzzy match is enabled
+        ...(includeSimilarRoles ? { additionalJobTitles: additionalJobTitles.filter(title => title.trim() !== '') } : {}),
+        // Always save the main keyword for reliable editing
+        mainKeyword: keywords
+      }];
 
-    // Use the environment config to determine the correct URL
-    const searchUrl = getCloudFunctionUrl('searchBright');
-    
-    // Parse the limit from the radio button value
-    const limit = parseInt(limitPerInput);
-    
-    // Get time information in both local and UTC formats
-    const timeInfo = getUnixTimestampForDeliveryTime(deliveryTime);
-    const timezoneInfo = getTimezoneOffset();
-    
-    const requestBody = {
-      userId: uid,
-      searchParams: searchPayload,
-      limit: limit,
-      minimumScore: minimumScore, // Add minimumScore at the top level of the request
-      schedule: {
-        frequency: 'daily',
-        runImmediately: true,
-        // Send both local and UTC time formats
-        deliveryTime: timeInfo.utcTimeString, // Send the UTC time string
-        // Include both the string time and timestamps to ensure accuracy
-        timeInfo: {
-          timezoneOffset: timezoneInfo.offsetHours,
-          timezone: timezoneInfo.timezone,
-          localTime: timeInfo.localTimeString,
-          localTimestamp: timeInfo.timestamp,
-          utcTime: timeInfo.utcTimeString,
-          utcTimestamp: timeInfo.utcTimestamp
+      // Use the environment config to determine the correct URL
+      const searchUrl = getCloudFunctionUrl('searchBright');
+      
+      // Parse the limit from the radio button value
+      const limit = parseInt(limitPerInput);
+      
+      // Get time information in both local and UTC formats
+      const timeInfo = getUnixTimestampForDeliveryTime(deliveryTime);
+      const timezoneInfo = getTimezoneOffset();
+      
+      const requestBody = {
+        userId: uid,
+        searchParams: searchPayload,
+        limit: limit,
+        minimumScore: minimumScore,
+        schedule: {
+          frequency: 'daily',
+          runImmediately: true,
+          deliveryTime: timeInfo.utcTimeString,
+          timeInfo: {
+            timezoneOffset: timezoneInfo.offsetHours,
+            timezone: timezoneInfo.timezone,
+            localTime: timeInfo.localTimeString,
+            localTimestamp: timeInfo.timestamp,
+            utcTime: timeInfo.utcTimeString,
+            utcTimestamp: timeInfo.utcTimestamp
+          },
+          isActive: jobEmailsEnabled
         }
+      };
+      
+      // If editing, include the existing searchId
+      if (isEditing && editingAgentId) {
+        requestBody.schedule.searchId = editingAgentId;
       }
-    };
-    
-    // If editing, include the existing searchId
-    if (isEditing && editingAgentId) {
-      requestBody.schedule.searchId = editingAgentId;
+
+      const response = await fetch(searchUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      // Process the response
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Error: ${response.status}`);
+      }
+
+      const data = await response.json();
+      scrapeStore.set(data.jobs || []);
+      totalJobs.set(data.total || 0);
+      
+      // After successful creation/update, update the job agent status in the store
+      setJobAgentStatus(true, data.agentId || editingAgentId || null);
+      
+      // Reset editing state
+      isEditing = false;
+      editingAgentId = null;
+      showForm = false;  // Hide the form after successful submission
+      
+    } catch (err) {
+      error = err.message || 'An error occurred while searching for jobs';
+    } finally {
+      isLoading.set(false);
     }
-
-    const response = await fetch(searchUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody)
-    });
-
-    // Process the response
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.message || `Error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    scrapeStore.set(data.jobs || []);
-    totalJobs.set(data.total || 0);
-    
-    // After successful creation/update, update the job agent status in the store
-    setJobAgentStatus(true, data.agentId || editingAgentId || null);
-    
-    // Reset editing state
-    isEditing = false;
-    editingAgentId = null;
-    showForm = false;  // Hide the form after successful submission
-    
-  } catch (err) {
-    error = err.message || 'An error occurred while searching for jobs';
-  } finally {
-    isLoading.set(false);
   }
-}
 
-function setJobEmailsEnabled(val) { jobEmailsEnabled = val; }
-function setDeliveryTime(val) { deliveryTime = val; }
-function setMinimumScore(val) { minimumScore = val; }
+  // Update the setJobEmailsEnabled function to handle API calls
+  async function setJobEmailsEnabled(val) {
+    if (!hasActiveAgent || !hasActiveAgent.agentId) {
+      jobEmailsEnabled = val;
+      return;
+    }
+
+    jobEmailsLoading = true;
+    try {
+      // Update isActive directly in Firestore
+      const searchQueryRef = doc(db, 'users', uid, 'searchQueries', hasActiveAgent.agentId);
+      await updateDoc(searchQueryRef, {
+        isActive: val
+      });
+      
+      // Update local state
+      jobEmailsEnabled = val;
+    } catch (error) {
+      console.error('Error updating email status:', error);
+      jobEmailsEnabled = !val;
+    } finally {
+      jobEmailsLoading = false;
+    }
+  }
+
+  function setDeliveryTime(val) { deliveryTime = val; }
+  function setMinimumScore(val) { minimumScore = val; }
 </script>
 
 <style>
@@ -623,7 +657,7 @@ function setMinimumScore(val) { minimumScore = val; }
     <div class="flex justify-between items-center mb-4">
       <h2 class="text-xl font-bold">Your Job Agents</h2>
       <!-- Button styling based on whether there's an active agent and resume is uploaded -->
-      {#if (!hasActiveAgent || isEditing) && resumeUploaded}
+      {#if (!hasActiveAgent?.agentId || isEditing) && resumeUploaded}
       <button 
         on:click={toggleForm}
         class="py-2 px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-lg"
@@ -636,7 +670,7 @@ function setMinimumScore(val) { minimumScore = val; }
     
     <!-- Job Agent List or empty state message -->
     <div>
-      {#if !hasActiveAgent && !isCheckingAgent}
+      {#if !hasActiveAgent?.agentId && !isCheckingAgent}
         <p class="text-gray-500 text-center py-8">Your job agents will be listed here.</p>
       {:else}
         <JobAgentList on:edit={handleEditAgent} />
@@ -882,12 +916,13 @@ function setMinimumScore(val) { minimumScore = val; }
             
             <EmailDelivery
               {jobEmailsEnabled}
-              setJobEmailsEnabled={setJobEmailsEnabled}
+              {setJobEmailsEnabled}
               {deliveryTime}
-              setDeliveryTime={setDeliveryTime}
+              {setDeliveryTime}
               {timeOptions}
               {minimumScore}
-              setMinimumScore={setMinimumScore}
+              {setMinimumScore}
+              isLoading={jobEmailsLoading}
             />
             
             <!-- REPLACED: Daily Match Limit with Radio Buttons - KEEP THIS PART -->

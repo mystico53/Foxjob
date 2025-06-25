@@ -7,9 +7,13 @@
   export let deliveryTime = '08:00';
   export let minimumScore = 50;
   export let setMinimumScore = null;
+  export let isLoading = false;
 
-  function handleToggle(e) {
-    setJobEmailsEnabled?.(e.target.checked);
+  async function handleToggle(e) {
+    const newState = e.target.checked;
+    if (setJobEmailsEnabled) {
+      await setJobEmailsEnabled(newState);
+    }
   }
   function handleScore(val) {
     setMinimumScore?.(val);
@@ -21,8 +25,14 @@
   <div class="flex items-center justify-between mb-6">
     <span class="text-xl font-bold">Email Delivery</span>
     <div class="flex items-center">
-      <input id="job-emails-toggle" type="checkbox" checked={jobEmailsEnabled} on:change={handleToggle} class="toggle-checkbox" />
-      <span class="ml-2 font-semibold">{jobEmailsEnabled ? 'On' : 'Off'}</span>
+      <input id="job-emails-toggle" type="checkbox" checked={jobEmailsEnabled} on:change={handleToggle} disabled={isLoading} class="toggle-checkbox" />
+      <span class="ml-2 font-semibold">
+        {#if isLoading}
+          <span class="text-gray-500">Updating...</span>
+        {:else}
+          {jobEmailsEnabled ? 'On' : 'Off'}
+        {/if}
+      </span>
     </div>
   </div>
   <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">

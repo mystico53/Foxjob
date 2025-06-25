@@ -52,19 +52,27 @@ export function setExtensionStatus(isProductionInstalled, isDevInstalled, checkC
 }
 
 // Job Agent helper functions
-export function setJobAgentStatus(hasActiveAgent, agentId = null) {
+export function setJobAgentStatus(hasAgent, agentId, isActive = true) {
+    // Update both stores to maintain consistency
     userStateStore.update(state => ({
         ...state,
         jobAgent: {
             ...state.jobAgent,
-            hasActiveAgent,
-            agentId,
+            hasActiveAgent: hasAgent ? { agentId, isActive } : null,
+            isLoading: false,
             lastChecked: new Date()
         }
+    }));
+
+    jobAgentStore.update(state => ({
+        ...state,
+        hasActiveAgent: hasAgent ? { agentId, isActive } : null,
+        isLoading: false
     }));
 }
 
 export function setJobAgentLoading(isLoading) {
+    // Update both stores to maintain consistency
     userStateStore.update(state => ({
         ...state,
         jobAgent: {
@@ -72,30 +80,33 @@ export function setJobAgentLoading(isLoading) {
             isLoading
         }
     }));
-}
 
-export function resetJobAgentStatus() {
-    userStateStore.update(state => ({
+    jobAgentStore.update(state => ({
         ...state,
-        jobAgent: {
-            hasActiveAgent: false,
-            isLoading: false,
-            lastChecked: new Date(),
-            agentId: null
-        }
+        isLoading
     }));
 }
 
+export function resetJobAgentStatus() {
+    // Update both stores to maintain consistency
+    const resetState = {
+        hasActiveAgent: null,
+        isLoading: false
+    };
+
+    userStateStore.update(state => ({
+        ...state,
+        jobAgent: {
+            ...resetState,
+            lastChecked: new Date()
+        }
+    }));
+
+    jobAgentStore.set(resetState);
+}
+
 // Export jobAgentStore for components that need only job agent data
-export const jobAgentStore = {
-    subscribe: callback => {
-        return userStateStore.subscribe(state => {
-            callback({
-                hasActiveAgent: state.jobAgent.hasActiveAgent,
-                isLoading: state.jobAgent.isLoading,
-                lastChecked: state.jobAgent.lastChecked,
-                agentId: state.jobAgent.agentId
-            });
-        });
-    }
-};
+export const jobAgentStore = writable({
+    hasActiveAgent: null,
+    isLoading: false
+});
