@@ -80,27 +80,5 @@
   .toggle-checkbox:checked:before {
     transform: translateX(1rem);
   }
-  .clean-slider input[type="range"] {
-    background: linear-gradient(to right, #f97316 0%, #f97316 var(--percentage), #e5e7eb var(--percentage), #e5e7eb 100%);
-    box-shadow: none;
-    height: 6px;
-  }
-  .clean-slider input[type="range"]::-webkit-slider-thumb {
-    background: #f97316;
-    box-shadow: none;
-    border: 2px solid #fff;
-  }
-  .clean-slider input[type="range"]::-moz-range-thumb {
-    background: #f97316;
-    box-shadow: none;
-    border: 2px solid #fff;
-  }
-  .clean-slider input[type="range"]::-ms-thumb {
-    background: #f97316;
-    box-shadow: none;
-    border: 2px solid #fff;
-  }
-  .clean-slider .pips, .clean-slider .pip, .clean-slider .pip-text {
-    display: none;
-  }
+  
 </style> 

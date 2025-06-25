@@ -35,10 +35,22 @@ exports.processEmailRequests = onDocumentCreated({
       return;
     }
     
+    // Validate required fields
+    if (!emailData.searchId) {
+      logger.error('Missing searchId in email request', { requestId });
+      await event.data.ref.update({
+        status: 'error',
+        error: 'Missing searchId - required for unsubscribe functionality',
+        errorTimestamp: FieldValue.serverTimestamp()
+      });
+      return;
+    }
+    
     try {
       logger.info('Processing email request', { 
         requestId: requestId,
         userId: emailData.userId,
+        searchId: emailData.searchId,
         batchId: emailData.batchId 
       });
       
@@ -454,10 +466,7 @@ exports.processEmailRequests = onDocumentCreated({
             <div style="margin-top: 30px; padding: 20px; border-top: 1px solid #eee; text-align: center; font-size: 12px; color: #666;">
               <p>© ${new Date().getFullYear()} Foxjob. All rights reserved.</p>
               <p>
-                ${emailData.searchId ? 
-                  `<a href="https://www.foxjob.io/unsubscribe/${emailData.searchId}?token=${customToken}" style="color: #666; text-decoration: underline;">unsubscribe</a>` 
-                  : ''
-                }
+                <a href="https://www.foxjob.io/unsubscribe/${emailData.searchId}?token=${customToken}" style="color: #666; text-decoration: underline;">unsubscribe from this search</a>
               </p>
               ${trackingPixel}
             </div>

@@ -1,7 +1,7 @@
 <!-- AdminUsers.svelte -->
 <script>
     import { onMount } from 'svelte';
-    import { collection, getDocs, getFirestore, doc, getDoc, query, where, orderBy } from 'firebase/firestore';
+    import { collection, getDocs, getFirestore, doc, getDoc, query, where, orderBy, deleteDoc } from 'firebase/firestore';
     import { auth } from '$lib/firebase';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
@@ -26,6 +26,7 @@
     let userDetails = null;
     let activeTab = 'info'; // 'info', 'resume', 'preferences', or 'queries'
     let emailRequests = {};
+    let isDeleting = false;
 
     const dispatch = createEventDispatcher();
 
@@ -72,6 +73,52 @@
         } catch (err) {
             console.error('Error fetching users:', err);
             error = err.message;
+        }
+    }
+
+    // Delete user and all their data
+    async function deleteUser(user) {
+        if (!confirm(`Are you sure you want to delete user ${user.email}? This action cannot be undone.`)) {
+            return;
+        }
+
+        isDeleting = true;
+        try {
+            // Delete user document
+            await deleteDoc(doc(db, 'users', user.id));
+
+            // Delete user's collections
+            const collectionsToDelete = [
+                'UserCollections',
+                'jobs',
+                'processed',
+                'searchQueries',
+                'scrapedJobs'
+            ];
+
+            for (const collectionName of collectionsToDelete) {
+                const collectionRef = collection(db, `users/${user.id}/${collectionName}`);
+                const snapshot = await getDocs(collectionRef);
+                
+                const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+                await Promise.all(deletePromises);
+            }
+
+            // Remove user from local state
+            users = users.filter(u => u.id !== user.id);
+            
+            // If the deleted user was selected, clear the selection
+            if (selectedUser?.id === user.id) {
+                selectedUser = null;
+                userDetails = null;
+            }
+
+            console.log(`Successfully deleted user ${user.email} and all their data`);
+        } catch (err) {
+            console.error('Error deleting user:', err);
+            error = `Error deleting user: ${err.message}`;
+        } finally {
+            isDeleting = false;
         }
     }
 
@@ -268,6 +315,12 @@
     .divider {
         @apply border-t border-surface-300 my-4;
     }
+    .delete-button {
+        @apply btn variant-filled-error;
+    }
+    .delete-button:disabled {
+        @apply opacity-50 cursor-not-allowed;
+    }
 </style>
 
 <main class="container mx-auto text-black">
@@ -292,16 +345,29 @@
                 <h2 class="h3 mb-4 text-black">Users ({users.length})</h2>
                 <div class="space-y-2">
                     {#each users as user}
-                        <button 
-                            class="btn w-full {selectedUser?.id === user.id ? 'variant-filled-primary' : 'variant-ghost'} 
-                                   text-left justify-start h-auto py-2 text-black"
-                            on:click={() => selectUser(user)}
-                        >
-                            <div class="flex flex-col">
-                                <span class="font-semibold text-black">{user.displayName || 'No Name'}</span>
-                                <span class="text-sm text-black">{user.email || user.id}</span>
-                            </div>
-                        </button>
+                        <div class="flex items-center justify-between gap-2">
+                            <button 
+                                class="btn flex-grow {selectedUser?.id === user.id ? 'variant-filled-primary' : 'variant-ghost'} 
+                                       text-left justify-start h-auto py-2 text-black"
+                                on:click={() => selectUser(user)}
+                            >
+                                <div class="flex flex-col">
+                                    <span class="font-semibold text-black">{user.displayName || 'No Name'}</span>
+                                    <span class="text-sm text-black">{user.email || user.id}</span>
+                                </div>
+                            </button>
+                            <button 
+                                class="delete-button"
+                                disabled={isDeleting}
+                                on:click={() => deleteUser(user)}
+                            >
+                                {#if isDeleting && selectedUser?.id === user.id}
+                                    Deleting...
+                                {:else}
+                                    Delete
+                                {/if}
+                            </button>
+                        </div>
                     {/each}
                 </div>
             </div>

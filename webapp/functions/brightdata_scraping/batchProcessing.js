@@ -55,10 +55,18 @@ async function triggerEmailSending(userId, batchId) {
         return;
       }
       
+      // Get the searchId from the batch
+      const searchId = batchData.searchId;
+      if (!searchId) {
+        logger.error('Cannot create email request - batch is missing searchId', { batchId });
+        throw new Error('Batch is missing required searchId');
+      }
+      
       // Store the new email document in the transaction
       transaction.set(emailRequestRef, {
         userId: userId,
         batchId: batchId, // Explicitly set the batchId field for easier querying
+        searchId: searchId, // Add the searchId from the batch
         to: userEmail,
         subject: 'Your Top Job Matches Are Ready!',
         text: 'We\'ve analyzed your job matches and found some great opportunities for you.',
@@ -68,6 +76,7 @@ async function triggerEmailSending(userId, batchId) {
         // Add metadata for better tracking
         metadata: {
           batchId: batchId,
+          searchId: searchId, // Also include in metadata
           batchStatus: batchData.status,
           totalJobs: batchData.totalJobs || 0,
           completedJobs: batchData.completedJobs || 0

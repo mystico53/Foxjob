@@ -1,9 +1,11 @@
 <!-- BatchJobsList.svelte -->
 <script>
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, createEventDispatcher } from 'svelte';
   import { getFirestore, collection, getDocs, doc, getDoc, where, query } from 'firebase/firestore';
   import { fade } from 'svelte/transition';
   import EmailRequestDetails from './EmailRequestDetails.svelte';
+  
+  const dispatch = createEventDispatcher();
   
   // Props
   export let selectedBatch = null;
@@ -18,6 +20,10 @@
   
   // Initialize DB
   const db = getFirestore();
+  
+  function handleClose() {
+    dispatch('close');
+  }
   
   // Watch for changes in the selected batch
   $: if (selectedBatch && userId) {
@@ -45,7 +51,7 @@
       
       const jobSnapshots = await Promise.all(jobPromises);
       
-      // Process the job data
+      // Process the job data and sort by score
       jobs = jobSnapshots
         .filter(doc => doc.exists()) // Filter out any that don't exist
         .map(doc => {
@@ -61,12 +67,12 @@
             // Raw data for debugging
             rawData: data
           };
-        });
-      
-      isLoading = false;
+        })
+        .sort((a, b) => b.finalScore - a.finalScore); // Sort by score in descending order
     } catch (err) {
       console.error('Error loading batch jobs:', err);
       error = `Failed to load jobs: ${err.message}`;
+    } finally {
       isLoading = false;
     }
   }
@@ -138,73 +144,117 @@
   }
 </script>
 
-<div class="card p-4">
-  <div class="flex justify-between items-center mb-4">
-    <h2 class="h3">
-      {selectedBatch ? `Jobs in Batch ${selectedBatch.id.substring(0, 8)}...` : 'Select a Batch to View Jobs'}
-      {selectedBatch ? `(${jobs.length} of ${selectedBatch.jobIds?.length || 0})` : ''}
-    </h2>
-    
-    {#if selectedBatch && selectedBatch.emailSent}
-      <button 
-        class="btn variant-soft-primary"
-        on:click={() => isEmailExpanded = !isEmailExpanded}
-      >
-        {isEmailExpanded ? 'Hide Email' : 'Show Email'}
-      </button>
+<div class="h-full flex flex-col text-black" transition:fade={{ duration: 200 }}>
+  <!-- Sticky Header -->
+  <div class="sticky top-0 bg-surface-100-800-token p-4 border-b border-surface-300-600-token z-10">
+    <div class="flex justify-between items-center">
+      <h2 class="h3">
+        {#if selectedBatch}
+          <div class="text-lg font-semibold text-black">Jobs in Batch</div>
+          <div class="text-sm font-mono text-black">{selectedBatch.id}</div>
+          <div class="text-sm mt-1 text-black">
+            {jobs.length} of {selectedBatch.jobIds?.length || 0} jobs loaded
+          </div>
+        {:else}
+          Select a Batch to View Jobs
+        {/if}
+      </h2>
+      
+      <div class="flex items-center gap-2">
+        {#if selectedBatch && selectedBatch.emailSent}
+          <button 
+            class="btn variant-soft-primary"
+            on:click={() => isEmailExpanded = !isEmailExpanded}
+          >
+            {isEmailExpanded ? 'Hide Email' : 'Show Email'}
+          </button>
+        {/if}
+        
+        <!-- Close button -->
+        <button 
+          class="btn btn-icon variant-ghost-surface text-black"
+          on:click={handleClose}
+          title="Close"
+        >
+          <svg 
+            class="w-6 h-6" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            stroke-width="2"
+          >
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Add email request info section -->
+    {#if selectedBatch && selectedBatch.emailSent && isEmailExpanded}
+      <div class="mt-4">
+        <EmailRequestDetails 
+          emailRequest={emailRequest} 
+          isExpanded={true}
+        />
+      </div>
     {/if}
   </div>
-  
-  <!-- Add email request info section -->
-  {#if selectedBatch && selectedBatch.emailSent && isEmailExpanded}
-    <EmailRequestDetails 
-      emailRequest={emailRequest} 
-      isExpanded={true}
-    />
-  {/if}
-  
-  <!-- Jobs list -->
-  {#if isLoading}
-    <div class="text-center py-4">
-      <div class="spinner"></div>
-      <p class="mt-2">Loading jobs...</p>
-    </div>
-  {:else if error}
-    <div class="alert alert-error">
-      {error}
-    </div>
-  {:else if jobs.length === 0}
-    <div class="text-center py-4">
-      <p class="text-surface-900-50-token">No jobs found in this batch.</p>
-    </div>
-  {:else}
-    <div class="space-y-4">
-      {#each jobs as job}
-        <div class="card variant-soft p-4">
-          <h3 class="h4 mb-2">{job.title}</h3>
-          <div class="grid grid-cols-2 gap-2 text-sm">
-            <div><strong>Company:</strong></div>
-            <div>{job.company}</div>
-            
-            <div><strong>Location:</strong></div>
-            <div>{job.location}</div>
-            
-            <div><strong>Match Score:</strong></div>
-            <div class="text-success-500">{job.finalScore}%</div>
-            
-            {#if job.url}
-              <div><strong>URL:</strong></div>
-              <div>
-                <a href={job.url} target="_blank" rel="noopener noreferrer" class="text-primary-500 hover:underline">
-                  View Job
-                </a>
-              </div>
-            {/if}
+
+  <!-- Scrollable Content -->
+  <div class="flex-1 overflow-y-auto p-4">
+    {#if isLoading}
+      <div class="text-center py-4">
+        <div class="spinner"></div>
+        <p class="mt-2 text-black">Loading jobs...</p>
+      </div>
+    {:else if error}
+      <div class="alert variant-filled-error p-4">
+        {error}
+      </div>
+    {:else if jobs.length === 0}
+      <div class="text-center py-4">
+        <p class="text-black">No jobs found in this batch.</p>
+      </div>
+    {:else}
+      <div class="space-y-4">
+        {#each jobs as job}
+          <div class="card variant-soft p-4 hover:variant-soft-primary transition-colors">
+            <h3 class="h4 mb-2 text-black">{job.title}</h3>
+            <div class="grid grid-cols-[auto,1fr] gap-x-4 gap-y-2 text-sm">
+              <div class="font-semibold text-black">Company:</div>
+              <div class="text-black">{job.company}</div>
+              
+              <div class="font-semibold text-black">Location:</div>
+              <div class="text-black">{job.location}</div>
+              
+              <div class="font-semibold text-black">Match Score:</div>
+              <div class="text-success-500 font-semibold">{job.finalScore}%</div>
+              
+              {#if job.url}
+                <div class="font-semibold text-black">URL:</div>
+                <div>
+                  <a 
+                    href={job.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    class="text-primary-500 hover:underline inline-flex items-center gap-1"
+                  >
+                    View Job
+                    <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                      <polyline points="15 3 21 3 21 9"></polyline>
+                      <line x1="10" y1="14" x2="21" y2="3"></line>
+                    </svg>
+                  </a>
+                </div>
+              {/if}
+            </div>
           </div>
-        </div>
-      {/each}
-    </div>
-  {/if}
+        {/each}
+      </div>
+    {/if}
+  </div>
 </div>
 
 <style>
@@ -221,5 +271,29 @@
   @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+  }
+
+  /* Hide scrollbar for cleaner look */
+  .overflow-y-auto {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-surface-300) transparent;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .overflow-y-auto::-webkit-scrollbar-thumb {
+    background-color: var(--color-surface-300);
+    border-radius: 3px;
+  }
+
+  /* Add hover effect for close button */
+  .btn-icon:hover {
+    background-color: var(--color-surface-200);
   }
 </style> 

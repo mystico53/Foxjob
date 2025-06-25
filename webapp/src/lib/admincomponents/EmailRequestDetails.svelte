@@ -42,7 +42,18 @@
 </script>
 
 <div class="card variant-soft-primary p-4 mb-4">
-  <div class="flex justify-between items-center cursor-pointer" on:click={() => isExpanded = !isExpanded}>
+  <div 
+    class="flex justify-between items-center cursor-pointer" 
+    role="button"
+    tabindex="0"
+    on:click={() => isExpanded = !isExpanded}
+    on:keydown={e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        isExpanded = !isExpanded;
+      }
+    }}
+  >
     <h3 class="h4 mb-2">Email Request Details</h3>
     <button class="btn variant-ghost" aria-label={isExpanded ? 'Collapse' : 'Expand'}>
       {isExpanded ? '▼' : '▶'}

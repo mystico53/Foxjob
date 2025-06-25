@@ -605,17 +605,18 @@ async function sendEmptySearchEmailNotification(userId, searchId) {
     await emailRequestRef.set({
       userId: userId,
       to: userEmail,
+      searchId: searchId,
       subject: 'No Jobs Found - Try Broadening Your Search',
       text: textContent,
       html: htmlContent,
       status: 'pending',
       createdAt: FieldValue.serverTimestamp(),
-      searchId: searchId,
-      batchId: batchId, // Add the batch ID if we found one
+      batchId: batchId,
       metadata: {
         type: 'empty_search_notification',
+        searchId: searchId,
         searchParams: searchParams,
-        batchId: batchId // Include batch ID in metadata too
+        batchId: batchId
       }
     });
     
