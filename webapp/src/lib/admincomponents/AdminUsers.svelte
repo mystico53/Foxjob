@@ -296,30 +296,26 @@
 
     // Function to handle toggle change
     async function handleQueryToggle(queryId, newState) {
-        if (!selectedUser) return;
+        if (!selectedUser || !queryId) return;
         
         updatingQueryId = queryId;
         try {
+            // Update Firestore directly
             const queryRef = doc(db, 'users', selectedUser.id, 'searchQueries', queryId);
             await updateDoc(queryRef, {
                 isActive: newState
             });
             
             // Update local state
-            userDetails.searchQueries = userDetails.searchQueries.map(query => 
-                query.id === queryId ? { ...query, isActive: newState } : query
-            );
-
-            // Update job agent store if this is the current user
-            if (selectedUser.id === auth.currentUser?.uid) {
-                setJobAgentStatus(true, queryId, newState);
-            }
+            userDetails.searchQueries = userDetails.searchQueries.map(query => {
+                if (query.id === queryId) {
+                    return { ...query, isActive: newState };
+                }
+                return query;
+            });
         } catch (err) {
             console.error('Error updating query status:', err);
-            // Revert the change in UI if there's an error
-            userDetails.searchQueries = userDetails.searchQueries.map(query => 
-                query.id === queryId ? { ...query, isActive: !newState } : query
-            );
+            error = err.message;
         } finally {
             updatingQueryId = null;
         }
