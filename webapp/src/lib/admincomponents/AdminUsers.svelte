@@ -221,9 +221,11 @@
     function formatDate(timestamp) {
         if (!timestamp) return 'N/A';
         try {
+            // If it's a Firebase timestamp, convert to JS Date
             const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-            return date.toLocaleString();
+            return dayjs(date).format('MMM D, YYYY h:mm A'); // Example: "Jun 25, 2025 12:27 PM"
         } catch (err) {
+            console.error('Error formatting date:', err);
             return 'Invalid date';
         }
     }
@@ -316,10 +318,32 @@
         @apply border-t border-surface-300 my-4;
     }
     .delete-button {
-        @apply btn variant-filled-error;
+        @apply btn variant-soft-error hover:variant-filled-error;
     }
     .delete-button:disabled {
         @apply opacity-50 cursor-not-allowed;
+    }
+    .user-row {
+        @apply relative flex items-center;
+    }
+    .user-button {
+        @apply w-full pr-12;  /* Add padding on the right to make room for the delete button */
+    }
+    .delete-button-container {
+        @apply absolute right-2;
+    }
+    .loading-spinner {
+        @apply animate-spin;
+        display: inline-block;
+        width: 1rem;
+        height: 1rem;
+        border: 2px solid currentColor;
+        border-right-color: transparent;
+        border-radius: 50%;
+        margin-right: 0.5rem;
+    }
+    .details-header {
+        @apply flex items-center justify-between mb-4;
     }
 </style>
 
@@ -345,29 +369,16 @@
                 <h2 class="h3 mb-4 text-black">Users ({users.length})</h2>
                 <div class="space-y-2">
                     {#each users as user}
-                        <div class="flex items-center justify-between gap-2">
-                            <button 
-                                class="btn flex-grow {selectedUser?.id === user.id ? 'variant-filled-primary' : 'variant-ghost'} 
-                                       text-left justify-start h-auto py-2 text-black"
-                                on:click={() => selectUser(user)}
-                            >
-                                <div class="flex flex-col">
-                                    <span class="font-semibold text-black">{user.displayName || 'No Name'}</span>
-                                    <span class="text-sm text-black">{user.email || user.id}</span>
-                                </div>
-                            </button>
-                            <button 
-                                class="delete-button"
-                                disabled={isDeleting}
-                                on:click={() => deleteUser(user)}
-                            >
-                                {#if isDeleting && selectedUser?.id === user.id}
-                                    Deleting...
-                                {:else}
-                                    Delete
-                                {/if}
-                            </button>
-                        </div>
+                        <button 
+                            class="btn w-full {selectedUser?.id === user.id ? 'variant-filled-primary' : 'variant-ghost'} 
+                                   text-left justify-start h-auto py-2 text-black"
+                            on:click={() => selectUser(user)}
+                        >
+                            <div class="flex flex-col">
+                                <span class="font-semibold text-black">{user.displayName || 'No Name'}</span>
+                                <span class="text-sm text-black">{user.email || user.id}</span>
+                            </div>
+                        </button>
                     {/each}
                 </div>
             </div>
@@ -376,6 +387,27 @@
             {#if selectedUser}
                 <div class="col-span-2">
                     <div class="card p-6">
+                        <!-- Details Header with Delete Button -->
+                        <div class="details-header">
+                            <div>
+                                <h2 class="h3 text-black">{selectedUser.displayName || 'User Details'}</h2>
+                                <p class="text-sm text-black">{selectedUser.email}</p>
+                            </div>
+                            <button 
+                                class="delete-button"
+                                disabled={isDeleting}
+                                on:click={() => deleteUser(selectedUser)}
+                                title="Delete user"
+                            >
+                                {#if isDeleting}
+                                    <span class="loading-spinner"></span>
+                                    Deleting User...
+                                {:else}
+                                    Delete User
+                                {/if}
+                            </button>
+                        </div>
+
                         <!-- Tabs -->
                         <div class="flex space-x-2 mb-4">
                             <button 
@@ -410,7 +442,7 @@
                                             </div>
                                             <div>
                                                 <span class="info-label">Last Sign In</span>
-                                                <p class="info-value">{selectedUser.lastSignIn || 'Never'}</p>
+                                                <p class="info-value">{formatDate(selectedUser.lastSignIn) || 'Never'}</p>
                                             </div>
                                         </div>
                                     </div>

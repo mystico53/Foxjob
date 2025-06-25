@@ -5,6 +5,18 @@ import { goto } from '$app/navigation';
 const publicRoutes = ['/landing', '/login', '/'];
 
 /** @type {import('@sveltejs/kit').HandleClientError} */
+export function handleError({ error }) {
+    console.error('Client error:', error);
+    return { message: error.message };
+}
+
+/** @type {import('@sveltejs/kit').HandleClientInit} */
+export function init() {
+    // Initialize any client-side resources
+    return {};
+}
+
+/** @type {import('@sveltejs/kit').HandleClientNavigate} */
 export async function handleNavigate({ to }) {
     // If trying to access a protected route
     if (!publicRoutes.includes(to.pathname)) {

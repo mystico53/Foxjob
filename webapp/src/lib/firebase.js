@@ -7,8 +7,7 @@ import {
     browserLocalPersistence, 
     GoogleAuthProvider, 
     signInWithPopup,
-    signOut,
-    connectAuthEmulator
+    signOut
 } from "firebase/auth";
 import { getFirestore, connectFirestoreEmulator } from "firebase/firestore";
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
