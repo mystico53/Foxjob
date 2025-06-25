@@ -157,18 +157,18 @@
       // Get a reference to the user's searchQueries collection
       const queriesRef = collection(db, 'users', uid, 'searchQueries');
       
-      // Query for active queries
-      const q = query(queriesRef, where('isActive', '==', true), limit(1));
+      // Query for any queries (not just active ones)
+      const q = query(queriesRef, limit(1));
       const snapshot = await getDocs(q);
       
       if (!snapshot.empty) {
-        // User has an active query
+        // User has a query
         const doc = snapshot.docs[0];
         const queryData = doc.data();
         setJobAgentStatus(true, doc.id, queryData.isActive);
         jobEmailsEnabled = queryData.isActive;
       } else {
-        // No active queries found
+        // No queries found
         setJobAgentStatus(false, null);
         jobEmailsEnabled = true; // Default to true for new queries
       }

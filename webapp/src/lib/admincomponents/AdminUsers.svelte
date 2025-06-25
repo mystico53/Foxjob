@@ -1,13 +1,14 @@
 <!-- AdminUsers.svelte -->
 <script>
     import { onMount } from 'svelte';
-    import { collection, getDocs, getFirestore, doc, getDoc, query, where, orderBy, deleteDoc } from 'firebase/firestore';
+    import { collection, getDocs, getFirestore, doc, getDoc, query, where, orderBy, deleteDoc, updateDoc } from 'firebase/firestore';
     import { auth } from '$lib/firebase';
     import dayjs from 'dayjs';
     import utc from 'dayjs/plugin/utc';
     import timezone from 'dayjs/plugin/timezone';
     import localizedFormat from 'dayjs/plugin/localizedFormat';
     import { createEventDispatcher } from 'svelte';
+    import { setJobAgentStatus } from '$lib/stores/userStateStore';
 
     // Initialize dayjs plugins
     dayjs.extend(utc);
@@ -27,6 +28,7 @@
     let activeTab = 'info'; // 'info', 'resume', 'preferences', or 'queries'
     let emailRequests = {};
     let isDeleting = false;
+    let updatingQueryId = null;
 
     const dispatch = createEventDispatcher();
 
@@ -291,6 +293,37 @@
     function navigateToBatch(batchId) {
         dispatch('selectBatch', { batchId });
     }
+
+    // Function to handle toggle change
+    async function handleQueryToggle(queryId, newState) {
+        if (!selectedUser) return;
+        
+        updatingQueryId = queryId;
+        try {
+            const queryRef = doc(db, 'users', selectedUser.id, 'searchQueries', queryId);
+            await updateDoc(queryRef, {
+                isActive: newState
+            });
+            
+            // Update local state
+            userDetails.searchQueries = userDetails.searchQueries.map(query => 
+                query.id === queryId ? { ...query, isActive: newState } : query
+            );
+
+            // Update job agent store if this is the current user
+            if (selectedUser.id === auth.currentUser?.uid) {
+                setJobAgentStatus(true, queryId, newState);
+            }
+        } catch (err) {
+            console.error('Error updating query status:', err);
+            // Revert the change in UI if there's an error
+            userDetails.searchQueries = userDetails.searchQueries.map(query => 
+                query.id === queryId ? { ...query, isActive: !newState } : query
+            );
+        } finally {
+            updatingQueryId = null;
+        }
+    }
 </script>
 
 <style>
@@ -344,6 +377,22 @@
     }
     .details-header {
         @apply flex items-center justify-between mb-4;
+    }
+    .toggle-switch {
+        @apply w-11 h-6 bg-gray-200 rounded-full dark:bg-gray-700;
+    }
+    .toggle-switch::after {
+        content: '';
+        @apply absolute top-[2px] left-[2px] bg-white border-gray-300 border rounded-full h-5 w-5 transition-all;
+    }
+    :global(.peer:checked) ~ .toggle-switch {
+        @apply bg-orange-500;
+    }
+    :global(.peer:checked) ~ .toggle-switch::after {
+        @apply translate-x-full border-white;
+    }
+    :global(.peer:focus) ~ .toggle-switch {
+        @apply ring-4 ring-orange-300 dark:ring-orange-800;
     }
 </style>
 
@@ -507,7 +556,25 @@
                                                                 </div>
                                                                 <div>
                                                                     <span class="info-label">Status</span>
-                                                                    <p class="info-value font-semibold">{query.isActive ? 'Active' : 'Inactive'}</p>
+                                                                    <div class="flex items-center gap-2">
+                                                                        <label class="relative inline-flex items-center cursor-pointer">
+                                                                            <input 
+                                                                                type="checkbox" 
+                                                                                class="sr-only peer"
+                                                                                checked={query.isActive}
+                                                                                on:change={(e) => handleQueryToggle(query.id, e.target.checked)}
+                                                                                disabled={updatingQueryId === query.id}
+                                                                            >
+                                                                            <div class="toggle-switch"></div>
+                                                                        </label>
+                                                                        <span class="text-sm">
+                                                                            {#if updatingQueryId === query.id}
+                                                                                Updating...
+                                                                            {:else}
+                                                                                {query.isActive ? 'Active' : 'Inactive'}
+                                                                            {/if}
+                                                                        </span>
+                                                                    </div>
                                                                 </div>
                                                             </div>
                                                         </div>
