@@ -626,11 +626,46 @@
 
     jobEmailsLoading = true;
     try {
-      // Update isActive directly in Firestore
       const searchQueryRef = doc(db, 'users', uid, 'searchQueries', hasActiveAgent.agentId);
-      await updateDoc(searchQueryRef, {
-        isActive: val
-      });
+      
+      if (!val) {
+        // If turning off, just update Firestore directly
+        await updateDoc(searchQueryRef, {
+          isActive: false
+        });
+        // Update the job agent store
+        setJobAgentStatus(true, hasActiveAgent.agentId, false);
+      } else {
+        // If turning on, get current data and call searchBright
+        const queryDoc = await getDoc(searchQueryRef);
+        const queryData = queryDoc.data();
+        
+        const searchUrl = getCloudFunctionUrl('searchBright');
+        const response = await fetch(searchUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: uid,
+            searchParams: queryData.searchParams,
+            limit: queryData.limit || 100,
+            schedule: {
+              searchId: hasActiveAgent.agentId,
+              frequency: queryData.frequency || 'daily',
+              isActive: true,
+              deliveryTime: queryData.deliveryTime || '08:00'
+            }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Update the job agent store
+        setJobAgentStatus(true, hasActiveAgent.agentId, true);
+      }
       
       // Update local state
       jobEmailsEnabled = val;

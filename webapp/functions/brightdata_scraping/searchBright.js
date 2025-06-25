@@ -151,14 +151,43 @@ exports.searchBright = onRequest({
           // Check if document exists
           const docSnapshot = await searchRef.get();
           
+          // If isActive is false, just update the document and return
+          if (isActive === false) {
+            if (docSnapshot.exists) {
+              await searchRef.update({
+                isActive: false,
+                updatedAt: FieldValue.serverTimestamp()
+              });
+            } else {
+              await searchRef.set({
+                searchParams,
+                limit: limit || 100,
+                frequency,
+                deliveryTime,
+                minimumScore: validatedScore,
+                isActive: false,
+                createdAt: FieldValue.serverTimestamp(),
+                lastRun: null,
+                nextRun: null,
+                processingStatus: 'online'
+              });
+            }
+            
+            return res.json({
+              status: 'success',
+              message: 'Search query deactivated successfully',
+              searchId: searchId
+            });
+          }
+
           if (docSnapshot.exists) {
             // Update existing document instead of creating a new one
             await searchRef.update({
               searchParams,
               limit: limit || 100,
               frequency,
-              deliveryTime, // Store the delivery time
-              minimumScore: validatedScore, // Store the validated minimum score
+              deliveryTime,
+              minimumScore: validatedScore,
               isActive: isActive ?? true,
               updatedAt: FieldValue.serverTimestamp(),
               nextRun: calculateNextRunTime(frequency, deliveryTime)
