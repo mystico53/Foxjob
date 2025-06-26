@@ -76,9 +76,14 @@ exports.processEmailRequests = onDocumentCreated({
       // Get user's display name if we have a user ID
       if (uid) {
         try {
-          // Create a custom token for unsubscribe link
+          // Create a signed JWT token for unsubscribe verification
           const auth = admin.auth();
-          customToken = await auth.createCustomToken(uid);
+          const tokenData = {
+            uid: uid,
+            searchId: emailData.searchId,
+            exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30) // 30 days expiry
+          };
+          customToken = await auth.createCustomToken(uid, tokenData);
           logger.info('Created custom token for unsubscribe link');
 
           // Fetch the user document to get the user's display name
