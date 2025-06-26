@@ -26,8 +26,8 @@
   dayjs.extend(utc);
   dayjs.extend(timezone);
 
+  // ✅ DECLARE ALL VARIABLES BEFORE ANY SUBSCRIPTIONS
   let uid;
-  // Hardcoded to true as requested
   let scheduleSearch = true;
   let error = null;
   
@@ -38,14 +38,8 @@
   // Variables to track editing state
   let editingAgentId = null;
   let isEditing = false;
-  
-  // New variable to control form visibility
   let showForm = false;
-  
-  // New variable for advanced options visibility
   let showAdvanced = false;
-  
-  // New variable to track resume upload status
   let resumeUploaded = false;
   
   // For workplace type pill selection
@@ -60,11 +54,35 @@
   // Additional job titles array
   let additionalJobTitles = [''];
   
-  // Subscribe to the job agent store
+  // ✅ THESE MUST BE DECLARED BEFORE THE SUBSCRIPTIONS!
+  let jobEmailsEnabled = true;
+  let jobEmailsLoading = false;
+  let deliveryTime = '08:00';
+  let minimumScore = 50;
+  
+  // Form state variables
+  let keywords = '';
+  let location = '';
+  let jobType = '';
+  let experience = '';
+  let workplaceType = '';
+  let datePosted = 'Past month';
+  let country = 'US';
+  let limitPerInput = '50';
+  let includeSimilarRoles = false;
+
+  // Constants
+  const timeOptions = [
+    { value: '08:00', label: '8:00 AM' },
+    { value: '12:00', label: '12:00 PM' },
+    { value: '18:00', label: '6:00 PM' },
+  ];
+
+  // ✅ NOW the subscriptions can safely use these variables
   const unsubJobAgent = jobAgentStore.subscribe(state => {
     hasActiveAgent = state.hasActiveAgent;
     isCheckingAgent = state.isLoading;
-    // Sync jobEmailsEnabled with agent's isActive state
+    // This now works because jobEmailsEnabled is declared above!
     if (state.hasActiveAgent) {
       jobEmailsEnabled = state.hasActiveAgent.isActive;
     }
@@ -203,27 +221,11 @@
   async function saveWorkPreferences() {
     try {
       const prefDocRef = doc(db, 'users', uid, 'UserCollections', 'work_preferences');
-      
-      // First check if document exists
-      const prefSnap = await getDoc(prefDocRef);
-      
-      const updateData = {
+      await setDoc(prefDocRef, {
         preferences: workPreferences.preferences,
         avoidance: workPreferences.avoidance,
-        updatedAt: new Date(),
-        status: 'completed'
-      };
-      
-      if (prefSnap.exists()) {
-        // Update existing document
-        await updateDoc(prefDocRef, updateData);
-      } else {
-        // Create new document
-        await setDoc(prefDocRef, {
-          ...updateData,
-          createdAt: new Date()
-        });
-      }
+        updatedAt: new Date()
+      }, { merge: true });
     } catch (err) {
       console.error('Error saving work preferences:', err);
     }
@@ -259,7 +261,6 @@
     }
   }
 
-  // Form options remain the same
   const jobTypes = [
     { value: 'Full-time', label: 'Full-time' },
     { value: 'Part-time', label: 'Part-time' },
@@ -284,26 +285,6 @@
     { value: 'On-site', label: 'On-site' },
     { value: 'Remote', label: 'Remote' },
     { value: 'Hybrid', label: 'Hybrid' }
-  ];
-
-  // Form state with removed company field
-  let keywords = '';
-  let location = '';
-  let jobType = '';
-  let experience = '';
-  let workplaceType = '';
-  let datePosted = 'Past month'; // Changed default to 30 days
-  let country = 'US';
-  let limitPerInput = '50'; // Changed default to string value "50"
-  let includeSimilarRoles = false; // New state variable for similar roles checkbox
-  let jobEmailsEnabled = true;
-  let jobEmailsLoading = false;
-  let deliveryTime = '08:00';
-  let minimumScore = 50;
-  const timeOptions = [
-    { value: '08:00', label: '8:00 AM' },
-    { value: '12:00', label: '12:00 PM' },
-    { value: '18:00', label: '6:00 PM' },
   ];
 
   // Function to handle the edit event from JobAgentList
@@ -617,13 +598,8 @@
     }
   }
 
-  // Update the setJobEmailsEnabled function to handle API calls
-  async function setJobEmailsEnabled(val) {
-    if (!hasActiveAgent || !hasActiveAgent.agentId) {
-      jobEmailsEnabled = val;
-      return;
-    }
-
+  // Function to update email delivery status
+  async function updateEmailDelivery(val) {
     jobEmailsLoading = true;
     try {
       const searchQueryRef = doc(db, 'users', uid, 'searchQueries', hasActiveAgent.agentId);
@@ -951,7 +927,7 @@
             
             <EmailDelivery
               {jobEmailsEnabled}
-              {setJobEmailsEnabled}
+              {updateEmailDelivery}
               {deliveryTime}
               {setDeliveryTime}
               {timeOptions}

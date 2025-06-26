@@ -47,7 +47,7 @@
 			document.removeEventListener('click', handleClick, true);
 			}
 		};
-		}
+	}
 
 	async function handleLogout() {
 		try {
@@ -56,10 +56,6 @@
 		} catch (err) {
 			console.error('Error signing out:', err);
 		}
-	}
-
-	$: if (!$authStore) {
-		handleLogout();
 	}
 </script>
 

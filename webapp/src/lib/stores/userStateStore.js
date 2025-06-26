@@ -1,6 +1,12 @@
 // $lib/stores/userStateStore.js
 import { writable } from 'svelte/store';
 
+// ✅ DECLARE jobAgentStore FIRST before using it in functions
+export const jobAgentStore = writable({
+    hasActiveAgent: null,
+    isLoading: false
+});
+
 // Combined initial state
 const initialState = {
     resume: {
@@ -104,9 +110,3 @@ export function resetJobAgentStatus() {
 
     jobAgentStore.set(resetState);
 }
-
-// Export jobAgentStore for components that need only job agent data
-export const jobAgentStore = writable({
-    hasActiveAgent: null,
-    isLoading: false
-});
