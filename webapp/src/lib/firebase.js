@@ -24,17 +24,11 @@ let authStateUnsubscribe = null;
 
 function initializeFirebase() {
   if (!getApps().length) {
-    console.log('Initializing Firebase with config:', {
-      authDomain: firebaseConfig.authDomain,
-      projectId: firebaseConfig.projectId,
-      // Don't log the actual API key for security
-      apiKeyLength: firebaseConfig.apiKey?.length
-    });
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
 
     auth.onAuthStateChanged((user) => {
-      console.log(`[${new Date().toISOString()}] Auth state changed:`, user?.uid || 'null');
+      // Auth state change handled by store update
     });
 
     const db = getFirestore(app);
@@ -43,14 +37,6 @@ function initializeFirebase() {
     // Set up the auth state listener
     if (browser) {
       authStateUnsubscribe = auth.onAuthStateChanged((user) => {
-        const timestamp = new Date().toISOString();
-        console.log(`[${timestamp}] Firebase auth state changed:`, {
-          uid: user?.uid || 'null',
-          email: user?.email,
-          emailVerified: user?.emailVerified,
-          provider: user?.providerData?.[0]?.providerId
-        });
-        
         // Update the Svelte store
         authState.set(user);
       });
@@ -64,7 +50,9 @@ function initializeFirebase() {
 
       // Set up auth persistence
       setPersistence(auth, browserLocalPersistence)
-        .catch((error) => console.error("Error setting authentication persistence:", error));
+        .catch((error) => {
+          // Handle persistence error silently
+        });
 
       const analytics = import.meta.env.MODE !== 'development' ? getAnalytics(app) : null;
       return { app, auth, db, functions, analytics };
@@ -88,9 +76,6 @@ if (browser) {
 }
 
 export async function signInWithGoogle() {
-  const timestamp = new Date().toISOString();
-  console.log(`[${timestamp}] Google sign-in flow started`);
-  
   try {
     const provider = new GoogleAuthProvider();
     // Force popup mode and select account prompt
@@ -99,19 +84,8 @@ export async function signInWithGoogle() {
     });
     
     const result = await signInWithPopup(auth, provider);
-    console.log(`[${timestamp}] Google sign-in successful:`, {
-      uid: result.user.uid,
-      email: result.user.email,
-      provider: result.user.providerData[0]?.providerId
-    });
     return result.user;
   } catch (error) {
-    console.error(`[${timestamp}] Google sign-in error:`, {
-      code: error.code,
-      message: error.message,
-      email: error.email,
-      credential: error.credential
-    });
     throw error;
   }
 }
@@ -120,12 +94,7 @@ export async function signOutUser() {
   if (!auth) return;
   try {
     await signOut(auth);
-    console.log(`[${new Date().toISOString()}] User signed out successfully`);
   } catch (error) {
-    console.error(`[${new Date().toISOString()}] Error signing out:`, error);
     throw error;
   }
 }
-
-console.log(`[${new Date().toISOString()}] Current environment:`, import.meta.env.MODE);
-console.log(`[${new Date().toISOString()}] Using auth domain:`, firebaseConfig.authDomain);

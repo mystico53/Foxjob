@@ -23,20 +23,17 @@
       unsubscribe = authStore.subscribe(user => {
         userId = user?.uid;
         if (userId) {
-          console.log('JobBarGraph: Initializing jobStatsStore with userId', userId);
           jobStatsStore.init(userId);
         }
       });
       
       // Subscribe to the job stats store
       const statsUnsubscribe = jobStatsStore.subscribe(data => {
-        console.log('JobBarGraph: Received data', data);
         stats = data;
       });
       
       // Subscribe to recent days stats
       const recentDaysUnsubscribe = jobStatsStore.recentDays.subscribe(data => {
-        console.log('JobBarGraph: Received recent days data', data);
         recentDaysStats = data;
         updateChart();
       });

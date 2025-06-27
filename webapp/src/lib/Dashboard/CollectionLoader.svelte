@@ -68,11 +68,8 @@
 
 	async function setupResumeListener() {
 		if (!user) {
-			console.log('No user, not setting up listener');
 			return;
 		}
-		
-		console.log('Setting up resume listener for user:', user.uid);
 		
 		// Resume listener
 		const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
@@ -160,7 +157,6 @@
 				setResumeStatus(false, '', null, '');
 			}
 		} catch (error) {
-			console.error('Error checking existing resume:', error);
 			uploadFeedback = 'Error checking resume status. Please try again.';
 			uploadFeedbackColor = 'variant-filled-error';
 			resumeUploaded = false;
@@ -180,7 +176,6 @@
 		if (fileInputElement && fileInputElement.files && fileInputElement.files.length > 0) {
 			const file = fileInputElement.files[0];
 			currentFileName = file.name;
-			console.log('File selected:', file);
 			if (file.type === 'application/pdf') {
 				await processFile(file);
 			} else {
@@ -192,12 +187,14 @@
 
 	async function processFile(file) {
 		if (!isLibraryLoaded) {
-			console.error('PDF.js library not loaded yet. Please try again in a moment.');
+			uploadFeedback = 'PDF library not loaded yet. Please try again in a moment.';
+			uploadFeedbackColor = 'variant-filled-error';
 			return;
 		}
 
 		if (!user) {
-			console.error('User not authenticated');
+			uploadFeedback = 'User not authenticated';
+			uploadFeedbackColor = 'variant-filled-error';
 			return;
 		}
 
@@ -232,7 +229,6 @@
 			extractedText = fullText.trim();
 			await storeExtractedText(extractedText);
 		} catch (error) {
-			console.error('Error processing PDF:', error);
 			extractedText = 'Error processing PDF. Please try another file.';
 			uploadFeedback = 'Error processing PDF. Please try again.';
 			uploadFeedbackColor = 'variant-filled-error';
@@ -265,7 +261,6 @@
 			resumeStatus = 'processing';
 			tooltipStore.showNavbarTooltip();
 		} catch (error) {
-			console.error('Error storing extracted text:', error);
 			uploadFeedback = 'Error uploading resume. Please try again.';
 			uploadFeedbackColor = 'variant-filled-error';
 			resumeUploaded = false;
@@ -299,7 +294,6 @@
 				uploadFeedbackColor = 'variant-filled-warning';
 			}
 		} catch (error) {
-			console.error('Error deleting resume:', error);
 			uploadFeedback = 'Error deleting resume. Please try again.';
 			uploadFeedbackColor = 'variant-filled-error';
 		}

@@ -75,20 +75,29 @@
     error = null;
     
     try {
-        // Delete the document directly from Firestore
-        const docRef = doc(db, 'users', uid, 'searchQueries', agentId);
-        await deleteDoc(docRef);
-        
-        // Update the job agent status in the userStateStore
-        if ($searchQueriesStore.queries.length <= 1) {
-          setJobAgentStatus(false, null);
-        }
-        
-    } catch (err) {
-        error = err.message || 'An error occurred while deleting the job agent';
-        console.error("Delete job agent error:", error);
+      const deleteUrl = getCloudFunctionUrl('deleteJobAgent');
+      const response = await fetch(deleteUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ 
+          userId: uid,
+          agentId: agentId 
+        })
+      });
+      
+      if (response.ok) {
+        // Reset job agent status in the store
+        resetJobAgentStatus();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `Error: ${response.status}`);
+      }
+    } catch (error) {
+      error = error.message || 'An error occurred while deleting the job agent';
     } finally {
-        deletingId = null;
+      deletingId = null;
     }
   }
   

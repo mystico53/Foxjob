@@ -16,12 +16,6 @@ function createAuthStore() {
             set(user);
 
             if (user) {
-                console.log(`[${timestamp}] Auth store detected signed in user:`, {
-                    uid: user.uid,
-                    email: user.email,
-                    displayName: user.displayName
-                });
-
                 // Delay Firestore write to avoid token invalidation
                 setTimeout(async () => {
                     try {
@@ -31,21 +25,10 @@ function createAuthStore() {
                             email: user.email,
                             lastSignIn: timestamp
                         }, { merge: true });
-
-                        console.log(`[${timestamp}] Successfully updated user data in Firestore`);
                     } catch (error) {
-                        if (error.code === 'permission-denied') {
-                            console.warn(`[${timestamp}] Firestore write permission denied for user ${user.uid}. Check your Firestore rules.`);
-                        } else {
-                            console.error(`[${timestamp}] Error writing user data to Firestore:`, {
-                                code: error.code,
-                                message: error.message
-                            });
-                        }
+                        // Handle errors silently
                     }
                 }, 1000); // 1 second delay
-            } else {
-                console.log(`[${timestamp}] Auth store detected signed out state`);
             }
         });
     }
@@ -53,12 +36,9 @@ function createAuthStore() {
     return {
         subscribe,
         signOut: async () => {
-            const timestamp = new Date().toISOString();
             try {
                 await auth.signOut();
-                console.log(`[${timestamp}] User signed out successfully`);
             } catch (error) {
-                console.error(`[${timestamp}] Error during sign out:`, error);
                 throw error;
             }
         }
