@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { scrapeStore, isLoading, totalJobs } from '$lib/stores/scrapeStore';
   import { authStore } from '$lib/stores/authStore';
+  import { searchQueriesStore } from '$lib/stores/searchQueriesStore';
   import { 
     userStateStore, 
     jobAgentStore, 
@@ -21,6 +22,7 @@
   import timezone from 'dayjs/plugin/timezone';
   import Range from './Range.svelte';
   import EmailDelivery from './EmailDelivery.svelte';
+  import InfoCard from '$lib/searchJobs/InfoCard.svelte';
   
   // Initialize dayjs plugins
   dayjs.extend(utc);
@@ -34,6 +36,8 @@
   // Local reactive variables that come from the store
   let hasActiveAgent;
   let isCheckingAgent;
+  let searchQueries = [];
+  let searchQueriesLoading = false;
   
   // Variables to track editing state
   let editingAgentId = null;
@@ -78,6 +82,10 @@
     { value: '18:00', label: '6:00 PM' },
   ];
 
+  // Add these variables for InfoCard control
+  let showInfoCard = false;
+  let agentCreating = false;
+
   // ✅ NOW the subscriptions can safely use these variables
   const unsubJobAgent = jobAgentStore.subscribe(state => {
     hasActiveAgent = state.hasActiveAgent;
@@ -86,6 +94,12 @@
     if (state.hasActiveAgent) {
       jobEmailsEnabled = state.hasActiveAgent.isActive;
     }
+  });
+  
+  // Add searchQueriesStore subscription
+  const unsubSearchQueries = searchQueriesStore.subscribe(state => {
+    searchQueries = state.queries;
+    searchQueriesLoading = state.loading;
   });
   
   // Subscribe to the userStateStore to get resume status
@@ -98,6 +112,7 @@
     return () => {
       unsubJobAgent();
       unsubUserState();
+      unsubSearchQueries();
     };
   });
 
@@ -172,19 +187,24 @@
   async function checkExistingQueries() {
     setJobAgentLoading(true);
     try {
-      // Get a reference to the user's searchQueries collection
-      const queriesRef = collection(db, 'users', uid, 'searchQueries');
-      
-      // Query for any queries (not just active ones)
-      const q = query(queriesRef, limit(1));
-      const snapshot = await getDocs(q);
-      
-      if (!snapshot.empty) {
-        // User has a query
-        const doc = snapshot.docs[0];
-        const queryData = doc.data();
-        setJobAgentStatus(true, doc.id, queryData.isActive);
-        jobEmailsEnabled = queryData.isActive;
+      // Wait for searchQueriesStore to load
+      if (searchQueriesLoading) {
+        await new Promise(resolve => {
+          const unsubscribe = searchQueriesStore.subscribe(state => {
+            if (!state.loading) {
+              unsubscribe();
+              resolve();
+            }
+          });
+        });
+      }
+
+      // Use the data from searchQueriesStore
+      if (searchQueries.length > 0) {
+        // Get the first query (assuming it's the most recent)
+        const query = searchQueries[0];
+        setJobAgentStatus(true, query.id, query.isActive);
+        jobEmailsEnabled = query.isActive;
       } else {
         // No queries found
         setJobAgentStatus(false, null);
@@ -586,6 +606,15 @@
       // After successful creation/update, update the job agent status in the store
       setJobAgentStatus(true, data.agentId || editingAgentId || null);
       
+      // Show the InfoCard after successful creation (not on edit)
+      if (!isEditing) {
+        showInfoCard = true;
+        agentCreating = true;
+        setTimeout(() => {
+          agentCreating = false;
+        }, 2000);
+      }
+      
       // Reset editing state
       isEditing = false;
       editingAgentId = null;
@@ -596,6 +625,10 @@
     } finally {
       isLoading.set(false);
     }
+  }
+
+  function dismissInfoCard() {
+    showInfoCard = false;
   }
 
   // Function to update email delivery status
@@ -662,6 +695,13 @@
 
 <!-- Main container that holds all components -->
 <div class="mb-4">
+  <!-- Show InfoCard at the top -->
+  <InfoCard 
+    show={showInfoCard}
+    loading={agentCreating}
+    on:dismiss={dismissInfoCard}
+  />
+
   <!-- Card with white background containing title, button, and agent list -->
   <div class="bg-white rounded-lg shadow p-6 mb-4">
     <!-- Header with title and Create Agent button based on active agent status -->
@@ -676,12 +716,17 @@
       >
         Create Agent
       </button>
-    {/if}
+      {/if}
     </div>
     
     <!-- Job Agent List or empty state message -->
     <div>
-      {#if !hasActiveAgent?.agentId && !isCheckingAgent}
+      {#if searchQueriesLoading || isCheckingAgent}
+        <div class="flex justify-center items-center py-4">
+          <div class="h-6 w-6 rounded-full animate-pulse bg-orange-500"></div>
+          <span class="ml-3">Loading your job agents...</span>
+        </div>
+      {:else if searchQueries.length === 0}
         <p class="text-gray-500 text-center py-8">Your job agents will be listed here.</p>
       {:else}
         <JobAgentList on:edit={handleEditAgent} />
