@@ -1,4 +1,4 @@
-// src/lib/firebase.js
+
 // src/lib/firebase.js
 import { initializeApp, getApps } from "firebase/app";
 import { 
@@ -127,5 +127,5 @@ export async function signOutUser() {
   }
 }
 
-console.log(`[${new Date().toISOString()}] Current environment:`, import.meta.env.MODE);
-console.log(`[${new Date().toISOString()}] Using auth domain:`, firebaseConfig.authDomain);
+//console.log(`[${new Date().toISOString()}] Current environment:`, import.meta.env.MODE);
+//console.log(`[${new Date().toISOString()}] Using auth domain:`, firebaseConfig.authDomain);
