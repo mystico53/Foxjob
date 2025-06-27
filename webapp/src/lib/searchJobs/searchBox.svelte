@@ -211,6 +211,7 @@
         jobEmailsEnabled = true; // Default to true for new queries
       }
     } catch (error) {
+      console.error("Error checking queries:", error);
       setJobAgentStatus(false, null);
       jobEmailsEnabled = true; // Default to true on error
     } finally {
@@ -232,7 +233,7 @@
         };
       }
     } catch (err) {
-      // Error handled silently
+      console.error('Error loading work preferences:', err);
     }
   }
   
@@ -246,7 +247,7 @@
         updatedAt: new Date()
       }, { merge: true });
     } catch (err) {
-      // Error handled silently
+      console.error('Error saving work preferences:', err);
     }
   }
   
@@ -399,7 +400,9 @@
     showAdvanced = !!(jobType || experience || datePosted !== 'Past 24 hours');
     
     // Force a UI update by scheduling a microtask
-    setTimeout(() => {}, 0);
+    setTimeout(() => {
+      console.log("Current delivery time:", deliveryTime);
+    }, 0);
     
     // Scroll the form into view
     setTimeout(() => {
@@ -683,6 +686,7 @@
       // Update local state
       jobEmailsEnabled = val;
     } catch (error) {
+      console.error('Error updating email status:', error);
       jobEmailsEnabled = !val;
     } finally {
       jobEmailsLoading = false;

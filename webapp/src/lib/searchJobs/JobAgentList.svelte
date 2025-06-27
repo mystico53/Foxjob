@@ -83,7 +83,7 @@
     } catch (error) {
       error = error.message || 'An error occurred while deleting the job agent';
     } finally {
-      deletingId = null;
+        deletingId = null;
     }
   }
   

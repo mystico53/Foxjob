@@ -12,6 +12,7 @@
     onMount(() => {
         unsubscribe = auth.onAuthStateChanged((user) => {
             currentUser = user;
+            console.log('Auth state changed:', currentUser?.uid);
         });
     });
 
@@ -32,74 +33,79 @@
     }
 
     async function deleteAllJobs() {
-        if (!currentUser) {
-            alert('You must be logged in to perform this action.');
-            return;
-        }
-
-        const confirmation = confirm(
-            'Are you sure you want to delete all your jobs? This action cannot be undone.'
-        );
-        if (!confirmation) return;
-
-        deleting = true;
-
-        try {
-            const jobsRef = collection(db, 'users', currentUser.uid, 'jobs');
-            const processedRef = collection(db, 'users', currentUser.uid, 'processed');
-            const scrapedJobsRef = collection(db, 'users', currentUser.uid, 'scrapedJobs');
-
-            // Use query with limit to handle large collections more efficiently
-            const batchSize = 450; // Reduced from 500 to provide safety margin
-            let totalDeleted = 0;
-
-            async function deleteQueryBatch(ref) {
-                const q = query(ref, limit(batchSize));
-                const snapshot = await getDocs(q);
-
-                if (snapshot.empty) {
-                    return 0;
-                }
-
-                const batch = writeBatch(db);
-                snapshot.docs.forEach((doc) => {
-                    batch.delete(doc.ref);
-                });
-
-                await batch.commit();
-                return snapshot.size;
-            }
-
-            // Delete documents in batches
-            async function deleteCollection(ref) {
-                let deleted = 0;
-                while (true) {
-                    const deleteCount = await deleteQueryBatch(ref);
-                    totalDeleted += deleteCount;
-                    if (deleteCount < batchSize) {
-                        break;
-                    }
-                }
-            }
-
-            // Delete from all three collections
-            await Promise.all([
-                deleteCollection(jobsRef),
-                deleteCollection(processedRef),
-                deleteCollection(scrapedJobsRef)
-            ]);
-
-            // Refresh the job store
-            if (currentUser) {
-                await jobStore.init(currentUser.uid);
-            }
-
-        } catch (err) {
-            alert(`Failed to delete jobs: ${err.message}`);
-        } finally {
-            deleting = false;
-        }
+    if (!currentUser) {
+        alert('You must be logged in to perform this action.');
+        return;
     }
+
+    const confirmation = confirm(
+        'Are you sure you want to delete all your jobs? This action cannot be undone.'
+    );
+    if (!confirmation) return;
+
+    deleting = true;
+
+    try {
+        console.log('Attempting to delete jobs...');
+
+        const jobsRef = collection(db, 'users', currentUser.uid, 'jobs');
+        const processedRef = collection(db, 'users', currentUser.uid, 'processed');
+        const scrapedJobsRef = collection(db, 'users', currentUser.uid, 'scrapedJobs');
+
+        // Use query with limit to handle large collections more efficiently
+        const batchSize = 450; // Reduced from 500 to provide safety margin
+        let totalDeleted = 0;
+
+        async function deleteQueryBatch(ref) {
+            const q = query(ref, limit(batchSize));
+            const snapshot = await getDocs(q);
+
+            if (snapshot.empty) {
+                return 0;
+            }
+
+            const batch = writeBatch(db);
+            snapshot.docs.forEach((doc) => {
+                batch.delete(doc.ref);
+            });
+
+            await batch.commit();
+            return snapshot.size;
+        }
+
+        // Delete documents in batches
+        async function deleteCollection(ref) {
+            let deleted = 0;
+            while (true) {
+                const deleteCount = await deleteQueryBatch(ref);
+                totalDeleted += deleteCount;
+                if (deleteCount < batchSize) {
+                    break;
+                }
+            }
+        }
+
+        // Delete from all three collections
+        await Promise.all([
+            deleteCollection(jobsRef),
+            deleteCollection(processedRef),
+            deleteCollection(scrapedJobsRef)
+        ]);
+
+        console.log(`Successfully deleted ${totalDeleted} documents`);
+
+        // Refresh the job store
+        if (currentUser) {
+            await jobStore.init(currentUser.uid);
+        }
+
+    } catch (err) {
+        console.error('Error deleting jobs:', err);
+        alert(`Failed to delete jobs: ${err.message}`);
+    } finally {
+        deleting = false;
+    }
+}
 </script>
 
 <div class="flex flex-col gap-2 p-4">

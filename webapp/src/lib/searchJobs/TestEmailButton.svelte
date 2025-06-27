@@ -61,8 +61,11 @@
           
           previewHtml = response.data.previewHtml;
           showPreview = true;
+          console.log('Preview generated successfully');
       } catch (err) {
           error = err.message;
+          console.error('Error generating preview:', err);
+          
           // Fallback to generating a local preview if the function fails
           // This allows testing even when there are backend issues
           generateLocalPreview();
@@ -72,67 +75,379 @@
   }
   
   // Generate a simple local preview without calling the Firebase function
-  async function generateLocalPreview() {
-    isGenerating = true;
-    errorMessage = '';
-    
-    try {
-      const response = await fetch(previewUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: uid,
-          searchId: searchId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
+  function generateLocalPreview() {
+      console.log('Generating local preview');
       
-      // Update the preview state
-      previewGenerated = true;
-      previewData = data;
+      // Sample job data
+      const mockJobs = [
+          {
+              title: "Frontend Developer",
+              company: "WebTech Solutions",
+              score: 87,
+              description: "WebTech is a digital agency creating cutting-edge websites and applications.",
+              responsibility: "Developing responsive user interfaces with React and modern CSS.",
+              gaps: "Consider deepening knowledge of state management and performance optimization.",
+              preferenceExplanation: "This role aligns well with your preference for UI/UX focused positions."
+          },
+          {
+              title: "Full Stack Engineer",
+              company: "GrowthLabs",
+              score: 82,
+              description: "GrowthLabs builds SaaS products for startups and growing businesses.",
+              responsibility: "Building features across the full stack with Node.js and Vue.",
+              gaps: "Your database skills would benefit from more experience with NoSQL solutions.",
+              preferenceExplanation: "This role offers the technical challenge you're looking for."
+          },
+          {
+              title: "Senior React Developer",
+              company: "InnovateTech",
+              score: 75,
+              description: "InnovateTech develops enterprise software solutions for global clients.",
+              responsibility: "Leading development of React components and mentoring junior developers.",
+              gaps: "You may need to strengthen your experience with large-scale application architecture.",
+              preferenceExplanation: "This position includes the mentoring opportunity you mentioned wanting."
+          }
+      ];
       
-    } catch (err) {
-      errorMessage = err.message || 'Failed to generate preview';
-    } finally {
-      isGenerating = false;
-    }
+      // Generate improved HTML template with better mobile responsiveness
+      previewHtml = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>${subject}</title>
+              <style>
+                  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+                  @import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
+                  
+                  /* Disable all transitions and animations */
+                  * {
+                      transition: none !important;
+                      animation: none !important;
+                  }
+                  
+                  body {
+                      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+                      line-height: 1.6;
+                      color: #333;
+                      margin: 0;
+                      padding: 0;
+                      -webkit-font-smoothing: antialiased;
+                      -moz-osx-font-smoothing: grayscale;
+                  }
+                  
+                  .email-container {
+                      max-width: 600px;
+                      margin: 0 auto;
+                      background-color: #ffffff;
+                  }
+                  
+                  .header {
+                      padding: 24px 20px;
+                      text-align: center;
+                  }
+                  
+                  .header-content {
+                      display: inline-flex;
+                      align-items: center;
+                      justify-content: center;
+                  }
+                  
+                  .logo-img {
+                      width: 48px;
+                      height: 48px;
+                  }
+                  
+                  .content {
+                      padding: 20px;
+                  }
+                  
+                  .message {
+                      padding: 0 0 20px 0;
+                  }
+                  
+                  .section-header {
+                      font-size: 20px;
+                      font-weight: 700;
+                      color: #333;
+                      margin: 24px 0 16px 0;
+                      padding-bottom: 8px;
+                      position: relative;
+                  }
+                  
+                  .section-header:after {
+                      content: "";
+                      position: absolute;
+                      bottom: 0;
+                      left: 0;
+                      width: 60px;
+                      height: 3px;
+                      background: linear-gradient(to right, #FF9C00 0%, #DC3701 100%);
+                      border-radius: 3px;
+                  }
+                  
+                  .job-card {
+                      margin-bottom: 20px;
+                      padding: 18px;
+                      border-radius: 8px;
+                      background-color: #fff;
+                      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+                      border: 1px solid #eee;
+                      position: relative;
+                      overflow: hidden;
+                  }
+                  
+                  .job-card:before {
+                      content: "";
+                      position: absolute;
+                      top: 0;
+                      left: 0;
+                      width: 4px;
+                      height: 100%;
+                      background: linear-gradient(to bottom, #FF9C00 0%, #DC3701 100%);
+                  }
+                  
+                  .job-title {
+                      font-size: 17px;
+                      font-weight: 600;
+                      color: #222;
+                      margin: 0 0 10px 0;
+                      padding-left: 8px;
+                  }
+                  
+                  .job-company {
+                      font-size: 15px;
+                      font-weight: 500;
+                      color: #555;
+                      margin: 0 0 12px 0;
+                      padding-left: 8px;
+                  }
+                  
+                  .score-container {
+                      margin: 12px 0;
+                      display: flex;
+                      align-items: center;
+                  }
+                  
+                  .score-label {
+                      font-size: 14px;
+                      font-weight: 600;
+                      color: #555;
+                      margin-right: 10px;
+                      min-width: 90px;
+                  }
+                  
+                  .score-bar-container {
+                      flex-grow: 1;
+                      height: 8px;
+                      background-color: #f0f0f0;
+                      border-radius: 4px;
+                      overflow: hidden;
+                  }
+                  
+                  .score-bar {
+                      height: 100%;
+                      border-radius: 4px;
+                      background: linear-gradient(to right, #FF9C00 0%, #DC3701 100%);
+                  }
+                  
+                  .score-value {
+                      font-size: 14px;
+                      font-weight: 600;
+                      color: #222;
+                      margin-left: 10px;
+                  }
+                  
+                  .info-section {
+                      margin: 12px 0;
+                      padding-left: 8px;
+                  }
+                  
+                  .info-label {
+                      font-size: 14px;
+                      font-weight: 600;
+                      color: #444;
+                      margin-bottom: 2px;
+                  }
+                  
+                  .info-text {
+                      font-size: 14px;
+                      color: #555;
+                      margin: 0 0 12px 0;
+                  }
+                  
+                  .preference-explanation {
+                      font-style: italic;
+                      font-size: 14px;
+                      color: #666;
+                      margin: 12px 0;
+                      padding: 10px;
+                      background-color: #f9f9f9;
+                      border-radius: 4px;
+                      border-left: 2px solid #FF9C00;
+                  }
+                  
+                  .action-button {
+                      display: inline-block;
+                      padding: 10px 20px;
+                      background: linear-gradient(to right, #FF9C00 0%, #DC3701 100%);
+                      color: white;
+                      text-decoration: none;
+                      border-radius: 6px;
+                      font-weight: 500;
+                      font-size: 14px;
+                      margin-top: 6px;
+                      text-align: center;
+                  }
+                  
+                  .footer {
+                      margin-top: 30px;
+                      padding: 20px;
+                      border-top: 1px solid #eee;
+                      text-align: center;
+                      font-size: 12px;
+                      color: #666;
+                  }
+                  
+                  .footer a {
+                      color: #555;
+                      text-decoration: none;
+                  }
+                  
+                  /* Mobile Optimizations */
+                  @media only screen and (max-width: 480px) {
+                      .email-container {
+                          width: 100% !important;
+                      }
+                      
+                      .content {
+                          padding: 15px;
+                      }
+                      
+                      .job-card {
+                          padding: 15px;
+                      }
+                      
+                      .job-title {
+                          font-size: 16px;
+                      }
+                      
+                      .score-container {
+                          flex-direction: column;
+                          align-items: flex-start;
+                      }
+                      
+                      .score-bar-container {
+                          width: 100%;
+                          margin: 6px 0;
+                      }
+                      
+                      .score-value {
+                          margin-left: 0;
+                      }
+                      
+                      .action-button {
+                          display: block;
+                          width: 100%;
+                      }
+                  }
+                  
+                  .action-button:hover {
+                      background: #FF9C00;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="email-container">
+                  <div class="header">
+                      <div class="header-content">
+                          <img src="https://foxjob.io/images/icon128.png" alt="Foxjob" class="logo-img">
+                      </div>
+                  </div>
+                  
+                  <div class="content">
+                      <div class="message">
+                          <p>Your personalized job matches are ready.</p>
+                      </div>
+                      
+                      ${mockJobs.map(job => `
+                          <div class="job-card">
+                              <h3 class="job-title">${job.title}</h3>
+                              <div class="job-company">${job.company}</div>
+                              
+                              <div class="preference-explanation">
+                                  "${job.preferenceExplanation}"
+                              </div>
+                              
+                              <div class="score-container">
+                                  <div class="score-label">Match Score:</div>
+                                  <div class="score-bar-container">
+                                      <div class="score-bar" style="width: ${job.score}%;"></div>
+                                  </div>
+                                  <div class="score-value">${job.score}%</div>
+                              </div>
+                              
+                              <div class="info-section">
+                                  <div class="info-label">Company:</div>
+                                  <div class="info-text">${job.description}</div>
+                                  
+                                  <div class="info-label">Your Role:</div>
+                                  <div class="info-text">${job.responsibility}</div>
+                                  
+                                  <div class="info-label">Gap Analysis:</div>
+                                  <div class="info-text">${job.gaps}</div>
+                              </div>
+                              
+                              <a href="#" class="action-button">View Job</a>
+                          </div>
+                      `).join('')}
+                  </div>
+                  
+                  <div class="footer">
+                      <p>© 2023 Foxjob. All rights reserved.</p>
+                      <p><a href="#">Unsubscribe</a> | <a href="#">Email Preferences</a></p>
+                  </div>
+              </div>
+          </body>
+          </html>
+      `;
+      
+      showPreview = true;
   }
   
   async function sendTestEmail() {
-    isSending = true;
-    errorMessage = '';
-    
-    try {
-      const response = await fetch(emailUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userId: uid,
-          searchId: searchId
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const result = await response.json();
-      successMessage = 'Test email sent successfully!';
+      sending = true;
+      error = null;
+      result = null;
       
-    } catch (err) {
-      errorMessage = err.message || 'Failed to send test email';
-    } finally {
-      isSending = false;
-    }
+      try {
+          // Log what we're sending
+          console.log('Sending email with userId:', userId);
+          
+          // Call the function with test data AND userId
+          const response = await sendEmail({
+              to: recipient.trim() || "konkaiser@gmail.com",   
+              subject: subject,
+              text: message,
+              html: `<p>${message}</p>`,
+              userId: userId  // The key part - explicitly include the userId
+          });
+          
+          result = response.data;
+          
+          // Update preview if available in the response
+          if (result.previewHtml) {
+              previewHtml = result.previewHtml;
+              showPreview = true;
+          }
+          
+          console.log('Email sent successfully:', result);
+      } catch (err) {
+          error = err.message;
+          console.error('Error sending email:', err);
+      } finally {
+          sending = false;
+      }
   }
 </script>
 
