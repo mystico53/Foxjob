@@ -75,25 +75,11 @@
     error = null;
     
     try {
-      const deleteUrl = getCloudFunctionUrl('deleteJobAgent');
-      const response = await fetch(deleteUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          userId: uid,
-          agentId: agentId 
-        })
-      });
+      // Delete directly from Firestore
+      await deleteDoc(doc(db, 'users', uid, 'searchQueries', agentId));
       
-      if (response.ok) {
-        // Reset job agent status in the store
-        resetJobAgentStatus();
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || `Error: ${response.status}`);
-      }
+      // The searchQueriesStore will automatically update due to the onSnapshot listener
+      setJobAgentStatus(false, null);
     } catch (error) {
       error = error.message || 'An error occurred while deleting the job agent';
     } finally {

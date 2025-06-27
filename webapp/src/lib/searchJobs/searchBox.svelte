@@ -266,13 +266,20 @@
         })
       });
       
-      if (response.ok) {
-        // Reset job agent status in the store
-        resetJobAgentStatus();
-      } else {
+      if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || `Error: ${response.status}`);
       }
+
+      // Reset job agent status in the store
+      setJobAgentStatus(false, null);
+      
+      // Reset form and editing state
+      isEditing = false;
+      editingAgentId = null;
+      showForm = false;
+      jobEmailsEnabled = true; // Reset to default
+      
     } catch (err) {
       error = err.message || 'An error occurred while deleting the job agent';
     } finally {
@@ -725,7 +732,16 @@
       {:else if searchQueries.length === 0}
         <p class="text-gray-500 text-center py-8">Your job agents will be listed here.</p>
       {:else}
-        <JobAgentList on:edit={handleEditAgent} />
+        <JobAgentList 
+          on:edit={handleEditAgent}
+          on:delete={() => {
+            // Reset states after successful deletion
+            isEditing = false;
+            editingAgentId = null;
+            showForm = false;
+            jobEmailsEnabled = true;
+          }}
+        />
       {/if}
     </div>
     
