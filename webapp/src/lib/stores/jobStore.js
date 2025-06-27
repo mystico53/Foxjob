@@ -11,21 +11,58 @@ const sortConfig = writable({
     direction: 'desc'
 });
 const searchText = writable('');
+const timeFilter = writable('today'); // 'today', 'week', 'all'
 
 const getNestedValue = (obj, path) => {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
 };
 
+// Helper function to check if a date is today
+const isToday = (date) => {
+    const today = new Date();
+    return date.getDate() === today.getDate() &&
+        date.getMonth() === today.getMonth() &&
+        date.getFullYear() === today.getFullYear();
+};
+
+// Helper function to check if a date is within the last week
+const isWithinLastWeek = (date) => {
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    return date >= weekAgo;
+};
+
+// Helper function to get job date
+const getJobDate = (job) => {
+    const dateValue = job.details?.postedDate || job.jobInfo?.postedDate || job.generalData?.timestamp;
+    if (!dateValue) return new Date(0);
+    
+    if (typeof dateValue === 'string') {
+        return new Date(dateValue);
+    } else if (dateValue && dateValue.toDate) {
+        return dateValue.toDate();
+    }
+    return new Date(0);
+};
+
 // Derived store for sorted and filtered jobs
 const sortedJobs = derived(
-    [jobs, sortConfig, searchText],
-    ([$jobs, $sortConfig, $searchText]) => {
+    [jobs, sortConfig, searchText, timeFilter],
+    ([$jobs, $sortConfig, $searchText, $timeFilter]) => {
         let filteredJobs = $jobs;
+        
+        // Time filtering
+        if ($timeFilter !== 'all') {
+            filteredJobs = filteredJobs.filter(job => {
+                const jobDate = getJobDate(job);
+                return $timeFilter === 'today' ? isToday(jobDate) : isWithinLastWeek(jobDate);
+            });
+        }
         
         // Search filtering
         if ($searchText) {
             const searchLower = $searchText.toLowerCase();
-            filteredJobs = $jobs.filter(job => {
+            filteredJobs = filteredJobs.filter(job => {
                 return (
                     (job?.companyInfo?.name || '').toLowerCase().includes(searchLower) ||
                     (job?.jobInfo?.jobTitle || '').toLowerCase().includes(searchLower) ||
@@ -252,4 +289,4 @@ function createJobStore() {
 
 // Create and export the job store
 export const jobStore = createJobStore();
-export { sortedJobs, loading, error, sortConfig, searchText };
+export { sortedJobs, loading, error, sortConfig, searchText, timeFilter };

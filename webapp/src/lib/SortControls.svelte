@@ -1,7 +1,7 @@
 <!-- SortControls.svelte -->
 <script>
     import { onMount, onDestroy } from 'svelte';
-    import { sortConfig, sortedJobs, jobStore } from '$lib/stores/jobStore';
+    import { sortConfig, sortedJobs, jobStore, timeFilter } from '$lib/stores/jobStore';
     import { writeBatch, collection, getDocs, query, limit } from 'firebase/firestore';
     import { db, auth } from '$lib/firebase';
 
@@ -25,6 +25,10 @@
             column: newValue,
             direction: 'desc'
         };
+    }
+
+    function handleTimeFilterChange(value) {
+        $timeFilter = value;
     }
 
     async function deleteAllJobs() {
@@ -98,28 +102,53 @@
     }
 </script>
 
-<div class="flex items-center justify-between p-4">
-    <div class="flex items-center gap-2">
-        <div class="text-2xl font-bold">
-            {$sortedJobs?.length || 0} jobs
+<div class="flex flex-col gap-2 p-4">
+    <!-- Top row with job count, delete button, and sort -->
+    <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <div class="text-2xl font-bold">
+                {$sortedJobs?.length || 0} jobs
+            </div>
+            <button
+                class="text-surface-400 hover:bg-surface-200 rounded-full p-2 transition-colors hover:text-red-500 disabled:opacity-50"
+                on:click={deleteAllJobs}
+                disabled={deleting}
+                title="Delete all jobs"
+            >
+                <iconify-icon icon="solar:trash-bin-trash-bold" width="20" height="20"></iconify-icon>
+            </button>
         </div>
-        <button
-            class="text-surface-400 hover:bg-surface-200 rounded-full p-2 transition-colors hover:text-red-500 disabled:opacity-50"
-            on:click={deleteAllJobs}
-            disabled={deleting}
-            title="Delete all jobs"
+
+        <select
+            value={$sortConfig.column}
+            on:change={handleSortChange}
+            class="w-44 rounded-lg border border-gray-200 bg-white p-2"
         >
-            <iconify-icon icon="solar:trash-bin-trash-bold" width="20" height="20"></iconify-icon>
-        </button>
+            <option value="AccumulatedScores.accumulatedScore">Highest Score</option>
+            <option value="generalData.timestamp">Most recent</option>
+            <option value="bookmarked">Bookmarked</option>
+        </select>
     </div>
 
-    <select
-        value={$sortConfig.column}
-        on:change={handleSortChange}
-        class="w-44 rounded-lg border border-gray-200 bg-white p-2"
-    >
-        <option value="AccumulatedScores.accumulatedScore">Highest Score</option>
-        <option value="generalData.timestamp">Most recent</option>
-        <option value="bookmarked">Bookmarked</option>
-    </select>
+    <!-- Bottom row with time filter buttons -->
+    <div class="grid grid-cols-3 gap-2 pt-2">
+        <button
+            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'all' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
+            on:click={() => handleTimeFilterChange('all')}
+        >
+            All Time
+        </button>
+        <button
+            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'week' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
+            on:click={() => handleTimeFilterChange('week')}
+        >
+            Past Week
+        </button>
+        <button
+            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'today' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
+            on:click={() => handleTimeFilterChange('today')}
+        >
+            Today
+        </button>
+    </div>
 </div>
