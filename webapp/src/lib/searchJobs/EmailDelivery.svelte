@@ -8,15 +8,31 @@
   export let minimumScore = 50;
   export let setMinimumScore = null;
   export let isLoading = false;
+  
+  // Add the missing props
+  export let updateEmailDelivery = null;
+  export let setDeliveryTime = null;
+  export let timeOptions = [];
 
   async function handleToggle(e) {
     const newState = e.target.checked;
     if (setJobEmailsEnabled) {
       await setJobEmailsEnabled(newState);
     }
+    // Also call updateEmailDelivery if provided
+    if (updateEmailDelivery) {
+      await updateEmailDelivery(newState);
+    }
   }
+
   function handleScore(val) {
     setMinimumScore?.(val);
+  }
+
+  function handleTimeChange(val) {
+    if (setDeliveryTime) {
+      setDeliveryTime(val);
+    }
   }
 </script>
 
@@ -39,7 +55,11 @@
     <!-- When to Receive Results (left column) -->
     <div>
       <label for="deliveryTime" class="block font-bold mb-2">You'll get an email at:</label>
-      <TimePicker bind:value={deliveryTime} />
+      <TimePicker 
+        bind:value={deliveryTime} 
+        on:change={e => handleTimeChange(e.detail.value)}
+        {timeOptions}
+      />
     </div>
     <!-- Score Threshold Slider (right column) -->
     <div>
@@ -90,5 +110,4 @@
   .toggle-checkbox:checked:before {
     transform: translateX(1rem);
   }
-  
 </style> 

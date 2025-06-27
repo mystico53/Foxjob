@@ -1,6 +1,7 @@
 <script>
   import { createEventDispatcher, onMount } from 'svelte';
   export let value = "08:00";
+  export let timeOptions = null;
   const dispatch = createEventDispatcher();
   let hour = 0;
   let minute = 0;
@@ -34,10 +35,50 @@
     if (newValue !== value) {
       lastEmitted = newValue;
       value = newValue;
-      dispatch('change', value);
+      dispatch('change', { value });
     }
   }
+
+  $: showTimePicker = !timeOptions;
 </script>
+
+<div class="time-picker">
+  {#if showTimePicker}
+    <div class="select-container">
+      <select id="hour" bind:value={hour} on:change={updateValue}>
+        {#each hours as h}
+          <option value={h}>{h}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="select-container">
+      <select id="minute" bind:value={minute} on:change={updateValue}>
+        {#each minutes as m}
+          <option value={m}>{m.toString().padStart(2, '0')}</option>
+        {/each}
+      </select>
+    </div>
+    <div class="select-container">
+      <select id="period" bind:value={period} on:change={updateValue}>
+        {#each periods as p}
+          <option value={p}>{p}</option>
+        {/each}
+      </select>
+    </div>
+  {:else}
+    <div class="select-container">
+      <select 
+        bind:value 
+        on:change={() => dispatch('change', { value })}
+        class="w-full"
+      >
+        {#each timeOptions as option}
+          <option value={option.value}>{option.label}</option>
+        {/each}
+      </select>
+    </div>
+  {/if}
+</div>
 
 <style>
   .time-picker {
@@ -70,31 +111,4 @@
     border-color: #f97316;
     box-shadow: 0 0 0 2px rgba(249, 115, 22, 0.2);
   }
-</style>
-
-<div class="time-picker">
-  <div class="select-container">
-    
-    <select id="hour" bind:value={hour} on:change={updateValue}>
-      {#each hours as h}
-        <option value={h}>{h}</option>
-      {/each}
-    </select>
-  </div>
-  <div class="select-container">
-    
-    <select id="minute" bind:value={minute} on:change={updateValue}>
-      {#each minutes as m}
-        <option value={m}>{m.toString().padStart(2, '0')}</option>
-      {/each}
-    </select>
-  </div>
-  <div class="select-container">
-    
-    <select id="period" bind:value={period} on:change={updateValue}>
-      {#each periods as p}
-        <option value={p}>{p}</option>
-      {/each}
-    </select>
-  </div>
-</div> 
+</style> 
