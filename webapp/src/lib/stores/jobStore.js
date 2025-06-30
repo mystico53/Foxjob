@@ -1,6 +1,6 @@
 import { writable, derived } from 'svelte/store';
 import { db } from '$lib/firebase';
-import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, updateDoc, deleteDoc, orderBy } from 'firebase/firestore';
 
 // Create the main stores
 const jobs = writable([]);
@@ -11,7 +11,10 @@ const sortConfig = writable({
     direction: 'desc'
 });
 const searchText = writable('');
-const timeFilter = writable('today'); // 'today', 'week', 'all'
+const batchFilter = writable('recent'); // 'recent' (default), 'seven', 'all'
+
+// Store for batches
+const batches = writable([]);
 
 const getNestedValue = (obj, path) => {
     return path.split('.').reduce((acc, part) => acc && acc[part], obj);
@@ -45,28 +48,52 @@ const getJobDate = (job) => {
     return new Date(0);
 };
 
+// Helper function to get batch info and timestamp
+const getBatchInfo = (job, $batches) => {
+    // Find which batch this job belongs to by checking completedJobIds
+    const batch = $batches.find(b => b.completedJobIds?.includes(job.id));
+    return {
+        batchId: batch?.id || null,
+        timestamp: batch?.completedAt || new Date(0)
+    };
+};
+
 // Derived store for sorted and filtered jobs
 const sortedJobs = derived(
-    [jobs, sortConfig, searchText, timeFilter],
-    ([$jobs, $sortConfig, $searchText, $timeFilter]) => {
+    [jobs, sortConfig, searchText, batchFilter, batches],
+    ([$jobs, $sortConfig, $searchText, $batchFilter, $batches]) => {
         let filteredJobs = $jobs;
         
-        // Time filtering
-        if ($timeFilter !== 'all') {
-            filteredJobs = filteredJobs.filter(job => {
-                const jobDate = getJobDate(job);
-                return $timeFilter === 'today' ? isToday(jobDate) : isWithinLastWeek(jobDate);
-            });
+        // Get all batches with their timestamps
+        const sortedBatches = [...$batches].sort((a, b) => {
+            const aTime = a.completedAt?.toDate?.() || new Date(0);
+            const bTime = b.completedAt?.toDate?.() || new Date(0);
+            return bTime - aTime;
+        });
+
+        // Apply batch filtering before other filters
+        if ($batchFilter !== 'all' && sortedBatches.length > 0) {
+            const batchesToShow = $batchFilter === 'recent' 
+                ? [sortedBatches[0]] // Only most recent batch
+                : sortedBatches.slice(0, 7); // Up to 7 most recent batches
+            
+            // Get all job IDs from selected batches
+            const allowedJobIds = new Set(
+                batchesToShow.flatMap(batch => batch.completedJobIds || [])
+            );
+            
+            // Filter jobs that belong to selected batches
+            filteredJobs = filteredJobs.filter(job => allowedJobIds.has(job.id));
         }
-        
+
         // Search filtering
         if ($searchText) {
             const searchLower = $searchText.toLowerCase();
             filteredJobs = filteredJobs.filter(job => {
                 return (
-                    (job?.companyInfo?.name || '').toLowerCase().includes(searchLower) ||
-                    (job?.jobInfo?.jobTitle || '').toLowerCase().includes(searchLower) ||
-                    (job?.jobInfo?.description || '').toLowerCase().includes(searchLower)
+                    (job?.basicInfo?.company || '').toLowerCase().includes(searchLower) ||
+                    (job?.basicInfo?.title || '').toLowerCase().includes(searchLower) ||
+                    (job?.details?.description || '').toLowerCase().includes(searchLower)
                 );
             });
         }
@@ -141,8 +168,10 @@ const sortedJobs = derived(
     }
 );
 
+// Initialize batches listener when jobs are initialized
 function createJobStore() {
     let unsubscribeJobs = null;
+    let unsubscribeBatches = null;
 
     const { subscribe, set, update } = jobs;
 
@@ -153,8 +182,8 @@ function createJobStore() {
             error.set(null);
             
             try {
+                // Setup jobs listener
                 const jobsRef = collection(db, 'users', userId, 'scrapedJobs');
-                
                 unsubscribeJobs = onSnapshot(
                     jobsRef,
                     async (jobsSnapshot) => {
@@ -244,8 +273,31 @@ function createJobStore() {
                         loading.set(false);
                     }
                 );
+
+                // Setup batches listener
+                const batchesRef = collection(db, 'jobBatches');
+                const batchesQuery = query(
+                    batchesRef,
+                    where('userId', '==', userId),
+                    orderBy('completedAt', 'desc')
+                );
+
+                unsubscribeBatches = onSnapshot(
+                    batchesQuery,
+                    (snapshot) => {
+                        const batchResults = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data()
+                        }));
+                        batches.set(batchResults);
+                    },
+                    (err) => {
+                        console.error('Error listening to batches:', err);
+                    }
+                );
+
             } catch (err) {
-                console.error('Error setting up job listener:', err);
+                console.error('Error setting up listeners:', err);
                 error.set('Failed to initialize jobs. Please try again later.');
                 loading.set(false);
             }
@@ -280,13 +332,16 @@ function createJobStore() {
                 unsubscribeJobs();
                 unsubscribeJobs = null;
             }
+            if (unsubscribeBatches) {
+                unsubscribeBatches();
+                unsubscribeBatches = null;
+            }
             set([]);
-            loading.set(true);
-            error.set(null);
+            batches.set([]);
         }
     };
 }
 
 // Create and export the job store
 export const jobStore = createJobStore();
-export { sortedJobs, loading, error, sortConfig, searchText, timeFilter };
+export { sortedJobs, loading, error, sortConfig, searchText, batchFilter as timeFilter };

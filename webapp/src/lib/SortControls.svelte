@@ -136,23 +136,23 @@
         </select>
     </div>
 
-    <!-- Bottom row with time filter buttons -->
+    <!-- Bottom row with batch filter buttons -->
     <div class="grid grid-cols-3 gap-2 pt-2">
         <button
             class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'all' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
             on:click={() => handleTimeFilterChange('all')}
         >
-            All Time
+            All
         </button>
         <button
-            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'week' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
-            on:click={() => handleTimeFilterChange('week')}
+            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'seven' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
+            on:click={() => handleTimeFilterChange('seven')}
         >
             Past Week
         </button>
         <button
-            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'today' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
-            on:click={() => handleTimeFilterChange('today')}
+            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'recent' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
+            on:click={() => handleTimeFilterChange('recent')}
         >
             Today
         </button>

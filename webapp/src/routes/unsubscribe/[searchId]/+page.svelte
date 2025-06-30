@@ -4,7 +4,7 @@
     import { onMount } from 'svelte';
     import { getAuth, signInWithCustomToken } from 'firebase/auth';
     import { initializeApp } from 'firebase/app';
-    import { firebaseConfig } from '$lib/config/firebase.config';
+    import { getFirebaseConfig } from '$lib/config/firebase.config';
 
     let status = 'processing';
     let message = 'Processing your unsubscribe request...';
@@ -23,7 +23,7 @@
 
             // Initialize Firebase if not already initialized
             if (!getAuth().app) {
-                initializeApp(firebaseConfig);
+                initializeApp(getFirebaseConfig());
             }
 
             // Get auth instance
