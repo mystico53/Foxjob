@@ -1,7 +1,7 @@
 <script>
 	import { page } from '$app/stores';
 	import { auth } from '$lib/firebase';
-	import { jobStore, sortedJobs, loading } from '$lib/stores/jobStore';
+	import { jobStore, sortedJobs, loading, timeFilter } from '$lib/stores/jobStore';
 	import JobCard from '$lib/Jobcards/JobCard.svelte';
 	import SortControls from '$lib/SortControls.svelte';
 	import SearchBar from '$lib/SearchBar.svelte';
@@ -15,7 +15,7 @@
 	onMount(() => {
 		// Initialize jobStore if needed
 		if (auth.currentUser) {
-			jobStore.init(auth.currentUser.uid);
+			jobStore.init(auth.currentUser.uid, $timeFilter);
 		}
 		
 		// Handle initial state based on screen size

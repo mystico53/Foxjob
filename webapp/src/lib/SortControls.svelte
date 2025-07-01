@@ -8,6 +8,7 @@
     let deleting = false;
     let currentUser = null;
     let unsubscribe;
+    let loadingFilter = '';
 
     onMount(() => {
         unsubscribe = auth.onAuthStateChanged((user) => {
@@ -28,8 +29,18 @@
         };
     }
 
-    function handleTimeFilterChange(value) {
-        $timeFilter = value;
+    async function handleTimeFilterChange(value) {
+        if (value === $timeFilter) return;
+        
+        loadingFilter = value;
+        try {
+            await jobStore.loadJobsForTimeFilter(value, currentUser?.uid);
+            $timeFilter = value;
+        } catch (error) {
+            console.error('Error loading jobs:', error);
+        } finally {
+            loadingFilter = '';
+        }
     }
 
     async function deleteAllJobs() {
@@ -139,22 +150,40 @@
     <!-- Bottom row with batch filter buttons -->
     <div class="grid grid-cols-3 gap-2 pt-2">
         <button
-            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'all' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
+            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors relative {$timeFilter === 'all' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
             on:click={() => handleTimeFilterChange('all')}
+            disabled={loadingFilter === 'all'}
         >
             All
+            {#if loadingFilter === 'all'}
+                <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                    <iconify-icon icon="eos-icons:loading" width="16" height="16"></iconify-icon>
+                </div>
+            {/if}
         </button>
         <button
-            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'seven' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
+            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors relative {$timeFilter === 'seven' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
             on:click={() => handleTimeFilterChange('seven')}
+            disabled={loadingFilter === 'seven'}
         >
             Past Week
+            {#if loadingFilter === 'seven'}
+                <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                    <iconify-icon icon="eos-icons:loading" width="16" height="16"></iconify-icon>
+                </div>
+            {/if}
         </button>
         <button
-            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors {$timeFilter === 'recent' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
+            class="px-4 py-1.5 rounded-[5px] text-sm font-medium transition-colors relative {$timeFilter === 'recent' ? 'bg-gray-500 text-white' : 'bg-surface-200 hover:bg-surface-300'}"
             on:click={() => handleTimeFilterChange('recent')}
+            disabled={loadingFilter === 'recent'}
         >
             Today
+            {#if loadingFilter === 'recent'}
+                <div class="absolute right-2 top-1/2 -translate-y-1/2">
+                    <iconify-icon icon="eos-icons:loading" width="16" height="16"></iconify-icon>
+                </div>
+            {/if}
         </button>
     </div>
 </div>
