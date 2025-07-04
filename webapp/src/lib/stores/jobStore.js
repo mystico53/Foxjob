@@ -212,8 +212,48 @@ function createJobStore() {
                 let q;
 
                 if (filterType === 'recent') {
-                    // Load only the most recent jobs (last 50)
-                    q = query(jobsRef, orderBy('details.postedDate', 'desc'), limit(50));
+                    // NEW LOGIC: Try to find the most recent batch first
+                    try {
+                        const batchesRef = collection(db, 'jobBatches');
+                        const batchQuery = query(
+                            batchesRef,
+                            where('userId', '==', userId),
+                            orderBy('startedAt', 'desc'),
+                            limit(1)
+                        );
+                        
+                        const batchSnapshot = await getDocs(batchQuery);
+                        
+                        if (!batchSnapshot.empty) {
+                            // Found a batch! Load all jobs from the most recent batch
+                            const latestBatch = batchSnapshot.docs[0];
+                            const batchId = latestBatch.id; // The batchId is the document ID
+                            
+                            console.log('Loading jobs from most recent batch:', batchId);
+                            
+                            // Query jobs by batchId (no limit - get all jobs from the batch)
+                            q = query(
+                                jobsRef,
+                                where('processing.batchId', '==', batchId),
+                                orderBy('details.postedDate', 'desc')
+                            );
+                            
+                            const snapshot = await getDocs(q);
+                            const jobsList = snapshot.docs.map(processJobData);
+                            
+                            console.log(`Loaded ${jobsList.length} jobs from batch ${batchId}`);
+                            set(jobsList);
+                            return;
+                        } else {
+                            // No batches found - fall back to recent jobs (no batch filter)
+                            console.log('No batches found for user, falling back to recent jobs');
+                            q = query(jobsRef, orderBy('details.postedDate', 'desc'), limit(50));
+                        }
+                    } catch (batchError) {
+                        // If batch query fails, fall back to recent jobs
+                        console.warn('Error querying batches, falling back to recent jobs:', batchError);
+                        q = query(jobsRef, orderBy('details.postedDate', 'desc'), limit(50));
+                    }
                 } else if (filterType === 'seven') {
                     // Load jobs from the past week
                     const weekAgo = new Date();

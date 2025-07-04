@@ -856,7 +856,7 @@
                   id="location"
                   type="text"
                   bind:value={location}
-                  placeholder="City or region"
+                  placeholder="City, State, region"
                   class="w-full px-4 py-2 border rounded-lg"
                 />
               </div>
