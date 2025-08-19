@@ -1,3 +1,3 @@
 @echo off
-set API_TOKEN=6b50d7aa-b58f-424b-b007-d7d4bdc6170a
-npx @brightdata/mcp --help
+set API_TOKEN=e649d059-cf4b-45d1-a573-b68ccc0af2b6
+npx @brightdata/mcp

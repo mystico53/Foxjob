@@ -12,10 +12,7 @@ exports.getBrightdataSnapshots = onRequest({
   //console.log('Dataset ID:', req.query.datasetId);
   
   try {
-    const [apiTokenVersion] = await secretManager.accessSecretVersion({
-      name: 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest'
-    });
-    const apiToken = apiTokenVersion.payload.data.toString();
+    const apiToken = process.env.BRIGHTDATA_API_TOKEN;
 
     if (!apiToken) {
       functions.logger.error("Missing required BRIGHTDATA_API_TOKEN secret");
