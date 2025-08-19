@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(npm install:*)",
+      "Bash(winget install:*)",
+      "WebSearch",
+      "Bash(powershell:*)",
+      "Bash(where gh)",
+      "Bash(\"C:\\Program Files\\GitHub CLI\\gh.exe\" auth status)",
+      "Bash(gh:*)",
+      "WebFetch(domain:1ar.io)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(echo $HOME)",
+      "Bash(mkdir:*)",
+      "Bash(chmod:*)",
+      "Bash(cat:*)",
+      "Bash(~/.claude/statusline-custom.sh:*)",
+      "Bash(cp:*)",
+      "Bash(npm run serve:*)",
+      "Bash(npx @brightdata/mcp:*)",
+      "Bash(node:*)",
+      "Bash(npx:*)",
+      "Bash(firebase functions:config:get:*)",
+      "Bash(gcloud secrets versions access:*)",
+      "Bash(firebase emulators:kill:*)",
+      "Bash(taskkill:*)",
+      "Bash(nvm use:*)",
+      "Bash(firebase --version)",
+      "Bash(set API_TOKEN=6b50d7aa-b58f-424b-b007-d7d4bdc6170a)",
+      "Bash(start-brightdata-mcp.bat)",
+      "Bash(cmd /c:*)"
+    ],
+    "deny": [],
+    "ask": [],
+    "additionalDirectories": [
+      "C:\\Program Files\\GitHub CLI",
+      "C:\\Users\\konka\\.claude"
+    ]
+  }
+}

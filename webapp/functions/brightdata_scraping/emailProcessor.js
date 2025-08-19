@@ -80,8 +80,7 @@ exports.processEmailRequests = onDocumentCreated({
           const auth = admin.auth();
           const tokenData = {
             uid: uid,
-            searchId: emailData.searchId,
-            exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 30) // 30 days expiry
+            searchId: emailData.searchId
           };
           customToken = await auth.createCustomToken(uid, tokenData);
           logger.info('Created custom token for unsubscribe link');

@@ -177,9 +177,13 @@
 	async function handleBookmark() {
 		try {
 			const newStatus = currentStatus === 'bookmarked' ? 'read' : 'bookmarked';
+			// Optimistically update the UI immediately
+			currentStatus = newStatus;
 			await toggleBookmark(job.id);
 		} catch (error) {
 			console.error('Error toggling bookmark:', error);
+			// Revert the optimistic update if the operation failed
+			currentStatus = currentStatus === 'bookmarked' ? 'read' : 'bookmarked';
 		}
 	}
 

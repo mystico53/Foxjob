@@ -13,7 +13,10 @@ if (!admin.apps.length) {
 }
 
 const cors = require('cors')({
-  origin: true, // Or specify allowed domains: ['https://jobille-45494.web.app']
+  origin: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true
 });
 
 const db = admin.firestore();
@@ -110,6 +113,12 @@ exports.searchBright = onRequest({
   
   // Wrap the entire function with CORS middleware
   return cors(req, res, async () => {
+    // Handle preflight requests
+    if (req.method === 'OPTIONS') {
+      res.status(200).end();
+      return;
+    }
+    
     const startTime = Date.now();  
     
     try {

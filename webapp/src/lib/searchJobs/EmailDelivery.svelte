@@ -81,33 +81,4 @@
   </div>
 </div>
 
-<style>
-  .toggle-checkbox {
-    width: 2rem;
-    height: 1rem;
-    border-radius: 1rem;
-    background: #e5e7eb;
-    appearance: none;
-    outline: none;
-    cursor: pointer;
-    position: relative;
-    transition: background 0.2s;
-  }
-  .toggle-checkbox:checked {
-    background: #f97316;
-  }
-  .toggle-checkbox:before {
-    content: '';
-    position: absolute;
-    left: 0.15rem;
-    top: 0.15rem;
-    width: 0.7rem;
-    height: 0.7rem;
-    border-radius: 50%;
-    background: #fff;
-    transition: transform 0.2s;
-  }
-  .toggle-checkbox:checked:before {
-    transform: translateX(1rem);
-  }
-</style> 
+ 
