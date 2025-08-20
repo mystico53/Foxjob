@@ -23,22 +23,23 @@
 	let processingJobs = new Set();
 	let animationsReady = false;
 	let isLoading = true;
-	
 
 	let renderedScore;
 	let renderAttempts = 0;
 	const maxRenderAttempts = 1;
 
 	$: if (score !== undefined) {
-	renderedScore = score;
+		renderedScore = score;
 	}
 
 	$: if (score !== undefined) {
-	renderedScore = score;
+		renderedScore = score;
 	}
 
 	// Sort match details by score (highest first)
-	$: matchDetails = (job.match?.match_details || []).sort((a, b) => b.match_score_percent - a.match_score_percent);
+	$: matchDetails = (job.match?.match_details || []).sort(
+		(a, b) => b.match_score_percent - a.match_score_percent
+	);
 
 	const popupHover = {
 		event: 'hover',
@@ -52,7 +53,8 @@
 
 	// Access the new summary fields
 	$: shortDescription = job?.match?.summary?.short_description || 'No job description available';
-	$: shortResponsibility = job?.match?.summary?.short_responsibility || 'No responsibility information available';
+	$: shortResponsibility =
+		job?.match?.summary?.short_responsibility || 'No responsibility information available';
 	$: shortGaps = job?.match?.summary?.short_gaps || 'No gaps information available';
 
 	$: preferenceScore = job?.match?.preferenceScore?.score;
@@ -63,23 +65,23 @@
 
 	// In the script section, modify your onMount function:
 	onMount(() => {
-	// Set initial states
-	isLoading = true;
-	animationsReady = false;
-	
-	setTimeout(() => {
-		const trigger = document.querySelector('[data-popup="popupHover"]');
-		if (trigger) {
-		trigger.style.opacity = '1';
-		}
-		
-		// Important: Keep isLoading true until animations are ready
+		// Set initial states
+		isLoading = true;
+		animationsReady = false;
+
 		setTimeout(() => {
-		// Set both states at the same time to avoid the flicker
-		animationsReady = true;
-		isLoading = false;
-		}, 400);
-	}, 100);
+			const trigger = document.querySelector('[data-popup="popupHover"]');
+			if (trigger) {
+				trigger.style.opacity = '1';
+			}
+
+			// Important: Keep isLoading true until animations are ready
+			setTimeout(() => {
+				// Set both states at the same time to avoid the flicker
+				animationsReady = true;
+				isLoading = false;
+			}, 400);
+		}, 100);
 	});
 
 	onDestroy(() => {
@@ -123,10 +125,10 @@
 		}
 		return 'N/A';
 	}
-	
+
 	function formatTimeAgo(dateValue) {
 		if (!dateValue) return 'N/A';
-		
+
 		let date;
 		// Handle Firebase Timestamp objects
 		if (dateValue && dateValue.toDate) {
@@ -139,13 +141,13 @@
 		} else {
 			return 'N/A';
 		}
-		
+
 		const now = new Date();
 		const diffMs = now - date;
 		const diffMinutes = Math.floor(diffMs / (1000 * 60));
 		const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
 		const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-		
+
 		if (diffMinutes < 60) {
 			return diffMinutes === 1 ? '1 minute ago' : `${diffMinutes} minutes ago`;
 		} else if (diffHours < 24) {
@@ -201,7 +203,7 @@
 			openJobLink(job.generalData.url);
 		} else {
 			// If no URL is found, try to construct one from the job ID
-			const linkedInBaseUrl = "https://www.linkedin.com/jobs/view/";
+			const linkedInBaseUrl = 'https://www.linkedin.com/jobs/view/';
 			if (job.id) {
 				openJobLink(`${linkedInBaseUrl}${job.id}`);
 			} else {
@@ -239,14 +241,14 @@
 			});
 
 			const data = await response.json();
-			
+
 			if (!response.ok) {
 				throw new Error(data.message || data.error || 'Failed to retry processing');
 			}
 
 			let attempts = 0;
 			const maxAttempts = 90;
-			
+
 			const checkStatus = async () => {
 				const docSnap = await getDoc(jobRef);
 				const status = docSnap.data()?.generalData?.processingStatus;
@@ -254,7 +256,7 @@
 				if (status === 'completed' || status === 'processed') {
 					return true;
 				}
-				
+
 				if (status === 'cancelled' || status === 'error') {
 					return false;
 				}
@@ -264,12 +266,11 @@
 				}
 
 				attempts++;
-				await new Promise(resolve => setTimeout(resolve, 1000));
+				await new Promise((resolve) => setTimeout(resolve, 1000));
 				return checkStatus();
 			};
 
 			await checkStatus();
-
 		} catch (error) {
 			console.error('Error in handleRetry:', error);
 			const jobRef = doc(db, 'users', auth.currentUser.uid, 'jobs', jobId);
@@ -277,160 +278,172 @@
 				'generalData.processingStatus': 'error'
 			});
 		} finally {
-			processingJobs = new Set([...processingJobs].filter(id => id !== jobId));
+			processingJobs = new Set([...processingJobs].filter((id) => id !== jobId));
 		}
 	}
 </script>
 
 <!-- Main card content -->
-<div class="bg-surface-100 mx-auto mb-20 max-w-4xl space-y-8 p-6">
+<div class="mx-auto mb-20 max-w-4xl space-y-8 bg-surface-100 p-6">
 	<!-- Header Section with updated layout -->
 	<div class="card p-8">
 		<!-- Job title at the top -->
 		<h5 class="h5 m-0 flex items-center pb-4">{job.jobInfo?.jobTitle || 'N/A'}</h5>
-		
-		<div class="hidden md:flex w-full items-center justify-between gap-4 pb-4">
+
+		<div class="hidden w-full items-center justify-between gap-4 pb-4 md:flex">
 			<!-- Company section with logo and name -->
 			<div class="flex items-center gap-3">
-			  {#if job.companyInfo?.logoUrl}
-				<img 
-				  src={job.companyInfo.logoUrl} 
-				  alt="{job.companyInfo?.name || 'Company'} logo" 
-				  class="h-8 w-8 rounded-full object-cover"
-				/>
-			  {/if}
-			  <h1 class="h1 font-bold">{job.companyInfo?.name || 'N/A'}</h1>
+				{#if job.companyInfo?.logoUrl}
+					<img
+						src={job.companyInfo.logoUrl}
+						alt="{job.companyInfo?.name || 'Company'} logo"
+						class="h-8 w-8 rounded-full object-cover"
+					/>
+				{/if}
+				<h1 class="h1 font-bold">{job.companyInfo?.name || 'N/A'}</h1>
 			</div>
-			
+
 			<!-- ProgressRadial for medium screens and up -->
 			{#if score !== undefined}
-			{#key job.id}
-			<div class="flex-shrink-0">
-				<div class="relative">
-				<div class="relative flex h-32 w-32 items-center justify-center progress-radial-container">
-					{#if isLoading}
-					<div class="flex h-full w-full items-center justify-center bg-surface-200/50 rounded-full">
-						<span class="text-sm">Loading...</span>
+				{#key job.id}
+					<div class="flex-shrink-0">
+						<div class="relative">
+							<div
+								class="progress-radial-container relative flex h-32 w-32 items-center justify-center"
+							>
+								{#if isLoading}
+									<div
+										class="flex h-full w-full items-center justify-center rounded-full bg-surface-200/50"
+									>
+										<span class="text-sm">Loading...</span>
+									</div>
+								{:else if isVisible}
+									{#if animationsReady}
+										<div
+											class="relative flex h-full w-full items-center justify-center"
+											in:fade={{ duration: 400, delay: 100 }}
+										>
+											<ProgressRadial
+												class="!h-full !w-full"
+												stroke={60}
+												font={150}
+												meter="!stroke-primary-500"
+												track="!stroke-tertiary-700/30"
+												strokeLinecap="round"
+												value={Math.round(renderedScore || 0)}
+											>
+												{Math.round(renderedScore || 0)}
+											</ProgressRadial>
+										</div>
+									{:else}
+										<div class="relative flex h-full w-full items-center justify-center">
+											<ProgressRadial
+												class="!h-full !w-full"
+												stroke={60}
+												font={150}
+												meter="!stroke-primary-500"
+												track="!stroke-tertiary-700/30"
+												strokeLinecap="round"
+												value={Math.round(renderedScore || 0)}
+											>
+												{Math.round(renderedScore || 0)}
+											</ProgressRadial>
+										</div>
+									{/if}
+									<div class="absolute -right-2 -top-2" use:popup={popupHover}>
+										<iconify-icon
+											icon="solar:info-circle-bold"
+											class="cursor-pointer rounded-full text-tertiary-900"
+										/>
+										<div class="card w-72 p-4 shadow-xl" data-popup="popupHover">test</div>
+									</div>
+								{/if}
+							</div>
+						</div>
 					</div>
-					{:else if isVisible}
-					{#if animationsReady}
-						<div class="relative flex h-full w-full items-center justify-center" in:fade={{ duration: 400, delay: 100 }}>
-						<ProgressRadial
-							class="!w-full !h-full"
-							stroke={60}
-							font={150}
-							meter="!stroke-primary-500"
-							track="!stroke-tertiary-700/30"
-							strokeLinecap="round"
-							value={Math.round(renderedScore || 0)}
-						>
-							{Math.round(renderedScore || 0)}
-						</ProgressRadial>
-						</div>
-					{:else}
-						<div class="relative flex h-full w-full items-center justify-center">
-						<ProgressRadial
-							class="!w-full !h-full"
-							stroke={60}
-							font={150}
-							meter="!stroke-primary-500"
-							track="!stroke-tertiary-700/30"
-							strokeLinecap="round"
-							value={Math.round(renderedScore || 0)}
-						>
-							{Math.round(renderedScore || 0)}
-						</ProgressRadial>
-						</div>
-					{/if}
-					<div class="absolute -right-2 -top-2" use:popup={popupHover}>
-						<iconify-icon
-						icon="solar:info-circle-bold"
-						class="text-tertiary-900 cursor-pointer rounded-full"
-						/>
-						<div class="card p-4 w-72 shadow-xl" data-popup="popupHover">
-						test
-						</div>
-					</div>
-					{/if}
-				</div>
-				</div>
-			</div>
-			{/key}
+				{/key}
 			{/if}
-		  </div>
-		  
-		  <!-- For small screens: Company name and donut in separate rows -->
-		  <div class="md:hidden flex flex-col space-y-4">
+		</div>
+
+		<!-- For small screens: Company name and donut in separate rows -->
+		<div class="flex flex-col space-y-4 md:hidden">
 			<!-- Company name row -->
 			<div class="flex items-center gap-3">
-			  {#if job.companyInfo?.logoUrl}
-				<img 
-				  src={job.companyInfo.logoUrl} 
-				  alt="{job.companyInfo?.name || 'Company'} logo" 
-				  class="h-8 w-8 rounded-full object-cover"
-				/>
-			  {/if}
-			  <h1 class="h1 font-bold">{job.companyInfo?.name || 'N/A'}</h1>
-			</div>
-			
-			<!-- ProgressRadial row for small screens -->
-				{#if score !== undefined}
-				{#key job.id}
-				<div class="flex justify-center pb-4">
-					<div class="relative">
-					<div class="relative flex h-20 w-20 items-center justify-center progress-radial-container">
-						{#if isLoading}
-						<div class="flex h-full w-full items-center justify-center bg-surface-200/50 rounded-full">
-							<span class="text-xs">Loading...</span>
-						</div>
-						{:else if isVisible}
-						{#if animationsReady}
-							<div class="relative flex h-full w-full items-center justify-center" in:fade={{ duration: 400, delay: 100 }}>
-							<ProgressRadial
-								class="!w-full !h-full"
-								stroke={40}
-								font={120}
-								meter="!stroke-primary-500"
-								track="!stroke-tertiary-700/30"
-								strokeLinecap="round"
-								value={Math.round(renderedScore || 0)}
-							>
-								{Math.round(renderedScore || 0)}
-							</ProgressRadial>
-							</div>
-						{:else}
-							<div class="relative flex h-full w-full items-center justify-center">
-							<ProgressRadial
-								class="!w-full !h-full"
-								stroke={40}
-								font={120}
-								meter="!stroke-primary-500"
-								track="!stroke-tertiary-700/30"
-								strokeLinecap="round"
-								value={Math.round(renderedScore || 0)}
-							>
-								{Math.round(renderedScore || 0)}
-							</ProgressRadial>
-							</div>
-						{/if}
-						<div class="absolute -right-1 -top-1 scale-75" use:popup={popupHover}>
-							<iconify-icon
-							icon="solar:info-circle-bold"
-							class="text-tertiary-900 cursor-pointer rounded-full"
-							/>
-						</div>
-						{/if}
-					</div>
-					</div>
-				</div>
-				{/key}
+				{#if job.companyInfo?.logoUrl}
+					<img
+						src={job.companyInfo.logoUrl}
+						alt="{job.companyInfo?.name || 'Company'} logo"
+						class="h-8 w-8 rounded-full object-cover"
+					/>
 				{/if}
-		  </div>
+				<h1 class="h1 font-bold">{job.companyInfo?.name || 'N/A'}</h1>
+			</div>
+
+			<!-- ProgressRadial row for small screens -->
+			{#if score !== undefined}
+				{#key job.id}
+					<div class="flex justify-center pb-4">
+						<div class="relative">
+							<div
+								class="progress-radial-container relative flex h-20 w-20 items-center justify-center"
+							>
+								{#if isLoading}
+									<div
+										class="flex h-full w-full items-center justify-center rounded-full bg-surface-200/50"
+									>
+										<span class="text-xs">Loading...</span>
+									</div>
+								{:else if isVisible}
+									{#if animationsReady}
+										<div
+											class="relative flex h-full w-full items-center justify-center"
+											in:fade={{ duration: 400, delay: 100 }}
+										>
+											<ProgressRadial
+												class="!h-full !w-full"
+												stroke={40}
+												font={120}
+												meter="!stroke-primary-500"
+												track="!stroke-tertiary-700/30"
+												strokeLinecap="round"
+												value={Math.round(renderedScore || 0)}
+											>
+												{Math.round(renderedScore || 0)}
+											</ProgressRadial>
+										</div>
+									{:else}
+										<div class="relative flex h-full w-full items-center justify-center">
+											<ProgressRadial
+												class="!h-full !w-full"
+												stroke={40}
+												font={120}
+												meter="!stroke-primary-500"
+												track="!stroke-tertiary-700/30"
+												strokeLinecap="round"
+												value={Math.round(renderedScore || 0)}
+											>
+												{Math.round(renderedScore || 0)}
+											</ProgressRadial>
+										</div>
+									{/if}
+									<div class="absolute -right-1 -top-1 scale-75" use:popup={popupHover}>
+										<iconify-icon
+											icon="solar:info-circle-bold"
+											class="cursor-pointer rounded-full text-tertiary-900"
+										/>
+									</div>
+								{/if}
+							</div>
+						</div>
+					</div>
+				{/key}
+			{/if}
+		</div>
 
 		<!-- Meta Information -->
 		<div class="flex max-w-2xl flex-row flex-wrap">
 			<span
-				class="chip variant-ghost-surface text-base"
+				class="variant-ghost-surface chip text-base"
 				title={job.basicInfo?.location || job.jobInfo?.location || 'N/A'}
 			>
 				<iconify-icon icon="solar:pin-bold"></iconify-icon>
@@ -438,39 +451,43 @@
 			</span>
 
 			{#if job.details?.salary?.range}
-			<span class="chip variant-ghost-surface text-base" title={job.details.salary.range}>
-				<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
-				<span>{truncateText(job.details.salary.range)}</span>
-			</span>
+				<span class="variant-ghost-surface chip text-base" title={job.details.salary.range}>
+					<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+					<span>{truncateText(job.details.salary.range)}</span>
+				</span>
 			{:else if job.details?.salary?.base?.range}
-			<span class="chip variant-ghost-surface text-base" title={job.details.salary.base.range}>
-				<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
-				<span>{truncateText(job.details.salary.base.range)}</span>
-			</span>
+				<span class="variant-ghost-surface chip text-base" title={job.details.salary.base.range}>
+					<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+					<span>{truncateText(job.details.salary.base.range)}</span>
+				</span>
 			{:else if job.compensation && job.compensation !== 'N/A'}
-			<span class="chip variant-ghost-surface text-base" title={job.compensation}>
-				<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
-				<span>{truncateText(job.compensation)}</span>
-			</span>
+				<span class="variant-ghost-surface chip text-base" title={job.compensation}>
+					<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+					<span>{truncateText(job.compensation)}</span>
+				</span>
 			{:else}
-			<span class="chip variant-ghost-surface text-base" title="Not mentioned">
-				<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
-				<span>Not mentioned</span>
-			</span>
+				<span class="variant-ghost-surface chip text-base" title="Not mentioned">
+					<iconify-icon icon="solar:money-bag-bold"></iconify-icon>
+					<span>Not mentioned</span>
+				</span>
 			{/if}
 
 			<span
-				class="chip variant-ghost-surface text-base"
-				title={formatDate(job.details?.postedDate || job.jobInfo?.postedDate || job.generalData?.timestamp)}
+				class="variant-ghost-surface chip text-base"
+				title={formatDate(
+					job.details?.postedDate || job.jobInfo?.postedDate || job.generalData?.timestamp
+				)}
 			>
 				<iconify-icon icon="solar:calendar-minimalistic-bold"></iconify-icon>
 				<span>
-					{formatTimeAgo(job.details?.postedDate || job.jobInfo?.postedDate || job.generalData?.timestamp)}
+					{formatTimeAgo(
+						job.details?.postedDate || job.jobInfo?.postedDate || job.generalData?.timestamp
+					)}
 				</span>
 			</span>
-			
+
 			<span
-				class="chip variant-ghost-surface text-base"
+				class="variant-ghost-surface chip text-base"
 				title={`${job.details?.numApplicants || 0} applicants`}
 			>
 				<iconify-icon icon="solar:users-group-rounded-bold"></iconify-icon>
@@ -497,59 +514,59 @@
 
 	<!-- Preference Match Card Section -->
 	{#if hasPreferenceScore}
-	<div class="card w-full p-4">
-		<h4 class="h4 mb-4 font-bold">Will you enjoy this job?</h4>
-		<Accordion>
-			<AccordionItem class="mb-2">
-				<svelte:fragment slot="summary">
-					<div class="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 w-full">
-						<div class="flex-1 mb-2 md:mb-0">{preferenceExplanation}</div>
-						<div class="w-full md:w-64">
-							<ProgressBar 
-								value={Math.round(preferenceScore)} 
-								max={100}
-								track="bg-surface-800/30"
-								meter="!bg-gradient-to-r from-[#FF9C00] to-[#DC3701]"
-							/>
+		<div class="card w-full p-4">
+			<h4 class="h4 mb-4 font-bold">Will you enjoy this job?</h4>
+			<Accordion>
+				<AccordionItem class="mb-2">
+					<svelte:fragment slot="summary">
+						<div class="flex w-full flex-col items-start gap-3">
+							<div class="w-full">
+								<ProgressBar
+									value={Math.round(preferenceScore)}
+									max={100}
+									track="bg-surface-800/30"
+									meter="!bg-gradient-to-r from-[#FF9C00] to-[#DC3701]"
+								/>
+							</div>
+							<div class="flex-1">{preferenceExplanation}</div>
 						</div>
-					</div>
-				</svelte:fragment>
-				<svelte:fragment slot="content">
-					<div class="rounded-lg space-y-4 p-4 bg-surface-100 border border-surface-300">
-						<div>
-							<span class="font-semibold">Preference Score:</span>
-							<p class="mt-1">{Math.round(preferenceScore)}/100</p>
+					</svelte:fragment>
+					<svelte:fragment slot="content">
+						<div class="space-y-4 rounded-lg border border-surface-300 bg-surface-100 p-4">
+							<div>
+								<span class="font-semibold">Preference Score:</span>
+								<p class="mt-1">{Math.round(preferenceScore)}/100</p>
+							</div>
 						</div>
-					</div>
-				</svelte:fragment>
-			</AccordionItem>
-		</Accordion>
-	</div>
+					</svelte:fragment>
+				</AccordionItem>
+			</Accordion>
+		</div>
 	{/if}
 
 	<!-- Updated Match Details Section with Accordion -->
 	<div class="card w-full p-4">
 		<h4 class="h4 mb-4 font-bold">Requirements Match</h4>
-		
+
 		{#if matchDetails.length > 0}
 			<Accordion>
 				{#each matchDetails as detail}
 					<AccordionItem class="mb-2">
 						<svelte:fragment slot="summary">
-							<div class="flex flex-col md:flex-row items-start md:items-center gap-2 md:gap-4 w-full">
-								<div class="flex-1 mb-2 md:mb-0">{detail.requirement}</div>
-								<div class="w-full md:w-64">
-									<ProgressBar 
-										value={Math.round(detail.match_score_percent)} 
+							<div class="flex w-full flex-col items-start gap-3">
+								<div class="w-full">
+									<ProgressBar
+										value={Math.round(detail.match_score_percent)}
 										max={100}
 										track="bg-surface-800/30"
 										meter="!bg-gradient-to-r from-[#FF9C00] to-[#DC3701]"
 									/>
 								</div>
+								<div class="flex-1">{detail.requirement}</div>
 							</div>
 						</svelte:fragment>
 						<svelte:fragment slot="content">
-							<div class="rounded-lg space-y-4 p-4 bg-surface-100 border border-surface-300">
+							<div class="space-y-4 rounded-lg border border-surface-300 bg-surface-100 p-4">
 								<div>
 									<span class="font-semibold">Evidence:</span>
 									<p class="mt-1">{detail.evidence}</p>
@@ -567,7 +584,7 @@
 	<!-- Job Description Section (Expandable) -->
 	<div class="flex w-full flex-col items-center gap-4">
 		<button
-			class="btn variant-ghost-tertiary flex items-center gap-2"
+			class="variant-ghost-tertiary btn flex items-center gap-2"
 			on:click={() => (showJobDescription = !showJobDescription)}
 		>
 			{#if showJobDescription}
@@ -586,7 +603,11 @@
 					<!-- Render HTML content safely -->
 					<div class="description-html">{@html job.jobInfo.descriptionHtml}</div>
 				{:else}
-					<p>{job?.jobInfo?.description || job?.details?.description || 'No job description available'}</p>
+					<p>
+						{job?.jobInfo?.description ||
+							job?.details?.description ||
+							'No job description available'}
+					</p>
 				{/if}
 			</div>
 		{/if}
@@ -595,22 +616,21 @@
 
 <!-- Fixed position action buttons -->
 <div
-	class="bg-surface-100 fixed inset-x-0 bottom-0 z-10 border-t p-4 md:left-[25rem] md:right-[1rem] transition-all duration-200"
+	class="fixed inset-x-0 bottom-0 z-10 border-t bg-surface-100 p-2 md:p-3 lg:p-4 transition-all duration-200 md:left-[25rem] md:right-[1rem]"
 >
 	<!-- For desktop: Keep original layout -->
-	<div class="hidden md:flex mx-auto max-w-4xl flex-wrap justify-center gap-24">
+	<div class="mx-auto hidden max-w-4xl flex-wrap justify-center gap-4 md:gap-8 lg:gap-16 md:flex">
 		<button
-			class="btn variant-primary flex items-center gap-2 rounded"
+			class="variant-primary btn flex items-center gap-2 rounded"
 			on:click={previousJob}
 			disabled={isFirstJob || isHiding}
 		>
 			<iconify-icon icon="solar:map-arrow-left-bold"></iconify-icon>
 		</button>
 
-		<div class="flex gap-4">
-
+		<div class="flex gap-2 md:gap-3 lg:gap-4">
 			<button
-				class="btn variant-ghost-tertiary flex items-center gap-2 rounded"
+				class="variant-ghost-tertiary btn flex items-center gap-2 rounded"
 				on:click={handleBookmark}
 				disabled={isHiding}
 			>
@@ -622,7 +642,7 @@
 			</button>
 
 			<button
-				class="btn variant-filled-primary flex items-center gap-2 rounded"
+				class="variant-filled-primary btn flex items-center gap-2 rounded"
 				on:click={handleVisitJob}
 				disabled={isHiding}
 			>
@@ -630,7 +650,7 @@
 			</button>
 
 			<button
-				class="btn variant-ghost-tertiary flex items-center gap-2 rounded"
+				class="variant-ghost-tertiary btn flex items-center gap-2 rounded"
 				on:click={handleHide}
 				disabled={isHiding}
 			>
@@ -643,18 +663,18 @@
 		</div>
 
 		<button
-			class="btn variant-primary flex items-center gap-2 rounded"
+			class="variant-primary btn flex items-center gap-2 rounded"
 			on:click={() => handleNext(job.id)}
 			disabled={isLastJob || isHiding}
 		>
 			<iconify-icon icon="solar:map-arrow-right-bold"></iconify-icon>
 		</button>
 	</div>
-	
+
 	<!-- For mobile: Optimized layout -->
-	<div class="flex md:hidden mx-auto max-w-4xl flex-wrap justify-between gap-4">
+	<div class="mx-auto flex max-w-4xl flex-wrap justify-between gap-4 md:hidden">
 		<button
-			class="btn variant-primary flex items-center justify-center w-10 h-10 rounded"
+			class="variant-primary btn flex h-10 w-10 items-center justify-center rounded"
 			on:click={previousJob}
 			disabled={isFirstJob || isHiding}
 		>
@@ -663,7 +683,7 @@
 
 		<div class="flex flex-wrap justify-center gap-2">
 			<button
-				class="btn variant-ghost-tertiary flex items-center justify-center w-10 h-10 rounded"
+				class="variant-ghost-tertiary btn flex h-10 w-10 items-center justify-center rounded"
 				on:click={handleBookmark}
 				disabled={isHiding}
 			>
@@ -675,7 +695,7 @@
 			</button>
 
 			<button
-				class="btn variant-filled-primary py-2 px-3 rounded"
+				class="variant-filled-primary btn rounded px-3 py-2"
 				on:click={handleVisitJob}
 				disabled={isHiding}
 			>
@@ -683,7 +703,7 @@
 			</button>
 
 			<button
-				class="btn variant-ghost-tertiary flex items-center justify-center w-10 h-10 rounded"
+				class="variant-ghost-tertiary btn flex h-10 w-10 items-center justify-center rounded"
 				on:click={handleHide}
 				disabled={isHiding}
 			>
@@ -696,7 +716,7 @@
 		</div>
 
 		<button
-			class="btn variant-primary flex items-center justify-center w-10 h-10 rounded"
+			class="variant-primary btn flex h-10 w-10 items-center justify-center rounded"
 			on:click={() => handleNext(job.id)}
 			disabled={isLastJob || isHiding}
 		>
@@ -706,44 +726,44 @@
 </div>
 
 <style>
-/* Add these styles to your component's <style> section */
+	/* Add these styles to your component's <style> section */
 
-/* General styles for HTML content */
-:global(.description-html) {
-  display: block;
-  line-height: 1.6;
-  white-space: pre-line !important; /* This helps preserve line breaks */
-}
+	/* General styles for HTML content */
+	:global(.description-html) {
+		display: block;
+		line-height: 1.6;
+		white-space: pre-line !important; /* This helps preserve line breaks */
+	}
 
-/* Fix for bullet points */
-:global(.description-html ul) {
-  display: block;
-  padding-left: 24px;
-  margin: 12px 0;
-  list-style-type: disc !important;
-}
+	/* Fix for bullet points */
+	:global(.description-html ul) {
+		display: block;
+		padding-left: 24px;
+		margin: 12px 0;
+		list-style-type: disc !important;
+	}
 
-:global(.description-html li) {
-  display: list-item !important;
-  margin-bottom: 8px;
-}
+	:global(.description-html li) {
+		display: list-item !important;
+		margin-bottom: 8px;
+	}
 
-/* Special fix for line breaks inside <strong> tags */
-:global(.description-html strong) {
-  font-weight: bold;
-  display: block; /* Make it a block element so line breaks work */
-  margin-bottom: 16px; /* Add space after the title */
-}
+	/* Special fix for line breaks inside <strong> tags */
+	:global(.description-html strong) {
+		font-weight: bold;
+		display: block; /* Make it a block element so line breaks work */
+		margin-bottom: 16px; /* Add space after the title */
+	}
 
-/* Make br tags render properly */
-:global(.description-html br) {
-  content: "";
-  display: block;
-  margin-top: 0.5em;
-}
+	/* Make br tags render properly */
+	:global(.description-html br) {
+		content: '';
+		display: block;
+		margin-top: 0.5em;
+	}
 
-/* Additional paragraph spacing */
-:global(.description-html p) {
-  margin-bottom: 16px;
-}
+	/* Additional paragraph spacing */
+	:global(.description-html p) {
+		margin-bottom: 16px;
+	}
 </style>
