@@ -3,6 +3,7 @@ const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { callGeminiAPI } = require('../services/geminiService');
 const { FieldValue } = require('firebase-admin/firestore');
+const { getUserResume } = require('../helpers/resumeHelper');
 
 // Initialize Firebase
 if (!admin.apps.length) admin.initializeApp();
@@ -32,21 +33,15 @@ const CONFIG = {
     `
 };
 
-// Helper to get resume text
-async function getResumeText(firebaseUid) {
-	const resumeSnapshot = await db
-		.collection('users')
-		.doc(firebaseUid)
-		.collection('UserCollections')
-		.where('type', '==', 'Resume')
-		.limit(1)
-		.get();
-
-	if (resumeSnapshot.empty) {
+// Helper to get resume text using the new resume helper
+async function getResumeText(firebaseUid, searchQueryId = null) {
+	const resumeData = await getUserResume(firebaseUid, searchQueryId);
+	
+	if (!resumeData) {
 		throw new Error('No resume found');
 	}
 
-	const resumeText = resumeSnapshot.docs[0].data().extractedText;
+	const resumeText = resumeData.extractedText;
 	if (!resumeText) {
 		throw new Error('Resume has no extracted text');
 	}
@@ -95,8 +90,20 @@ exports.matchSummary = onMessagePublished(
 				throw new Error('Job has no match details');
 			}
 
-			// Get resume text
-			const resumeText = await getResumeText(firebaseUid);
+			// Get resume text - try to get search query ID from batch
+			let searchQueryId = null;
+			if (batchId) {
+				try {
+					const batchDoc = await db.collection('jobBatches').doc(batchId).get();
+					if (batchDoc.exists) {
+						searchQueryId = batchDoc.data().searchId;
+					}
+				} catch (error) {
+					logger.warn('Could not get searchId from batch', { batchId, error: error.message });
+				}
+			}
+			
+			const resumeText = await getResumeText(firebaseUid, searchQueryId);
 
 			// Call Gemini API
 			const result = await callGeminiAPI(

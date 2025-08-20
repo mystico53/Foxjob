@@ -225,48 +225,51 @@ function createJobStore() {
 				let q;
 
 				if (filterType === 'recent') {
-					// NEW LOGIC: Try to find the most recent batch first
-					try {
-						const batchesRef = collection(db, 'jobBatches');
-						const batchQuery = query(
-							batchesRef,
-							where('userId', '==', userId),
-							orderBy('startedAt', 'desc'),
-							limit(1)
-						);
-
-						const batchSnapshot = await getDocs(batchQuery);
-
-						if (!batchSnapshot.empty) {
-							// Found a batch! Load all jobs from the most recent batch
-							const latestBatch = batchSnapshot.docs[0];
-							const batchId = latestBatch.id; // The batchId is the document ID
-
-							console.log('Loading jobs from most recent batch:', batchId);
-
-							// Query jobs by batchId (no limit - get all jobs from the batch)
-							q = query(
-								jobsRef,
-								where('processing.batchId', '==', batchId),
-								orderBy('details.postedDate', 'desc')
-							);
-
-							const snapshot = await getDocs(q);
-							const jobsList = snapshot.docs.map(processJobData);
-
-							console.log(`Loaded ${jobsList.length} jobs from batch ${batchId}`);
-							set(jobsList);
-							return;
+					// Load jobs from the last 24 hours (matching email notification behavior)
+					const twentyFourHoursAgo = new Date();
+					twentyFourHoursAgo.setHours(twentyFourHoursAgo.getHours() - 24);
+					
+					console.log(`Loading jobs from last 24 hours since: ${twentyFourHoursAgo.toISOString()}`);
+					
+					// Query recent jobs with a reasonable limit, ordered by posted date
+					q = query(
+						jobsRef, 
+						orderBy('details.postedDate', 'desc'),
+						limit(100) // Reasonable limit to prevent excessive loading
+					);
+					
+					// Get jobs and filter by 24-hour window in memory
+					const snapshot = await getDocs(q);
+					const recentJobs = [];
+					
+					snapshot.docs.forEach((doc) => {
+						const jobDataRaw = doc.data();
+						
+						// Check if job is from last 24 hours using snapshotDate
+						const snapshotDateStr = jobDataRaw.searchMetadata?.snapshotDate;
+						let isRecent = false;
+						
+						if (snapshotDateStr) {
+							const snapshotDate = new Date(snapshotDateStr);
+							isRecent = snapshotDate >= twentyFourHoursAgo;
 						} else {
-							// No batches found - fall back to recent jobs (no batch filter)
-							console.log('No batches found for user, falling back to recent jobs');
-							q = query(jobsRef, orderBy('details.postedDate', 'desc'), limit(50));
+							// Fallback to posted date for older jobs without snapshotDate
+							const postedDate = jobDataRaw.details?.postedDate;
+							if (postedDate) {
+								const jobDate = typeof postedDate === 'string' ? new Date(postedDate) : 
+											   (postedDate && postedDate.toDate ? postedDate.toDate() : new Date(0));
+								isRecent = jobDate >= twentyFourHoursAgo;
+							}
 						}
-					} catch (batchError) {
-						// If batch query fails, fall back to recent jobs
-						console.warn('Error querying batches, falling back to recent jobs:', batchError);
-						q = query(jobsRef, orderBy('details.postedDate', 'desc'), limit(50));
-					}
+						
+						if (isRecent) {
+							recentJobs.push(processJobData(doc));
+						}
+					});
+
+					console.log(`Loaded ${recentJobs.length} jobs from last 24 hours (filtered from ${snapshot.size} total)`);
+					set(recentJobs);
+					return;
 				} else if (filterType === 'seven') {
 					// Load jobs from the past week
 					const weekAgo = new Date();

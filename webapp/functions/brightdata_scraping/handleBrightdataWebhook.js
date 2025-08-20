@@ -309,11 +309,58 @@ exports.handleBrightdataWebhook = onRequest(
 						dataStructure: JSON.stringify(snapshotData).substring(0, 500) + '...'
 					});
 
+					// Check if snapshot is still building or has an error status
+					if (snapshotData && typeof snapshotData === 'object' && !Array.isArray(snapshotData)) {
+						if (snapshotData.status === 'building') {
+							logger.info('Snapshot is still building, accepting webhook but not processing', {
+								snapshotId: req.body.snapshot_id,
+								message: snapshotData.message || 'Snapshot building'
+							});
+							// Return success so BrightData doesn't think webhook failed
+							// They will call again when snapshot is ready
+							return res.status(200).json({
+								success: true,
+								message: 'Snapshot is building, will be processed when ready',
+								snapshot_id: req.body.snapshot_id,
+								status: 'building'
+							});
+						} else if (snapshotData.status && snapshotData.status !== 'ready') {
+							logger.warn('Snapshot has unexpected status', {
+								snapshotId: req.body.snapshot_id,
+								status: snapshotData.status,
+								message: snapshotData.message
+							});
+							return res.status(400).json({
+								success: false,
+								message: `Snapshot status: ${snapshotData.status}`,
+								snapshot_id: req.body.snapshot_id
+							});
+						}
+					}
+
 					// Process jobs from snapshot
 					const jobs = Array.isArray(snapshotData) ? snapshotData : [snapshotData];
 
+					// Validate that jobs contain actual job data (not status objects)
+					const validJobs = jobs.filter(job => {
+						// A valid job should have at least a job_title or job_posting_id
+						return job && typeof job === 'object' && 
+							   (job.job_title || job.job_posting_id || job.company_name);
+					});
+
+					if (validJobs.length !== jobs.length) {
+						logger.warn('Filtered out invalid jobs from snapshot', {
+							totalJobs: finalJobs.length,
+							validJobs: validJobs.length,
+							snapshotId: req.body.snapshot_id
+						});
+					}
+
+					// Update jobs array to use only valid jobs
+					const finalJobs = validJobs;
+
 					// Check if jobs array is empty
-					if (!jobs || jobs.length === 0) {
+					if (!finalJobs || finalJobs.length === 0) {
 						logger.info('No jobs found in search, sending email notification', {
 							userId,
 							searchId
@@ -384,17 +431,17 @@ exports.handleBrightdataWebhook = onRequest(
 						userId,
 						snapshotId: batchId,
 						searchId: searchId,
-						totalJobs: jobs.length,
+						totalJobs: finalJobs.length,
 						completedJobs: 0,
 						status: 'processing',
 						startedAt: FieldValue.serverTimestamp(),
 						emailSent: false,
-						smallBatch: jobs.length === 1,
+						smallBatch: finalJobs.length === 1,
 						jobIds: []
 					});
 
 					// Pass batchId to processing function
-					const results = await processJobsAndPublish(jobs, userId, batchId);
+					const results = await processJobsAndPublish(finalJobs, userId, batchId);
 
 					// Update batch with job IDs after processing
 					await batchRef.update({
@@ -403,7 +450,7 @@ exports.handleBrightdataWebhook = onRequest(
 
 					logger.info('Batch document created', {
 						batchId,
-						totalJobs: jobs.length,
+						totalJobs: finalJobs.length,
 						successful: results.successful.length
 					});
 
@@ -418,7 +465,7 @@ exports.handleBrightdataWebhook = onRequest(
 							await searchRef.update({
 								searchingStatus: 'completed',
 								lastSearchCompleted: FieldValue.serverTimestamp(),
-								lastResultsCount: jobs.length
+								lastResultsCount: finalJobs.length
 							});
 							logger.info('Updated search query status to completed', { searchId, userId });
 						} catch (error) {
@@ -431,7 +478,7 @@ exports.handleBrightdataWebhook = onRequest(
 					}
 
 					// If no jobs found, mark batch as complete and email sent
-					if (jobs.length === 0) {
+					if (finalJobs.length === 0) {
 						logger.info('No jobs found for batch, marking as complete', { batchId });
 
 						// Create email request first
@@ -466,7 +513,7 @@ exports.handleBrightdataWebhook = onRequest(
 						message: 'Snapshot processed successfully',
 						snapshot_id: req.body.snapshot_id,
 						processed: {
-							total: jobs.length,
+							total: finalJobs.length,
 							successful: results.successful.length,
 							failed: results.failed.length,
 							jobs: results.successful,
@@ -572,14 +619,21 @@ exports.handleBrightdataWebhook = onRequest(
 
 			// Process jobs from webhook body
 			const jobs = Array.isArray(req.body) ? req.body : [req.body];
+			
+			// Validate jobs for direct webhook case too
+			const validDirectJobs = jobs.filter(job => {
+				return job && typeof job === 'object' && 
+					   (job.job_title || job.job_posting_id || job.company_name);
+			});
+			
 			// Create a batchId for direct webhook case
 			const directBatchId = `direct_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-			const results = await processJobsAndPublish(jobs, userId, directBatchId);
+			const results = await processJobsAndPublish(validDirectJobs, userId, directBatchId);
 
 			return res.json({
 				success: true,
 				processed: {
-					total: jobs.length,
+					total: validDirectJobs.length,
 					successful: results.successful.length,
 					failed: results.failed.length,
 					jobs: results.successful,
