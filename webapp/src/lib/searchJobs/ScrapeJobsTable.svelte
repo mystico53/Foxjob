@@ -1,65 +1,71 @@
 <script>
 	import { onMount, onDestroy } from 'svelte';
-	import { scrapeStore, isLoading, totalJobs, currentBatch, initJobListener } from '$lib/stores/scrapeStore';
+	import {
+		scrapeStore,
+		isLoading,
+		totalJobs,
+		currentBatch,
+		initJobListener
+	} from '$lib/stores/scrapeStore';
 	import { writable, derived } from 'svelte/store';
 	import { goto } from '$app/navigation';
 
 	let currentPage = 1;
 	let rowsPerPage = 30; // 30 jobs per page as requested
 	let sortValue = 'date-newest'; // Default sort
-    
-    // Create local stores for sorting and searching
-    const sortConfig = writable({ column: 'details.postedDate', direction: 'desc' });
-    const searchText = writable('');
-    
-    // Create a derived store for sorted and filtered jobs
-    const sortedJobs = derived(
-        [scrapeStore, sortConfig, searchText],
-        ([$scrapeStore, $sortConfig, $searchText]) => {
-            let filteredJobs = [...$scrapeStore];
-            
-            // Apply search filter if searchText is not empty
-            if ($searchText && $searchText.trim() !== '') {
-                const searchLower = $searchText.toLowerCase();
-                filteredJobs = filteredJobs.filter(job => {
-                    return (
-                        (job.basicInfo?.company && job.basicInfo.company.toLowerCase().includes(searchLower)) ||
-                        (job.basicInfo?.title && job.basicInfo.title.toLowerCase().includes(searchLower)) ||
-                        (job.basicInfo?.location && job.basicInfo.location.toLowerCase().includes(searchLower))
-                    );
-                });
-            }
-            
-            // Sort jobs based on sortConfig
-            return filteredJobs.sort((a, b) => {
-                // Extract values based on the column path
-                const path = $sortConfig.column.split('.');
-                let aValue = a;
-                let bValue = b;
-                
-                // Navigate the object path
-                for (const key of path) {
-                    aValue = aValue && aValue[key] !== undefined ? aValue[key] : null;
-                    bValue = bValue && bValue[key] !== undefined ? bValue[key] : null;
-                }
-                
-                // Handle nulls and undefined
-                if (aValue === null || aValue === undefined) return $sortConfig.direction === 'asc' ? -1 : 1;
-                if (bValue === null || bValue === undefined) return $sortConfig.direction === 'asc' ? 1 : -1;
-                
-                // Compare based on value type
-                if (typeof aValue === 'string') {
-                    return $sortConfig.direction === 'asc' 
-                        ? aValue.localeCompare(bValue)
-                        : bValue.localeCompare(aValue);
-                } else {
-                    return $sortConfig.direction === 'asc' 
-                        ? aValue - bValue 
-                        : bValue - aValue;
-                }
-            });
-        }
-    );
+
+	// Create local stores for sorting and searching
+	const sortConfig = writable({ column: 'details.postedDate', direction: 'desc' });
+	const searchText = writable('');
+
+	// Create a derived store for sorted and filtered jobs
+	const sortedJobs = derived(
+		[scrapeStore, sortConfig, searchText],
+		([$scrapeStore, $sortConfig, $searchText]) => {
+			let filteredJobs = [...$scrapeStore];
+
+			// Apply search filter if searchText is not empty
+			if ($searchText && $searchText.trim() !== '') {
+				const searchLower = $searchText.toLowerCase();
+				filteredJobs = filteredJobs.filter((job) => {
+					return (
+						(job.basicInfo?.company && job.basicInfo.company.toLowerCase().includes(searchLower)) ||
+						(job.basicInfo?.title && job.basicInfo.title.toLowerCase().includes(searchLower)) ||
+						(job.basicInfo?.location && job.basicInfo.location.toLowerCase().includes(searchLower))
+					);
+				});
+			}
+
+			// Sort jobs based on sortConfig
+			return filteredJobs.sort((a, b) => {
+				// Extract values based on the column path
+				const path = $sortConfig.column.split('.');
+				let aValue = a;
+				let bValue = b;
+
+				// Navigate the object path
+				for (const key of path) {
+					aValue = aValue && aValue[key] !== undefined ? aValue[key] : null;
+					bValue = bValue && bValue[key] !== undefined ? bValue[key] : null;
+				}
+
+				// Handle nulls and undefined
+				if (aValue === null || aValue === undefined)
+					return $sortConfig.direction === 'asc' ? -1 : 1;
+				if (bValue === null || bValue === undefined)
+					return $sortConfig.direction === 'asc' ? 1 : -1;
+
+				// Compare based on value type
+				if (typeof aValue === 'string') {
+					return $sortConfig.direction === 'asc'
+						? aValue.localeCompare(bValue)
+						: bValue.localeCompare(aValue);
+				} else {
+					return $sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue;
+				}
+			});
+		}
+	);
 
 	// Sort options
 	const sortOptions = [
@@ -92,18 +98,18 @@
 
 	function formatDate(isoDateString) {
 		if (!isoDateString) return 'N/A';
-		
-        try {
-            const date = new Date(isoDateString);
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = String(date.getFullYear()).slice(-2);
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${day}.${month}.${year}, ${hours}:${minutes}`;
-        } catch (error) {
-            return 'N/A';
-        }
+
+		try {
+			const date = new Date(isoDateString);
+			const day = String(date.getDate()).padStart(2, '0');
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const year = String(date.getFullYear()).slice(-2);
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			return `${day}.${month}.${year}, ${hours}:${minutes}`;
+		} catch (error) {
+			return 'N/A';
+		}
 	}
 
 	function truncateText(text, maxLength = 30) {
@@ -154,8 +160,8 @@
 		<div class="flex items-center gap-3">
 			<h2 class="text-xl font-bold">Scraped Jobs</h2>
 			<div>
-                <span class="badge badge-primary">Total: {$totalJobs}</span>
-            </div>
+				<span class="badge-primary badge">Total: {$totalJobs}</span>
+			</div>
 		</div>
 		<div class="flex items-center gap-4">
 			<div class="relative w-48">
@@ -188,11 +194,12 @@
 		{#if $isLoading}
 			<p class="text-center">Loading...</p>
 		{:else}
-			<div class="table-container card">
-				<table class="table-compact table w-full">
+			<div class="card table-container">
+				<table class="table table-compact w-full">
 					<thead>
 						<tr class="bg-tertiary-500">
-							<th class="w-[10%]"></th> <!-- Logo column -->
+							<th class="w-[10%]"></th>
+							<!-- Logo column -->
 							<th class="w-[20%]">Company</th>
 							<th class="w-[20%]">Title</th>
 							<th class="w-[20%]">Location</th>
@@ -205,17 +212,17 @@
 						{#each paginatedJobs as job}
 							<tr
 								on:click={() => handleRowClick(job)}
-								class="hover:bg-tertiary-100 cursor-pointer transition-colors duration-200"
+								class="cursor-pointer transition-colors duration-200 hover:bg-tertiary-100"
 							>
-                                <td class="flex justify-center">
-                                    {#if job.basicInfo?.companyLogo}
-                                        <img 
-                                            src={job.basicInfo.companyLogo} 
-                                            alt="{job.basicInfo?.company || 'Company'} logo" 
-                                            class="w-8 h-8 rounded object-contain"
-                                        />
-                                    {/if}
-                                </td>
+								<td class="flex justify-center">
+									{#if job.basicInfo?.companyLogo}
+										<img
+											src={job.basicInfo.companyLogo}
+											alt="{job.basicInfo?.company || 'Company'} logo"
+											class="h-8 w-8 rounded object-contain"
+										/>
+									{/if}
+								</td>
 								<td title={job.basicInfo?.company || 'N/A'}
 									>{truncateText(job.basicInfo?.company || 'N/A')}</td
 								>
@@ -225,11 +232,7 @@
 								<td title={job.basicInfo?.location || 'N/A'}
 									>{truncateText(job.basicInfo?.location || 'N/A')}</td
 								>
-								<td
-									>{job.match?.finalScore
-										? Math.round(job.match.finalScore)
-										: 'N/A'}</td
-								>
+								<td>{job.match?.finalScore ? Math.round(job.match.finalScore) : 'N/A'}</td>
 								<td>{formatDate(job.details?.postedDate)}</td>
 								<td>{job.processing?.status || 'N/A'}</td>
 							</tr>
@@ -250,7 +253,7 @@
 									</div>
 									<div class="flex items-center gap-1">
 										<button
-											class="btn btn-sm variant-soft h-6 min-h-0 !py-0"
+											class="variant-soft btn btn-sm h-6 min-h-0 !py-0"
 											on:click={previousPage}
 											disabled={currentPage === 1}
 										>
@@ -261,7 +264,7 @@
 											Page {currentPage} of {totalPages}
 										</span>
 										<button
-											class="btn btn-sm variant-soft h-6 min-h-0 !py-0"
+											class="variant-soft btn btn-sm h-6 min-h-0 !py-0"
 											on:click={nextPage}
 											disabled={currentPage === totalPages}
 										>

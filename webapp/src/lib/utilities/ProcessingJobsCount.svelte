@@ -10,7 +10,7 @@
 
 {#if processingJobsCount > 0}
 	<div class="flex items-center gap-2 p-4">
-		<span class="badge variant-filled-primary">{processingJobsCount}</span>
+		<span class="variant-filled-primary badge">{processingJobsCount}</span>
 		<span class="text-sm">Job{processingJobsCount !== 1 ? 's' : ''} Processing</span>
 	</div>
 {/if}

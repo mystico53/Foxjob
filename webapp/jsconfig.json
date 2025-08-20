@@ -1,9 +1,5 @@
 {
-  "extends": "./.svelte-kit/tsconfig.json",
-  "compilerOptions": {
-  },
-  "include": [
-    "src/**/*.js",
-    "src/**/*.svelte"
-, "src/my-custom-theme.ts"  ]
+	"extends": "./.svelte-kit/tsconfig.json",
+	"compilerOptions": {},
+	"include": ["src/**/*.js", "src/**/*.svelte", "src/my-custom-theme.ts"]
 }

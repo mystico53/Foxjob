@@ -25,16 +25,22 @@
 <div class="gradient-background">
 	<div class="container mx-auto max-w-6xl px-4 pb-0 sm:pb-16">
 		<LandingNav />
-		<div class="grid grid-cols-1 gap-8 pt-8 md:pl-14 md:pt-12 md:grid-cols-2">
+		<div class="grid grid-cols-1 gap-8 pt-8 md:grid-cols-2 md:pl-14 md:pt-12">
 			<!-- Right Column: Image (on mobile, appears first) -->
-			<div class="flex justify-center order-1 md:order-2">
-				<img src="/images/fox-hero.png" alt="Fox hero illustration" class="h-32 w-32 md:h-72 md:w-72 rounded-lg" />
+			<div class="order-1 flex justify-center md:order-2">
+				<img
+					src="/images/fox-hero.png"
+					alt="Fox hero illustration"
+					class="h-32 w-32 rounded-lg md:h-72 md:w-72"
+				/>
 			</div>
 
 			<!-- Left Column: Content (on mobile, appears second) -->
-			<div class="space-y-6 order-2 md:order-1">
-				<h1 class="h1 font-bold" style="line-height: 1.3;">Stop reading <br> job descriptions</h1>
-				<h2 class="h4 pb-20 font-normal">An AI agent that knows you personally finds jobs that actually fit.</h2>
+			<div class="order-2 space-y-6 md:order-1">
+				<h1 class="h1 font-bold" style="line-height: 1.3;">Stop reading <br /> job descriptions</h1>
+				<h2 class="h4 pb-20 font-normal">
+					An AI agent that knows you personally finds jobs that actually fit.
+				</h2>
 				<button
 					type="button"
 					class="btn px-4 font-bold text-white shadow-lg shadow-[#DC3701]/20 transition-all hover:-translate-y-0.5 hover:brightness-110"
@@ -49,7 +55,7 @@
 					{/if}
 				</button>
 				{#if error}
-					<div class="text-red-600 text-sm mt-2">{error}</div>
+					<div class="mt-2 text-sm text-red-600">{error}</div>
 				{/if}
 			</div>
 		</div>

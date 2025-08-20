@@ -220,4 +220,3 @@
 - fefe700 - Update README.md (2024-12-18) <mystico53>
 - 01482bd - Merge branch 'main' of https://github.com/mystico53/Foxjob (2024-12-18) <mystico53>
 - 2c5ee80 - added extension config file to hide api keys and endpoints (2024-12-18) <mystico53>
-

@@ -1,12 +1,12 @@
 <script>
-  import TestEmailButton from '$lib/searchJobs/TestEmailButton.svelte';
-  import { onMount } from 'svelte';
-  
-  let iframeDoc;
-  let showRawHtml = false;
-  
-  // Sample email template for testing without Firebase
-  const sampleHtml = `
+	import TestEmailButton from '$lib/searchJobs/TestEmailButton.svelte';
+	import { onMount } from 'svelte';
+
+	let iframeDoc;
+	let showRawHtml = false;
+
+	// Sample email template for testing without Firebase
+	const sampleHtml = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -340,185 +340,196 @@
     </body>
     </html>
   `;
-  
-  // Load the sample email in an iframe for testing
-  onMount(() => {
-    const iframe = document.getElementById('email-preview');
-    if (iframe) {
-      iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-      iframeDoc.open();
-      iframeDoc.write(sampleHtml);
-      iframeDoc.close();
-    }
-  });
-  
-  function toggleResponsiveMode() {
-    const iframe = document.getElementById('email-preview');
-    if (iframe.classList.contains('mobile-view')) {
-      iframe.classList.remove('mobile-view');
-    } else {
-      iframe.classList.add('mobile-view');
-    }
-  }
-  
-  function toggleRawHtml() {
-    showRawHtml = !showRawHtml;
-  }
+
+	// Load the sample email in an iframe for testing
+	onMount(() => {
+		const iframe = document.getElementById('email-preview');
+		if (iframe) {
+			iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+			iframeDoc.open();
+			iframeDoc.write(sampleHtml);
+			iframeDoc.close();
+		}
+	});
+
+	function toggleResponsiveMode() {
+		const iframe = document.getElementById('email-preview');
+		if (iframe.classList.contains('mobile-view')) {
+			iframe.classList.remove('mobile-view');
+		} else {
+			iframe.classList.add('mobile-view');
+		}
+	}
+
+	function toggleRawHtml() {
+		showRawHtml = !showRawHtml;
+	}
 </script>
 
 <div class="email-test-page">
-  <h1>Email Template Tester</h1>
-  
-  <div class="tabs">
-    <button class="tab active">Static Preview</button>
-    <button class="tab">Live Test</button>
-  </div>
-  
-  <div class="preview-controls">
-    <button on:click={toggleResponsiveMode}>Toggle Mobile View</button>
-    <button on:click={toggleRawHtml}>Show {showRawHtml ? 'Preview' : 'HTML'}</button>
-  </div>
-  
-  {#if showRawHtml}
-    <div class="raw-html">
-      <pre>{sampleHtml}</pre>
-    </div>
-  {:else}
-    <div class="preview-container">
-      <iframe id="email-preview" title="Email Preview" frameborder="0"></iframe>
-    </div>
-  {/if}
-  
-  <div class="live-tester">
-    <h2>Send Live Test Email</h2>
-    <p>Use the form below to test sending the email through Firebase Functions:</p>
-    <TestEmailButton />
-  </div>
+	<h1>Email Template Tester</h1>
+
+	<div class="tabs">
+		<button class="tab active">Static Preview</button>
+		<button class="tab">Live Test</button>
+	</div>
+
+	<div class="preview-controls">
+		<button on:click={toggleResponsiveMode}>Toggle Mobile View</button>
+		<button on:click={toggleRawHtml}>Show {showRawHtml ? 'Preview' : 'HTML'}</button>
+	</div>
+
+	{#if showRawHtml}
+		<div class="raw-html">
+			<pre>{sampleHtml}</pre>
+		</div>
+	{:else}
+		<div class="preview-container">
+			<iframe id="email-preview" title="Email Preview" frameborder="0"></iframe>
+		</div>
+	{/if}
+
+	<div class="live-tester">
+		<h2>Send Live Test Email</h2>
+		<p>Use the form below to test sending the email through Firebase Functions:</p>
+		<TestEmailButton />
+	</div>
 </div>
 
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-  @import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
-  
-  .email-test-page {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: 20px;
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
-  }
-  
-  h1 {
-    font-size: 28px;
-    font-weight: 700;
-    color: #333;
-    margin: 0 0 24px 0;
-    padding-bottom: 12px;
-    border-bottom: 1px solid #eee;
-    position: relative;
-  }
-  
-  h1:after {
-    content: "";
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    width: 80px;
-    height: 3px;
-    background: #FF9C00;
-    border-radius: 3px;
-  }
-  
-  .tabs {
-    display: flex;
-    margin-bottom: 20px;
-    gap: 10px;
-  }
-  
-  .tab {
-    padding: 10px 16px;
-    background: #f5f5f5;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-weight: 500;
-    transition: none;
-  }
-  
-  .tab.active {
-    background: #FF9C00;
-    color: white;
-  }
-  
-  .preview-controls {
-    display: flex;
-    gap: 10px;
-    margin-bottom: 16px;
-  }
-  
-  .preview-controls button {
-    padding: 8px 12px;
-    background: #f5f5f5;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: none;
-  }
-  
-  .preview-controls button:hover {
-    background: #f5f5f5;
-  }
-  
-  .preview-container {
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background-color: #f8f9fa;
-    height: 600px;
-    overflow: hidden;
-    margin-bottom: 30px;
-  }
-  
-  iframe {
-    width: 100%;
-    height: 100%;
-    border: none;
-  }
-  
-  .raw-html {
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    background-color: #f8f9fa;
-    height: 600px;
-    overflow: auto;
-    margin-bottom: 30px;
-  }
-  
-  pre {
-    margin: 0;
-    padding: 16px;
-    font-family: monospace;
-    font-size: 14px;
-    white-space: pre-wrap;
-    word-break: break-all;
-  }
-  
-  .live-tester {
-    padding: 20px;
-    background-color: #fff;
-    border: 1px solid #ddd;
-    border-radius: 8px;
-    margin-top: 30px;
-  }
-  
-  h2 {
-    font-size: 22px;
-    font-weight: 600;
-    color: #333;
-    margin: 0 0 16px 0;
-  }
-  
-  p {
-    color: #555;
-    margin-bottom: 20px;
-  }
-</style> 
+	@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+	@import url('https://fonts.googleapis.com/css2?family=Lalezar&display=swap');
+
+	.email-test-page {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 20px;
+		font-family:
+			'Inter',
+			-apple-system,
+			BlinkMacSystemFont,
+			'Segoe UI',
+			Roboto,
+			Oxygen,
+			Ubuntu,
+			Cantarell,
+			'Open Sans',
+			'Helvetica Neue',
+			sans-serif;
+	}
+
+	h1 {
+		font-size: 28px;
+		font-weight: 700;
+		color: #333;
+		margin: 0 0 24px 0;
+		padding-bottom: 12px;
+		border-bottom: 1px solid #eee;
+		position: relative;
+	}
+
+	h1:after {
+		content: '';
+		position: absolute;
+		bottom: -1px;
+		left: 0;
+		width: 80px;
+		height: 3px;
+		background: #ff9c00;
+		border-radius: 3px;
+	}
+
+	.tabs {
+		display: flex;
+		margin-bottom: 20px;
+		gap: 10px;
+	}
+
+	.tab {
+		padding: 10px 16px;
+		background: #f5f5f5;
+		border: none;
+		border-radius: 4px;
+		cursor: pointer;
+		font-weight: 500;
+		transition: none;
+	}
+
+	.tab.active {
+		background: #ff9c00;
+		color: white;
+	}
+
+	.preview-controls {
+		display: flex;
+		gap: 10px;
+		margin-bottom: 16px;
+	}
+
+	.preview-controls button {
+		padding: 8px 12px;
+		background: #f5f5f5;
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		cursor: pointer;
+		font-size: 14px;
+		transition: none;
+	}
+
+	.preview-controls button:hover {
+		background: #f5f5f5;
+	}
+
+	.preview-container {
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		background-color: #f8f9fa;
+		height: 600px;
+		overflow: hidden;
+		margin-bottom: 30px;
+	}
+
+	iframe {
+		width: 100%;
+		height: 100%;
+		border: none;
+	}
+
+	.raw-html {
+		border: 1px solid #ddd;
+		border-radius: 4px;
+		background-color: #f8f9fa;
+		height: 600px;
+		overflow: auto;
+		margin-bottom: 30px;
+	}
+
+	pre {
+		margin: 0;
+		padding: 16px;
+		font-family: monospace;
+		font-size: 14px;
+		white-space: pre-wrap;
+		word-break: break-all;
+	}
+
+	.live-tester {
+		padding: 20px;
+		background-color: #fff;
+		border: 1px solid #ddd;
+		border-radius: 8px;
+		margin-top: 30px;
+	}
+
+	h2 {
+		font-size: 22px;
+		font-weight: 600;
+		color: #333;
+		margin: 0 0 16px 0;
+	}
+
+	p {
+		color: #555;
+		margin-bottom: 20px;
+	}
+</style>

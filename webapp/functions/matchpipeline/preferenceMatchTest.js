@@ -1,15 +1,15 @@
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
-const { logger } = require("firebase-functions");
+const { logger } = require('firebase-functions');
 const { callGeminiAPI } = require('../services/geminiService');
-const { FieldValue } = require("firebase-admin/firestore");
+const { FieldValue } = require('firebase-admin/firestore');
 
 // Initialize Firebase
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
 const CONFIG = {
-    instructions: `
+	instructions: `
     You are a friendly job preference analyzer, acting like a buddy who knows the user's career tastes well. Your task is to quickly check how well a job description fits what the user (you!) is looking for.
 
     Given:
@@ -77,134 +77,135 @@ const CONFIG = {
 
 // Helper to get user preferences
 async function getUserPreferences(firebaseUid) {
-    const prefsDoc = await db.collection('users')
-        .doc(firebaseUid)
-        .collection('UserCollections')
-        .doc('work_preferences')
-        .get();
-    
-    if (!prefsDoc.exists) {
-        return null; // No preferences set
-    }
-    
-    const data = prefsDoc.data();
-    
-    // Check if answers exist
-    if (!data.answer1 && !data.answer2 && !data.answer3 && !data.answer4 && !data.answer5) {
-        return null;
-    }
-    
-    // Concatenate all answers into a single preferences string
-    const preferences = `
+	const prefsDoc = await db
+		.collection('users')
+		.doc(firebaseUid)
+		.collection('UserCollections')
+		.doc('work_preferences')
+		.get();
+
+	if (!prefsDoc.exists) {
+		return null; // No preferences set
+	}
+
+	const data = prefsDoc.data();
+
+	// Check if answers exist
+	if (!data.answer1 && !data.answer2 && !data.answer3 && !data.answer4 && !data.answer5) {
+		return null;
+	}
+
+	// Concatenate all answers into a single preferences string
+	const preferences = `
         ${data.question1 || ''}: ${data.answer1 || ''}
         ${data.question2 || ''}: ${data.answer2 || ''}
         ${data.question3 || ''}: ${data.answer3 || ''}
         ${data.question4 || ''}: ${data.answer4 || ''}
         ${data.question5 || ''}: ${data.answer5 || ''}
     `;
-    
-    return preferences;
+
+	return preferences;
 }
 
 // Main callable function
-exports.preferenceMatchTest = onCall(
-    { timeoutSeconds: 540 },
-    async (request) => {
-        try {
-            // Get parameters from the request
-            const { firebaseUid, jobId, saveToFirestore = false } = request.data;
-            
-            logger.info('Starting preference matching test', { firebaseUid, jobId });
+exports.preferenceMatchTest = onCall({ timeoutSeconds: 540 }, async (request) => {
+	try {
+		// Get parameters from the request
+		const { firebaseUid, jobId, saveToFirestore = false } = request.data;
 
-            // Get job document
-            const jobDoc = await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .get();
+		logger.info('Starting preference matching test', { firebaseUid, jobId });
 
-            if (!jobDoc.exists) {
-                throw new Error('Job not found');
-            }
+		// Get job document
+		const jobDoc = await db
+			.collection('users')
+			.doc(firebaseUid)
+			.collection('scrapedJobs')
+			.doc(jobId)
+			.get();
 
-            const jobData = jobDoc.data();
-            
-            // Get job description
-            const jobDescription = jobData.details?.description;
-            if (!jobDescription) {
-                throw new Error('Job has no description');
-            }
+		if (!jobDoc.exists) {
+			throw new Error('Job not found');
+		}
 
-            // Get user preferences
-            const preferences = await getUserPreferences(firebaseUid);
-            if (!preferences) {
-                logger.info('No preferences found', { firebaseUid });
-                return {
-                    success: false,
-                    error: 'No user preferences found'
-                };
-            }
+		const jobData = jobDoc.data();
 
-            // Call Gemini API
-            const result = await callGeminiAPI(
-                `Job Description: ${jobDescription}\n\n` +
-                `User Preferences: ${preferences}`,
-                CONFIG.instructions,
-                {
-                    temperature: 0.3
-                }
-            );
+		// Get job description
+		const jobDescription = jobData.details?.description;
+		if (!jobDescription) {
+			throw new Error('Job has no description');
+		}
 
-            // Parse response
-            let response;
-            try {
-                const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
-                const start = jsonStr.indexOf('{');
-                const end = jsonStr.lastIndexOf('}') + 1;
-                if (start === -1 || end === 0) throw new Error('No JSON object found in response');
-                response = JSON.parse(jsonStr.slice(start, end));
-            } catch (error) {
-                logger.error('Failed to parse Gemini response:', { 
-                    error: error.message,
-                    rawResponse: result.extractedText
-                });
-                throw error;
-            }
+		// Get user preferences
+		const preferences = await getUserPreferences(firebaseUid);
+		if (!preferences) {
+			logger.info('No preferences found', { firebaseUid });
+			return {
+				success: false,
+				error: 'No user preferences found'
+			};
+		}
 
-            // Store results if saveToFirestore is true
-            if (saveToFirestore) {
-                await db.collection('users')
-                    .doc(firebaseUid)
-                    .collection('scrapedJobs')
-                    .doc(jobId)
-                    .set({
-                        match: {
-                            preferenceScore: {
-                                score: response.score,
-                                explanation: response.explanation,
-                                timestamp: FieldValue.serverTimestamp()
-                            }
-                        }
-                    }, { merge: true });
-                
-                logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
-            }
+		// Call Gemini API
+		const result = await callGeminiAPI(
+			`Job Description: ${jobDescription}\n\n` + `User Preferences: ${preferences}`,
+			CONFIG.instructions,
+			{
+				temperature: 0.3
+			}
+		);
 
-            // Return results
-            return {
-                success: true,
-                rawOutput: result.extractedText,
-                parsedResponse: response,
-                savedToFirestore: saveToFirestore
-            };
+		// Parse response
+		let response;
+		try {
+			const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
+			const start = jsonStr.indexOf('{');
+			const end = jsonStr.lastIndexOf('}') + 1;
+			if (start === -1 || end === 0) throw new Error('No JSON object found in response');
+			response = JSON.parse(jsonStr.slice(start, end));
+		} catch (error) {
+			logger.error('Failed to parse Gemini response:', {
+				error: error.message,
+				rawResponse: result.extractedText
+			});
+			throw error;
+		}
 
-        } catch (error) {
-            logger.error('Preference matching test failed:', error);
-            return {
-                success: false,
-                error: error.message,
-                stack: error.stack
-            };
-        }
-    }
-);
+		// Store results if saveToFirestore is true
+		if (saveToFirestore) {
+			await db
+				.collection('users')
+				.doc(firebaseUid)
+				.collection('scrapedJobs')
+				.doc(jobId)
+				.set(
+					{
+						match: {
+							preferenceScore: {
+								score: response.score,
+								explanation: response.explanation,
+								timestamp: FieldValue.serverTimestamp()
+							}
+						}
+					},
+					{ merge: true }
+				);
+
+			logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
+		}
+
+		// Return results
+		return {
+			success: true,
+			rawOutput: result.extractedText,
+			parsedResponse: response,
+			savedToFirestore: saveToFirestore
+		};
+	} catch (error) {
+		logger.error('Preference matching test failed:', error);
+		return {
+			success: false,
+			error: error.message,
+			stack: error.stack
+		};
+	}
+});

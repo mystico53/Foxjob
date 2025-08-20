@@ -1,8 +1,7 @@
-
 <script>
-    import { marked } from 'marked';
+	import { marked } from 'marked';
 
-    const tosContent = `# Terms of Service for Foxjob
+	const tosContent = `# Terms of Service for Foxjob
 
 Last Updated: December 1st, 2024
 
@@ -91,41 +90,44 @@ For questions about these Terms:
 Konstantin Kaiser
 Email: konkaiser@gmail.com`;
 
-    const htmlContent = marked(tosContent);
+	const htmlContent = marked(tosContent);
 
-    function goBack() {
-        window.history.back();
-    }
+	function goBack() {
+		window.history.back();
+	}
 </script>
 
 <svelte:head>
-    <title>Terms of Service | Foxjob</title>
+	<title>Terms of Service | Foxjob</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
-    <!-- Back button -->
-    <button on:click={goBack} class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded mb-4">
-        ← Back
-    </button>
-    <!-- ToS content -->
-    {@html htmlContent}
+	<!-- Back button -->
+	<button
+		on:click={goBack}
+		class="mb-4 rounded bg-blue-500 px-4 py-2 font-bold text-white hover:bg-blue-700"
+	>
+		← Back
+	</button>
+	<!-- ToS content -->
+	{@html htmlContent}
 </div>
 
 <style>
-    :global(h1) {
-        @apply text-3xl font-bold mb-4;
-    }
-    :global(h2) {
-        @apply text-2xl font-semibold mt-6 mb-3;
-    }
-    :global(p) {
-        @apply mb-4;
-    }
-    :global(ul) {
-        @apply list-disc list-inside mb-4;
-    }
+	:global(h1) {
+		@apply mb-4 text-3xl font-bold;
+	}
+	:global(h2) {
+		@apply mb-3 mt-6 text-2xl font-semibold;
+	}
+	:global(p) {
+		@apply mb-4;
+	}
+	:global(ul) {
+		@apply mb-4 list-inside list-disc;
+	}
 
-    button {
-        @apply mb-4;
-    }
+	button {
+		@apply mb-4;
+	}
 </style>

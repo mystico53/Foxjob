@@ -1,8 +1,7 @@
-
 <script>
-    import { marked } from 'marked';
+	import { marked } from 'marked';
 
-    const privacyContent = `# Privacy Statement for Foxjob
+	const privacyContent = `# Privacy Statement for Foxjob
 
 Last Updated: December 1st, 2024
 
@@ -102,44 +101,47 @@ If you are in the EU/EEA, you have additional rights under GDPR. If you are in C
 
 By using our services, you acknowledge this privacy statement and consent to the collection and processing of your data as described above.`;
 
-    const htmlContent = marked(privacyContent);
+	const htmlContent = marked(privacyContent);
 
-    function goBack() {
-        window.history.back();
-    }
+	function goBack() {
+		window.history.back();
+	}
 </script>
 
 <svelte:head>
-    <title>Privacy Policy | Foxjob</title>
+	<title>Privacy Policy | Foxjob</title>
 </svelte:head>
 
 <div class="container mx-auto px-4 py-8">
-    <!-- Back button -->
-    <button on:click={goBack} class="bg-[#DC3701] hover:brightness-110 text-white font-bold py-2 px-4 rounded mb-4">
-        ← Back
-    </button>
-    <!-- Privacy content -->
-    {@html htmlContent}
+	<!-- Back button -->
+	<button
+		on:click={goBack}
+		class="mb-4 rounded bg-[#DC3701] px-4 py-2 font-bold text-white hover:brightness-110"
+	>
+		← Back
+	</button>
+	<!-- Privacy content -->
+	{@html htmlContent}
 </div>
 
 <style>
-    :global(h1) {
-        @apply text-3xl font-bold mb-4;
-    }
-    :global(h2) {
-        @apply text-2xl font-semibold mt-6 mb-3;
-    }
-    :global(h3) {
-        @apply text-xl font-semibold mt-4 mb-2;
-    }
-    :global(p) {
-        @apply mb-4;
-    }
-    :global(ul) {
-        @apply list-disc list-inside mb-4;
-    }
+	:global(h1) {
+		@apply mb-4 text-3xl font-bold;
+	}
+	:global(h2) {
+		@apply mb-3 mt-6 text-2xl font-semibold;
+	}
+	:global(h3) {
+		@apply mb-2 mt-4 text-xl font-semibold;
+	}
+	:global(p) {
+		@apply mb-4;
+	}
+	:global(ul) {
+		@apply mb-4 list-inside list-disc;
+	}
 
-    button {
-        @apply mb-4;
-    }
+	button {
+		@apply mb-4;
+	}
 </style>

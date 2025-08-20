@@ -1,4 +1,4 @@
-const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
@@ -10,19 +10,19 @@ const pubSubClient = new PubSub();
 
 // ===== Config =====
 const CONFIG = {
-  topics: {
-    jobDescriptionExtracted: 'job-description-extracted',
-    hardSkillsExtracted: 'hard-skills-extracted'
-  },
-  collections: {
-    users: 'users',
-    jobs: 'jobs'
-  },
-  defaultValues: {
-    naText: 'na'
-  },
-  instructions: {
-    hardSkillsExtraction: `Extract the 5 most important hard skills from this job description in descending order. Use the job description to analyze if each of these skills are *required* or *preferred*. As a reminder: Hard skills are job-specific abilities learned through formal education or training, such as programming, project management, and statistics. These skills are quantifiable, often certifiable, and can be tested or demonstrated. Do ***NOT*** include either softskills or domain expertise (you will do that in another step). Soft skills are interpersonal traits that affect how people work together, like communication and teamwork. Domain expertise is deep knowledge in a specific field that must be gained through experience.
+	topics: {
+		jobDescriptionExtracted: 'job-description-extracted',
+		hardSkillsExtracted: 'hard-skills-extracted'
+	},
+	collections: {
+		users: 'users',
+		jobs: 'jobs'
+	},
+	defaultValues: {
+		naText: 'na'
+	},
+	instructions: {
+		hardSkillsExtraction: `Extract the 5 most important hard skills from this job description in descending order. Use the job description to analyze if each of these skills are *required* or *preferred*. As a reminder: Hard skills are job-specific abilities learned through formal education or training, such as programming, project management, and statistics. These skills are quantifiable, often certifiable, and can be tested or demonstrated. Do ***NOT*** include either softskills or domain expertise (you will do that in another step). Soft skills are interpersonal traits that affect how people work together, like communication and teamwork. Domain expertise is deep knowledge in a specific field that must be gained through experience.
 
 Format your response as a JSON object with the following structure:
 
@@ -39,222 +39,215 @@ Format your response as a JSON object with the following structure:
 The skill name should be a single word. The description should be one short sentence followed by whether it's required or preferred in parentheses.
 
 Provide only the JSON response without any additional text or explanations.`
-  }
+	}
 };
 
 // ===== Firestore Service =====
 const firestoreService = {
-  getDocRef(firebaseUid, docId) {
-    const path = `users/${firebaseUid}/jobs/${docId}`;
-    logger.info('DocRef:', { path });
-    return db.collection('users')
-      .doc(firebaseUid)
-      .collection('jobs')
-      .doc(docId);
-  },
+	getDocRef(firebaseUid, docId) {
+		const path = `users/${firebaseUid}/jobs/${docId}`;
+		logger.info('DocRef:', { path });
+		return db.collection('users').doc(firebaseUid).collection('jobs').doc(docId);
+	},
 
-  async getJobDocument(docRef) {
-    logger.info('Get:', { path: docRef.path });
-    
-    const snapshot = await docRef.get();
-    if (!snapshot.exists) {
-      logger.warn('404:', { path: docRef.path });
-      throw new Error(`Document not found: ${docRef.path}`);
-    }
+	async getJobDocument(docRef) {
+		logger.info('Get:', { path: docRef.path });
 
-    const data = snapshot.data();
-    logger.info('Found:', { 
-      path: docRef.path,
-      fields: Object.keys(data || {})
-    });
+		const snapshot = await docRef.get();
+		if (!snapshot.exists) {
+			logger.warn('404:', { path: docRef.path });
+			throw new Error(`Document not found: ${docRef.path}`);
+		}
 
-    return data;
-  },
+		const data = snapshot.data();
+		logger.info('Found:', {
+			path: docRef.path,
+			fields: Object.keys(data || {})
+		});
 
-  async updateHardSkills(docRef, hardSkills) {
-    logger.info('Update:', { 
-      path: docRef.path,
-      fields: ['SkillAssessment.Hardskills']
-    });
+		return data;
+	},
 
-    await docRef.update({
-      'SkillAssessment.Hardskills': hardSkills
-    });
+	async updateHardSkills(docRef, hardSkills) {
+		logger.info('Update:', {
+			path: docRef.path,
+			fields: ['SkillAssessment.Hardskills']
+		});
 
-    logger.info('Updated:', { path: docRef.path });
-  }
+		await docRef.update({
+			'SkillAssessment.Hardskills': hardSkills
+		});
+
+		logger.info('Updated:', { path: docRef.path });
+	}
 };
 
 // ===== PubSub Service =====
 const pubSubService = {
-  parseMessage(message) {
-    if (!message.data) {
-      throw new Error('No message data received');
-    }
-    const data = message.json;
-    if (!data) {
-      throw new Error('Invalid JSON in message data');
-    }
-    return data;
-  },
+	parseMessage(message) {
+		if (!message.data) {
+			throw new Error('No message data received');
+		}
+		const data = message.json;
+		if (!data) {
+			throw new Error('Invalid JSON in message data');
+		}
+		return data;
+	},
 
-  validateMessageData(data) {
-    const { firebaseUid, docId } = data;
-    if (!firebaseUid || !docId) {
-      throw new Error('Missing required fields in message data');
-    }
-    return { firebaseUid, docId };
-  },
+	validateMessageData(data) {
+		const { firebaseUid, docId } = data;
+		if (!firebaseUid || !docId) {
+			throw new Error('Missing required fields in message data');
+		}
+		return { firebaseUid, docId };
+	},
 
-  async ensureTopicExists(topicName) {
-    try {
-      await pubSubClient.createTopic(topicName);
-    } catch (err) {
-      if (err.code !== 6) { // 6 = already exists
-        throw err;
-      }
-    }
-  },
+	async ensureTopicExists(topicName) {
+		try {
+			await pubSubClient.createTopic(topicName);
+		} catch (err) {
+			if (err.code !== 6) {
+				// 6 = already exists
+				throw err;
+			}
+		}
+	},
 
-  async publishMessage(topicName, message) {
-    await this.ensureTopicExists(topicName);
-    const messageId = await pubSubClient
-      .topic(topicName)
-      .publishMessage({
-        data: Buffer.from(JSON.stringify(message)),
-      });
-    logger.info(`Message ${messageId} published to ${topicName}`);
-    return messageId;
-  }
+	async publishMessage(topicName, message) {
+		await this.ensureTopicExists(topicName);
+		const messageId = await pubSubClient.topic(topicName).publishMessage({
+			data: Buffer.from(JSON.stringify(message))
+		});
+		logger.info(`Message ${messageId} published to ${topicName}`);
+		return messageId;
+	}
 };
 
 // ===== Skills Parser =====
 const skillsParser = {
-  validateAnalysisResult(result) {
-    if (!result || typeof result !== 'object') {
-      throw new Error('Invalid analysis result: not an object');
-    }
+	validateAnalysisResult(result) {
+		if (!result || typeof result !== 'object') {
+			throw new Error('Invalid analysis result: not an object');
+		}
 
-    if (!result.Hardskills || typeof result.Hardskills !== 'object') {
-      throw new Error('Hardskills field is missing or invalid in analysis result');
-    }
+		if (!result.Hardskills || typeof result.Hardskills !== 'object') {
+			throw new Error('Hardskills field is missing or invalid in analysis result');
+		}
 
-    return result;
-  },
+		return result;
+	},
 
-  parseSkills(docId, analysisResult) {
-    const hardSkills = {};
+	parseSkills(docId, analysisResult) {
+		const hardSkills = {};
 
-    Object.entries(analysisResult.Hardskills).forEach(([key, value], index) => {
-      const skillNumber = `HS${index + 1}`;
-      let skillName = key.trim();
+		Object.entries(analysisResult.Hardskills).forEach(([key, value], index) => {
+			const skillNumber = `HS${index + 1}`;
+			let skillName = key.trim();
 
-      // Check if the key has a numerical prefix
-      const match = key.match(/^\d+\.\s*(.+)$/);
-      if (match && match[1]) {
-        skillName = match[1].trim();
-      }
+			// Check if the key has a numerical prefix
+			const match = key.match(/^\d+\.\s*(.+)$/);
+			if (match && match[1]) {
+				skillName = match[1].trim();
+			}
 
-      // Validate skillName and value
-      if (!skillName) {
-        logger.error(`Skill name is undefined or empty for key: "${key}"`);
-        return;
-      }
+			// Validate skillName and value
+			if (!skillName) {
+				logger.error(`Skill name is undefined or empty for key: "${key}"`);
+				return;
+			}
 
-      if (typeof value !== 'string' || value.trim() === '') {
-        logger.error(`Description is invalid for skill: "${skillName}"`);
-        return;
-      }
+			if (typeof value !== 'string' || value.trim() === '') {
+				logger.error(`Description is invalid for skill: "${skillName}"`);
+				return;
+			}
 
-      if (!hardSkills[skillNumber]) {
-        hardSkills[skillNumber] = {
-          name: skillName,
-          description: value.trim()
-        };
-      }
-    });
+			if (!hardSkills[skillNumber]) {
+				hardSkills[skillNumber] = {
+					name: skillName,
+					description: value.trim()
+				};
+			}
+		});
 
-    if (Object.keys(hardSkills).length === 0) {
-      throw new Error('No valid skills were parsed from the analysis result');
-    }
+		if (Object.keys(hardSkills).length === 0) {
+			throw new Error('No valid skills were parsed from the analysis result');
+		}
 
-    return hardSkills;
-  }
+		return hardSkills;
+	}
 };
 
 // ===== Error Handlers =====
 const errorHandlers = {
-  async handleProcessingError(error, docRef, context = {}) {
-    logger.error('Processing Error:', error, context);
-    throw error;
-  },
+	async handleProcessingError(error, docRef, context = {}) {
+		logger.error('Processing Error:', error, context);
+		throw error;
+	},
 
-  handleAndThrow(error, message) {
-    logger.error(message, error);
-    throw error;
-  }
+	handleAndThrow(error, message) {
+		logger.error(message, error);
+		throw error;
+	}
 };
 
 // ===== Main Function =====
 exports.extractHardSkills = onMessagePublished(
-  { topic: CONFIG.topics.jobDescriptionExtracted },
-  async (event) => {
-    const message = event.data;
-    let docRef;
-    try {
-      // Parse and validate message
-      const messageData = (() => {
-        try {
-          if (!event?.data?.message?.data) {
-            throw new Error('Invalid message format received');
-          }
-          const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
-          return JSON.parse(decodedData);
-        } catch (error) {
-          logger.error('Error parsing message data:', error);
-          throw error;
-        }
-      })();
-      const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing hard skills for firebaseUid: ${firebaseUid}, docId: ${docId}`);
+	{ topic: CONFIG.topics.jobDescriptionExtracted },
+	async (event) => {
+		const message = event.data;
+		let docRef;
+		try {
+			// Parse and validate message
+			const messageData = (() => {
+				try {
+					if (!event?.data?.message?.data) {
+						throw new Error('Invalid message format received');
+					}
+					const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+					return JSON.parse(decodedData);
+				} catch (error) {
+					logger.error('Error parsing message data:', error);
+					throw error;
+				}
+			})();
+			const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
+			logger.info(`Processing hard skills for firebaseUid: ${firebaseUid}, docId: ${docId}`);
 
-      // Get Firestore document
-      docRef = firestoreService.getDocRef(firebaseUid, docId);
-      const jobData = await firestoreService.getJobDocument(docRef);
-      
-      // Process hard skills
-      const extractedText = jobData.texts?.extractedText;
-      if (!extractedText || extractedText === CONFIG.defaultValues.naText) {
-        throw new Error('Invalid extracted text for processing');
-      }
+			// Get Firestore document
+			docRef = firestoreService.getDocRef(firebaseUid, docId);
+			const jobData = await firestoreService.getJobDocument(docRef);
 
-      // Call Anthropic API
-      const apiResponse = await callAnthropicAPI(
-        extractedText,
-        CONFIG.instructions.hardSkillsExtraction
-      );
-      
-      if (apiResponse.error) {
-        throw new Error(`API Error: ${apiResponse.message}`);
-      }
+			// Process hard skills
+			const extractedText = jobData.texts?.extractedText;
+			if (!extractedText || extractedText === CONFIG.defaultValues.naText) {
+				throw new Error('Invalid extracted text for processing');
+			}
 
-      // Parse API response
-      const analysisResult = JSON.parse(apiResponse.extractedText);
-      skillsParser.validateAnalysisResult(analysisResult);
-      
-      // Parse and structure hard skills
-      const hardSkills = skillsParser.parseSkills(docId, analysisResult);
-      
-      // Update Firestore
-      await firestoreService.updateHardSkills(docRef, hardSkills);
+			// Call Anthropic API
+			const apiResponse = await callAnthropicAPI(
+				extractedText,
+				CONFIG.instructions.hardSkillsExtraction
+			);
 
-      // Publish next message
-      await pubSubService.publishMessage(
-        CONFIG.topics.hardSkillsExtracted,
-        { firebaseUid, docId }
-      );
+			if (apiResponse.error) {
+				throw new Error(`API Error: ${apiResponse.message}`);
+			}
 
-    } catch (error) {
-      await errorHandlers.handleProcessingError(error, docRef, { message });
-    }
-  });
+			// Parse API response
+			const analysisResult = JSON.parse(apiResponse.extractedText);
+			skillsParser.validateAnalysisResult(analysisResult);
+
+			// Parse and structure hard skills
+			const hardSkills = skillsParser.parseSkills(docId, analysisResult);
+
+			// Update Firestore
+			await firestoreService.updateHardSkills(docRef, hardSkills);
+
+			// Publish next message
+			await pubSubService.publishMessage(CONFIG.topics.hardSkillsExtracted, { firebaseUid, docId });
+		} catch (error) {
+			await errorHandlers.handleProcessingError(error, docRef, { message });
+		}
+	}
+);

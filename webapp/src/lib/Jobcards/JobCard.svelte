@@ -34,9 +34,9 @@
 				return 'No date';
 			})()
 		: 'No date';
-		
+
 	$: if (score !== null) {
-	}		
+	}
 
 	function getStatusDisplay(status) {
 		if (!status) return '';
@@ -64,30 +64,30 @@
 	in:fade={{ duration: 400 }}
 	out:slide={{ duration: 400 }}
 	class="card variant-ghost-tertiary w-full cursor-pointer border-2 p-4 text-left transition-all duration-300 hover:shadow-lg {isSelected
-		? 'bg-surface-600/10 border-orange-500'
-		: 'hover:bg-surface-600/10 border-transparent hover:border-orange-500'}"
+		? 'border-orange-500 bg-surface-600/10'
+		: 'border-transparent hover:border-orange-500 hover:bg-surface-600/10'}"
 	on:click={handleClick}
 	aria-label="View details for {jobTitle} position at {companyName}"
 >
 	<div class="card-content grid grid-cols-[auto_1fr_auto] items-start gap-4">
 		<!-- Column for ProgressRadial -->
-		<div class="progress-column flex justify-center items-center w-8">
+		<div class="progress-column flex w-8 items-center justify-center">
 			{#if score !== null}
 				<div
 					in:fade={{ duration: 400, delay: 100 }}
-					class="relative w-8 h-8 flex items-center justify-center"
+					class="relative flex h-8 w-8 items-center justify-center"
 				>
-				<ProgressRadial
-				class="!w-32"
-				stroke={60}
-				font={150}
-				meter="!stroke-primary-500"
-				track="!stroke-tertiary-500/30"
-				strokeLinecap="round"
-				value={Math.round(score)}
-			>
-				{Math.round(score)}
-			</ProgressRadial>
+					<ProgressRadial
+						class="!w-32"
+						stroke={60}
+						font={150}
+						meter="!stroke-primary-500"
+						track="!stroke-tertiary-500/30"
+						strokeLinecap="round"
+						value={Math.round(score)}
+					>
+						{Math.round(score)}
+					</ProgressRadial>
 				</div>
 			{/if}
 		</div>
@@ -96,7 +96,11 @@
 		<div class="content-column space-y-2">
 			<div class="flex items-center gap-2">
 				{#if companyLogo}
-					<img src={companyLogo} alt="{companyName} logo" class="h-6 w-6 rounded-full object-cover" />
+					<img
+						src={companyLogo}
+						alt="{companyName} logo"
+						class="h-6 w-6 rounded-full object-cover"
+					/>
 				{/if}
 				<h3 class="h6 font-bold">{companyName}</h3>
 			</div>
@@ -121,7 +125,7 @@
 						<div class="inline-flex items-center gap-1">
 							<iconify-icon icon="solar:dollar-minimalistic-linear"></iconify-icon>
 							<span
-								class="hover:bg-surface-100 max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap hover:rounded"
+								class="max-w-[150px] overflow-hidden text-ellipsis whitespace-nowrap hover:rounded hover:bg-surface-100"
 								title={compensation}
 							>
 								{compensation}
@@ -135,7 +139,7 @@
 		<!-- Status Column -->
 		<div class="status-column flex items-center">
 			<button
-				class="hover:bg-surface-100 flex items-center justify-center rounded-full p-1"
+				class="flex items-center justify-center rounded-full p-1 hover:bg-surface-100"
 				on:click={handleBookmarkClick}
 				aria-label={getStatusDisplay(status) === 'bookmarked' ? 'Remove bookmark' : 'Add bookmark'}
 			>

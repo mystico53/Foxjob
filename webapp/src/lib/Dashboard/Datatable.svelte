@@ -53,30 +53,30 @@
 	}
 
 	function formatDate(dateValue) {
-    // Handle Firebase Timestamp objects
-    if (dateValue && dateValue.toDate) {
-        const date = dateValue.toDate();
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = String(date.getFullYear()).slice(-2);
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        return `${day}.${month}.${year}, ${hours}:${minutes}`;
-    }
-    // Handle ISO date strings
-    else if (dateValue && typeof dateValue === 'string') {
-        const date = new Date(dateValue);
-        if (!isNaN(date)) {
-            const day = String(date.getDate()).padStart(2, '0');
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const year = String(date.getFullYear()).slice(-2);
-            const hours = String(date.getHours()).padStart(2, '0');
-            const minutes = String(date.getMinutes()).padStart(2, '0');
-            return `${day}.${month}.${year}, ${hours}:${minutes}`;
-        }
-    }
-    return 'N/A';
-}
+		// Handle Firebase Timestamp objects
+		if (dateValue && dateValue.toDate) {
+			const date = dateValue.toDate();
+			const day = String(date.getDate()).padStart(2, '0');
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const year = String(date.getFullYear()).slice(-2);
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			return `${day}.${month}.${year}, ${hours}:${minutes}`;
+		}
+		// Handle ISO date strings
+		else if (dateValue && typeof dateValue === 'string') {
+			const date = new Date(dateValue);
+			if (!isNaN(date)) {
+				const day = String(date.getDate()).padStart(2, '0');
+				const month = String(date.getMonth() + 1).padStart(2, '0');
+				const year = String(date.getFullYear()).slice(-2);
+				const hours = String(date.getHours()).padStart(2, '0');
+				const minutes = String(date.getMinutes()).padStart(2, '0');
+				return `${day}.${month}.${year}, ${hours}:${minutes}`;
+			}
+		}
+		return 'N/A';
+	}
 
 	function truncateText(text, maxLength = 30) {
 		if (!text || text === 'N/A') return text;
@@ -162,8 +162,8 @@
 		{:else if !user}
 			<p class="text-center">Please sign in to view your job list.</p>
 		{:else}
-			<div class="table-container card">
-				<table class="table-compact table w-full">
+			<div class="card table-container">
+				<table class="table table-compact w-full">
 					<thead>
 						<tr class="bg-tertiary-500">
 							<th class="w-[25%]">Company</th>
@@ -177,22 +177,22 @@
 						{#each paginatedJobs as job}
 							<tr
 								on:click={() => handleRowClick(job)}
-								class="hover:bg-tertiary-100 cursor-pointer transition-colors duration-200"
+								class="cursor-pointer transition-colors duration-200 hover:bg-tertiary-100"
 							>
-							<td title={job.companyInfo?.name || 'N/A'}>
-								<div class="flex items-center gap-2">
-								  {#if job.companyInfo?.logoUrl}
-									<span class="flex-shrink-0">
-									  <img 
-										src={job.companyInfo.logoUrl} 
-										alt={job.companyInfo.name || 'Company logo'} 
-										class="h-6 w-6 rounded-full object-cover"
-									  />
-									</span>
-								  {/if}
-								  <span>{truncateText(job.companyInfo?.name || 'N/A')}</span>
-								</div>
-							  </td>
+								<td title={job.companyInfo?.name || 'N/A'}>
+									<div class="flex items-center gap-2">
+										{#if job.companyInfo?.logoUrl}
+											<span class="flex-shrink-0">
+												<img
+													src={job.companyInfo.logoUrl}
+													alt={job.companyInfo.name || 'Company logo'}
+													class="h-6 w-6 rounded-full object-cover"
+												/>
+											</span>
+										{/if}
+										<span>{truncateText(job.companyInfo?.name || 'N/A')}</span>
+									</div>
+								</td>
 								<td title={job.jobInfo?.jobTitle || 'N/A'}
 									>{truncateText(job.jobInfo?.jobTitle || 'N/A')}</td
 								>
@@ -201,7 +201,11 @@
 										? Math.round(job.AccumulatedScores.accumulatedScore)
 										: 'N/A'}</td
 								>
-								<td>{job.jobInfo?.postedDate ? formatDate(job.jobInfo.postedDate) : (job.jobInfo?.postedTimeAgo || 'N/A')}</td>
+								<td
+									>{job.jobInfo?.postedDate
+										? formatDate(job.jobInfo.postedDate)
+										: job.jobInfo?.postedTimeAgo || 'N/A'}</td
+								>
 								<td>{job.generalData?.status || ''}</td>
 							</tr>
 						{/each}
@@ -221,7 +225,7 @@
 									</div>
 									<div class="flex items-center gap-1">
 										<button
-											class="btn btn-sm variant-soft h-6 min-h-0 !py-0"
+											class="variant-soft btn btn-sm h-6 min-h-0 !py-0"
 											on:click={previousPage}
 											disabled={currentPage === 1}
 										>
@@ -232,7 +236,7 @@
 											Page {currentPage} of {totalPages}
 										</span>
 										<button
-											class="btn btn-sm variant-soft h-6 min-h-0 !py-0"
+											class="variant-soft btn btn-sm h-6 min-h-0 !py-0"
 											on:click={nextPage}
 											disabled={currentPage === totalPages}
 										>

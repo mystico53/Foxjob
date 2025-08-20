@@ -86,7 +86,7 @@
 	});
 </script>
 
-<div class="bg-tertiary-300 container mx-auto px-4 py-16">
+<div class="container mx-auto bg-tertiary-300 px-4 py-16">
 	<h2 class="h2 mb-12 py-8 text-center font-bold">How it works</h2>
 
 	<div class="mb-12 grid grid-cols-1 gap-8 px-8 md:grid-cols-3">
@@ -132,7 +132,7 @@
 			<div
 				class="group absolute bottom-0 left-0 right-0 h-1 cursor-pointer bg-gray-600/50"
 				on:click={handleTimelineClick}
-				on:keydown={e => {
+				on:keydown={(e) => {
 					if (e.key === 'ArrowRight') {
 						if (video) video.currentTime += 5;
 					} else if (e.key === 'ArrowLeft') {
@@ -159,16 +159,23 @@
 			</div>
 
 			<!-- Controls Overlay -->
-			<div class="absolute bottom-4 right-4 flex items-center rounded-full bg-black/40" role="toolbar" aria-label="Video controls">
+			<div
+				class="absolute bottom-4 right-4 flex items-center rounded-full bg-black/40"
+				role="toolbar"
+				aria-label="Video controls"
+			>
 				<!-- Volume Control -->
 				<button
 					type="button"
 					class="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-black/20"
 					on:click={toggleMute}
-					aria-label={video?.muted ? "Unmute video" : "Mute video"}
+					aria-label={video?.muted ? 'Unmute video' : 'Mute video'}
 					aria-pressed={video?.muted}
 				>
-					<iconify-icon icon={video?.muted ? 'mdi:volume-off' : 'mdi:volume-high'} class="text-lg" aria-hidden="true"
+					<iconify-icon
+						icon={video?.muted ? 'mdi:volume-off' : 'mdi:volume-high'}
+						class="text-lg"
+						aria-hidden="true"
 					></iconify-icon>
 				</button>
 
@@ -187,10 +194,14 @@
 					type="button"
 					class="flex h-8 w-8 items-center justify-center rounded-full text-white transition-colors hover:bg-black/20"
 					on:click={togglePlay}
-					aria-label={isPlaying ? "Pause video" : "Play video"}
+					aria-label={isPlaying ? 'Pause video' : 'Play video'}
 					aria-pressed={isPlaying}
 				>
-					<iconify-icon icon={isPlaying ? 'mdi:pause' : 'mdi:play'} class="text-lg" aria-hidden="true"></iconify-icon>
+					<iconify-icon
+						icon={isPlaying ? 'mdi:pause' : 'mdi:play'}
+						class="text-lg"
+						aria-hidden="true"
+					></iconify-icon>
 				</button>
 			</div>
 
@@ -202,7 +213,8 @@
 					on:click={togglePlay}
 					aria-label="Play video"
 				>
-					<iconify-icon icon="mdi:play-circle" class="text-6xl text-white" aria-hidden="true"></iconify-icon>
+					<iconify-icon icon="mdi:play-circle" class="text-6xl text-white" aria-hidden="true"
+					></iconify-icon>
 				</button>
 			{/if}
 		</div>

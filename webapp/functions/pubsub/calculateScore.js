@@ -1,118 +1,112 @@
-const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const admin = require('firebase-admin');
-const logger = require("firebase-functions/logger");
+const logger = require('firebase-functions/logger');
 require('dotenv').config();
 const OpenAI = require('openai');
 const { z } = require('zod');
 const { zodResponseFormat } = require('openai/helpers/zod');
+const { getUserResume } = require('../helpers/resumeHelper');
 
 const openai = new OpenAI();
 const db = admin.firestore();
 
 exports.calculateScore = onMessagePublished(
-  {
-    topic: 'requirements-gathered',
-  },
-  async (event) => {
-    const message = event.data;  
-    try {
-      logger.info('calculateScore function called');
-      logger.info('Pub/Sub Message:', JSON.stringify(message.json));
+	{
+		topic: 'requirements-gathered'
+	},
+	async (event) => {
+		const message = event.data;
+		try {
+			logger.info('calculateScore function called');
+			logger.info('Pub/Sub Message:', JSON.stringify(message.json));
 
-      const messageData = event.data.message.json;
-      if (!messageData || !messageData.firebaseUid || !messageData.docId) {
-        throw new Error('Invalid message format: missing required fields');
-      }
-      const { firebaseUid, docId } = messageData;
+			const messageData = event.data.message.json;
+			if (!messageData || !messageData.firebaseUid || !messageData.docId) {
+				throw new Error('Invalid message format: missing required fields');
+			}
+			const { firebaseUid, docId } = messageData;
 
-      if (!docId || !firebaseUid) {
-        logger.error('Missing docId or firebaseUid in Pub/Sub message.');
-        throw new Error('Missing docId or firebaseUid');
-      }
+			if (!docId || !firebaseUid) {
+				logger.error('Missing docId or firebaseUid in Pub/Sub message.');
+				throw new Error('Missing docId or firebaseUid');
+			}
 
-      // Retrieve the user's resume
-      const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
-      const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
-      const resumeSnapshot = await resumeQuery.get();
+			// Retrieve the user's resume using the new helper
+			const resumeData = await getUserResume(firebaseUid);
 
-      let resumeText;
+			let resumeText;
 
-      if (resumeSnapshot.empty) {
-        logger.warn(`No resume found for user ID: ${firebaseUid}. Using placeholder resume.`);
-        resumeText = placeholderResumeText; // Make sure this is defined or imported
-      } else {
-        const resumeDoc = resumeSnapshot.docs[0];
-        resumeText = resumeDoc.data().extractedText;
-      }
+			if (!resumeData) {
+				logger.warn(`No resume found for user ID: ${firebaseUid}. Using placeholder resume.`);
+				resumeText = placeholderResumeText; // Make sure this is defined or imported
+			} else {
+				resumeText = resumeData.extractedText;
+			}
 
-      // Retrieve the job document and requirements
-      const jobDocRef = db
-        .collection('users')
-        .doc(firebaseUid)
-        .collection('jobs')
-        .doc(docId);
+			// Retrieve the job document and requirements
+			const jobDocRef = db.collection('users').doc(firebaseUid).collection('jobs').doc(docId);
 
-      const jobDoc = await jobDocRef.get();
+			const jobDoc = await jobDocRef.get();
 
-      if (!jobDoc.exists) {
-        logger.warn(`No job document found for job ID: ${docId}`);
-        throw new Error('No job document found');
-      }
+			if (!jobDoc.exists) {
+				logger.warn(`No job document found for job ID: ${docId}`);
+				throw new Error('No job document found');
+			}
 
-      const jobData = jobDoc.data();
-      const requirements = jobData.requirements;
+			const jobData = jobDoc.data();
+			const requirements = jobData.requirements;
 
-      if (!requirements || Object.keys(requirements).length === 0) {
-        logger.warn(`No requirements found for job ID: ${docId}`);
-        throw new Error('No requirements found');
-      }
+			if (!requirements || Object.keys(requirements).length === 0) {
+				logger.warn(`No requirements found for job ID: ${docId}`);
+				throw new Error('No requirements found');
+			}
 
-      // Convert requirements object to array for processing
-      const requirementsArray = Object.entries(requirements).map(([key, value]) => ({
-        key: key,
-        requirement: value
-      }));
+			// Convert requirements object to array for processing
+			const requirementsArray = Object.entries(requirements).map(([key, value]) => ({
+				key: key,
+				requirement: value
+			}));
 
-      // Call OpenAI API to match resume with job requirements
-      const matchResult = await matchResumeWithRequirements(resumeText, requirementsArray);
+			// Call OpenAI API to match resume with job requirements
+			const matchResult = await matchResumeWithRequirements(resumeText, requirementsArray);
 
-      // Prepare the Score object to be saved in the job document
-      const scoreObject = {
-        Score: {
-          totalScore: matchResult.totalScore,
-          summary: matchResult.summary
-        }
-      };
+			// Prepare the Score object to be saved in the job document
+			const scoreObject = {
+				Score: {
+					totalScore: matchResult.totalScore,
+					summary: matchResult.summary
+				}
+			};
 
-      // Add each requirement score to the Score object
-      matchResult.requirementMatches.forEach((match, index) => {
-        scoreObject.Score[`Requirement${index + 1}`] = {
-          requirement: match.requirement,
-          score: match.score,
-          assessment: match.assessment
-        };
-      });
+			// Add each requirement score to the Score object
+			matchResult.requirementMatches.forEach((match, index) => {
+				scoreObject.Score[`Requirement${index + 1}`] = {
+					requirement: match.requirement,
+					score: match.score,
+					assessment: match.assessment
+				};
+			});
 
-      // Update the job document with the new Score object
-      await jobDocRef.update(scoreObject);
-      logger.info(`Score saved to job document for job ID: ${docId}, user ID: ${firebaseUid}`);
-
-    } catch (error) {
-      logger.error('Error in calculateScore function:', error);
-    }
-  });
+			// Update the job document with the new Score object
+			await jobDocRef.update(scoreObject);
+			logger.info(`Score saved to job document for job ID: ${docId}, user ID: ${firebaseUid}`);
+		} catch (error) {
+			logger.error('Error in calculateScore function:', error);
+		}
+	}
+);
 
 async function matchResumeWithRequirements(resumeText, requirements) {
-  const apiKey = process.env.OPENAI_API_KEY;
+	const apiKey = process.env.OPENAI_API_KEY;
 
-  if (!apiKey) {
-    logger.error('OpenAI API key not found');
-    throw new functions.https.HttpsError('failed-precondition', 'OpenAI API key not found');
-  }
+	if (!apiKey) {
+		logger.error('OpenAI API key not found');
+		throw new functions.https.HttpsError('failed-precondition', 'OpenAI API key not found');
+	}
 
-  logger.info('Requirements passed to matchResumeWithRequirements:', JSON.stringify(requirements));
+	logger.info('Requirements passed to matchResumeWithRequirements:', JSON.stringify(requirements));
 
-  const instruction = `
+	const instruction = `
     You are an insanely critical and skeptical CEO of the company that has one job to offer for the first time in 10 years. You're tasked with evaluating how well a resume matches given job. Your task is to:
 
     1) For each of the 6 given requirements, critically analyze the candidate's experience. Provide a one-sentence assessment that references specific evidence from the resume, highlighting both strengths and gaps.
@@ -138,56 +132,56 @@ async function matchResumeWithRequirements(resumeText, requirements) {
     }
   `;
 
-  const requirementsString = requirements.map((req, index) =>
-    `Requirement ${index + 1}: ${req.requirement}`
-  ).join('\n');
+	const requirementsString = requirements
+		.map((req, index) => `Requirement ${index + 1}: ${req.requirement}`)
+		.join('\n');
 
-  const promptContent = `${instruction}\nThese are the Requirements I mentioned:\n${requirementsString}\nThese are the qualifications:\n${resumeText}\nNow go:`;
+	const promptContent = `${instruction}\nThese are the Requirements I mentioned:\n${requirementsString}\nThese are the qualifications:\n${resumeText}\nNow go:`;
 
-  const ResearchMatchingSchema = z.object({
-    requirementMatches: z.array(
-      z.object({
-        requirement: z.string(),
-        assessment: z.string(),
-        score: z.number(), // Removed `.min(0).max(100)`
-      })
-    ),
-    totalScore: z.number(), // Removed `.min(0).max(100)`
-    summary: z.string(),
-  });
+	const ResearchMatchingSchema = z.object({
+		requirementMatches: z.array(
+			z.object({
+				requirement: z.string(),
+				assessment: z.string(),
+				score: z.number() // Removed `.min(0).max(100)`
+			})
+		),
+		totalScore: z.number(), // Removed `.min(0).max(100)`
+		summary: z.string()
+	});
 
-  try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are an expert at structured data extraction." },
-        { role: "user", content: promptContent },
-      ],
-      response_format: zodResponseFormat(ResearchMatchingSchema, "research_matching"),
-    });
+	try {
+		const completion = await openai.beta.chat.completions.parse({
+			model: 'gpt-4o-mini',
+			messages: [
+				{ role: 'system', content: 'You are an expert at structured data extraction.' },
+				{ role: 'user', content: promptContent }
+			],
+			response_format: zodResponseFormat(ResearchMatchingSchema, 'research_matching')
+		});
 
-    const parsedContent = completion.choices[0].message.parsed;
+		const parsedContent = completion.choices[0].message.parsed;
 
-  // Optional: Add validation for scores here
-  parsedContent.requirementMatches.forEach((match) => {
-    if (match.score < 0 || match.score > 100) {
-      throw new Error(`Score out of range: ${match.score}`);
-    }
-  });
+		// Optional: Add validation for scores here
+		parsedContent.requirementMatches.forEach((match) => {
+			if (match.score < 0 || match.score > 100) {
+				throw new Error(`Score out of range: ${match.score}`);
+			}
+		});
 
-  logger.info('Parsed content:', JSON.stringify(parsedContent));
-  return parsedContent;
-
-} catch (error) {
-  logger.error('Error calling OpenAI API:', error);
-  if (error instanceof functions.https.HttpsError) {
-    throw error;
-  } else {
-    throw new functions.https.HttpsError('internal', 'Error calling OpenAI API', { message: error.message });
-  }
+		logger.info('Parsed content:', JSON.stringify(parsedContent));
+		return parsedContent;
+	} catch (error) {
+		logger.error('Error calling OpenAI API:', error);
+		if (error instanceof functions.https.HttpsError) {
+			throw error;
+		} else {
+			throw new functions.https.HttpsError('internal', 'Error calling OpenAI API', {
+				message: error.message
+			});
+		}
+	}
 }
-}
-
 
 /*const functions = require('firebase-functions');
 const admin = require('firebase-admin');
@@ -210,19 +204,16 @@ exports.calculateScore = functions.pubsub
         throw new Error('Missing docId or firebaseUid');
       }
 
-      // Retrieve the user's resume
-      const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
-      const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
-      const resumeSnapshot = await resumeQuery.get();
+      // Retrieve the user's resume using the new helper
+      const resumeData = await getUserResume(firebaseUid);
 
       let resumeText;
 
-      if (resumeSnapshot.empty) {
+      if (!resumeData) {
         logger.warn(`No resume found for user ID: ${firebaseUid}. Using placeholder resume.`);
         resumeText = placeholderResumeText; // Make sure this is defined or imported
       } else {
-        const resumeDoc = resumeSnapshot.docs[0];
-        resumeText = resumeDoc.data().extractedText;
+        resumeText = resumeData.extractedText;
       }
 
       // Retrieve the job document and requirements
@@ -522,9 +513,6 @@ function escapeUnescapedQuotesInJSON(str) {
   return result;
 }
 */
-
-
-
 
 // ======== Placeholder Resume Text ========
 

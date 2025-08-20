@@ -1,696 +1,770 @@
 <!-- AdminUsers.svelte -->
 <script>
-    import { onMount } from 'svelte';
-    import { collection, getDocs, getFirestore, doc, getDoc, query, where, orderBy, deleteDoc, updateDoc } from 'firebase/firestore';
-    import { auth } from '$lib/firebase';
-    import dayjs from 'dayjs';
-    import utc from 'dayjs/plugin/utc';
-    import timezone from 'dayjs/plugin/timezone';
-    import localizedFormat from 'dayjs/plugin/localizedFormat';
-    import { createEventDispatcher } from 'svelte';
-    import { setJobAgentStatus } from '$lib/stores/userStateStore';
+	import { onMount } from 'svelte';
+	import {
+		collection,
+		getDocs,
+		getFirestore,
+		doc,
+		getDoc,
+		query,
+		where,
+		orderBy,
+		deleteDoc,
+		updateDoc
+	} from 'firebase/firestore';
+	import { auth } from '$lib/firebase';
+	import dayjs from 'dayjs';
+	import utc from 'dayjs/plugin/utc';
+	import timezone from 'dayjs/plugin/timezone';
+	import localizedFormat from 'dayjs/plugin/localizedFormat';
+	import { createEventDispatcher } from 'svelte';
+	import { setJobAgentStatus } from '$lib/stores/userStateStore';
 
-    // Initialize dayjs plugins
-    dayjs.extend(utc);
-    dayjs.extend(timezone);
-    dayjs.extend(localizedFormat);
+	// Initialize dayjs plugins
+	dayjs.extend(utc);
+	dayjs.extend(timezone);
+	dayjs.extend(localizedFormat);
 
-    // Firebase instance
-    const db = getFirestore();
+	// Firebase instance
+	const db = getFirestore();
 
-    // State variables
-    let users = [];
-    let isLoading = true;
-    let error = null;
-    let selectedUser = null;
-    let adminClaims = null;
-    let userDetails = null;
-    let activeTab = 'info'; // 'info', 'resume', 'preferences', or 'queries'
-    let emailRequests = {};
-    let isDeleting = false;
-    let updatingQueryId = null;
+	// State variables
+	let users = [];
+	let isLoading = true;
+	let error = null;
+	let selectedUser = null;
+	let adminClaims = null;
+	let userDetails = null;
+	let activeTab = 'info'; // 'info', 'resume', 'preferences', or 'queries'
+	let emailRequests = {};
+	let isDeleting = false;
+	let updatingQueryId = null;
 
-    const dispatch = createEventDispatcher();
+	const dispatch = createEventDispatcher();
 
-    // Fetch all data on mount
-    onMount(async () => {
-        try {
-            isLoading = true;
-            error = null;
+	// Fetch all data on mount
+	onMount(async () => {
+		try {
+			isLoading = true;
+			error = null;
 
-            if (!auth.currentUser) {
-                throw new Error('Not authenticated');
-            }
+			if (!auth.currentUser) {
+				throw new Error('Not authenticated');
+			}
 
-            const idTokenResult = await auth.currentUser.getIdTokenResult();
-            adminClaims = idTokenResult.claims;
+			const idTokenResult = await auth.currentUser.getIdTokenResult();
+			adminClaims = idTokenResult.claims;
 
-            if (!adminClaims.admin) {
-                throw new Error('User does not have admin claim');
-            }
+			if (!adminClaims.admin) {
+				throw new Error('User does not have admin claim');
+			}
 
-            await fetchUsers();
-            isLoading = false;
-        } catch (err) {
-            console.error('Error in users initialization:', err);
-            error = err.message;
-            isLoading = false;
-        }
-    });
+			await fetchUsers();
+			isLoading = false;
+		} catch (err) {
+			console.error('Error in users initialization:', err);
+			error = err.message;
+			isLoading = false;
+		}
+	});
 
-    // Fetch users collection
-    async function fetchUsers() {
-        try {
-            const usersSnapshot = await getDocs(collection(db, 'users'));
-            // Filter out duplicate users by email
-            const uniqueUsers = new Map();
-            usersSnapshot.docs.forEach(doc => {
-                const userData = doc.data();
-                if (!uniqueUsers.has(userData.email)) {
-                    uniqueUsers.set(userData.email, { id: doc.id, ...userData });
-                }
-            });
-            users = Array.from(uniqueUsers.values());
-            console.log('Successfully fetched users:', users.length);
-        } catch (err) {
-            console.error('Error fetching users:', err);
-            error = err.message;
-        }
-    }
+	// Fetch users collection
+	async function fetchUsers() {
+		try {
+			const usersSnapshot = await getDocs(collection(db, 'users'));
+			// Filter out duplicate users by email
+			const uniqueUsers = new Map();
+			usersSnapshot.docs.forEach((doc) => {
+				const userData = doc.data();
+				if (!uniqueUsers.has(userData.email)) {
+					uniqueUsers.set(userData.email, { id: doc.id, ...userData });
+				}
+			});
+			users = Array.from(uniqueUsers.values());
+			console.log('Successfully fetched users:', users.length);
+		} catch (err) {
+			console.error('Error fetching users:', err);
+			error = err.message;
+		}
+	}
 
-    // Delete user and all their data
-    async function deleteUser(user) {
-        if (!confirm(`Are you sure you want to delete user ${user.email}? This action cannot be undone.`)) {
-            return;
-        }
+	// Delete user and all their data
+	async function deleteUser(user) {
+		if (
+			!confirm(`Are you sure you want to delete user ${user.email}? This action cannot be undone.`)
+		) {
+			return;
+		}
 
-        isDeleting = true;
-        try {
-            // Delete user document
-            await deleteDoc(doc(db, 'users', user.id));
+		isDeleting = true;
+		try {
+			// Delete user document
+			await deleteDoc(doc(db, 'users', user.id));
 
-            // Delete user's collections
-            const collectionsToDelete = [
-                'UserCollections',
-                'jobs',
-                'processed',
-                'searchQueries',
-                'scrapedJobs'
-            ];
+			// Delete user's collections
+			const collectionsToDelete = [
+				'UserCollections',
+				'jobs',
+				'processed',
+				'searchQueries',
+				'scrapedJobs'
+			];
 
-            for (const collectionName of collectionsToDelete) {
-                const collectionRef = collection(db, `users/${user.id}/${collectionName}`);
-                const snapshot = await getDocs(collectionRef);
-                
-                const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
-                await Promise.all(deletePromises);
-            }
+			for (const collectionName of collectionsToDelete) {
+				const collectionRef = collection(db, `users/${user.id}/${collectionName}`);
+				const snapshot = await getDocs(collectionRef);
 
-            // Remove user from local state
-            users = users.filter(u => u.id !== user.id);
-            
-            // If the deleted user was selected, clear the selection
-            if (selectedUser?.id === user.id) {
-                selectedUser = null;
-                userDetails = null;
-            }
+				const deletePromises = snapshot.docs.map((doc) => deleteDoc(doc.ref));
+				await Promise.all(deletePromises);
+			}
 
-            console.log(`Successfully deleted user ${user.email} and all their data`);
-        } catch (err) {
-            console.error('Error deleting user:', err);
-            error = `Error deleting user: ${err.message}`;
-        } finally {
-            isDeleting = false;
-        }
-    }
+			// Remove user from local state
+			users = users.filter((u) => u.id !== user.id);
 
-    // User selection handler
-    async function selectUser(user) {
-        if (selectedUser?.id === user.id) {
-            selectedUser = null;
-            userDetails = null;
-            return;
-        }
+			// If the deleted user was selected, clear the selection
+			if (selectedUser?.id === user.id) {
+				selectedUser = null;
+				userDetails = null;
+			}
 
-        selectedUser = user;
-        activeTab = 'info';
-        await loadUserDetails(user);
-    }
+			console.log(`Successfully deleted user ${user.email} and all their data`);
+		} catch (err) {
+			console.error('Error deleting user:', err);
+			error = `Error deleting user: ${err.message}`;
+		} finally {
+			isDeleting = false;
+		}
+	}
 
-    // Load additional user details
-    async function loadUserDetails(user) {
-        try {
-            userDetails = { loading: true };
+	// User selection handler
+	async function selectUser(user) {
+		if (selectedUser?.id === user.id) {
+			selectedUser = null;
+			userDetails = null;
+			return;
+		}
 
-            // Get all documents in UserCollections
-            const userCollectionsSnapshot = await getDocs(collection(db, `users/${user.id}/UserCollections`));
-            const userCollections = {};
+		selectedUser = user;
+		activeTab = 'info';
+		await loadUserDetails(user);
+	}
 
-            // Process each document in UserCollections
-            userCollectionsSnapshot.docs.forEach(doc => {
-                console.log('Found document:', doc.id, doc.data());
-                userCollections[doc.id] = doc.data();
-            });
+	// Load additional user details
+	async function loadUserDetails(user) {
+		try {
+			userDetails = { loading: true };
 
-            // Find the resume document that has type "Resume"
-            let resumeDoc = null;
-            for (const doc of userCollectionsSnapshot.docs) {
-                const data = doc.data();
-                if (data.type === 'Resume') {
-                    resumeDoc = { id: doc.id, ...data };
-                    break;
-                }
-            }
+			// Get all documents in UserCollections
+			const userCollectionsSnapshot = await getDocs(
+				collection(db, `users/${user.id}/UserCollections`)
+			);
+			const userCollections = {};
 
-            // Fetch search queries
-            const queriesSnapshot = await getDocs(collection(db, `users/${user.id}/searchQueries`));
-            const searchQueries = await Promise.all(queriesSnapshot.docs.map(async doc => {
-                const queryData = { id: doc.id, ...doc.data() };
-                
-                // Fetch job batches for this query
-                const batchesQuery = query(
-                    collection(db, 'jobBatches'),
-                    where('userId', '==', user.id),
-                    where('searchId', '==', doc.id),
-                    orderBy('startedAt', 'desc')
-                );
-                const batchesSnapshot = await getDocs(batchesQuery);
-                const batches = batchesSnapshot.docs.map(batchDoc => ({
-                    id: batchDoc.id,
-                    ...batchDoc.data()
-                }));
+			// Process each document in UserCollections
+			userCollectionsSnapshot.docs.forEach((doc) => {
+				console.log('Found document:', doc.id, doc.data());
+				userCollections[doc.id] = doc.data();
+			});
 
-                // Fetch email requests for these batches
-                const emailRequestsForBatches = {};
-                for (const batch of batches) {
-                    if (batch.emailRequestId) {
-                        try {
-                            const emailRequestDoc = await getDoc(doc(db, 'emailRequests', batch.emailRequestId));
-                            if (emailRequestDoc.exists()) {
-                                emailRequestsForBatches[batch.id] = {
-                                    id: emailRequestDoc.id,
-                                    ...emailRequestDoc.data()
-                                };
-                            }
-                        } catch (err) {
-                            console.error(`Error fetching email request for batch ${batch.id}:`, err);
-                        }
-                    }
-                }
+			// Find the resume document that has type "Resume"
+			let resumeDoc = null;
+			for (const doc of userCollectionsSnapshot.docs) {
+				const data = doc.data();
+				if (data.type === 'Resume') {
+					resumeDoc = { id: doc.id, ...data };
+					break;
+				}
+			}
 
-                return {
-                    ...queryData,
-                    batches,
-                    emailRequests: emailRequestsForBatches
-                };
-            }));
+			// Fetch search queries
+			const queriesSnapshot = await getDocs(collection(db, `users/${user.id}/searchQueries`));
+			const searchQueries = await Promise.all(
+				queriesSnapshot.docs.map(async (doc) => {
+					const queryData = { id: doc.id, ...doc.data() };
 
-            userDetails = {
-                loading: false,
-                workPreferences: userCollections.work_preferences || null,
-                resume: resumeDoc,
-                searchQueries
-            };
+					// Fetch job batches for this query
+					const batchesQuery = query(
+						collection(db, 'jobBatches'),
+						where('userId', '==', user.id),
+						where('searchId', '==', doc.id),
+						orderBy('startedAt', 'desc')
+					);
+					const batchesSnapshot = await getDocs(batchesQuery);
+					const batches = batchesSnapshot.docs.map((batchDoc) => ({
+						id: batchDoc.id,
+						...batchDoc.data()
+					}));
 
-            console.log('User details loaded:', userDetails);
-        } catch (err) {
-            console.error('Error loading user details:', err);
-            userDetails = { loading: false, error: err.message };
-        }
-    }
+					// Fetch email requests for these batches
+					const emailRequestsForBatches = {};
+					for (const batch of batches) {
+						if (batch.emailRequestId) {
+							try {
+								const emailRequestDoc = await getDoc(
+									doc(db, 'emailRequests', batch.emailRequestId)
+								);
+								if (emailRequestDoc.exists()) {
+									emailRequestsForBatches[batch.id] = {
+										id: emailRequestDoc.id,
+										...emailRequestDoc.data()
+									};
+								}
+							} catch (err) {
+								console.error(`Error fetching email request for batch ${batch.id}:`, err);
+							}
+						}
+					}
 
-    // Format date for display
-    function formatDate(timestamp) {
-        if (!timestamp) return 'N/A';
-        try {
-            // If it's a Firebase timestamp, convert to JS Date
-            const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-            return dayjs(date).format('MMM D, YYYY h:mm A'); // Example: "Jun 25, 2025 12:27 PM"
-        } catch (err) {
-            console.error('Error formatting date:', err);
-            return 'Invalid date';
-        }
-    }
+					return {
+						...queryData,
+						batches,
+						emailRequests: emailRequestsForBatches
+					};
+				})
+			);
 
-    function formatDeliveryTime(timeString) {
-        if (!timeString) return 'N/A';
-        try {
-            const [hours, minutes] = timeString.split(':').map(Number);
-            const date = new Date();
-            date.setHours(hours, minutes);
-            return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        } catch (err) {
-            return timeString;
-        }
-    }
+			userDetails = {
+				loading: false,
+				workPreferences: userCollections.work_preferences || null,
+				resume: resumeDoc,
+				searchQueries
+			};
 
-    function getEmailStatus(batch, emailRequests) {
-        const emailData = emailRequests[batch.id];
-        if (!emailData) {
-            return batch.emailSent ? 
-                { text: 'Email sent (ID unknown)', class: 'text-warning-500' } :
-                { text: 'No email', class: 'text-surface-400' };
-        }
+			console.log('User details loaded:', userDetails);
+		} catch (err) {
+			console.error('Error loading user details:', err);
+			userDetails = { loading: false, error: err.message };
+		}
+	}
 
-        const emailIdPrefix = `ID: ${emailData.id ? emailData.id.substring(0, 8) : 'unknown'} - `;
+	// Format date for display
+	function formatDate(timestamp) {
+		if (!timestamp) return 'N/A';
+		try {
+			// If it's a Firebase timestamp, convert to JS Date
+			const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+			return dayjs(date).format('MMM D, YYYY h:mm A'); // Example: "Jun 25, 2025 12:27 PM"
+		} catch (err) {
+			console.error('Error formatting date:', err);
+			return 'Invalid date';
+		}
+	}
 
-        if (emailData.status === 'error') {
-            return { text: emailIdPrefix + 'Error: ' + (emailData.error || 'Unknown'), class: 'text-error-500' };
-        }
-        if (emailData.status === 'pending') {
-            return { text: emailIdPrefix + 'Pending', class: 'text-primary-300' };
-        }
-        if (emailData.bounced) {
-            return { text: emailIdPrefix + 'Bounced', class: 'text-error-500' };
-        }
-        if (emailData.dropped) {
-            return { text: emailIdPrefix + 'Dropped', class: 'text-error-500' };
-        }
-        if (emailData.delivered) {
-            if (emailData.opened) {
-                if (emailData.clicked) {
-                    return { 
-                        text: emailIdPrefix + `Opened (${emailData.openCount || 1}), Clicked (${emailData.clickCount || 1})`, 
-                        class: 'text-success-500 font-semibold'
-                    };
-                }
-                return { 
-                    text: emailIdPrefix + `Opened (${emailData.openCount || 1})`, 
-                    class: 'text-success-500'
-                };
-            }
-            return { text: emailIdPrefix + 'Delivered', class: 'text-success-300' };
-        }
-        if (emailData.deferred) {
-            return { text: emailIdPrefix + 'Deferred', class: 'text-warning-500' };
-        }
-        if (emailData.processed) {
-            return { text: emailIdPrefix + 'Processed', class: 'text-primary-500' };
-        }
-        return { text: emailIdPrefix + (emailData.status || 'Unknown'), class: 'text-surface-400' };
-    }
+	function formatDeliveryTime(timeString) {
+		if (!timeString) return 'N/A';
+		try {
+			const [hours, minutes] = timeString.split(':').map(Number);
+			const date = new Date();
+			date.setHours(hours, minutes);
+			return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+		} catch (err) {
+			return timeString;
+		}
+	}
 
-    function navigateToBatch(batchId) {
-        dispatch('selectBatch', { batchId });
-    }
+	function getEmailStatus(batch, emailRequests) {
+		const emailData = emailRequests[batch.id];
+		if (!emailData) {
+			return batch.emailSent
+				? { text: 'Email sent (ID unknown)', class: 'text-warning-500' }
+				: { text: 'No email', class: 'text-surface-400' };
+		}
 
-    // Function to handle toggle change
-    async function handleQueryToggle(queryId, newState) {
-        if (!selectedUser || !queryId) return;
-        
-        updatingQueryId = queryId;
-        try {
-            // Update Firestore directly
-            const queryRef = doc(db, 'users', selectedUser.id, 'searchQueries', queryId);
-            await updateDoc(queryRef, {
-                isActive: newState
-            });
-            
-            // Update local state
-            userDetails.searchQueries = userDetails.searchQueries.map(query => {
-                if (query.id === queryId) {
-                    return { ...query, isActive: newState };
-                }
-                return query;
-            });
-        } catch (err) {
-            console.error('Error updating query status:', err);
-            error = err.message;
-        } finally {
-            updatingQueryId = null;
-        }
-    }
+		const emailIdPrefix = `ID: ${emailData.id ? emailData.id.substring(0, 8) : 'unknown'} - `;
+
+		if (emailData.status === 'error') {
+			return {
+				text: emailIdPrefix + 'Error: ' + (emailData.error || 'Unknown'),
+				class: 'text-error-500'
+			};
+		}
+		if (emailData.status === 'pending') {
+			return { text: emailIdPrefix + 'Pending', class: 'text-primary-300' };
+		}
+		if (emailData.bounced) {
+			return { text: emailIdPrefix + 'Bounced', class: 'text-error-500' };
+		}
+		if (emailData.dropped) {
+			return { text: emailIdPrefix + 'Dropped', class: 'text-error-500' };
+		}
+		if (emailData.delivered) {
+			if (emailData.opened) {
+				if (emailData.clicked) {
+					return {
+						text:
+							emailIdPrefix +
+							`Opened (${emailData.openCount || 1}), Clicked (${emailData.clickCount || 1})`,
+						class: 'text-success-500 font-semibold'
+					};
+				}
+				return {
+					text: emailIdPrefix + `Opened (${emailData.openCount || 1})`,
+					class: 'text-success-500'
+				};
+			}
+			return { text: emailIdPrefix + 'Delivered', class: 'text-success-300' };
+		}
+		if (emailData.deferred) {
+			return { text: emailIdPrefix + 'Deferred', class: 'text-warning-500' };
+		}
+		if (emailData.processed) {
+			return { text: emailIdPrefix + 'Processed', class: 'text-primary-500' };
+		}
+		return { text: emailIdPrefix + (emailData.status || 'Unknown'), class: 'text-surface-400' };
+	}
+
+	function navigateToBatch(batchId) {
+		dispatch('selectBatch', { batchId });
+	}
+
+	// Function to handle toggle change
+	async function handleQueryToggle(queryId, newState) {
+		if (!selectedUser || !queryId) return;
+
+		updatingQueryId = queryId;
+		try {
+			// Update Firestore directly
+			const queryRef = doc(db, 'users', selectedUser.id, 'searchQueries', queryId);
+			await updateDoc(queryRef, {
+				isActive: newState
+			});
+
+			// Update local state
+			userDetails.searchQueries = userDetails.searchQueries.map((query) => {
+				if (query.id === queryId) {
+					return { ...query, isActive: newState };
+				}
+				return query;
+			});
+		} catch (err) {
+			console.error('Error updating query status:', err);
+			error = err.message;
+		} finally {
+			updatingQueryId = null;
+		}
+	}
 </script>
 
-<style>
-    .section-title {
-        @apply text-xl font-bold mb-4 text-black;
-    }
-    
-    .subsection-title {
-        @apply text-lg font-semibold mb-3 text-black;
-    }
-    
-    .info-grid {
-        @apply grid grid-cols-2 gap-x-8 gap-y-2;
-    }
-    
-    .info-label {
-        @apply font-medium text-black;
-    }
-    
-    .info-value {
-        @apply text-black;
-    }
-    
-    .divider {
-        @apply border-t border-surface-300 my-4;
-    }
-    .delete-button {
-        @apply btn variant-soft-error hover:variant-filled-error;
-    }
-    .delete-button:disabled {
-        @apply opacity-50 cursor-not-allowed;
-    }
-    .user-row {
-        @apply relative flex items-center;
-    }
-    .user-button {
-        @apply w-full pr-12;  /* Add padding on the right to make room for the delete button */
-    }
-    .delete-button-container {
-        @apply absolute right-2;
-    }
-    .loading-spinner {
-        @apply animate-spin;
-        display: inline-block;
-        width: 1rem;
-        height: 1rem;
-        border: 2px solid currentColor;
-        border-right-color: transparent;
-        border-radius: 50%;
-        margin-right: 0.5rem;
-    }
-    .details-header {
-        @apply flex items-center justify-between mb-4;
-    }
-    .toggle-switch {
-        @apply w-11 h-6 bg-gray-200 rounded-full dark:bg-gray-700;
-    }
-    .toggle-switch::after {
-        content: '';
-        @apply absolute top-[2px] left-[2px] bg-white border-gray-300 border rounded-full h-5 w-5 transition-all;
-    }
-    :global(.peer:checked) ~ .toggle-switch {
-        @apply bg-orange-500;
-    }
-    :global(.peer:checked) ~ .toggle-switch::after {
-        @apply translate-x-full border-white;
-    }
-    :global(.peer:focus) ~ .toggle-switch {
-        @apply ring-4 ring-orange-300 dark:ring-orange-800;
-    }
-</style>
-
 <main class="container mx-auto text-black">
-    {#if isLoading}
-        <div class="card p-4 my-4 text-black">Loading users data...</div>
-    {:else if error}
-        <div class="card variant-filled-error p-4 my-4">
-            <h2 class="h3 text-black">Error: {error}</h2>
-            <p class="text-black">There was a problem loading the users data. This may be due to insufficient permissions.</p>
+	{#if isLoading}
+		<div class="card my-4 p-4 text-black">Loading users data...</div>
+	{:else if error}
+		<div class="card variant-filled-error my-4 p-4">
+			<h2 class="h3 text-black">Error: {error}</h2>
+			<p class="text-black">
+				There was a problem loading the users data. This may be due to insufficient permissions.
+			</p>
 
-            {#if adminClaims}
-                <div class="mt-4">
-                    <h3 class="h4">Admin Claims</h3>
-                    <pre class="text-sm bg-surface-200-700-token p-2 rounded">{JSON.stringify(adminClaims, null, 2)}</pre>
-                </div>
-            {/if}
-        </div>
-    {:else}
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <!-- Users List -->
-            <div class="card p-4">
-                <h2 class="h3 mb-4 text-black">Users ({users.length})</h2>
-                <div class="space-y-2">
-                    {#each users as user}
-                        <button 
-                            class="btn w-full {selectedUser?.id === user.id ? 'variant-filled-primary' : 'variant-ghost'} 
-                                   text-left justify-start h-auto py-2 text-black"
-                            on:click={() => selectUser(user)}
-                        >
-                            <div class="flex flex-col">
-                                <span class="font-semibold text-black">{user.displayName || 'No Name'}</span>
-                                <span class="text-sm text-black">{user.email || user.id}</span>
-                            </div>
-                        </button>
-                    {/each}
-                </div>
-            </div>
+			{#if adminClaims}
+				<div class="mt-4">
+					<h3 class="h4">Admin Claims</h3>
+					<pre class="bg-surface-200-700-token rounded p-2 text-sm">{JSON.stringify(
+							adminClaims,
+							null,
+							2
+						)}</pre>
+				</div>
+			{/if}
+		</div>
+	{:else}
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-3">
+			<!-- Users List -->
+			<div class="card p-4">
+				<h2 class="h3 mb-4 text-black">Users ({users.length})</h2>
+				<div class="space-y-2">
+					{#each users as user}
+						<button
+							class="btn w-full {selectedUser?.id === user.id
+								? 'variant-filled-primary'
+								: 'variant-ghost'} 
+                                   h-auto justify-start py-2 text-left text-black"
+							on:click={() => selectUser(user)}
+						>
+							<div class="flex flex-col">
+								<span class="font-semibold text-black">{user.displayName || 'No Name'}</span>
+								<span class="text-sm text-black">{user.email || user.id}</span>
+							</div>
+						</button>
+					{/each}
+				</div>
+			</div>
 
-            <!-- User Details -->
-            {#if selectedUser}
-                <div class="col-span-2">
-                    <div class="card p-6">
-                        <!-- Details Header with Delete Button -->
-                        <div class="details-header">
-                            <div>
-                                <h2 class="h3 text-black">{selectedUser.displayName || 'User Details'}</h2>
-                                <p class="text-sm text-black">{selectedUser.email}</p>
-                            </div>
-                            <button 
-                                class="delete-button"
-                                disabled={isDeleting}
-                                on:click={() => deleteUser(selectedUser)}
-                                title="Delete user"
-                            >
-                                {#if isDeleting}
-                                    <span class="loading-spinner"></span>
-                                    Deleting User...
-                                {:else}
-                                    Delete User
-                                {/if}
-                            </button>
-                        </div>
+			<!-- User Details -->
+			{#if selectedUser}
+				<div class="col-span-2">
+					<div class="card p-6">
+						<!-- Details Header with Delete Button -->
+						<div class="details-header">
+							<div>
+								<h2 class="h3 text-black">{selectedUser.displayName || 'User Details'}</h2>
+								<p class="text-sm text-black">{selectedUser.email}</p>
+							</div>
+							<button
+								class="delete-button"
+								disabled={isDeleting}
+								on:click={() => deleteUser(selectedUser)}
+								title="Delete user"
+							>
+								{#if isDeleting}
+									<span class="loading-spinner"></span>
+									Deleting User...
+								{:else}
+									Delete User
+								{/if}
+							</button>
+						</div>
 
-                        <!-- Tabs -->
-                        <div class="flex space-x-2 mb-4">
-                            <button 
-                                class="btn {activeTab === 'info' ? 'variant-filled' : 'variant-ghost'} text-black"
-                                on:click={() => activeTab = 'info'}
-                            >
-                                Info
-                            </button>
-                            <button 
-                                class="btn {activeTab === 'collections' ? 'variant-filled' : 'variant-ghost'} text-black"
-                                on:click={() => activeTab = 'collections'}
-                            >
-                                Collections
-                            </button>
-                        </div>
+						<!-- Tabs -->
+						<div class="mb-4 flex space-x-2">
+							<button
+								class="btn {activeTab === 'info' ? 'variant-filled' : 'variant-ghost'} text-black"
+								on:click={() => (activeTab = 'info')}
+							>
+								Info
+							</button>
+							<button
+								class="btn {activeTab === 'collections'
+									? 'variant-filled'
+									: 'variant-ghost'} text-black"
+								on:click={() => (activeTab = 'collections')}
+							>
+								Collections
+							</button>
+						</div>
 
-                        <!-- Tab Content -->
-                        {#if activeTab === 'info'}
-                            <div class="space-y-8">
-                                <!-- Basic Info -->
-                                <div>
-                                    <h3 class="section-title">Basic Information</h3>
-                                    <div class="card variant-ghost p-6">
-                                        <div class="info-grid">
-                                            <div>
-                                                <span class="info-label">Name</span>
-                                                <p class="info-value">{selectedUser.displayName || 'Not set'}</p>
-                                            </div>
-                                            <div>
-                                                <span class="info-label">Email</span>
-                                                <p class="info-value">{selectedUser.email}</p>
-                                            </div>
-                                            <div>
-                                                <span class="info-label">Last Sign In</span>
-                                                <p class="info-value">{formatDate(selectedUser.lastSignIn) || 'Never'}</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
+						<!-- Tab Content -->
+						{#if activeTab === 'info'}
+							<div class="space-y-8">
+								<!-- Basic Info -->
+								<div>
+									<h3 class="section-title">Basic Information</h3>
+									<div class="card variant-ghost p-6">
+										<div class="info-grid">
+											<div>
+												<span class="info-label">Name</span>
+												<p class="info-value">{selectedUser.displayName || 'Not set'}</p>
+											</div>
+											<div>
+												<span class="info-label">Email</span>
+												<p class="info-value">{selectedUser.email}</p>
+											</div>
+											<div>
+												<span class="info-label">Last Sign In</span>
+												<p class="info-value">{formatDate(selectedUser.lastSignIn) || 'Never'}</p>
+											</div>
+										</div>
+									</div>
+								</div>
 
-                                <!-- Search Queries -->
-                                {#if userDetails && !userDetails.loading}
-                                    <div>
-                                        <h3 class="section-title">Search Queries ({userDetails.searchQueries?.length || 0})</h3>
-                                        <div class="space-y-6">
-                                            {#if userDetails.searchQueries && userDetails.searchQueries.length > 0}
-                                                {#each userDetails.searchQueries as query}
-                                                    <div class="card variant-ghost p-6">
-                                                        <!-- Search Parameters -->
-                                                        <div class="mb-6">
-                                                            <h4 class="subsection-title">Search Parameters</h4>
-                                                            {#if query.searchParams && query.searchParams.length > 0}
-                                                                <div class="info-grid">
-                                                                    <div>
-                                                                        <span class="info-label">Keywords</span>
-                                                                        <p class="info-value">{query.searchParams[0].keyword || 'N/A'}</p>
-                                                                    </div>
-                                                                    <div>
-                                                                        <span class="info-label">Location</span>
-                                                                        <p class="info-value">{query.searchParams[0].location || 'N/A'}</p>
-                                                                    </div>
-                                                                    {#if query.searchParams[0].remote}
-                                                                        <div>
-                                                                            <span class="info-label">Remote</span>
-                                                                            <p class="info-value">{query.searchParams[0].remote}</p>
-                                                                        </div>
-                                                                    {/if}
-                                                                    {#if query.searchParams[0].experience_level}
-                                                                        <div>
-                                                                            <span class="info-label">Experience</span>
-                                                                            <p class="info-value">{query.searchParams[0].experience_level}</p>
-                                                                        </div>
-                                                                    {/if}
-                                                                </div>
-                                                            {:else}
-                                                                <p class="text-black">No search parameters defined</p>
-                                                            {/if}
-                                                        </div>
+								<!-- Search Queries -->
+								{#if userDetails && !userDetails.loading}
+									<div>
+										<h3 class="section-title">
+											Search Queries ({userDetails.searchQueries?.length || 0})
+										</h3>
+										<div class="space-y-6">
+											{#if userDetails.searchQueries && userDetails.searchQueries.length > 0}
+												{#each userDetails.searchQueries as query}
+													<div class="card variant-ghost p-6">
+														<!-- Search Parameters -->
+														<div class="mb-6">
+															<h4 class="subsection-title">Search Parameters</h4>
+															{#if query.searchParams && query.searchParams.length > 0}
+																<div class="info-grid">
+																	<div>
+																		<span class="info-label">Keywords</span>
+																		<p class="info-value">
+																			{query.searchParams[0].keyword || 'N/A'}
+																		</p>
+																	</div>
+																	<div>
+																		<span class="info-label">Location</span>
+																		<p class="info-value">
+																			{query.searchParams[0].location || 'N/A'}
+																		</p>
+																	</div>
+																	{#if query.searchParams[0].remote}
+																		<div>
+																			<span class="info-label">Remote</span>
+																			<p class="info-value">{query.searchParams[0].remote}</p>
+																		</div>
+																	{/if}
+																	{#if query.searchParams[0].experience_level}
+																		<div>
+																			<span class="info-label">Experience</span>
+																			<p class="info-value">
+																				{query.searchParams[0].experience_level}
+																			</p>
+																		</div>
+																	{/if}
+																</div>
+															{:else}
+																<p class="text-black">No search parameters defined</p>
+															{/if}
+														</div>
 
-                                                        <div class="divider"></div>
+														<div class="divider"></div>
 
-                                                        <!-- Delivery Settings -->
-                                                        <div class="mb-6">
-                                                            <h4 class="subsection-title">Delivery Settings</h4>
-                                                            <div class="info-grid">
-                                                                <div>
-                                                                    <span class="info-label">Delivery Time</span>
-                                                                    <p class="info-value">{formatDeliveryTime(query.deliveryTime)}</p>
-                                                                </div>
-                                                                <div>
-                                                                    <span class="info-label">Frequency</span>
-                                                                    <p class="info-value">{query.frequency || 'N/A'}</p>
-                                                                </div>
-                                                                <div>
-                                                                    <span class="info-label">Job Limit</span>
-                                                                    <p class="info-value">{query.limit || 'N/A'}</p>
-                                                                </div>
-                                                                <div>
-                                                                    <span class="info-label">Status</span>
-                                                                    <div class="flex items-center gap-2">
-                                                                        <label class="relative inline-flex items-center cursor-pointer">
-                                                                            <input 
-                                                                                type="checkbox" 
-                                                                                class="sr-only peer"
-                                                                                checked={query.isActive}
-                                                                                on:change={(e) => handleQueryToggle(query.id, e.target.checked)}
-                                                                                disabled={updatingQueryId === query.id}
-                                                                            >
-                                                                            <div class="toggle-switch"></div>
-                                                                        </label>
-                                                                        <span class="text-sm">
-                                                                            {#if updatingQueryId === query.id}
-                                                                                Updating...
-                                                                            {:else}
-                                                                                {query.isActive ? 'Active' : 'Inactive'}
-                                                                            {/if}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
-                                                            </div>
-                                                        </div>
+														<!-- Delivery Settings -->
+														<div class="mb-6">
+															<h4 class="subsection-title">Delivery Settings</h4>
+															<div class="info-grid">
+																<div>
+																	<span class="info-label">Delivery Time</span>
+																	<p class="info-value">{formatDeliveryTime(query.deliveryTime)}</p>
+																</div>
+																<div>
+																	<span class="info-label">Frequency</span>
+																	<p class="info-value">{query.frequency || 'N/A'}</p>
+																</div>
+																<div>
+																	<span class="info-label">Job Limit</span>
+																	<p class="info-value">{query.limit || 'N/A'}</p>
+																</div>
+																<div>
+																	<span class="info-label">Status</span>
+																	<div class="flex items-center gap-2">
+																		<label class="relative inline-flex cursor-pointer items-center">
+																			<input
+																				type="checkbox"
+																				class="peer sr-only"
+																				checked={query.isActive}
+																				on:change={(e) =>
+																					handleQueryToggle(query.id, e.target.checked)}
+																				disabled={updatingQueryId === query.id}
+																			/>
+																			<div class="toggle-switch"></div>
+																		</label>
+																		<span class="text-sm">
+																			{#if updatingQueryId === query.id}
+																				Updating...
+																			{:else}
+																				{query.isActive ? 'Active' : 'Inactive'}
+																			{/if}
+																		</span>
+																	</div>
+																</div>
+															</div>
+														</div>
 
-                                                        <div class="divider"></div>
+														<div class="divider"></div>
 
-                                                        <!-- Associated Job Batches -->
-                                                        <div>
-                                                            <h4 class="subsection-title">Job Batches ({query.batches?.length || 0})</h4>
-                                                            <div class="space-y-3">
-                                                                {#if query.batches && query.batches.length > 0}
-                                                                    {#each query.batches as batch}
-                                                                        {@const emailStatus = getEmailStatus(batch, query.emailRequests)}
-                                                                        <div 
-                                                                            class="card variant-ghost-secondary p-4 hover:variant-soft cursor-pointer transition-colors text-black"
-                                                                            on:click={() => navigateToBatch(batch.id)}
-                                                                            role="button"
-                                                                            tabindex="0"
-                                                                            on:keypress={(e) => e.key === 'Enter' && navigateToBatch(batch.id)}
-                                                                        >
-                                                                            <div class="info-grid">
-                                                                                <div class="col-span-2 mb-2">
-                                                                                    <span class="info-label">Batch ID</span>
-                                                                                    <p class="info-value">
-                                                                                        <span class="font-mono">{batch.id}</span>
-                                                                                        <span class="text-sm ml-2 opacity-75">(click to view in Batches tab)</span>
-                                                                                    </p>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <span class="info-label">Started</span>
-                                                                                    <p class="info-value">{formatDate(batch.startedAt)}</p>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <span class="info-label">Status</span>
-                                                                                    <p class="info-value font-semibold">{batch.status || 'N/A'}</p>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <span class="info-label">Progress</span>
-                                                                                    <p class="info-value">
-                                                                                        {batch.completedJobs || 0} / {batch.totalJobs || 0}
-                                                                                        <span class="font-semibold">({batch.totalJobs ? Math.round((batch.completedJobs / batch.totalJobs) * 100) : 0}%)</span>
-                                                                                    </p>
-                                                                                </div>
-                                                                                <div>
-                                                                                    <span class="info-label">Email</span>
-                                                                                    <p class="info-value">{emailStatus.text}</p>
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                    {/each}
-                                                                {:else}
-                                                                    <p class="text-black">No job batches found</p>
-                                                                {/if}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                {/each}
-                                            {:else}
-                                                <p class="text-black">No search queries found</p>
-                                            {/if}
-                                        </div>
-                                    </div>
-                                {/if}
-                            </div>
-                        {:else if activeTab === 'collections' && userDetails && !userDetails.loading}
-                            <div class="space-y-8">
-                                <!-- Work Preferences -->
-                                <div>
-                                    <h3 class="h3 mb-4 text-black">Work Preferences</h3>
-                                    <div class="card variant-ghost p-4">
-                                        {#if userDetails.workPreferences}
-                                            <div class="space-y-4">
-                                                <div>
-                                                    <h4 class="font-medium mb-2 text-black">Preferences</h4>
-                                                    <p class="text-black">{userDetails.workPreferences.preferences || 'None'}</p>
-                                                </div>
-                                                <div>
-                                                    <h4 class="font-medium mb-2 text-black">Avoidance</h4>
-                                                    <p class="text-black">{userDetails.workPreferences.avoidance || 'None'}</p>
-                                                </div>
-                                            </div>
-                                        {:else}
-                                            <p class="text-black">No work preferences found</p>
-                                        {/if}
-                                    </div>
-                                </div>
+														<!-- Associated Job Batches -->
+														<div>
+															<h4 class="subsection-title">
+																Job Batches ({query.batches?.length || 0})
+															</h4>
+															<div class="space-y-3">
+																{#if query.batches && query.batches.length > 0}
+																	{#each query.batches as batch}
+																		{@const emailStatus = getEmailStatus(
+																			batch,
+																			query.emailRequests
+																		)}
+																		<div
+																			class="card variant-ghost-secondary cursor-pointer p-4 text-black transition-colors hover:variant-soft"
+																			on:click={() => navigateToBatch(batch.id)}
+																			role="button"
+																			tabindex="0"
+																			on:keypress={(e) =>
+																				e.key === 'Enter' && navigateToBatch(batch.id)}
+																		>
+																			<div class="info-grid">
+																				<div class="col-span-2 mb-2">
+																					<span class="info-label">Batch ID</span>
+																					<p class="info-value">
+																						<span class="font-mono">{batch.id}</span>
+																						<span class="ml-2 text-sm opacity-75"
+																							>(click to view in Batches tab)</span
+																						>
+																					</p>
+																				</div>
+																				<div>
+																					<span class="info-label">Started</span>
+																					<p class="info-value">{formatDate(batch.startedAt)}</p>
+																				</div>
+																				<div>
+																					<span class="info-label">Status</span>
+																					<p class="info-value font-semibold">
+																						{batch.status || 'N/A'}
+																					</p>
+																				</div>
+																				<div>
+																					<span class="info-label">Progress</span>
+																					<p class="info-value">
+																						{batch.completedJobs || 0} / {batch.totalJobs || 0}
+																						<span class="font-semibold"
+																							>({batch.totalJobs
+																								? Math.round(
+																										(batch.completedJobs / batch.totalJobs) * 100
+																									)
+																								: 0}%)</span
+																						>
+																					</p>
+																				</div>
+																				<div>
+																					<span class="info-label">Email</span>
+																					<p class="info-value">{emailStatus.text}</p>
+																				</div>
+																			</div>
+																		</div>
+																	{/each}
+																{:else}
+																	<p class="text-black">No job batches found</p>
+																{/if}
+															</div>
+														</div>
+													</div>
+												{/each}
+											{:else}
+												<p class="text-black">No search queries found</p>
+											{/if}
+										</div>
+									</div>
+								{/if}
+							</div>
+						{:else if activeTab === 'collections' && userDetails && !userDetails.loading}
+							<div class="space-y-8">
+								<!-- Work Preferences -->
+								<div>
+									<h3 class="h3 mb-4 text-black">Work Preferences</h3>
+									<div class="card variant-ghost p-4">
+										{#if userDetails.workPreferences}
+											<div class="space-y-4">
+												<div>
+													<h4 class="mb-2 font-medium text-black">Preferences</h4>
+													<p class="text-black">
+														{userDetails.workPreferences.preferences || 'None'}
+													</p>
+												</div>
+												<div>
+													<h4 class="mb-2 font-medium text-black">Avoidance</h4>
+													<p class="text-black">
+														{userDetails.workPreferences.avoidance || 'None'}
+													</p>
+												</div>
+											</div>
+										{:else}
+											<p class="text-black">No work preferences found</p>
+										{/if}
+									</div>
+								</div>
 
-                                <!-- Resume -->
-                                <div>
-                                    <h3 class="h3 mb-4 text-black">Resume</h3>
-                                    {#if userDetails.resume}
-                                        <div class="card variant-ghost p-4">
-                                            <div class="mb-4">
-                                                <p class="text-black"><span class="font-medium text-black">Document ID:</span> {userDetails.resume.id}</p>
-                                                <p class="text-black"><span class="font-medium text-black">File Name:</span> {userDetails.resume.fileName || 'N/A'}</p>
-                                                <p class="text-black"><span class="font-medium text-black">Status:</span> {userDetails.resume.status || 'N/A'}</p>
-                                            </div>
-                                            {#if userDetails.resume.extractedText}
-                                                <div class="whitespace-pre-wrap font-mono text-sm mt-4 p-4 bg-surface-100-800-token rounded text-black">
-                                                    {userDetails.resume.extractedText}
-                                                </div>
-                                            {:else}
-                                                <p class="text-black">No extracted text available</p>
-                                            {/if}
-                                        </div>
-                                    {:else}
-                                        <p class="text-black">No resume found</p>
-                                    {/if}
-                                </div>
-                            </div>
-                        {/if}
+								<!-- Resume -->
+								<div>
+									<h3 class="h3 mb-4 text-black">Resume</h3>
+									{#if userDetails.resume}
+										<div class="card variant-ghost p-4">
+											<div class="mb-4">
+												<p class="text-black">
+													<span class="font-medium text-black">Document ID:</span>
+													{userDetails.resume.id}
+												</p>
+												<p class="text-black">
+													<span class="font-medium text-black">File Name:</span>
+													{userDetails.resume.fileName || 'N/A'}
+												</p>
+												<p class="text-black">
+													<span class="font-medium text-black">Status:</span>
+													{userDetails.resume.status || 'N/A'}
+												</p>
+											</div>
+											{#if userDetails.resume.extractedText}
+												<div
+													class="bg-surface-100-800-token mt-4 whitespace-pre-wrap rounded p-4 font-mono text-sm text-black"
+												>
+													{userDetails.resume.extractedText}
+												</div>
+											{:else}
+												<p class="text-black">No extracted text available</p>
+											{/if}
+										</div>
+									{:else}
+										<p class="text-black">No resume found</p>
+									{/if}
+								</div>
+							</div>
+						{/if}
 
-                        {#if userDetails?.loading}
-                            <div class="p-4 text-center text-black">Loading details...</div>
-                        {:else if userDetails?.error}
-                            <div class="p-4 text-error-500">Error loading details: {userDetails.error}</div>
-                        {/if}
-                    </div>
-                </div>
-            {/if}
-        </div>
-    {/if}
-</main> 
+						{#if userDetails?.loading}
+							<div class="p-4 text-center text-black">Loading details...</div>
+						{:else if userDetails?.error}
+							<div class="p-4 text-error-500">Error loading details: {userDetails.error}</div>
+						{/if}
+					</div>
+				</div>
+			{/if}
+		</div>
+	{/if}
+</main>
+
+<style>
+	.section-title {
+		@apply mb-4 text-xl font-bold text-black;
+	}
+
+	.subsection-title {
+		@apply mb-3 text-lg font-semibold text-black;
+	}
+
+	.info-grid {
+		@apply grid grid-cols-2 gap-x-8 gap-y-2;
+	}
+
+	.info-label {
+		@apply font-medium text-black;
+	}
+
+	.info-value {
+		@apply text-black;
+	}
+
+	.divider {
+		@apply my-4 border-t border-surface-300;
+	}
+	.delete-button {
+		@apply variant-soft-error btn hover:variant-filled-error;
+	}
+	.delete-button:disabled {
+		@apply cursor-not-allowed opacity-50;
+	}
+	.user-row {
+		@apply relative flex items-center;
+	}
+	.user-button {
+		@apply w-full pr-12; /* Add padding on the right to make room for the delete button */
+	}
+	.delete-button-container {
+		@apply absolute right-2;
+	}
+	.loading-spinner {
+		@apply animate-spin;
+		display: inline-block;
+		width: 1rem;
+		height: 1rem;
+		border: 2px solid currentColor;
+		border-right-color: transparent;
+		border-radius: 50%;
+		margin-right: 0.5rem;
+	}
+	.details-header {
+		@apply mb-4 flex items-center justify-between;
+	}
+	.toggle-switch {
+		@apply h-6 w-11 rounded-full bg-gray-200 dark:bg-gray-700;
+	}
+	.toggle-switch::after {
+		content: '';
+		@apply absolute left-[2px] top-[2px] h-5 w-5 rounded-full border border-gray-300 bg-white transition-all;
+	}
+	:global(.peer:checked) ~ .toggle-switch {
+		@apply bg-orange-500;
+	}
+	:global(.peer:checked) ~ .toggle-switch::after {
+		@apply translate-x-full border-white;
+	}
+	:global(.peer:focus) ~ .toggle-switch {
+		@apply ring-4 ring-orange-300 dark:ring-orange-800;
+	}
+</style>

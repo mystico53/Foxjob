@@ -6,73 +6,72 @@ const { PubSub } = require('@google-cloud/pubsub');
 const pubSubClient = new PubSub();
 
 exports.retryProcessing = onRequest((req, res) => {
-  logger.info('retryProcessing function called');
+	logger.info('retryProcessing function called');
 
-  return cors(req, res, async () => {
-    try {
-      // Get data from request body
-      const { jobId: docId, userId: firebaseUid } = req.body;
-      
-      // Log the received parameters
-      logger.info('Received retry request with:', {
-        docId,
-        firebaseUid,
-      });
+	return cors(req, res, async () => {
+		try {
+			// Get data from request body
+			const { jobId: docId, userId: firebaseUid } = req.body;
 
-      // Validate required parameters
-      if (!docId || !firebaseUid) {
-        const errorMsg = 'Missing required parameters: docId or firebaseUid';
-        logger.error(errorMsg);
-        res.status(400).json({ error: errorMsg });
-        return;
-      }
+			// Log the received parameters
+			logger.info('Received retry request with:', {
+				docId,
+				firebaseUid
+			});
 
-      // Create a new topic name
-      const topicName = 'raw-text-stored';
-      
-      // Ensure the topic exists
-      await pubSubClient.createTopic(topicName).catch((err) => {
-        if (err.code === 6) {
-          logger.info('Topic already exists');
-        } else {
-          throw err;
-        }
-      });
+			// Validate required parameters
+			if (!docId || !firebaseUid) {
+				const errorMsg = 'Missing required parameters: docId or firebaseUid';
+				logger.error(errorMsg);
+				res.status(400).json({ error: errorMsg });
+				return;
+			}
 
-      // Prepare the message
-      const message = {
-        firebaseUid,
-        docId
-      };
+			// Create a new topic name
+			const topicName = 'raw-text-stored';
 
-      // Debug log the message being published
-      logger.info('Publishing message:', message);
+			// Ensure the topic exists
+			await pubSubClient.createTopic(topicName).catch((err) => {
+				if (err.code === 6) {
+					logger.info('Topic already exists');
+				} else {
+					throw err;
+				}
+			});
 
-      // Publish the message to the topic
-      const messageId = await pubSubClient.topic(topicName).publishMessage({
-        data: Buffer.from(JSON.stringify(message)),
-      });
+			// Prepare the message
+			const message = {
+				firebaseUid,
+				docId
+			};
 
-      logger.info(`Message ${messageId} published to topic ${topicName}`);
-      logger.info('retryProcessing function completed successfully');
+			// Debug log the message being published
+			logger.info('Publishing message:', message);
 
-      // Send success response
-      res.json({ 
-        success: true,
-        messageId,
-        topicName,
-        message: 'Processing retry initiated!',
-        docId,
-        firebaseUid,
-        timestamp: new Date().toISOString()
-      });
+			// Publish the message to the topic
+			const messageId = await pubSubClient.topic(topicName).publishMessage({
+				data: Buffer.from(JSON.stringify(message))
+			});
 
-    } catch (error) {
-      logger.error('Error in retryProcessing:', error);
-      res.status(500).json({ 
-        error: 'Internal server error',
-        message: error.message 
-      });
-    }
-  });
+			logger.info(`Message ${messageId} published to topic ${topicName}`);
+			logger.info('retryProcessing function completed successfully');
+
+			// Send success response
+			res.json({
+				success: true,
+				messageId,
+				topicName,
+				message: 'Processing retry initiated!',
+				docId,
+				firebaseUid,
+				timestamp: new Date().toISOString()
+			});
+		} catch (error) {
+			logger.error('Error in retryProcessing:', error);
+			res.status(500).json({
+				error: 'Internal server error',
+				message: error.message
+			});
+		}
+	});
 });

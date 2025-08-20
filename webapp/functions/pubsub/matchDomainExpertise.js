@@ -1,115 +1,115 @@
-const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const admin = require('firebase-admin');
-const logger = require("firebase-functions/logger");
+const logger = require('firebase-functions/logger');
 require('dotenv').config();
 const OpenAI = require('openai');
 const { z } = require('zod');
 const { zodResponseFormat } = require('openai/helpers/zod');
+const { getUserResume } = require('../helpers/resumeHelper');
 
 const openai = new OpenAI();
 const db = admin.firestore();
 
 exports.matchDomainExpertise = onMessagePublished(
-  { topic: 'domain-expertise-extracted' },
-  async (event) => {
-    try {
-      logger.info('matchDomainExpertise function called');
-      
-      const messageData = (() => {
-        try {
-          if (!event?.data?.message?.data) {
-            throw new Error('Invalid message format received');
-          }
-          const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
-          return JSON.parse(decodedData);
-        } catch (error) {
-          logger.error('Error parsing message data:', error);
-          throw error;
-        }
-      })();
+	{ topic: 'domain-expertise-extracted' },
+	async (event) => {
+		try {
+			logger.info('matchDomainExpertise function called');
 
-      logger.info('Parsed Pub/Sub message data:', messageData);
+			const messageData = (() => {
+				try {
+					if (!event?.data?.message?.data) {
+						throw new Error('Invalid message format received');
+					}
+					const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+					return JSON.parse(decodedData);
+				} catch (error) {
+					logger.error('Error parsing message data:', error);
+					throw error;
+				}
+			})();
 
-      const { firebaseUid, docId } = messageData;
+			logger.info('Parsed Pub/Sub message data:', messageData);
 
-      if (!docId || !firebaseUid) {
-        logger.error('Missing docId or firebaseUid in Pub/Sub message.');
-        throw new Error('Missing docId or firebaseUid');
-      }
+			const { firebaseUid, docId } = messageData;
 
-      // Retrieve the user's resume
-      const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
-      const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
-      const resumeSnapshot = await resumeQuery.get();
+			if (!docId || !firebaseUid) {
+				logger.error('Missing docId or firebaseUid in Pub/Sub message.');
+				throw new Error('Missing docId or firebaseUid');
+			}
 
-      let resumeText;
-      if (resumeSnapshot.empty) {
-        logger.warn(`No resume found for user ID: ${firebaseUid}. Using placeholder resume.`);
-        resumeText = placeholderResumeText;
-      } else {
-        const resumeDoc = resumeSnapshot.docs[0];
-        resumeText = resumeDoc.data().extractedText;
-      }
+			// Retrieve the user's resume
+			const resumeData = await getUserResume(firebaseUid);
 
-      // Retrieve the job document and domain expertise
-      const jobDocRef = db
-        .collection('users')
-        .doc(firebaseUid)
-        .collection('jobs')
-        .doc(docId);
+			let resumeText;
+			if (!resumeData) {
+				logger.warn(`No resume found for user ID: ${firebaseUid}. Using placeholder resume.`);
+				resumeText = placeholderResumeText;
+			} else {
+				resumeText = resumeData.extractedText;
+			}
 
-      const jobDoc = await jobDocRef.get();
-      if (!jobDoc.exists) {
-        logger.warn(`No job document found for job ID: ${docId}`);
-        throw new Error('No job document found');
-      }
+			// Retrieve the job document and domain expertise
+			const jobDocRef = db.collection('users').doc(firebaseUid).collection('jobs').doc(docId);
 
-      const jobData = jobDoc.data();
-      const domainExpertise = jobData.SkillAssessment?.DomainExpertise;
+			const jobDoc = await jobDocRef.get();
+			if (!jobDoc.exists) {
+				logger.warn(`No job document found for job ID: ${docId}`);
+				throw new Error('No job document found');
+			}
 
-      if (!domainExpertise || !domainExpertise.name || !domainExpertise.assessment) {
-        logger.warn(`No domain expertise found for job ID: ${docId}`);
-        throw new Error('No domain expertise found');
-      }
+			const jobData = jobDoc.data();
+			const domainExpertise = jobData.SkillAssessment?.DomainExpertise;
 
-      logger.info('Domain expertise passed to matchResumeWithDomainExpertise:', JSON.stringify(domainExpertise));
+			if (!domainExpertise || !domainExpertise.name || !domainExpertise.assessment) {
+				logger.warn(`No domain expertise found for job ID: ${docId}`);
+				throw new Error('No domain expertise found');
+			}
 
-      // Call OpenAI API to match resume with domain expertise
-      const matchResult = await matchResumeWithDomainExpertise(resumeText, domainExpertise);
+			logger.info(
+				'Domain expertise passed to matchResumeWithDomainExpertise:',
+				JSON.stringify(domainExpertise)
+			);
 
-      // Update the existing DomainExpertise object with the match results
-      const updatedDomainExpertise = {
-        name: domainExpertise.name,
-        assessment: domainExpertise.assessment,
-        importance: domainExpertise.importance,
-        matchAssessment: matchResult.assessment,
-        score: matchResult.score,
-        summary: matchResult.summary
-      };
+			// Call OpenAI API to match resume with domain expertise
+			const matchResult = await matchResumeWithDomainExpertise(resumeText, domainExpertise);
 
-      // Update the job document with the enhanced structure
-      await jobDocRef.update({
-        'SkillAssessment.DomainExpertise': updatedDomainExpertise,
-        'generalData.processingStatus': 'processing'
-      });
+			// Update the existing DomainExpertise object with the match results
+			const updatedDomainExpertise = {
+				name: domainExpertise.name,
+				assessment: domainExpertise.assessment,
+				importance: domainExpertise.importance,
+				matchAssessment: matchResult.assessment,
+				score: matchResult.score,
+				summary: matchResult.summary
+			};
 
-      logger.info('Updated DomainExpertise structure in Firestore:', JSON.stringify(updatedDomainExpertise));
+			// Update the job document with the enhanced structure
+			await jobDocRef.update({
+				'SkillAssessment.DomainExpertise': updatedDomainExpertise,
+				'generalData.processingStatus': 'processing'
+			});
 
-    } catch (error) {
-      logger.error('Error in matchDomainExpertise function:', error);
-      throw error;
-    }
-  });
+			logger.info(
+				'Updated DomainExpertise structure in Firestore:',
+				JSON.stringify(updatedDomainExpertise)
+			);
+		} catch (error) {
+			logger.error('Error in matchDomainExpertise function:', error);
+			throw error;
+		}
+	}
+);
 
 async function matchResumeWithDomainExpertise(resumeText, domainExpertise) {
-  const apiKey = process.env.OPENAI_API_KEY;
+	const apiKey = process.env.OPENAI_API_KEY;
 
-  if (!apiKey) {
-    logger.error('OpenAI API key not found');
-    throw new functions.https.HttpsError('failed-precondition', 'OpenAI API key not found');
-  }
+	if (!apiKey) {
+		logger.error('OpenAI API key not found');
+		throw new functions.https.HttpsError('failed-precondition', 'OpenAI API key not found');
+	}
 
-  const instruction = `
+	const instruction = `
     You are evaluating a candidate's domain expertise as a highly critical technical CEO. Your task is to analyze how well they match this specific requirement with an extremely high bar for evidence:
     
     Domain: ${domainExpertise.name}
@@ -175,41 +175,42 @@ async function matchResumeWithDomainExpertise(resumeText, domainExpertise) {
     """
   `;
 
-  const promptContent = `${instruction}\n\nResume:\n${resumeText}\nNow go:`;
+	const promptContent = `${instruction}\n\nResume:\n${resumeText}\nNow go:`;
 
-  const DomainExpertiseMatchingSchema = z.object({
-    assessment: z.string(),
-    score: z.number(),
-    summary: z.string()
-  });
+	const DomainExpertiseMatchingSchema = z.object({
+		assessment: z.string(),
+		score: z.number(),
+		summary: z.string()
+	});
 
-  try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: "You are an expert at structured data extraction." },
-        { role: "user", content: promptContent },
-      ],
-      response_format: zodResponseFormat(DomainExpertiseMatchingSchema, "domain_expertise_matching"),
-    });
+	try {
+		const completion = await openai.beta.chat.completions.parse({
+			model: 'gpt-4o-mini',
+			messages: [
+				{ role: 'system', content: 'You are an expert at structured data extraction.' },
+				{ role: 'user', content: promptContent }
+			],
+			response_format: zodResponseFormat(DomainExpertiseMatchingSchema, 'domain_expertise_matching')
+		});
 
-    const parsedContent = completion.choices[0].message.parsed;
+		const parsedContent = completion.choices[0].message.parsed;
 
-    if (parsedContent.score < 0 || parsedContent.score > 100) {
-      throw new Error(`Score out of range: ${parsedContent.score}`);
-    }
+		if (parsedContent.score < 0 || parsedContent.score > 100) {
+			throw new Error(`Score out of range: ${parsedContent.score}`);
+		}
 
-    logger.info('Parsed content:', JSON.stringify(parsedContent));
-    return parsedContent;
-
-  } catch (error) {
-    logger.error('Error calling OpenAI API:', error);
-    if (error instanceof functions.https.HttpsError) {
-      throw error;
-    } else {
-      throw new functions.https.HttpsError('internal', 'Error calling OpenAI API', { message: error.message });
-    }
-  }
+		logger.info('Parsed content:', JSON.stringify(parsedContent));
+		return parsedContent;
+	} catch (error) {
+		logger.error('Error calling OpenAI API:', error);
+		if (error instanceof functions.https.HttpsError) {
+			throw error;
+		} else {
+			throw new functions.https.HttpsError('internal', 'Error calling OpenAI API', {
+				message: error.message
+			});
+		}
+	}
 }
 
 const placeholderResumeText = `

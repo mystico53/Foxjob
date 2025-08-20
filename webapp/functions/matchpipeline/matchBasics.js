@@ -1,9 +1,10 @@
-const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const admin = require('firebase-admin');
-const { logger } = require("firebase-functions");
+const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
 const { callGeminiAPI } = require('../services/geminiService');
-const { FieldValue } = require("firebase-admin/firestore");
+const { FieldValue } = require('firebase-admin/firestore');
+const { getUserResume } = require('../helpers/resumeHelper');
 
 // Initialize Firebase
 if (!admin.apps.length) admin.initializeApp();
@@ -11,11 +12,11 @@ const db = admin.firestore();
 const pubSubClient = new PubSub();
 
 const CONFIG = {
-    topics: {
-        outputTopic: 'basics-matched'
-    },
-    minScoreThreshold: 50,
-    instructions: `
+	topics: {
+		outputTopic: 'basics-matched'
+	},
+	minScoreThreshold: 50,
+	instructions: `
    Alright, think of yourself as my super-sharp buddy helping me screen resumes! Our goal is to get a really clear score (0-100) showing how well this candidate's resume lines up with the job description (JD), focusing *only* on the absolute must-haves for the role.
 
 Here's how we'll tackle it:
@@ -124,237 +125,257 @@ Just give me back this JSON object below, exactly like this, with no extra chat 
 
 // Helper to get resume text
 async function getResumeText(firebaseUid) {
-    const resumeSnapshot = await db.collection('users')
-        .doc(firebaseUid)
-        .collection('UserCollections')
-        .where('type', '==', 'Resume')
-        .limit(1)
-        .get();
-    
-    if (resumeSnapshot.empty) {
-        throw new Error('No resume found');
-    }
-    
-    const resumeText = resumeSnapshot.docs[0].data().extractedText;
-    if (!resumeText) {
-        throw new Error('Resume has no extracted text');
-    }
-    
-    return resumeText;
+	const resumeData = await getUserResume(firebaseUid);
+
+	if (!resumeData) {
+		throw new Error('No resume found');
+	}
+
+	const resumeText = resumeData.extractedText;
+	if (!resumeText) {
+		throw new Error('Resume has no extracted text');
+	}
+
+	return resumeText;
 }
 
 // Helper to publish message
 async function publishMessage(topicName, message) {
-    try {
-        // Check if topic exists first
-        const [topics] = await pubSubClient.getTopics();
-        const topicExists = topics.some(topic => 
-            topic.name.endsWith(`/topics/${topicName}`)
-        );
+	try {
+		// Check if topic exists first
+		const [topics] = await pubSubClient.getTopics();
+		const topicExists = topics.some((topic) => topic.name.endsWith(`/topics/${topicName}`));
 
-        if (!topicExists) {
-            logger.info(`Topic ${topicName} does not exist, creating it...`);
-            await pubSubClient.createTopic(topicName);
-            logger.info(`Created topic: ${topicName}`);
-        }
+		if (!topicExists) {
+			logger.info(`Topic ${topicName} does not exist, creating it...`);
+			await pubSubClient.createTopic(topicName);
+			logger.info(`Created topic: ${topicName}`);
+		}
 
-        const messageId = await pubSubClient
-            .topic(topicName)
-            .publishMessage({
-                data: Buffer.from(JSON.stringify(message)),
-            });
-        logger.info(`Message ${messageId} published to ${topicName}`);
-        return messageId;
-    } catch (error) {
-        logger.error(`Failed to publish to ${topicName}:`, error);
-        // Don't throw, just log and continue
-        return null;
-    }
+		const messageId = await pubSubClient.topic(topicName).publishMessage({
+			data: Buffer.from(JSON.stringify(message))
+		});
+		logger.info(`Message ${messageId} published to ${topicName}`);
+		return messageId;
+	} catch (error) {
+		logger.error(`Failed to publish to ${topicName}:`, error);
+		// Don't throw, just log and continue
+		return null;
+	}
 }
 
 // Main function
 exports.matchBasics = onMessagePublished(
-    { topic: 'job-embedding-requests', timeoutSeconds: 540 },
-    
-    async (event) => {
-        try {
-            // Parse message
-            const messageData = JSON.parse(
-                Buffer.from(event.data.message.data, 'base64').toString()
-            );
-            const { firebaseUid, jobId, batchId } = messageData; // Extract batchId
-            
-            logger.info('Starting basic match', { firebaseUid, jobId, batchId });
+	{ topic: 'job-embedding-requests', timeoutSeconds: 540 },
 
-            // Get job description
-            const jobDoc = await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .get();
+	async (event) => {
+		try {
+			// Parse message
+			const messageData = JSON.parse(Buffer.from(event.data.message.data, 'base64').toString());
+			const { firebaseUid, jobId, batchId } = messageData; // Extract batchId
 
-            if (!jobDoc.exists) {
-                logger.warn(`Job not found for jobId: ${jobId}, firebaseUid: ${firebaseUid}`);
-                // Gracefully skip this job
-                return;
-            }
+			logger.info('Starting basic match', { firebaseUid, jobId, batchId });
 
-            const jobDescription = jobDoc.data().details?.description;
-            if (!jobDescription) {
-                logger.warn(`Job has no description for jobId: ${jobId}, firebaseUid: ${firebaseUid}`);
-                // Gracefully skip this job, but increment batch counter if batchId exists
-                if (batchId) {
-                    const batchRef = db.collection('jobBatches').doc(batchId);
-                    const batchSnap = await batchRef.get();
-                    const batchData = batchSnap.data() || {};
-                    if (
-                        batchData.status === 'complete' ||
-                        batchData.completedJobs >= batchData.totalJobs ||
-                        (Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
-                    ) {
-                        logger.info(`Skipping batch update for jobId=${jobId} - already counted or batch complete`);
-                    } else {
-                        await batchRef.update({
-                            [`jobStatus.${jobId}`]: 'basic_completed',
-                            [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
-                            completedJobs: FieldValue.increment(1),
-                            completedJobIds: FieldValue.arrayUnion(jobId)
-                        });
-                        // Debug log for completedJobs increment
-                        const batchSnap2 = await batchRef.get();
-                        const batchData2 = batchSnap2.data() || {};
-                        // Fetch job score
-                        let jobScore = '?';
-                        try {
-                            const jobSnap = await db.collection('users').doc(firebaseUid).collection('scrapedJobs').doc(jobId).get();
-                            jobScore = jobSnap.exists && jobSnap.data().match && typeof jobSnap.data().match.final_score !== 'undefined' ? jobSnap.data().match.final_score : '?';
-                        } catch (e) {}
-                        logger.debug(`[matchBasics] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`);
-                    }
-                }
-                return;
-            }
+			// Get job description
+			const jobDoc = await db
+				.collection('users')
+				.doc(firebaseUid)
+				.collection('scrapedJobs')
+				.doc(jobId)
+				.get();
 
-            // Get resume text
-            const resumeText = await getResumeText(firebaseUid);
+			if (!jobDoc.exists) {
+				logger.warn(`Job not found for jobId: ${jobId}, firebaseUid: ${firebaseUid}`);
+				// Gracefully skip this job
+				return;
+			}
 
-            // Call Gemini API
-            const result = await callGeminiAPI(
-                `Job Description: ${jobDescription}\n\nResume: ${resumeText}`,
-                CONFIG.instructions,
-                {
-                    temperature: 0.7
-                }
-            );
+			const jobDescription = jobDoc.data().details?.description;
+			if (!jobDescription) {
+				logger.warn(`Job has no description for jobId: ${jobId}, firebaseUid: ${firebaseUid}`);
+				// Gracefully skip this job, but increment batch counter if batchId exists
+				if (batchId) {
+					const batchRef = db.collection('jobBatches').doc(batchId);
+					const batchSnap = await batchRef.get();
+					const batchData = batchSnap.data() || {};
+					if (
+						batchData.status === 'complete' ||
+						batchData.completedJobs >= batchData.totalJobs ||
+						(Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
+					) {
+						logger.info(
+							`Skipping batch update for jobId=${jobId} - already counted or batch complete`
+						);
+					} else {
+						await batchRef.update({
+							[`jobStatus.${jobId}`]: 'basic_completed',
+							[`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
+							completedJobs: FieldValue.increment(1),
+							completedJobIds: FieldValue.arrayUnion(jobId)
+						});
+						// Debug log for completedJobs increment
+						const batchSnap2 = await batchRef.get();
+						const batchData2 = batchSnap2.data() || {};
+						// Fetch job score
+						let jobScore = '?';
+						try {
+							const jobSnap = await db
+								.collection('users')
+								.doc(firebaseUid)
+								.collection('scrapedJobs')
+								.doc(jobId)
+								.get();
+							jobScore =
+								jobSnap.exists &&
+								jobSnap.data().match &&
+								typeof jobSnap.data().match.final_score !== 'undefined'
+									? jobSnap.data().match.final_score
+									: '?';
+						} catch (e) {}
+						logger.debug(
+							`[matchBasics] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`
+						);
+					}
+				}
+				return;
+			}
 
-            // Parse response carefully
-            let response;
-            try {
-                // Try to extract JSON from the response
-                const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
-                const start = jsonStr.indexOf('{');
-                const end = jsonStr.lastIndexOf('}') + 1;
-                if (start === -1 || end === 0) throw new Error('No JSON object found in response');
-                response = JSON.parse(jsonStr.slice(start, end));
-            } catch (error) {
-                logger.error('Failed to parse Gemini response:', { 
-                    error: error.message,
-                    rawResponse: result.extractedText
-                });
-                throw error;
-            }
+			// Get resume text
+			const resumeText = await getResumeText(firebaseUid);
 
-            // Create document data with updated structure
-            const documentData = {
-                match: {
-                    prioritized_requirements: response.prioritized_requirements,
-                    match_details: response.match_details,
-                    final_score: response.final_score,
-                    timestamp: FieldValue.serverTimestamp()
-                },
-                processing: {
-                    status: 'basics_matched'
-                }
-            };
-            
-            // Only add batchId if it exists
-            if (batchId) {
-                documentData.processing.batchId = batchId;
-            }
+			// Call Gemini API
+			const result = await callGeminiAPI(
+				`Job Description: ${jobDescription}\n\nResume: ${resumeText}`,
+				CONFIG.instructions,
+				{
+					temperature: 0.7
+				}
+			);
 
-            // Store results
-            await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .set(documentData, { merge: true });
+			// Parse response carefully
+			let response;
+			try {
+				// Try to extract JSON from the response
+				const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
+				const start = jsonStr.indexOf('{');
+				const end = jsonStr.lastIndexOf('}') + 1;
+				if (start === -1 || end === 0) throw new Error('No JSON object found in response');
+				response = JSON.parse(jsonStr.slice(start, end));
+			} catch (error) {
+				logger.error('Failed to parse Gemini response:', {
+					error: error.message,
+					rawResponse: result.extractedText
+				});
+				throw error;
+			}
 
-            // Only publish to basics-completed if score is above threshold
-            if (response.final_score > CONFIG.minScoreThreshold) {
-                await publishMessage('basics-completed', {
-                    firebaseUid,
-                    jobId,
-                    batchId // Include batchId if it exists
-                });
-            } else {
-                // If the score is below or equal to the threshold, write a placeholder summary and update batch
-                const placeholderSummary = {
-                    match: {
-                        summary: {
-                            short_description: 'Not summarized: Only jobs with a score of 50 or above are summarized.',
-                            short_responsibility: '',
-                            short_gaps: '',
-                            timestamp: FieldValue.serverTimestamp()
-                        }
-                    }
-                };
-                await db.collection('users')
-                    .doc(firebaseUid)
-                    .collection('scrapedJobs')
-                    .doc(jobId)
-                    .set(placeholderSummary, { merge: true });
-                // Update batch status and counter with job-level tracking
-                if (batchId) {
-                    const batchRef = db.collection('jobBatches').doc(batchId);
-                    const batchSnap = await batchRef.get();
-                    const batchData = batchSnap.data() || {};
-                    if (
-                        batchData.status === 'complete' ||
-                        batchData.completedJobs >= batchData.totalJobs ||
-                        (Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
-                    ) {
-                        logger.info(`Skipping batch update for jobId=${jobId} - already counted or batch complete`);
-                    } else {
-                        await batchRef.update({
-                            [`jobStatus.${jobId}`]: 'basic_completed',
-                            [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
-                            completedJobs: FieldValue.increment(1),
-                            completedJobIds: FieldValue.arrayUnion(jobId)
-                        });
-                        // Debug log for completedJobs increment
-                        const batchSnap2 = await batchRef.get();
-                        const batchData2 = batchSnap2.data() || {};
-                        // Fetch job score
-                        let jobScore = '?';
-                        try {
-                            const jobSnap = await db.collection('users').doc(firebaseUid).collection('scrapedJobs').doc(jobId).get();
-                            jobScore = jobSnap.exists && jobSnap.data().match && typeof jobSnap.data().match.final_score !== 'undefined' ? jobSnap.data().match.final_score : '?';
-                        } catch (e) {}
-                        logger.debug(`[matchBasics] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`);
-                    }
-                }
-                logger.info('Basic match completed and ended at basics (score below threshold)', {
-                    firebaseUid,
-                    jobId,
-                    finalScore: response.final_score,
-                    threshold: CONFIG.minScoreThreshold
-                });
-                return; // Stop further processing for this job
-            }
+			// Create document data with updated structure
+			const documentData = {
+				match: {
+					prioritized_requirements: response.prioritized_requirements,
+					match_details: response.match_details,
+					final_score: response.final_score,
+					timestamp: FieldValue.serverTimestamp()
+				},
+				processing: {
+					status: 'basics_matched'
+				}
+			};
 
-        } catch (error) {
-            logger.error('Match processing failed:', error);
-            throw error;
-        }
-    }
+			// Only add batchId if it exists
+			if (batchId) {
+				documentData.processing.batchId = batchId;
+			}
+
+			// Store results
+			await db
+				.collection('users')
+				.doc(firebaseUid)
+				.collection('scrapedJobs')
+				.doc(jobId)
+				.set(documentData, { merge: true });
+
+			// Only publish to basics-completed if score is above threshold
+			if (response.final_score > CONFIG.minScoreThreshold) {
+				await publishMessage('basics-completed', {
+					firebaseUid,
+					jobId,
+					batchId // Include batchId if it exists
+				});
+			} else {
+				// If the score is below or equal to the threshold, write a placeholder summary and update batch
+				const placeholderSummary = {
+					match: {
+						summary: {
+							short_description:
+								'Not summarized: Only jobs with a score of 50 or above are summarized.',
+							short_responsibility: '',
+							short_gaps: '',
+							timestamp: FieldValue.serverTimestamp()
+						}
+					}
+				};
+				await db
+					.collection('users')
+					.doc(firebaseUid)
+					.collection('scrapedJobs')
+					.doc(jobId)
+					.set(placeholderSummary, { merge: true });
+				// Update batch status and counter with job-level tracking
+				if (batchId) {
+					const batchRef = db.collection('jobBatches').doc(batchId);
+					const batchSnap = await batchRef.get();
+					const batchData = batchSnap.data() || {};
+					if (
+						batchData.status === 'complete' ||
+						batchData.completedJobs >= batchData.totalJobs ||
+						(Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
+					) {
+						logger.info(
+							`Skipping batch update for jobId=${jobId} - already counted or batch complete`
+						);
+					} else {
+						await batchRef.update({
+							[`jobStatus.${jobId}`]: 'basic_completed',
+							[`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('basic_completed'),
+							completedJobs: FieldValue.increment(1),
+							completedJobIds: FieldValue.arrayUnion(jobId)
+						});
+						// Debug log for completedJobs increment
+						const batchSnap2 = await batchRef.get();
+						const batchData2 = batchSnap2.data() || {};
+						// Fetch job score
+						let jobScore = '?';
+						try {
+							const jobSnap = await db
+								.collection('users')
+								.doc(firebaseUid)
+								.collection('scrapedJobs')
+								.doc(jobId)
+								.get();
+							jobScore =
+								jobSnap.exists &&
+								jobSnap.data().match &&
+								typeof jobSnap.data().match.final_score !== 'undefined'
+									? jobSnap.data().match.final_score
+									: '?';
+						} catch (e) {}
+						logger.debug(
+							`[matchBasics] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`
+						);
+					}
+				}
+				logger.info('Basic match completed and ended at basics (score below threshold)', {
+					firebaseUid,
+					jobId,
+					finalScore: response.final_score,
+					threshold: CONFIG.minScoreThreshold
+				});
+				return; // Stop further processing for this job
+			}
+		} catch (error) {
+			logger.error('Match processing failed:', error);
+			throw error;
+		}
+	}
 );

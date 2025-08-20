@@ -1,6 +1,6 @@
 <script>
 	import { goto } from '$app/navigation';
-	import step3Gif from '../../../assets/step3.gif';  // Import the GIF
+	import step3Gif from '../../../assets/step3.gif'; // Import the GIF
 
 	function goBack() {
 		// Use browser's history to go back
@@ -9,20 +9,23 @@
 </script>
 
 <div class="container mx-auto px-4 py-8">
-	<button class="btn variant-filled-surface mb-6" on:click={goBack}> ← Back </button>
+	<button class="variant-filled-surface btn mb-6" on:click={goBack}> ← Back </button>
 
 	<div class="card p-6">
-		
-
 		<!-- Added Step 3 GIF Section -->
 		<!-- Added Step 3 GIF Section with the imported image -->
-		<div class="mt-8 mb-8 flex items-center gap-8">
-			<div class="flex items-center space-x-4 bg-blue-50 p-4 rounded-lg">
-			  
-			  <p class="text-lg font-bold">Click the fox extension button and scan this job description</p>
+		<div class="mb-8 mt-8 flex items-center gap-8">
+			<div class="flex items-center space-x-4 rounded-lg bg-blue-50 p-4">
+				<p class="text-lg font-bold">
+					Click the fox extension button and scan this job description
+				</p>
 			</div>
-			<img src={step3Gif} alt="Step 3: Scan Job Description" class="max-w-[50%] rounded-lg shadow-lg" />
-		  </div>
+			<img
+				src={step3Gif}
+				alt="Step 3: Scan Job Description"
+				class="max-w-[50%] rounded-lg shadow-lg"
+			/>
+		</div>
 
 		<div class="prose">
 			<div class="mb-6">
@@ -111,8 +114,6 @@
 				and win the general election through the Electoral College system. The position is subject
 				to the democratic process and constitutional requirements.
 			</p>
-
-			
 		</div>
 	</div>
 </div>

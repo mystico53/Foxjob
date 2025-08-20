@@ -19,7 +19,7 @@
 			bind:value={searchInput}
 			on:input={handleSearch}
 			placeholder="Search jobs..."
-			class="focus:ring-primary-500 w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2"
+			class="w-full rounded-lg border px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500"
 		/>
 		<svg
 			class="absolute right-3 top-1/2 -translate-y-1/2 transform text-gray-400"

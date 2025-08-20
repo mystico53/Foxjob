@@ -1,8 +1,8 @@
-const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const admin = require('firebase-admin');
-const { logger } = require("firebase-functions");
+const { logger } = require('firebase-functions');
 const { callGeminiAPI } = require('../services/geminiService');
-const { FieldValue } = require("firebase-admin/firestore");
+const { FieldValue } = require('firebase-admin/firestore');
 const { PubSub } = require('@google-cloud/pubsub');
 
 // Initialize Firebase
@@ -11,7 +11,7 @@ const db = admin.firestore();
 const pubSubClient = new PubSub();
 
 const CONFIG = {
-    instructions: `
+	instructions: `
     You are a friendly job preference analyzer, helping the user see how well a job matches their stated preferences. Your task is to check how well any job description aligns with what the user is looking for.
 
     Given:
@@ -68,432 +68,461 @@ const CONFIG = {
 // Helper to get user preferences - UPDATED VERSION
 // Updated helper to get user preferences with new structure
 async function getUserPreferences(firebaseUid) {
-    try {
-        const documentPath = `users/${firebaseUid}/UserCollections/work_preferences`;
-        
-        logger.info('Attempting to get work preferences document', { firebaseUid });
-        logger.info('Attempting to get work preferences document', { 
-            firebaseUid,
-            documentPath 
-        });
-        
-        const prefsDoc = await db.collection('users')
-            .doc(firebaseUid)
-            .collection('UserCollections')
-            .doc('work_preferences')
-            .get();
-        
-        if (!prefsDoc.exists) {
-            logger.info('Work preferences document not found at path', { documentPath });
-            
-            // Try a document list to see what documents actually exist
-            const snapshot = await db.collection('users')
-                .doc(firebaseUid)
-                .collection('UserCollections')
-                .limit(10)
-                .get();
-                
-            if (snapshot.empty) {
-                logger.info('No documents found in UserCollections collection');
-            } else {
-                logger.info('Found documents in UserCollections:', {
-                    documentIds: snapshot.docs.map(doc => doc.id)
-                });
-            }
-            
-            return null;
-        }
-        
-        const prefsData = prefsDoc.data();
-        logger.info('Found work preferences document with data', { 
-            firebaseUid, 
-            fields: Object.keys(prefsData),
-            hasPreferences: !!prefsData.preferences,
-            hasAvoidance: !!prefsData.avoidance,
-            status: prefsData.status || 'none'
-        });
-        
-        // Check if we have non-empty preferences
-        const hasValidPreferences = prefsData.preferences && 
-            typeof prefsData.preferences === 'string' && 
-            prefsData.preferences.trim() !== '';
-            
-        const hasValidAvoidance = prefsData.avoidance && 
-            typeof prefsData.avoidance === 'string' && 
-            prefsData.avoidance.trim() !== '';
-        
-        if (!hasValidPreferences && !hasValidAvoidance) {
-            logger.info('No valid preferences found in work preferences', { firebaseUid });
-            return null;
-        }
-        
-        // Format the preferences
-        const formattedPreferences = [];
-        
-        if (hasValidPreferences) {
-            formattedPreferences.push(`What I'm looking for:\n${prefsData.preferences.trim()}`);
-            logger.info('Added preferences to formatted preferences', { firebaseUid });
-        }
-        
-        if (hasValidAvoidance) {
-            formattedPreferences.push(`What I want to avoid:\n${prefsData.avoidance.trim()}`);
-            logger.info('Added avoidance to formatted preferences', { firebaseUid });
-        }
-        
-        const result = formattedPreferences.join('\n\n');
-        logger.info('Successfully formatted user preferences', { 
-            firebaseUid, 
-            sectionCount: formattedPreferences.length,
-            preferencesLength: result.length,
-            preferencesStart: result.substring(0, 50)
-        });
-        
-        return result;
-    } catch (error) {
-        logger.error('Error getting user preferences', { 
-            firebaseUid, 
-            error: error.message,
-            stack: error.stack 
-        });
-        return null;
-    }
+	try {
+		const documentPath = `users/${firebaseUid}/UserCollections/work_preferences`;
+
+		logger.info('Attempting to get work preferences document', { firebaseUid });
+		logger.info('Attempting to get work preferences document', {
+			firebaseUid,
+			documentPath
+		});
+
+		const prefsDoc = await db
+			.collection('users')
+			.doc(firebaseUid)
+			.collection('UserCollections')
+			.doc('work_preferences')
+			.get();
+
+		if (!prefsDoc.exists) {
+			logger.info('Work preferences document not found at path', { documentPath });
+
+			// Try a document list to see what documents actually exist
+			const snapshot = await db
+				.collection('users')
+				.doc(firebaseUid)
+				.collection('UserCollections')
+				.limit(10)
+				.get();
+
+			if (snapshot.empty) {
+				logger.info('No documents found in UserCollections collection');
+			} else {
+				logger.info('Found documents in UserCollections:', {
+					documentIds: snapshot.docs.map((doc) => doc.id)
+				});
+			}
+
+			return null;
+		}
+
+		const prefsData = prefsDoc.data();
+		logger.info('Found work preferences document with data', {
+			firebaseUid,
+			fields: Object.keys(prefsData),
+			hasPreferences: !!prefsData.preferences,
+			hasAvoidance: !!prefsData.avoidance,
+			status: prefsData.status || 'none'
+		});
+
+		// Check if we have non-empty preferences
+		const hasValidPreferences =
+			prefsData.preferences &&
+			typeof prefsData.preferences === 'string' &&
+			prefsData.preferences.trim() !== '';
+
+		const hasValidAvoidance =
+			prefsData.avoidance &&
+			typeof prefsData.avoidance === 'string' &&
+			prefsData.avoidance.trim() !== '';
+
+		if (!hasValidPreferences && !hasValidAvoidance) {
+			logger.info('No valid preferences found in work preferences', { firebaseUid });
+			return null;
+		}
+
+		// Format the preferences
+		const formattedPreferences = [];
+
+		if (hasValidPreferences) {
+			formattedPreferences.push(`What I'm looking for:\n${prefsData.preferences.trim()}`);
+			logger.info('Added preferences to formatted preferences', { firebaseUid });
+		}
+
+		if (hasValidAvoidance) {
+			formattedPreferences.push(`What I want to avoid:\n${prefsData.avoidance.trim()}`);
+			logger.info('Added avoidance to formatted preferences', { firebaseUid });
+		}
+
+		const result = formattedPreferences.join('\n\n');
+		logger.info('Successfully formatted user preferences', {
+			firebaseUid,
+			sectionCount: formattedPreferences.length,
+			preferencesLength: result.length,
+			preferencesStart: result.substring(0, 50)
+		});
+
+		return result;
+	} catch (error) {
+		logger.error('Error getting user preferences', {
+			firebaseUid,
+			error: error.message,
+			stack: error.stack
+		});
+		return null;
+	}
 }
 
 // Helper function to adjust final score based on preference score
 async function adjustFinalScore(firebaseUid, jobId) {
-    try {
-        // Get the job document
-        const jobDoc = await db.collection('users')
-            .doc(firebaseUid)
-            .collection('scrapedJobs')
-            .doc(jobId)
-            .get();
-        
-        if (!jobDoc.exists) {
-            logger.info('Job not found for score adjustment', { firebaseUid, jobId });
-            return false;
-        }
-        
-        const jobData = jobDoc.data();
-        
-        // Check if both match data and preference score exist
-        if (!jobData.match || !jobData.match.final_score || 
-            !jobData.match.preferenceScore || !jobData.match.preferenceScore.score) {
-            logger.info('Missing required scores for adjustment', { 
-                firebaseUid, 
-                jobId,
-                hasMatch: !!jobData.match,
-                hasFinalScore: !!(jobData.match && jobData.match.final_score),
-                hasPreferenceScore: !!(jobData.match && jobData.match.preferenceScore && jobData.match.preferenceScore.score)
-            });
-            return false;
-        }
-        
-        // Get the scores
-        const originalScore = jobData.match.final_score;
-        const preferenceScore = jobData.match.preferenceScore.score;
-        
-        // Calculate adjustment: (difference between pref score and 100) / 2
-        const adjustment = (100 - preferenceScore) / 2;
-        
-        // Calculate new final score
-        const adjustedScore = Math.max(0, Math.min(100, originalScore - adjustment));
-        
-        // Round to whole number
-        const roundedAdjustedScore = Math.round(adjustedScore);
-        
-        // Try to update only the match fields (faster, less data written)
-        try {
-            await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .update({
-                    'match.basic_score': originalScore, // Store original for documentation
-                    'match.final_score': roundedAdjustedScore, // Update the final score
-                    'match.score_adjusted_timestamp': FieldValue.serverTimestamp()
-                });
-            logger.info('Successfully adjusted final score with update()', {
-                firebaseUid,
-                jobId,
-                originalScore,
-                preferenceScore,
-                adjustment,
-                adjustedScore: roundedAdjustedScore
-            });
-        } catch (updateError) {
-            logger.warn('Update failed, falling back to set with merge', {
-                firebaseUid,
-                jobId,
-                error: updateError.message
-            });
-            await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .set({
-                    match: {
-                        basic_score: originalScore, // Store original for documentation
-                        final_score: roundedAdjustedScore, // Update the final score
-                        score_adjusted_timestamp: FieldValue.serverTimestamp()
-                    }
-                }, { merge: true });
-            logger.info('Successfully adjusted final score with set()', {
-                firebaseUid,
-                jobId,
-                originalScore,
-                preferenceScore,
-                adjustment,
-                adjustedScore: roundedAdjustedScore
-            });
-        }
-        
-        return true;
-    } catch (error) {
-        logger.error('Error adjusting final score', {
-            firebaseUid,
-            jobId,
-            error: error.message,
-            stack: error.stack
-        });
-        return false;
-    }
+	try {
+		// Get the job document
+		const jobDoc = await db
+			.collection('users')
+			.doc(firebaseUid)
+			.collection('scrapedJobs')
+			.doc(jobId)
+			.get();
+
+		if (!jobDoc.exists) {
+			logger.info('Job not found for score adjustment', { firebaseUid, jobId });
+			return false;
+		}
+
+		const jobData = jobDoc.data();
+
+		// Check if both match data and preference score exist
+		if (
+			!jobData.match ||
+			!jobData.match.final_score ||
+			!jobData.match.preferenceScore ||
+			!jobData.match.preferenceScore.score
+		) {
+			logger.info('Missing required scores for adjustment', {
+				firebaseUid,
+				jobId,
+				hasMatch: !!jobData.match,
+				hasFinalScore: !!(jobData.match && jobData.match.final_score),
+				hasPreferenceScore: !!(
+					jobData.match &&
+					jobData.match.preferenceScore &&
+					jobData.match.preferenceScore.score
+				)
+			});
+			return false;
+		}
+
+		// Get the scores
+		const originalScore = jobData.match.final_score;
+		const preferenceScore = jobData.match.preferenceScore.score;
+
+		// Calculate adjustment: (difference between pref score and 100) / 2
+		const adjustment = (100 - preferenceScore) / 2;
+
+		// Calculate new final score
+		const adjustedScore = Math.max(0, Math.min(100, originalScore - adjustment));
+
+		// Round to whole number
+		const roundedAdjustedScore = Math.round(adjustedScore);
+
+		// Try to update only the match fields (faster, less data written)
+		try {
+			await db.collection('users').doc(firebaseUid).collection('scrapedJobs').doc(jobId).update({
+				'match.basic_score': originalScore, // Store original for documentation
+				'match.final_score': roundedAdjustedScore, // Update the final score
+				'match.score_adjusted_timestamp': FieldValue.serverTimestamp()
+			});
+			logger.info('Successfully adjusted final score with update()', {
+				firebaseUid,
+				jobId,
+				originalScore,
+				preferenceScore,
+				adjustment,
+				adjustedScore: roundedAdjustedScore
+			});
+		} catch (updateError) {
+			logger.warn('Update failed, falling back to set with merge', {
+				firebaseUid,
+				jobId,
+				error: updateError.message
+			});
+			await db
+				.collection('users')
+				.doc(firebaseUid)
+				.collection('scrapedJobs')
+				.doc(jobId)
+				.set(
+					{
+						match: {
+							basic_score: originalScore, // Store original for documentation
+							final_score: roundedAdjustedScore, // Update the final score
+							score_adjusted_timestamp: FieldValue.serverTimestamp()
+						}
+					},
+					{ merge: true }
+				);
+			logger.info('Successfully adjusted final score with set()', {
+				firebaseUid,
+				jobId,
+				originalScore,
+				preferenceScore,
+				adjustment,
+				adjustedScore: roundedAdjustedScore
+			});
+		}
+
+		return true;
+	} catch (error) {
+		logger.error('Error adjusting final score', {
+			firebaseUid,
+			jobId,
+			error: error.message,
+			stack: error.stack
+		});
+		return false;
+	}
 }
 
 // Helper to publish message (copied from matchBasics.js)
 async function publishMessage(topicName, message) {
-    try {
-        // Check if topic exists first
-        const [topics] = await pubSubClient.getTopics();
-        const topicExists = topics.some(topic => 
-            topic.name.endsWith(`/topics/${topicName}`)
-        );
+	try {
+		// Check if topic exists first
+		const [topics] = await pubSubClient.getTopics();
+		const topicExists = topics.some((topic) => topic.name.endsWith(`/topics/${topicName}`));
 
-        if (!topicExists) {
-            logger.info(`Topic ${topicName} does not exist, creating it...`);
-            await pubSubClient.createTopic(topicName);
-            logger.info(`Created topic: ${topicName}`);
-        }
+		if (!topicExists) {
+			logger.info(`Topic ${topicName} does not exist, creating it...`);
+			await pubSubClient.createTopic(topicName);
+			logger.info(`Created topic: ${topicName}`);
+		}
 
-        const messageId = await pubSubClient
-            .topic(topicName)
-            .publishMessage({
-                data: Buffer.from(JSON.stringify(message)),
-            });
-        logger.info(`Message ${messageId} published to ${topicName}`);
-        return messageId;
-    } catch (error) {
-        logger.error(`Failed to publish to ${topicName}:`, error);
-        // Don't throw, just log and continue
-        return null;
-    }
+		const messageId = await pubSubClient.topic(topicName).publishMessage({
+			data: Buffer.from(JSON.stringify(message))
+		});
+		logger.info(`Message ${messageId} published to ${topicName}`);
+		return messageId;
+	} catch (error) {
+		logger.error(`Failed to publish to ${topicName}:`, error);
+		// Don't throw, just log and continue
+		return null;
+	}
 }
 
 // Main callable function
 exports.preferenceMatch = onMessagePublished(
-    { 
-        topic: "basics-completed",
-        timeoutSeconds: 540,
-        region: "us-central1" 
-    },
-    async (event) => {
-        try {
-            // Parse the message data properly from PubSub
-            let message;
-            try {
-                const rawData = event.data.message.data;
-                const decodedData = Buffer.from(rawData, 'base64').toString();
-                message = JSON.parse(decodedData);
-            } catch (parseError) {
-                logger.error('Error parsing message data', { error: parseError.message });
-                throw new Error(`Unable to parse message data: ${parseError.message}`);
-            }
+	{
+		topic: 'basics-completed',
+		timeoutSeconds: 540,
+		region: 'us-central1'
+	},
+	async (event) => {
+		try {
+			// Parse the message data properly from PubSub
+			let message;
+			try {
+				const rawData = event.data.message.data;
+				const decodedData = Buffer.from(rawData, 'base64').toString();
+				message = JSON.parse(decodedData);
+			} catch (parseError) {
+				logger.error('Error parsing message data', { error: parseError.message });
+				throw new Error(`Unable to parse message data: ${parseError.message}`);
+			}
 
-            const { firebaseUid, jobId, batchId, saveToFirestore = false } = message || {};
-            
-            // Validate the required parameters
-            if (!firebaseUid || typeof firebaseUid !== 'string' || firebaseUid.trim() === '') {
-                throw new Error('Invalid or missing firebaseUid');
-            }
+			const { firebaseUid, jobId, batchId, saveToFirestore = false } = message || {};
 
-            if (!jobId || typeof jobId !== 'string' || jobId.trim() === '') {
-                throw new Error('Invalid or missing jobId');
-            }
-            
-            logger.info('Starting preference matching', { firebaseUid, jobId });
+			// Validate the required parameters
+			if (!firebaseUid || typeof firebaseUid !== 'string' || firebaseUid.trim() === '') {
+				throw new Error('Invalid or missing firebaseUid');
+			}
 
-            // Get job document
-            const jobDoc = await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .get();
+			if (!jobId || typeof jobId !== 'string' || jobId.trim() === '') {
+				throw new Error('Invalid or missing jobId');
+			}
 
-            if (!jobDoc.exists) {
-                throw new Error('Job not found');
-            }
+			logger.info('Starting preference matching', { firebaseUid, jobId });
 
-            const jobData = jobDoc.data();
-            
-            // Get job description
-            const jobDescription = jobData.details?.description;
-            if (!jobDescription) {
-                throw new Error('Job has no description');
-            }
+			// Get job document
+			const jobDoc = await db
+				.collection('users')
+				.doc(firebaseUid)
+				.collection('scrapedJobs')
+				.doc(jobId)
+				.get();
 
-            // Get user preferences with the updated function
-            const preferences = await getUserPreferences(firebaseUid);
-            
-            // Set an initial status for this job
-            let jobStatus = preferences ? 'preference_completed' : 'preference_skipped';
-            
-            // If no preferences, update job status but still continue with the process flow
-            if (!preferences) {
-                logger.info('No preferences found', { firebaseUid });
-                // We don't return here - we continue to the batch update at the end
-            } else {
-                // Call Gemini API
-                const result = await callGeminiAPI(
-                    `Job Description: ${jobDescription}\n\n` +
-                    `User Preferences: ${preferences}`,
-                    CONFIG.instructions,
-                    {
-                        temperature: 0.3
-                    }
-                );
+			if (!jobDoc.exists) {
+				throw new Error('Job not found');
+			}
 
-                // Parse response
-                let response;
-                try {
-                    const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
-                    const start = jsonStr.indexOf('{');
-                    const end = jsonStr.lastIndexOf('}') + 1;
-                    if (start === -1 || end === 0) throw new Error('No JSON object found in response');
-                    response = JSON.parse(jsonStr.slice(start, end));
-                } catch (error) {
-                    logger.error('Failed to parse Gemini response:', { 
-                        error: error.message,
-                        rawResponse: result.extractedText
-                    });
-                    throw error;
-                }
+			const jobData = jobDoc.data();
 
-                await db.collection('users')
-                    .doc(firebaseUid)
-                    .collection('scrapedJobs')
-                    .doc(jobId)
-                    .set({
-                        match: {
-                            preferenceScore: {
-                                score: response.score,
-                                explanation: response.explanation,
-                                timestamp: FieldValue.serverTimestamp()
-                            }
-                        }
-                    }, { merge: true });
+			// Get job description
+			const jobDescription = jobData.details?.description;
+			if (!jobDescription) {
+				throw new Error('Job has no description');
+			}
 
-                logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
+			// Get user preferences with the updated function
+			const preferences = await getUserPreferences(firebaseUid);
 
-                await adjustFinalScore(firebaseUid, jobId);
+			// Set an initial status for this job
+			let jobStatus = preferences ? 'preference_completed' : 'preference_skipped';
 
-                logger.info('Adjusted final score based on preferences', { firebaseUid, jobId });
-            }
+			// If no preferences, update job status but still continue with the process flow
+			if (!preferences) {
+				logger.info('No preferences found', { firebaseUid });
+				// We don't return here - we continue to the batch update at the end
+			} else {
+				// Call Gemini API
+				const result = await callGeminiAPI(
+					`Job Description: ${jobDescription}\n\n` + `User Preferences: ${preferences}`,
+					CONFIG.instructions,
+					{
+						temperature: 0.3
+					}
+				);
 
-            // After adjustFinalScore, fetch the updated job document to get the final score
-            const updatedJobDoc = await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .get();
-            const updatedJobData = updatedJobDoc.data();
-            const finalScore = updatedJobData.match?.final_score;
+				// Parse response
+				let response;
+				try {
+					const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
+					const start = jsonStr.indexOf('{');
+					const end = jsonStr.lastIndexOf('}') + 1;
+					if (start === -1 || end === 0) throw new Error('No JSON object found in response');
+					response = JSON.parse(jsonStr.slice(start, end));
+				} catch (error) {
+					logger.error('Failed to parse Gemini response:', {
+						error: error.message,
+						rawResponse: result.extractedText
+					});
+					throw error;
+				}
 
-            if (finalScore === undefined) {
-                throw new Error('Final score missing after preference adjustment');
-            }
+				await db
+					.collection('users')
+					.doc(firebaseUid)
+					.collection('scrapedJobs')
+					.doc(jobId)
+					.set(
+						{
+							match: {
+								preferenceScore: {
+									score: response.score,
+									explanation: response.explanation,
+									timestamp: FieldValue.serverTimestamp()
+								}
+							}
+						},
+						{ merge: true }
+					);
 
-            if (finalScore <= 50) {
-                // Write placeholder summary and update batch counter/status
-                const placeholderSummary = {
-                    match: {
-                        summary: {
-                            short_description: 'Not summarized: Only jobs with a score of 50 or above are summarized.',
-                            short_responsibility: '',
-                            short_gaps: '',
-                            timestamp: FieldValue.serverTimestamp()
-                        }
-                    }
-                };
-                await db.collection('users')
-                    .doc(firebaseUid)
-                    .collection('scrapedJobs')
-                    .doc(jobId)
-                    .set(placeholderSummary, { merge: true });
-                if (batchId) {
-                    const batchRef = db.collection('jobBatches').doc(batchId);
-                    const batchSnap = await batchRef.get();
-                    const batchData = batchSnap.data() || {};
-                    if (
-                        batchData.status === 'complete' ||
-                        batchData.completedJobs >= batchData.totalJobs ||
-                        (Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
-                    ) {
-                        logger.info(`Skipping batch update for jobId=${jobId} - already counted or batch complete`);
-                    } else {
-                        await batchRef.update({
-                            [`jobStatus.${jobId}`]: 'preference_completed',
-                            [`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('preference_completed'),
-                            completedJobs: FieldValue.increment(1),
-                            completedJobIds: FieldValue.arrayUnion(jobId)
-                        });
-                        // Debug log for completedJobs increment
-                        const batchSnap2 = await batchRef.get();
-                        const batchData2 = batchSnap2.data() || {};
-                        // Fetch job score
-                        let jobScore = '?';
-                        try {
-                            const jobSnap = await db.collection('users').doc(firebaseUid).collection('scrapedJobs').doc(jobId).get();
-                            jobScore = jobSnap.exists && jobSnap.data().match && typeof jobSnap.data().match.final_score !== 'undefined' ? jobSnap.data().match.final_score : '?';
-                        } catch (e) {}
-                        logger.debug(`[preferenceMatch] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`);
-                    }
-                }
-                logger.info('Preference match completed and ended at preference (score below threshold)', {
-                    firebaseUid,
-                    jobId,
-                    finalScore
-                });
-                return {
-                    success: true,
-                    status: 'preference_completed',
-                    hasPreferences: !!preferences
-                };
-            } else {
-                // Only publish to preference-matched for summary generation if score is above 50
-                await publishMessage('preference-matched', {
-                    firebaseUid,
-                    jobId,
-                    batchId
-                });
-                logger.info('Preference match completed and forwarded to summary', {
-                    firebaseUid,
-                    jobId,
-                    finalScore
-                });
-                return {
-                    success: true,
-                    status: 'preference_forwarded',
-                    hasPreferences: !!preferences
-                };
-            }
+				logger.info('Saved preference score to Firestore', { firebaseUid, jobId });
 
-        } catch (error) {
-            logger.error('Preference matching failed:', error);
-            return {
-                success: false,
-                error: error.message,
-                stack: error.stack
-            };
-        }
-    }
+				await adjustFinalScore(firebaseUid, jobId);
+
+				logger.info('Adjusted final score based on preferences', { firebaseUid, jobId });
+			}
+
+			// After adjustFinalScore, fetch the updated job document to get the final score
+			const updatedJobDoc = await db
+				.collection('users')
+				.doc(firebaseUid)
+				.collection('scrapedJobs')
+				.doc(jobId)
+				.get();
+			const updatedJobData = updatedJobDoc.data();
+			const finalScore = updatedJobData.match?.final_score;
+
+			if (finalScore === undefined) {
+				throw new Error('Final score missing after preference adjustment');
+			}
+
+			if (finalScore <= 50) {
+				// Write placeholder summary and update batch counter/status
+				const placeholderSummary = {
+					match: {
+						summary: {
+							short_description:
+								'Not summarized: Only jobs with a score of 50 or above are summarized.',
+							short_responsibility: '',
+							short_gaps: '',
+							timestamp: FieldValue.serverTimestamp()
+						}
+					}
+				};
+				await db
+					.collection('users')
+					.doc(firebaseUid)
+					.collection('scrapedJobs')
+					.doc(jobId)
+					.set(placeholderSummary, { merge: true });
+				if (batchId) {
+					const batchRef = db.collection('jobBatches').doc(batchId);
+					const batchSnap = await batchRef.get();
+					const batchData = batchSnap.data() || {};
+					if (
+						batchData.status === 'complete' ||
+						batchData.completedJobs >= batchData.totalJobs ||
+						(Array.isArray(batchData.completedJobIds) && batchData.completedJobIds.includes(jobId))
+					) {
+						logger.info(
+							`Skipping batch update for jobId=${jobId} - already counted or batch complete`
+						);
+					} else {
+						await batchRef.update({
+							[`jobStatus.${jobId}`]: 'preference_completed',
+							[`jobProcessingSteps.${jobId}`]: FieldValue.arrayUnion('preference_completed'),
+							completedJobs: FieldValue.increment(1),
+							completedJobIds: FieldValue.arrayUnion(jobId)
+						});
+						// Debug log for completedJobs increment
+						const batchSnap2 = await batchRef.get();
+						const batchData2 = batchSnap2.data() || {};
+						// Fetch job score
+						let jobScore = '?';
+						try {
+							const jobSnap = await db
+								.collection('users')
+								.doc(firebaseUid)
+								.collection('scrapedJobs')
+								.doc(jobId)
+								.get();
+							jobScore =
+								jobSnap.exists &&
+								jobSnap.data().match &&
+								typeof jobSnap.data().match.final_score !== 'undefined'
+									? jobSnap.data().match.final_score
+									: '?';
+						} catch (e) {}
+						logger.debug(
+							`[preferenceMatch] Incremented completedJobs for jobId=${jobId} | completedJobs=${batchData2.completedJobs || '?'} / totalJobs=${batchData2.totalJobs || '?'} | score=${jobScore}`
+						);
+					}
+				}
+				logger.info('Preference match completed and ended at preference (score below threshold)', {
+					firebaseUid,
+					jobId,
+					finalScore
+				});
+				return {
+					success: true,
+					status: 'preference_completed',
+					hasPreferences: !!preferences
+				};
+			} else {
+				// Only publish to preference-matched for summary generation if score is above 50
+				await publishMessage('preference-matched', {
+					firebaseUid,
+					jobId,
+					batchId
+				});
+				logger.info('Preference match completed and forwarded to summary', {
+					firebaseUid,
+					jobId,
+					finalScore
+				});
+				return {
+					success: true,
+					status: 'preference_forwarded',
+					hasPreferences: !!preferences
+				};
+			}
+		} catch (error) {
+			logger.error('Preference matching failed:', error);
+			return {
+				success: false,
+				error: error.message,
+				stack: error.stack
+			};
+		}
+	}
 );

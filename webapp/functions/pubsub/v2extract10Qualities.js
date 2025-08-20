@@ -1,8 +1,8 @@
-const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
-const { FieldValue } = require("firebase-admin/firestore");
+const { FieldValue } = require('firebase-admin/firestore');
 
 // Initialize
 const db = admin.firestore();
@@ -10,19 +10,19 @@ const pubSubClient = new PubSub();
 
 // ===== Config =====
 const CONFIG = {
-  topics: {
-    qualityExtractionRequests: 'quality-extraction-requests',
-    qualitiesGathered: 'ten-qualities-gathered'
-  },
-  collections: {
-    users: 'users',
-    scrapedJobs: 'scrapedJobs'
-  },
-  defaultValues: {
-    naText: 'na'
-  },
-  instructions: {
-    qualitiesExtraction: `Using the 'Count, Context, and Criticality' method, analyze the job description to identify exactly 7 crucial qualities, distributed across Required Categories below.
+	topics: {
+		qualityExtractionRequests: 'quality-extraction-requests',
+		qualitiesGathered: 'ten-qualities-gathered'
+	},
+	collections: {
+		users: 'users',
+		scrapedJobs: 'scrapedJobs'
+	},
+	defaultValues: {
+		naText: 'na'
+	},
+	instructions: {
+		qualitiesExtraction: `Using the 'Count, Context, and Criticality' method, analyze the job description to identify exactly 7 crucial qualities, distributed across Required Categories below.
 
 Required Categories (must include at least 1 from each, maximum 3 from any single category):
 A. Technical/Domain Expertise (hard skills, technical knowledge, tools)
@@ -72,79 +72,76 @@ Output Requirements:
 6. Present as 7 consecutive fields only
 7. Complete information in single lines using pipe separators
 8. No additional text or explanations`
-  }
+	}
 };
 
 // ===== Firestore Service =====
 const firestoreService = {
-  getDocRef(firebaseUid, jobId) {  // Changed from firebaseUid to firebaseUid
-    return db.collection('users')
-      .doc(firebaseUid)
-      .collection('scrapedJobs')
-      .doc(jobId);
-  },
+	getDocRef(firebaseUid, jobId) {
+		// Changed from firebaseUid to firebaseUid
+		return db.collection('users').doc(firebaseUid).collection('scrapedJobs').doc(jobId);
+	},
 
-  async getJobDocument(docRef) {
-    const snapshot = await docRef.get();
-    if (!snapshot.exists) {
-      logger.warn('404:', { path: docRef.path });
-      throw new Error(`Document not found: ${docRef.path}`);
-    }
+	async getJobDocument(docRef) {
+		const snapshot = await docRef.get();
+		if (!snapshot.exists) {
+			logger.warn('404:', { path: docRef.path });
+			throw new Error(`Document not found: ${docRef.path}`);
+		}
 
-    const data = snapshot.data();
-    return data;
-  },
+		const data = snapshot.data();
+		return data;
+	},
 
-  async updateJobQualities(docRef, qualities) {
-    await docRef.update({
-      qualities: qualities,
-      'processing.status': 'qualities extracted',
-      lastProcessed: FieldValue.serverTimestamp(),
-    });
-  }
+	async updateJobQualities(docRef, qualities) {
+		await docRef.update({
+			qualities: qualities,
+			'processing.status': 'qualities extracted',
+			lastProcessed: FieldValue.serverTimestamp()
+		});
+	}
 };
 
 // ===== PubSub Service =====
 const pubSubService = {
-  parseMessage(message) {
-    if (!message.data) {
-      throw new Error('No message data received');
-    }
-    const data = message.json;
-    if (!data) {
-      throw new Error('Invalid JSON in message data');
-    }
-    return data;
-  },
+	parseMessage(message) {
+		if (!message.data) {
+			throw new Error('No message data received');
+		}
+		const data = message.json;
+		if (!data) {
+			throw new Error('Invalid JSON in message data');
+		}
+		return data;
+	},
 
-  validateMessageData(data) {
-    const { firebaseUid, jobId } = data;  // Changed from firebaseUid to firebaseUid
-    if (!firebaseUid || !jobId) {
-      throw new Error(`Missing required fields in message data. Received: ${JSON.stringify(data)}`);
-    }
-    return { firebaseUid, jobId };
-  },
+	validateMessageData(data) {
+		const { firebaseUid, jobId } = data; // Changed from firebaseUid to firebaseUid
+		if (!firebaseUid || !jobId) {
+			throw new Error(`Missing required fields in message data. Received: ${JSON.stringify(data)}`);
+		}
+		return { firebaseUid, jobId };
+	},
 
-  async ensureTopicExists(topicName) {
-    try {
-      await pubSubClient.createTopic(topicName);
-    } catch (err) {
-      if (err.code !== 6) { // 6 = already exists
-        throw err;
-      }
-    }
-  },
+	async ensureTopicExists(topicName) {
+		try {
+			await pubSubClient.createTopic(topicName);
+		} catch (err) {
+			if (err.code !== 6) {
+				// 6 = already exists
+				throw err;
+			}
+		}
+	},
 
-  async publishMessage(topicName, message) {
-    await this.ensureTopicExists(topicName);
-    const messageId = await pubSubClient
-      .topic(topicName)
-      .publishMessage({
-        data: Buffer.from(JSON.stringify(message)),
-      });
-    logger.info(`Message ${messageId} published to ${topicName}`);
-    return messageId;
-  }
+	async publishMessage(topicName, message) {
+		await this.ensureTopicExists(topicName);
+		const messageId = await pubSubClient.topic(topicName).publishMessage({
+			data: Buffer.from(JSON.stringify(message))
+		});
+		logger.info(`Message ${messageId} published to ${topicName}`);
+		return messageId;
+	}
 };
 
 // ===== Anthropic Service =====
@@ -152,127 +149,124 @@ const { callGeminiAPI } = require('../services/geminiService');
 
 // ===== Qualities Parser =====
 const qualitiesParser = {
-  parseQualities(text) {
-    const lines = text.split('\n').filter(line => line.trim());
-    const qualities = {};
+	parseQualities(text) {
+		const lines = text.split('\n').filter((line) => line.trim());
+		const qualities = {};
 
-    lines.forEach((line, index) => {
-      const qualityNumber = `Q${index + 1}`;
-      
-      const components = line.split('|').map(s => s.trim());
-      
-      let primarySkill = '';
-      let criticality = '';
-      let evidence = '';
-      
-      components.forEach(component => {
-        const [key, value] = component.split(':').map(s => s.trim());
-        
-        if (component.startsWith('Quality')) {
-          primarySkill = value;
-        } else if (component.toLowerCase().includes('criticality')) {
-          criticality = value;
-        } else if (component.toLowerCase().includes('evidence')) {
-          evidence = value;
-        }
-      });
+		lines.forEach((line, index) => {
+			const qualityNumber = `Q${index + 1}`;
 
-      qualities[qualityNumber] = {
-        primarySkill,
-        criticality,
-        evidence,
-      };
-    });
+			const components = line.split('|').map((s) => s.trim());
 
-    if (Object.keys(qualities).length === 0) {
-      throw new Error('No valid qualities extracted from the response');
-    }
+			let primarySkill = '';
+			let criticality = '';
+			let evidence = '';
 
-    logger.info('Parsed qualities:', qualities);
+			components.forEach((component) => {
+				const [key, value] = component.split(':').map((s) => s.trim());
 
-    return qualities;
-  }
+				if (component.startsWith('Quality')) {
+					primarySkill = value;
+				} else if (component.toLowerCase().includes('criticality')) {
+					criticality = value;
+				} else if (component.toLowerCase().includes('evidence')) {
+					evidence = value;
+				}
+			});
+
+			qualities[qualityNumber] = {
+				primarySkill,
+				criticality,
+				evidence
+			};
+		});
+
+		if (Object.keys(qualities).length === 0) {
+			throw new Error('No valid qualities extracted from the response');
+		}
+
+		logger.info('Parsed qualities:', qualities);
+
+		return qualities;
+	}
 };
 
 // ===== Error Handlers =====
 const errorHandlers = {
-  async handleProcessingError(error, docRef, context = {}) {
-    logger.error('Processing Error:', error, context);
-    throw error;
-  },
+	async handleProcessingError(error, docRef, context = {}) {
+		logger.error('Processing Error:', error, context);
+		throw error;
+	},
 
-  handleAndThrow(error, message) {
-    logger.error(message, error);
-    throw error;
-  }
+	handleAndThrow(error, message) {
+		logger.error(message, error);
+		throw error;
+	}
 };
 
 // ===== Main Function =====
 exports.extractJobQualities = onMessagePublished(
-  {
-    topic: CONFIG.topics.qualityExtractionRequests,
-  },
-  async (event) => {
-    let docRef;
-    const message = event.data;
-    try {
-      // Parse and validate message
-      const messageData = (() => {
-        try {
-          if (!event?.data?.message?.data) {
-            throw new Error('Invalid message format received');
-          }
-          const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
-          return JSON.parse(decodedData);
-        } catch (error) {
-          logger.error('Error parsing message data:', error);
-          throw error;
-        }
-      })();
-      
-      const { firebaseUid, jobId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing qualities for firebaseUid: ${firebaseUid}, jobId: ${jobId}`);
+	{
+		topic: CONFIG.topics.qualityExtractionRequests
+	},
+	async (event) => {
+		let docRef;
+		const message = event.data;
+		try {
+			// Parse and validate message
+			const messageData = (() => {
+				try {
+					if (!event?.data?.message?.data) {
+						throw new Error('Invalid message format received');
+					}
+					const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+					return JSON.parse(decodedData);
+				} catch (error) {
+					logger.error('Error parsing message data:', error);
+					throw error;
+				}
+			})();
 
-      // Get Firestore document
-      docRef = firestoreService.getDocRef(firebaseUid, jobId);
-      const jobData = await firestoreService.getJobDocument(docRef);
-      
-      // Process job qualities
-      const jobDescription = jobData.details?.description;
-      if (!jobDescription) {
-        throw new Error('Invalid job description for processing');
-      }
+			const { firebaseUid, jobId } = pubSubService.validateMessageData(messageData);
+			logger.info(`Processing qualities for firebaseUid: ${firebaseUid}, jobId: ${jobId}`);
 
-      const apiResponse = await callGeminiAPI(
-        jobDescription,
-        CONFIG.instructions.qualitiesExtraction,
-        {
-          model: 'gemini-2.0-flash', // Using pro for more structured output
-          //temperature: 0.3,  // Lower temperature for consistent formatting
-          //maxOutputTokens: 2048
-        }
-      );
-      
-      if (apiResponse.error) {
-        throw new Error(`API Error: ${apiResponse.message}`);
-      }
+			// Get Firestore document
+			docRef = firestoreService.getDocRef(firebaseUid, jobId);
+			const jobData = await firestoreService.getJobDocument(docRef);
 
-      const qualitiesText = apiResponse.extractedText;
-      logger.info('Raw qualities text:', { qualitiesText });
-      
-      // Parse and validate qualities
-      const qualities = qualitiesParser.parseQualities(qualitiesText);
-      
-      // Update Firestore
-      await firestoreService.updateJobQualities(docRef, qualities);
+			// Process job qualities
+			const jobDescription = jobData.details?.description;
+			if (!jobDescription) {
+				throw new Error('Invalid job description for processing');
+			}
 
-      // Publish next message
-      await pubSubService.publishMessage(
-        CONFIG.topics.qualitiesGathered,
-        { firebaseUid, jobId }
-      );
+			const apiResponse = await callGeminiAPI(
+				jobDescription,
+				CONFIG.instructions.qualitiesExtraction,
+				{
+					model: 'gemini-2.0-flash' // Using pro for more structured output
+					//temperature: 0.3,  // Lower temperature for consistent formatting
+					//maxOutputTokens: 2048
+				}
+			);
 
-    } catch (error) {
-      await errorHandlers.handleProcessingError(error, docRef, { message });
-    }
-  });
+			if (apiResponse.error) {
+				throw new Error(`API Error: ${apiResponse.message}`);
+			}
+
+			const qualitiesText = apiResponse.extractedText;
+			logger.info('Raw qualities text:', { qualitiesText });
+
+			// Parse and validate qualities
+			const qualities = qualitiesParser.parseQualities(qualitiesText);
+
+			// Update Firestore
+			await firestoreService.updateJobQualities(docRef, qualities);
+
+			// Publish next message
+			await pubSubService.publishMessage(CONFIG.topics.qualitiesGathered, { firebaseUid, jobId });
+		} catch (error) {
+			await errorHandlers.handleProcessingError(error, docRef, { message });
+		}
+	}
+);

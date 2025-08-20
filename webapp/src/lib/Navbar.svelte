@@ -26,7 +26,7 @@
 
 	const navItems = [
 		{ href: '/list', label: 'Home' },
-		{ href: '/workflow', label: 'Jobs' },
+		{ href: '/workflow', label: 'Jobs' }
 		//{ href: '/search', label: 'Search' },
 		//{ href: '/preferences', label: 'Your Preferences' },
 		// { href: '/assessments', label: 'Assesments' },
@@ -36,15 +36,15 @@
 	function clickOutside(node) {
 		const handleClick = (event) => {
 			if (!node.contains(event.target)) {
-			profileDropdownOpen = false;
+				profileDropdownOpen = false;
 			}
 		};
-		
+
 		document.addEventListener('click', handleClick, true);
-		
+
 		return {
 			destroy() {
-			document.removeEventListener('click', handleClick, true);
+				document.removeEventListener('click', handleClick, true);
 			}
 		};
 	}
@@ -60,17 +60,17 @@
 </script>
 
 <AppBar
-  background="bg-white"
-  class="border-b-2 px-4 py-2"
-  style="border-color: rgb(107, 114, 128);"
-  gridColumns="grid-cols-[1fr_2fr_1fr]"
-  slotDefault="place-self-center"
-  slotTrail="place-self-end"
+	background="bg-white"
+	class="border-b-2 px-4 py-2"
+	style="border-color: rgb(107, 114, 128);"
+	gridColumns="grid-cols-[1fr_2fr_1fr]"
+	slotDefault="place-self-center"
+	slotTrail="place-self-end"
 >
 	<svelte:fragment slot="lead">
 		<div class="flex items-center gap-2 md:gap-4">
-			<img src={foxIcon} alt="Fox Icon" class="h-6 w-6 md:h-8 md:w-8 !important" />
-			<strong class="foxjob-title text-lg md:text-xl uppercase">Foxjob</strong>
+			<img src={foxIcon} alt="Fox Icon" class="!important h-6 w-6 md:h-8 md:w-8" />
+			<strong class="foxjob-title text-lg uppercase md:text-xl">Foxjob</strong>
 		</div>
 	</svelte:fragment>
 
@@ -89,7 +89,7 @@
 							{navItems[0].label}
 						</a>
 						{#if currentPath === navItems[0].href}
-							<div class="bg-primary-500 absolute bottom-[-20px] left-[0%] h-1 w-[100%]"></div>
+							<div class="absolute bottom-[-20px] left-[0%] h-1 w-[100%] bg-primary-500"></div>
 						{/if}
 					</li>
 
@@ -105,7 +105,7 @@
 								{label}
 							</a>
 							{#if currentPath === href}
-								<div class="bg-primary-500 absolute bottom-[-20px] left-[0%] h-1 w-[100%]"></div>
+								<div class="absolute bottom-[-20px] left-[0%] h-1 w-[100%] bg-primary-500"></div>
 							{/if}
 						</li>
 					{/each}
@@ -118,67 +118,66 @@
 		<div class="flex items-center gap-4">
 			<button class="btn btn-sm md:hidden" on:click={toggleMobileMenu}>
 				<iconify-icon icon="solar:hamburger-menu-outline"></iconify-icon>
-			  </button>
+			</button>
 			{#if $authStore}
-			<div class="relative" use:clickOutside>
-				<button 
-					on:click={toggleProfileDropdown}
-					class="flex items-center focus:outline-none"
-				>
-					<Avatar
-					width="w-12"
-					initials={$authStore.displayName?.charAt(0).toUpperCase() ??
-						$authStore.email?.charAt(0).toUpperCase() ??
-						'U'}
-					background="bg-tertiary-500"
-					/>
-				</button>
-				
-				{#if profileDropdownOpen}
-					<div class="absolute right-0 top-full mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
-						<div class="py-1">
-							<!-- Keep your FeedbackButton component but adjust the wrapper -->
-							<div class="w-full">
-							  <FeedbackButton />
+				<div class="relative" use:clickOutside>
+					<button on:click={toggleProfileDropdown} class="flex items-center focus:outline-none">
+						<Avatar
+							width="w-12"
+							initials={$authStore.displayName?.charAt(0).toUpperCase() ??
+								$authStore.email?.charAt(0).toUpperCase() ??
+								'U'}
+							background="bg-tertiary-500"
+						/>
+					</button>
+
+					{#if profileDropdownOpen}
+						<div
+							class="absolute right-0 top-full z-10 mt-2 w-48 rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5"
+						>
+							<div class="py-1">
+								<!-- Keep your FeedbackButton component but adjust the wrapper -->
+								<div class="w-full">
+									<FeedbackButton />
+								</div>
+
+								<!-- Logout button with matching styling -->
+								<button
+									class="w-full px-4 py-2 text-left text-sm hover:bg-gray-100"
+									on:click={handleLogout}
+								>
+									<div class="flex items-center gap-2">
+										<iconify-icon icon="solar:logout-2-outline"></iconify-icon>
+										Logout
+									</div>
+								</button>
 							</div>
-							
-							<!-- Logout button with matching styling -->
-							<button 
-							  class="w-full text-left px-4 py-2 text-sm hover:bg-gray-100" 
-							  on:click={handleLogout}
-							>
-							  <div class="flex items-center gap-2">
-								<iconify-icon icon="solar:logout-2-outline"></iconify-icon>
-								Logout
-							  </div>
-							</button>
-						  </div>
-					</div>
-				{/if}
+						</div>
+					{/if}
 				</div>
 			{:else}
-				<a href="/auth/signin" class="btn btn-sm variant-filled-primary">Login</a>
+				<a href="/auth/signin" class="variant-filled-primary btn btn-sm">Login</a>
 			{/if}
 		</div>
 	</svelte:fragment>
 </AppBar>
 
 {#if mobileMenuOpen}
-  <div class="md:hidden bg-white border-b-2 w-full shadow-lg">
-    <ul class="flex flex-col list-none p-4 space-y-4">
-      {#each navItems as { href, label }}
-        <li>
-          <a 
-            {href} 
-            class="text-base font-bold {currentPath === href ? 'text-[#B45309]' : 'text-black-600'}"
-            on:click={() => mobileMenuOpen = false}
-          >
-            {label}
-          </a>
-        </li>
-      {/each}
-    </ul>
-  </div>
+	<div class="w-full border-b-2 bg-white shadow-lg md:hidden">
+		<ul class="flex list-none flex-col space-y-4 p-4">
+			{#each navItems as { href, label }}
+				<li>
+					<a
+						{href}
+						class="text-base font-bold {currentPath === href ? 'text-[#B45309]' : 'text-black-600'}"
+						on:click={() => (mobileMenuOpen = false)}
+					>
+						{label}
+					</a>
+				</li>
+			{/each}
+		</ul>
+	</div>
 {/if}
 
 <style>

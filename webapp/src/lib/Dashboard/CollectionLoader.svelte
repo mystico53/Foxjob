@@ -1,7 +1,7 @@
 <script>
 	import { onMount } from 'svelte';
 	import { auth, db } from '$lib/firebase';
-	import { 
+	import {
 		collection,
 		addDoc,
 		serverTimestamp,
@@ -15,10 +15,7 @@
 		doc,
 		updateDoc
 	} from 'firebase/firestore';
-	import { 
-		setResumeStatus,
-		userStateStore 
-	} from '$lib/stores/userStateStore';
+	import { setResumeStatus, userStateStore } from '$lib/stores/userStateStore';
 	import { tooltipStore } from '$lib/stores/tooltipStore';
 
 	let pdfjsLib;
@@ -58,7 +55,7 @@
 				}
 			}
 		});
-		
+
 		// Combine both cleanup functions into a single return
 		return () => {
 			unsubscribe();
@@ -71,9 +68,9 @@
 			console.log('No user, not setting up listener');
 			return;
 		}
-		
+
 		console.log('Setting up resume listener for user:', user.uid);
-		
+
 		// Resume listener
 		const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
 		const resumeQuery = query(
@@ -82,7 +79,7 @@
 			orderBy('timestamp', 'desc'),
 			limit(1)
 		);
-		
+
 		// Set up resume listener
 		const resumeUnsubscribe = onSnapshot(resumeQuery, (snapshot) => {
 			if (!snapshot.empty) {
@@ -92,7 +89,7 @@
 				updateUIFromData(data, null);
 			}
 		});
-		
+
 		// Combined cleanup function
 		const originalUnsubscribe = unsubscribeResumeListener;
 		unsubscribeResumeListener = () => {
@@ -104,7 +101,7 @@
 
 	function updateUIFromData(data, timestamp) {
 		currentFileName = data.fileName || 'Unknown';
-		
+
 		// Convert timestamp safely
 		let formattedTimestamp = null;
 		if (timestamp) {
@@ -114,7 +111,7 @@
 			// If it's a Firestore timestamp
 			formattedTimestamp = data.timestamp.toDate();
 		}
-		
+
 		if (data.status === 'processed' && data.structuredData) {
 			resumeUploaded = true;
 			resumeStatus = 'processed';
@@ -151,7 +148,7 @@
 				const doc = querySnapshot.docs[0];
 				const data = doc.data();
 				currentFileName = data.fileName || 'Unknown';
-				
+
 				// Simply pass data to updateUIFromData and let it handle timestamp
 				updateUIFromData(data, null);
 			} else {
@@ -258,7 +255,7 @@
 
 			const timestamp = new Date();
 			setResumeStatus(true, currentFileName, timestamp, 'processing');
-			
+
 			uploadFeedback = `Uploading "${currentFileName}", please wait while processing...`;
 			uploadFeedbackColor = 'variant-filled-surface';
 			resumeUploaded = true;
@@ -276,7 +273,7 @@
 	async function deleteResume() {
 		try {
 			const userCollectionsRef = collection(db, 'users', user.uid, 'UserCollections');
-			
+
 			// 1. Update store state first
 			setResumeStatus(false, '', null, '');
 
@@ -289,7 +286,7 @@
 				await Promise.all(deletePromises);
 
 				uploadFeedback = 'Add your resume to match it with job descriptions';
-				
+
 				resumeUploaded = false;
 				resumeStatus = '';
 				extractedText = '';
@@ -310,55 +307,31 @@
 	<div class="flex items-center justify-between py-2">
 		<h2 class="m-0 text-xl font-bold">Your resume</h2>
 		{#if resumeUploaded}
-		<div>
-			<!-- Show checkmark as soon as resume is uploaded -->
-			<iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
-			{#if resumeStatus === 'error'}
-				<iconify-icon icon="fluent:error-circle-12-filled" class="text-2xl text-error-500"></iconify-icon>
-			{/if}
-			<button on:click={deleteResume}>
-				<iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-2xl"></iconify-icon>
-			</button>
-		</div>
-		{/if}
-	</div>
-	<div class="flex flex-1 flex-col items-center justify-center">
-		{#if !$userStateStore.resume.isUploaded}
-			<div class="relative w-full flex justify-center">
-				<!-- Hidden file input -->
-				<input
-					bind:this={fileInput}
-					type="file"
-					accept=".pdf,application/pdf"
-					on:change={handleFiles}
-					class="hidden"
-				/>
-				
-				<!-- Primary button to trigger file selection -->
-				<button
-					on:click={triggerFileInput}
-					class="btn variant-filled-primary"
-				>
-					Upload Resume
+			<div>
+				<!-- Show checkmark as soon as resume is uploaded -->
+				<iconify-icon icon="fluent-color:checkmark-circle-16" class="text-2xl"></iconify-icon>
+				{#if resumeStatus === 'error'}
+					<iconify-icon icon="fluent:error-circle-12-filled" class="text-2xl text-error-500"
+					></iconify-icon>
+				{/if}
+				<button on:click={deleteResume}>
+					<iconify-icon icon="solar:trash-bin-minimalistic-bold" class="text-2xl"></iconify-icon>
 				</button>
 			</div>
 		{/if}
-
-		{#if uploadFeedback}
-			<div
-				class="alert {uploadFeedbackColor} mt-4 flex w-full flex-col items-center gap-2 text-center"
-			>
-				{#if resumeUploaded}
-					<iconify-icon
-						icon="healthicons:i-documents-accepted-outline"
-						class="text-6xl text-gray-500"
-					></iconify-icon>
-				{:else}
-					<iconify-icon icon="ep:document" class="text-6xl text-gray-500"></iconify-icon>
-				{/if}
-				<p>{uploadFeedback}</p>
+	</div>
+	<div class="flex flex-1 flex-col items-center justify-center">
+		<div class="relative flex w-full justify-center">
+			<div class="rounded-lg bg-blue-50 p-6 text-center">
+				<iconify-icon icon="ep:document" class="mx-auto mb-3 text-4xl text-blue-400"></iconify-icon>
+				<h3 class="mb-2 text-lg font-semibold text-blue-900">Resume Upload Moved</h3>
+				<p class="text-sm text-blue-700">
+					Resume upload is now part of the job agent creation process.
+					<br />
+					Create a new agent to upload your resume.
+				</p>
 			</div>
-		{/if}
+		</div>
 	</div>
 </div>
 

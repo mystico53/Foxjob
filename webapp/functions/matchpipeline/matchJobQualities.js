@@ -1,9 +1,9 @@
-const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const admin = require('firebase-admin');
-const { logger } = require("firebase-functions");
+const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
 const { callGeminiAPI } = require('../services/geminiService');
-const { FieldValue } = require("firebase-admin/firestore");
+const { FieldValue } = require('firebase-admin/firestore');
 
 // Initialize Firebase
 if (!admin.apps.length) admin.initializeApp();
@@ -12,11 +12,11 @@ const pubSubClient = new PubSub();
 
 // Config - updated with three-level recruiter panel approach and match scores
 const CONFIG = {
-  topics: {
-    qualitiesGathered: 'ten-qualities-gathered',
-    qualitiesMatched: 'qualities-resumetext-added'
-  },
-  instructions: `
+	topics: {
+		qualitiesGathered: 'ten-qualities-gathered',
+		qualitiesMatched: 'qualities-resumetext-added'
+	},
+	instructions: `
     Act as a panel of three expert technical recruiters (Junior Recruiter, Senior Recruiter, and Head of Recruiting) evaluating how well a candidate's resume matches specific job requirements. The three recruiters will follow a structured deliberation process to provide reliable assessments.
     
 IMPORTANT: You must evaluate ALL qualities provided, not just the first two. Process each quality in the list comprehensively.
@@ -130,233 +130,227 @@ Qualities to match:
 
 // ===== PubSub Service =====
 const pubSubService = {
-  async ensureTopicExists(topicName) {
-    try {
-      await pubSubClient.createTopic(topicName);
-    } catch (err) {
-      if (err.code !== 6) { // 6 = already exists
-        throw err;
-      }
-    }
-  },
+	async ensureTopicExists(topicName) {
+		try {
+			await pubSubClient.createTopic(topicName);
+		} catch (err) {
+			if (err.code !== 6) {
+				// 6 = already exists
+				throw err;
+			}
+		}
+	},
 
-  async publishMessage(topicName, message) {
-    await this.ensureTopicExists(topicName);
-    const messageId = await pubSubClient
-      .topic(topicName)
-      .publishMessage({
-        data: Buffer.from(JSON.stringify(message)),
-      });
-    logger.info(`Message ${messageId} published to ${topicName}`);
-    return messageId;
-  }
+	async publishMessage(topicName, message) {
+		await this.ensureTopicExists(topicName);
+		const messageId = await pubSubClient.topic(topicName).publishMessage({
+			data: Buffer.from(JSON.stringify(message))
+		});
+		logger.info(`Message ${messageId} published to ${topicName}`);
+		return messageId;
+	}
 };
 
 // Helper functions
-const normalizeSpaces = text => text.replace(/\s+/g, ' ').trim();
+const normalizeSpaces = (text) => text.replace(/\s+/g, ' ').trim();
 
-const parseGeminiResponse = extractedText => {
-  try {
-    const start = extractedText.indexOf('{');
-    const end = extractedText.lastIndexOf('}') + 1;
-    if (start === -1 || end === 0) throw new Error('No JSON object found in response');
-    return JSON.parse(extractedText.slice(start, end));
-  } catch (error) {
-    logger.error('JSON parse error:', { error: error.message });
-    throw error;
-  }
+const parseGeminiResponse = (extractedText) => {
+	try {
+		const start = extractedText.indexOf('{');
+		const end = extractedText.lastIndexOf('}') + 1;
+		if (start === -1 || end === 0) throw new Error('No JSON object found in response');
+		return JSON.parse(extractedText.slice(start, end));
+	} catch (error) {
+		logger.error('JSON parse error:', { error: error.message });
+		throw error;
+	}
 };
 
 // Main Function
 exports.matchJobQualities = onMessagePublished(
-  { topic: CONFIG.topics.qualitiesGathered },
-  async (event) => {
-    let messageData;
-    try {
-      // Parse message
-      const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
-      messageData = JSON.parse(decodedData);
-      const { firebaseUid, jobId } = messageData;
-      logger.info('Processing job qualities', { firebaseUid, jobId });
+	{ topic: CONFIG.topics.qualitiesGathered },
+	async (event) => {
+		let messageData;
+		try {
+			// Parse message
+			const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+			messageData = JSON.parse(decodedData);
+			const { firebaseUid, jobId } = messageData;
+			logger.info('Processing job qualities', { firebaseUid, jobId });
 
-      // Get resume text
-      const userRef = db.collection('users').doc(firebaseUid);
-      const resumeSnapshot = await userRef
-        .collection('UserCollections')
-        .where('type', '==', 'Resume')
-        .limit(1)
-        .get();
-        
-      if (resumeSnapshot.empty) {
-        throw new Error(`No resume found for user: ${firebaseUid}`);
-      }
-      
-      const resumeText = normalizeSpaces(resumeSnapshot.docs[0].data().extractedText || '');
-      if (!resumeText) {
-        throw new Error('Resume has no extracted text');
-      }
-      
-      // Get job document
-      const jobRef = userRef.collection('scrapedJobs').doc(jobId);
-      const jobDoc = await jobRef.get();
-      
-      if (!jobDoc.exists) {
-        throw new Error(`Job document not found: ${jobId}`);
-      }
-      
-      const jobData = jobDoc.data();
-      const qualities = jobData.qualities || {};
-      
-      // Format qualities for API - using the existing format
-      const formattedQualities = Object.entries(qualities)
-        .map(([id, quality]) => `
+			// Get resume text
+			const userRef = db.collection('users').doc(firebaseUid);
+			const resumeSnapshot = await userRef
+				.collection('UserCollections')
+				.where('type', '==', 'Resume')
+				.limit(1)
+				.get();
+
+			if (resumeSnapshot.empty) {
+				throw new Error(`No resume found for user: ${firebaseUid}`);
+			}
+
+			const resumeText = normalizeSpaces(resumeSnapshot.docs[0].data().extractedText || '');
+			if (!resumeText) {
+				throw new Error('Resume has no extracted text');
+			}
+
+			// Get job document
+			const jobRef = userRef.collection('scrapedJobs').doc(jobId);
+			const jobDoc = await jobRef.get();
+
+			if (!jobDoc.exists) {
+				throw new Error(`Job document not found: ${jobId}`);
+			}
+
+			const jobData = jobDoc.data();
+			const qualities = jobData.qualities || {};
+
+			// Format qualities for API - using the existing format
+			const formattedQualities = Object.entries(qualities)
+				.map(
+					([id, quality]) => `
 * ${id}
 * criticality: "${quality.criticality || ''}"
 * evidence: "${quality.evidence || ''}"
 * primarySkill: "${quality.primarySkill || ''}"
-* resumeText: [FIND STRONG MATCH HERE]`)
-        .join('\n');
-      
-      // Call Gemini API
-      const instruction = CONFIG.instructions
-        .replace('{resumeText}', resumeText)
-        .replace('{formattedQualities}', formattedQualities);
-      
-      // API call with retry
-      let result;
-      for (let i = 0; i < 3; i++) {
-        try {
-          result = await callGeminiAPI(
-            resumeText,
-            instruction,
-            {
-              model: 'gemini-2.0-flash',  // Using pro model for more comprehensive analysis
-              temperature: 0.2,          // Lower temperature for more consistent output
-              maxOutputTokens: 8192      // Increased for more comprehensive multi-recruiter analysis of multiple qualities
-            }
-          );
-          if (result && !result.error) break;
-          await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
-        } catch (error) {
-          logger.warn(`API attempt ${i+1} failed:`, { error: error.message });
-          if (i === 2) throw error;
-        }
-      }
-      
-      // Parse response
-      const parsedResponse = parseGeminiResponse(result.extractedText);
-      const qualityMatches = parsedResponse.qualityMatches || {};
-      
-      // Update with batch
-      const batch = db.batch();
-      
-      // Add full resume text
-      batch.update(jobRef, { 'qualities.resumeText': resumeText });
-      
-      // Check for duplicate quotes but allow them if necessary
-      const usedQuotes = new Set();
-      const duplicateQuotes = new Map(); // Track which quotes are duplicates and where
+* resumeText: [FIND STRONG MATCH HERE]`
+				)
+				.join('\n');
 
-      Object.entries(qualityMatches).forEach(([qualityId, matchData]) => {
-        // Determine the correct resumeText based on finalDecision
-        let finalResumeText = matchData.resumeText || '';
-        
-        // If we have the new structure with explicit selection fields, use them
-        if (matchData.finalDecision) {
-          if (matchData.finalDecision === 'junior') {
-            finalResumeText = matchData.juniorSelection || '';
-          } else if (matchData.finalDecision === 'senior') {
-            finalResumeText = matchData.seniorSelection || '';
-          } else {
-            // finalDecision is 'none' or invalid
-            finalResumeText = '';
-          }
-        }
-        
-        // Check for duplicates
-        if (finalResumeText && usedQuotes.has(finalResumeText)) {
-          // Mark as duplicate but don't remove the text
-          logger.warn(`Duplicate quote found for ${qualityId}, marking but keeping`);
-          
-          // Track where this quote was previously used
-          const originalQuality = duplicateQuotes.get(finalResumeText) || "another quality";
-          duplicateQuotes.set(finalResumeText, originalQuality);
-          
-          // Add note about duplicate without removing the text
-          if (matchData.juniorRecruiterNotes) {
-            matchData.juniorRecruiterNotes += " [NOTE: This text is also used for " + originalQuality + "]";
-          }
-          if (matchData.seniorRecruiterNotes) {
-            matchData.seniorRecruiterNotes += " [NOTE: Shared text with " + originalQuality + "]";
-          }
-          if (matchData.headOfRecruitingNotes) {
-            matchData.headOfRecruitingNotes += " [NOTE: This demonstrates multiple qualities]";
-          }
-        } else if (finalResumeText) {
-          usedQuotes.add(finalResumeText);
-          duplicateQuotes.set(finalResumeText, qualityId);
-        }
-        
-        // Save the match data with all recruiter assessments, including match scores
-        batch.update(jobRef, {
-          [`qualities.${qualityId}.resumeText`]: finalResumeText,
-          [`qualities.${qualityId}.juniorRecruiterNotes`]: matchData.juniorRecruiterNotes || "",
-          [`qualities.${qualityId}.seniorRecruiterNotes`]: matchData.seniorRecruiterNotes || "",
-          [`qualities.${qualityId}.headOfRecruitingNotes`]: matchData.headOfRecruitingNotes || "",
-          // Store match scores
-          [`qualities.${qualityId}.juniorMatchScore`]: matchData.juniorMatchScore || 0,
-          [`qualities.${qualityId}.seniorMatchScore`]: matchData.seniorMatchScore || 0,
-          [`qualities.${qualityId}.finalMatchScore`]: matchData.finalMatchScore || 0,
-          // Store the selection fields for debugging/transparency
-          [`qualities.${qualityId}.juniorSelection`]: matchData.juniorSelection || "",
-          [`qualities.${qualityId}.seniorSelection`]: matchData.seniorSelection || "",
-          [`qualities.${qualityId}.finalDecision`]: matchData.finalDecision || "",
-          [`qualities.${qualityId}.assessmentDate`]: FieldValue.serverTimestamp()
-        });
-      });
-      
-      await batch.commit();
-      
-      // Publish next message
-      await pubSubService.publishMessage(
-        CONFIG.topics.qualitiesMatched,
-        { 
-          firebaseUid, 
-          jobId,
-          assessmentType: 'multi-recruiter-panel'
-        }
-      );
-        
-      // Validate we processed all qualities
-      const processedQualityCount = Object.keys(qualityMatches).length;
-      const originalQualityCount = Object.keys(qualities).length;
-      
-      if (processedQualityCount < originalQualityCount) {
-        logger.warn('Not all qualities were processed by Gemini', {
-          jobId,
-          originalQualityCount,
-          processedQualityCount,
-          missingCount: originalQualityCount - processedQualityCount
-        });
-        
-        // You could implement a retry strategy here for incomplete processing
-      }
-      
-      logger.info('Multi-recruiter quality matching completed successfully', { 
-        jobId, 
-        matchCount: processedQualityCount,
-        expectedCount: originalQualityCount,
-        usedQuotes: usedQuotes.size
-      });
-      
-    } catch (error) {
-      logger.error('Processing failed:', {
-        error: error.message,
-        stack: error.stack,
-        firebaseUid: messageData?.firebaseUid,
-        jobId: messageData?.jobId
-      });
-      throw error;
-    }
-  }
+			// Call Gemini API
+			const instruction = CONFIG.instructions
+				.replace('{resumeText}', resumeText)
+				.replace('{formattedQualities}', formattedQualities);
+
+			// API call with retry
+			let result;
+			for (let i = 0; i < 3; i++) {
+				try {
+					result = await callGeminiAPI(resumeText, instruction, {
+						model: 'gemini-2.0-flash', // Using pro model for more comprehensive analysis
+						temperature: 0.2, // Lower temperature for more consistent output
+						maxOutputTokens: 8192 // Increased for more comprehensive multi-recruiter analysis of multiple qualities
+					});
+					if (result && !result.error) break;
+					await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
+				} catch (error) {
+					logger.warn(`API attempt ${i + 1} failed:`, { error: error.message });
+					if (i === 2) throw error;
+				}
+			}
+
+			// Parse response
+			const parsedResponse = parseGeminiResponse(result.extractedText);
+			const qualityMatches = parsedResponse.qualityMatches || {};
+
+			// Update with batch
+			const batch = db.batch();
+
+			// Add full resume text
+			batch.update(jobRef, { 'qualities.resumeText': resumeText });
+
+			// Check for duplicate quotes but allow them if necessary
+			const usedQuotes = new Set();
+			const duplicateQuotes = new Map(); // Track which quotes are duplicates and where
+
+			Object.entries(qualityMatches).forEach(([qualityId, matchData]) => {
+				// Determine the correct resumeText based on finalDecision
+				let finalResumeText = matchData.resumeText || '';
+
+				// If we have the new structure with explicit selection fields, use them
+				if (matchData.finalDecision) {
+					if (matchData.finalDecision === 'junior') {
+						finalResumeText = matchData.juniorSelection || '';
+					} else if (matchData.finalDecision === 'senior') {
+						finalResumeText = matchData.seniorSelection || '';
+					} else {
+						// finalDecision is 'none' or invalid
+						finalResumeText = '';
+					}
+				}
+
+				// Check for duplicates
+				if (finalResumeText && usedQuotes.has(finalResumeText)) {
+					// Mark as duplicate but don't remove the text
+					logger.warn(`Duplicate quote found for ${qualityId}, marking but keeping`);
+
+					// Track where this quote was previously used
+					const originalQuality = duplicateQuotes.get(finalResumeText) || 'another quality';
+					duplicateQuotes.set(finalResumeText, originalQuality);
+
+					// Add note about duplicate without removing the text
+					if (matchData.juniorRecruiterNotes) {
+						matchData.juniorRecruiterNotes +=
+							' [NOTE: This text is also used for ' + originalQuality + ']';
+					}
+					if (matchData.seniorRecruiterNotes) {
+						matchData.seniorRecruiterNotes += ' [NOTE: Shared text with ' + originalQuality + ']';
+					}
+					if (matchData.headOfRecruitingNotes) {
+						matchData.headOfRecruitingNotes += ' [NOTE: This demonstrates multiple qualities]';
+					}
+				} else if (finalResumeText) {
+					usedQuotes.add(finalResumeText);
+					duplicateQuotes.set(finalResumeText, qualityId);
+				}
+
+				// Save the match data with all recruiter assessments, including match scores
+				batch.update(jobRef, {
+					[`qualities.${qualityId}.resumeText`]: finalResumeText,
+					[`qualities.${qualityId}.juniorRecruiterNotes`]: matchData.juniorRecruiterNotes || '',
+					[`qualities.${qualityId}.seniorRecruiterNotes`]: matchData.seniorRecruiterNotes || '',
+					[`qualities.${qualityId}.headOfRecruitingNotes`]: matchData.headOfRecruitingNotes || '',
+					// Store match scores
+					[`qualities.${qualityId}.juniorMatchScore`]: matchData.juniorMatchScore || 0,
+					[`qualities.${qualityId}.seniorMatchScore`]: matchData.seniorMatchScore || 0,
+					[`qualities.${qualityId}.finalMatchScore`]: matchData.finalMatchScore || 0,
+					// Store the selection fields for debugging/transparency
+					[`qualities.${qualityId}.juniorSelection`]: matchData.juniorSelection || '',
+					[`qualities.${qualityId}.seniorSelection`]: matchData.seniorSelection || '',
+					[`qualities.${qualityId}.finalDecision`]: matchData.finalDecision || '',
+					[`qualities.${qualityId}.assessmentDate`]: FieldValue.serverTimestamp()
+				});
+			});
+
+			await batch.commit();
+
+			// Publish next message
+			await pubSubService.publishMessage(CONFIG.topics.qualitiesMatched, {
+				firebaseUid,
+				jobId,
+				assessmentType: 'multi-recruiter-panel'
+			});
+
+			// Validate we processed all qualities
+			const processedQualityCount = Object.keys(qualityMatches).length;
+			const originalQualityCount = Object.keys(qualities).length;
+
+			if (processedQualityCount < originalQualityCount) {
+				logger.warn('Not all qualities were processed by Gemini', {
+					jobId,
+					originalQualityCount,
+					processedQualityCount,
+					missingCount: originalQualityCount - processedQualityCount
+				});
+
+				// You could implement a retry strategy here for incomplete processing
+			}
+
+			logger.info('Multi-recruiter quality matching completed successfully', {
+				jobId,
+				matchCount: processedQualityCount,
+				expectedCount: originalQualityCount,
+				usedQuotes: usedQuotes.size
+			});
+		} catch (error) {
+			logger.error('Processing failed:', {
+				error: error.message,
+				stack: error.stack,
+				firebaseUid: messageData?.firebaseUid,
+				jobId: messageData?.jobId
+			});
+			throw error;
+		}
+	}
 );

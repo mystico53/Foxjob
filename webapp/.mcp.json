@@ -1,12 +1,20 @@
 {
-  "mcpServers": {
-    "firebase-jobille": {
-      "command": "npx",
-      "args": ["-y", "firebase-tools@latest", "experimental:mcp", "--dir", "."]
-    },
-    "firebase-foxjob-prod": {
-      "command": "npx",
-      "args": ["-y", "firebase-tools@latest", "experimental:mcp", "--dir", ".", "--project", "foxjob-prod"]
-    }
-  }
+	"mcpServers": {
+		"firebase-jobille": {
+			"command": "npx",
+			"args": ["-y", "firebase-tools@latest", "experimental:mcp", "--dir", "."]
+		},
+		"firebase-foxjob-prod": {
+			"command": "npx",
+			"args": [
+				"-y",
+				"firebase-tools@latest",
+				"experimental:mcp",
+				"--dir",
+				".",
+				"--project",
+				"foxjob-prod"
+			]
+		}
+	}
 }

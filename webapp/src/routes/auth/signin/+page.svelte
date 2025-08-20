@@ -17,36 +17,39 @@
 	}
 
 	function simulateExtensionMessage() {
-  if (isAuthInProgress) {
-    addToLog('Auth already in progress, skipping...', 'warning');
-    return;
-  }
+		if (isAuthInProgress) {
+			addToLog('Auth already in progress, skipping...', 'warning');
+			return;
+		}
 
-  isAuthInProgress = true;
-  addToLog('🧪 Starting test auth flow', 'info');
-  addToLog(`Current origin: ${window.location.origin}`, 'info'); // Add this for debugging
+		isAuthInProgress = true;
+		addToLog('🧪 Starting test auth flow', 'info');
+		addToLog(`Current origin: ${window.location.origin}`, 'info'); // Add this for debugging
 
-  try {
-    signInWithPopup(auth, provider)
-      .then((userCredential) => {
-        addToLog('✅ Auth successful!', 'success');
-        addToLog(`User data: ${JSON.stringify(userCredential.user)}`, 'data');
-      })
-      .catch((error) => {
-        addToLog(`❌ Auth error: ${error.message}`, 'error');
-        // Add more detailed error logging
-        if (error.code === 'auth/unauthorized-domain') {
-          addToLog(`Domain ${window.location.origin} is not authorized. Please add it to Firebase Console.`, 'error');
-        }
-      })
-      .finally(() => {
-        isAuthInProgress = false;
-      });
-  } catch (error) {
-    addToLog(`❌ Error initiating auth: ${error.message}`, 'error');
-    isAuthInProgress = false;
-  }
-}
+		try {
+			signInWithPopup(auth, provider)
+				.then((userCredential) => {
+					addToLog('✅ Auth successful!', 'success');
+					addToLog(`User data: ${JSON.stringify(userCredential.user)}`, 'data');
+				})
+				.catch((error) => {
+					addToLog(`❌ Auth error: ${error.message}`, 'error');
+					// Add more detailed error logging
+					if (error.code === 'auth/unauthorized-domain') {
+						addToLog(
+							`Domain ${window.location.origin} is not authorized. Please add it to Firebase Console.`,
+							'error'
+						);
+					}
+				})
+				.finally(() => {
+					isAuthInProgress = false;
+				});
+		} catch (error) {
+			addToLog(`❌ Error initiating auth: ${error.message}`, 'error');
+			isAuthInProgress = false;
+		}
+	}
 
 	onMount(() => {
 		addToLog('🟢 Auth Page Loaded', 'success');
@@ -56,44 +59,44 @@
 
 		// Listen for ANY message from chrome extensions
 		window.addEventListener('message', async function (event) {
-		addToLog(`Received message from origin: ${event.origin}`, 'info');
+			addToLog(`Received message from origin: ${event.origin}`, 'info');
 
-		// For actual extension messages
-		if (event.origin.startsWith('chrome-extension://')) {
-			try {
-			const { data } = event;
-			addToLog(`Received data: ${JSON.stringify(data)}`, 'info');
-
-			if (data?.initAuth && !isAuthInProgress) {
-				isAuthInProgress = true;
-				addToLog('🔑 Initiating auth from extension', 'success');
-
+			// For actual extension messages
+			if (event.origin.startsWith('chrome-extension://')) {
 				try {
-				const userCredential = await signInWithPopup(auth, provider);
-				addToLog('✅ Auth successful!', 'success');
-				window.parent.postMessage(
-					JSON.stringify({ user: userCredential.user }),
-					event.origin
-				);
+					const { data } = event;
+					addToLog(`Received data: ${JSON.stringify(data)}`, 'info');
+
+					if (data?.initAuth && !isAuthInProgress) {
+						isAuthInProgress = true;
+						addToLog('🔑 Initiating auth from extension', 'success');
+
+						try {
+							const userCredential = await signInWithPopup(auth, provider);
+							addToLog('✅ Auth successful!', 'success');
+							window.parent.postMessage(
+								JSON.stringify({ user: userCredential.user }),
+								event.origin
+							);
+						} catch (error) {
+							addToLog(`❌ Auth error: ${error.message}`, 'error');
+							window.parent.postMessage(
+								JSON.stringify({ error: { code: error.code, message: error.message } }),
+								event.origin
+							);
+						} finally {
+							isAuthInProgress = false;
+						}
+					}
 				} catch (error) {
-				addToLog(`❌ Auth error: ${error.message}`, 'error');
-				window.parent.postMessage(
-					JSON.stringify({ error: { code: error.code, message: error.message } }),
-					event.origin
-				);
-				} finally {
-				isAuthInProgress = false;
+					addToLog(`❌ Error processing message: ${error.message}`, 'error');
+					isAuthInProgress = false;
 				}
+			} else if (event.origin === window.location.origin) {
+				addToLog('Internal message - ignoring', 'info');
+			} else {
+				addToLog(`External message from ${event.origin} - ignoring`, 'info');
 			}
-			} catch (error) {
-			addToLog(`❌ Error processing message: ${error.message}`, 'error');
-			isAuthInProgress = false;
-			}
-		} else if (event.origin === window.location.origin) {
-			addToLog('Internal message - ignoring', 'info');
-		} else {
-			addToLog(`External message from ${event.origin} - ignoring`, 'info');
-		}
 		});
 
 		addToLog('👂 Event listener setup complete', 'success');
@@ -108,7 +111,7 @@
 		<div class="card variant-glass-surface mb-4 p-4">
 			<div class="mb-2 flex items-center justify-between">
 				<h2 class="h2">Debug Log</h2>
-				<button class="btn variant-ghost-surface" on:click={() => (debugLog = [])}>
+				<button class="variant-ghost-surface btn" on:click={() => (debugLog = [])}>
 					Clear Log
 				</button>
 			</div>
@@ -116,7 +119,7 @@
 			<div class="h-96 space-y-2 overflow-auto">
 				{#each debugLog as log}
 					<div
-						class="rounded-container-token p-4 text-sm {log.type === 'error'
+						class="p-4 text-sm rounded-container-token {log.type === 'error'
 							? 'bg-red-500'
 							: log.type === 'success'
 								? 'bg-green-500'
@@ -137,7 +140,7 @@
 		<h3 class="h3 mb-4">Manual Testing</h3>
 		<div class="space-y-4">
 			<button
-				class="btn variant-filled-primary"
+				class="variant-filled-primary btn"
 				on:click={() => {
 					addToLog('🧪 Manual test: Simulating extension message', 'info');
 					window.postMessage({ initAuth: true }, '*');
@@ -147,10 +150,7 @@
 			</button>
 
 			<!-- New button for simulating exact extension message -->
-			<button
-				class="btn variant-filled-secondary"
-				on:click={simulateExtensionMessage}
-			>
+			<button class="variant-filled-secondary btn" on:click={simulateExtensionMessage}>
 				Simulate Extension Message
 			</button>
 

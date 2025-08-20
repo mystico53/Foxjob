@@ -1,6 +1,6 @@
-const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const admin = require('firebase-admin');
-const { logger } = require("firebase-functions");
+const { logger } = require('firebase-functions');
 const { PubSub } = require('@google-cloud/pubsub');
 const { callAnthropicAPI } = require('../services/anthropicService');
 
@@ -10,15 +10,15 @@ const pubSubClient = new PubSub();
 
 // ===== Config =====
 const CONFIG = {
-  topics: {
-    qualitiesGathered: 'ten-qualities-gathered-DISABLED',
-    qualitiesMatched: 'qualities-matches-added'
-  },
-  collections: {
-    users: 'users'
-  },
-  instructions: {
-    qualityMatching: `
+	topics: {
+		qualitiesGathered: 'ten-qualities-gathered-DISABLED',
+		qualitiesMatched: 'qualities-matches-added'
+	},
+	collections: {
+		users: 'users'
+	},
+	instructions: {
+		qualityMatching: `
     You are a highly skilled HR professional tasked with finding evidence in a candidate's resume that matches specific job qualities.
     
     IMPORTANT: Your response MUST be a valid JSON object. The quality IDs in your response must match EXACTLY with the IDs provided, with no modifications or added text.
@@ -44,296 +44,294 @@ const CONFIG = {
     - No trailing commas
     - No line breaks within the resumeMatch strings
     `
-  }
+	}
 };
 
 // ===== Firestore Service =====
 const firestoreService = {
-  async getResumeText(firebaseUid) {
-    logger.info('Getting resume for user:', firebaseUid);
-    
-    const userCollectionsRef = db.collection('users').doc(firebaseUid).collection('UserCollections');
-    const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
-    const resumeSnapshot = await resumeQuery.get();
+	async getResumeText(firebaseUid) {
+		logger.info('Getting resume for user:', firebaseUid);
 
-    if (resumeSnapshot.empty) {
-      throw new Error(`No resume found for user ID: ${firebaseUid}`);
-    }
+		const userCollectionsRef = db
+			.collection('users')
+			.doc(firebaseUid)
+			.collection('UserCollections');
+		const resumeQuery = userCollectionsRef.where('type', '==', 'Resume').limit(1);
+		const resumeSnapshot = await resumeQuery.get();
 
-    const resumeDoc = resumeSnapshot.docs[0];
-    return resumeDoc.data().extractedText;
-  },
+		if (resumeSnapshot.empty) {
+			throw new Error(`No resume found for user ID: ${firebaseUid}`);
+		}
 
-  getJobDocRef(firebaseUid, docId) {
-    const path = `users/${firebaseUid}/jobs/${docId}`;
-    logger.info('DocRef:', { path });
-    return db.collection('users')
-      .doc(firebaseUid)
-      .collection('jobs')
-      .doc(docId);
-  },
+		const resumeDoc = resumeSnapshot.docs[0];
+		return resumeDoc.data().extractedText;
+	},
 
-  async getJobDocument(docRef) {
-    logger.info('Get:', { path: docRef.path });
-    
-    const snapshot = await docRef.get();
-    if (!snapshot.exists) {
-      logger.warn('404:', { path: docRef.path });
-      throw new Error(`Document not found: ${docRef.path}`);
-    }
+	getJobDocRef(firebaseUid, docId) {
+		const path = `users/${firebaseUid}/jobs/${docId}`;
+		logger.info('DocRef:', { path });
+		return db.collection('users').doc(firebaseUid).collection('jobs').doc(docId);
+	},
 
-    const data = snapshot.data();
-    logger.info('Found:', { 
-      path: docRef.path,
-      fields: Object.keys(data || {})
-    });
+	async getJobDocument(docRef) {
+		logger.info('Get:', { path: docRef.path });
 
-    return data;
-  },
+		const snapshot = await docRef.get();
+		if (!snapshot.exists) {
+			logger.warn('404:', { path: docRef.path });
+			throw new Error(`Document not found: ${docRef.path}`);
+		}
 
-  async updateQualityMatches(docRef, qualityMatches) {
-    logger.info('Update:', { 
-      path: docRef.path,
-      fields: ['qualities']
-    });
+		const data = snapshot.data();
+		logger.info('Found:', {
+			path: docRef.path,
+			fields: Object.keys(data || {})
+		});
 
-    // Create a batch to update all qualities
-    const batch = db.batch();
+		return data;
+	},
 
-    // Update each quality with its resume match
-    Object.entries(qualityMatches).forEach(([qualityId, matchData]) => {
-      const updateData = {};
-      updateData[`qualities.${qualityId}.resumeMatch`] = matchData.resumeMatch;
-      batch.update(docRef, updateData);
-    });
+	async updateQualityMatches(docRef, qualityMatches) {
+		logger.info('Update:', {
+			path: docRef.path,
+			fields: ['qualities']
+		});
 
-    await batch.commit();
-    logger.info('Updated:', { path: docRef.path });
-  }
+		// Create a batch to update all qualities
+		const batch = db.batch();
+
+		// Update each quality with its resume match
+		Object.entries(qualityMatches).forEach(([qualityId, matchData]) => {
+			const updateData = {};
+			updateData[`qualities.${qualityId}.resumeMatch`] = matchData.resumeMatch;
+			batch.update(docRef, updateData);
+		});
+
+		await batch.commit();
+		logger.info('Updated:', { path: docRef.path });
+	}
 };
 
 // ===== PubSub Service =====
 const pubSubService = {
-  parseMessage(message) {
-    if (!message.data) {
-      throw new Error('No message data received');
-    }
-    const data = message.json;
-    if (!data) {
-      throw new Error('Invalid JSON in message data');
-    }
-    return data;
-  },
+	parseMessage(message) {
+		if (!message.data) {
+			throw new Error('No message data received');
+		}
+		const data = message.json;
+		if (!data) {
+			throw new Error('Invalid JSON in message data');
+		}
+		return data;
+	},
 
-  validateMessageData(data) {
-    const { firebaseUid, docId } = data;
-    if (!firebaseUid || !docId) {
-      throw new Error('Missing required fields in message data');
-    }
-    return { firebaseUid, docId };
-  },
+	validateMessageData(data) {
+		const { firebaseUid, docId } = data;
+		if (!firebaseUid || !docId) {
+			throw new Error('Missing required fields in message data');
+		}
+		return { firebaseUid, docId };
+	},
 
-  async ensureTopicExists(topicName) {
-    try {
-      await pubSubClient.createTopic(topicName);
-    } catch (err) {
-      if (err.code !== 6) { // 6 = already exists
-        throw err;
-      }
-    }
-  },
+	async ensureTopicExists(topicName) {
+		try {
+			await pubSubClient.createTopic(topicName);
+		} catch (err) {
+			if (err.code !== 6) {
+				// 6 = already exists
+				throw err;
+			}
+		}
+	},
 
-  async publishMessage(topicName, message) {
-    await this.ensureTopicExists(topicName);
-    const messageId = await pubSubClient
-      .topic(topicName)
-      .publishMessage({
-        data: Buffer.from(JSON.stringify(message)),
-      });
-    logger.info(`Message ${messageId} published to ${topicName}`);
-    return messageId;
-  }
+	async publishMessage(topicName, message) {
+		await this.ensureTopicExists(topicName);
+		const messageId = await pubSubClient.topic(topicName).publishMessage({
+			data: Buffer.from(JSON.stringify(message))
+		});
+		logger.info(`Message ${messageId} published to ${topicName}`);
+		return messageId;
+	}
 };
 
 // ===== Quality Processor =====
 const qualityProcessor = {
-  extractQualities(jobData) {
-    const qualities = jobData.qualities;
-    
-    if (!qualities || Object.keys(qualities).length === 0) {
-      throw new Error('No qualities found');
-    }
+	extractQualities(jobData) {
+		const qualities = jobData.qualities;
 
-    // Return the qualities directly as they're already in the correct format
-    return qualities;
-  },
+		if (!qualities || Object.keys(qualities).length === 0) {
+			throw new Error('No qualities found');
+		}
 
-  validateMatchResults(matchResult) {
-    if (!matchResult || typeof matchResult !== 'object') {
-      throw new Error('Invalid match result format');
-    }
+		// Return the qualities directly as they're already in the correct format
+		return qualities;
+	},
 
-    if (!matchResult.qualityMatches) {
-      throw new Error('Missing qualityMatches in result');
-    }
+	validateMatchResults(matchResult) {
+		if (!matchResult || typeof matchResult !== 'object') {
+			throw new Error('Invalid match result format');
+		}
 
-    Object.entries(matchResult.qualityMatches).forEach(([qualityId, match]) => {
-      if (!match.resumeMatch || typeof match.resumeMatch !== 'string') {
-        throw new Error(`Invalid resumeMatch for quality ${qualityId}`);
-      }
-    });
-  }
+		if (!matchResult.qualityMatches) {
+			throw new Error('Missing qualityMatches in result');
+		}
+
+		Object.entries(matchResult.qualityMatches).forEach(([qualityId, match]) => {
+			if (!match.resumeMatch || typeof match.resumeMatch !== 'string') {
+				throw new Error(`Invalid resumeMatch for quality ${qualityId}`);
+			}
+		});
+	}
 };
 
 // ===== Quality Matching Service =====
 const qualityMatchingService = {
-  async matchQualities(resumeText, qualities) {
-    // Format qualities for the prompt
-    const qualitiesString = Object.entries(qualities)
-      .map(([id, quality]) => `
+	async matchQualities(resumeText, qualities) {
+		// Format qualities for the prompt
+		const qualitiesString = Object.entries(qualities)
+			.map(
+				([id, quality]) => `
         ${id} (${quality.primarySkill})
         Context: ${quality.context}
         Evidence Required: "${quality.evidence}"
         Criticality: ${quality.criticality}
         Level Required: ${quality.level}
         Success Metrics: ${quality.successMetrics}
-      `).join('\n');
+      `
+			)
+			.join('\n');
 
-    const instruction = `
+		const instruction = `
       ${CONFIG.instructions.qualityMatching}
       
       Here are the qualities to match against the resume:
       ${qualitiesString}
     `;
 
-    try {
-      const result = await callAnthropicAPI(resumeText, instruction);
-      
-      if (!result || result.error) {
-        throw new Error(result?.message || 'Error calling Anthropic API');
-      }
+		try {
+			const result = await callAnthropicAPI(resumeText, instruction);
 
-      logger.debug('Raw API Response:', {
-        resultType: typeof result,
-        extractedTextType: typeof result?.extractedText,
-        extractedTextPreview: result?.extractedText?.substring(0, 100)
-      });
+			if (!result || result.error) {
+				throw new Error(result?.message || 'Error calling Anthropic API');
+			}
 
-      // Clean and parse the response
-      let parsedContent;
-      try {
-        let cleanedText = result.extractedText;
-        if (typeof cleanedText === 'string') {
-          // Remove any BOM characters
-          cleanedText = cleanedText.replace(/^\uFEFF/, '');
-          // Normalize newlines
-          cleanedText = cleanedText.replace(/\r\n/g, '\n');
-          // Remove any extra whitespace
-          cleanedText = cleanedText.trim();
-          // Handle potential line breaks within the content
-          cleanedText = cleanedText.replace(/\n\s*/g, ' ');
-          
-          logger.debug('Cleaned text:', {
-            length: cleanedText.length,
-            preview: cleanedText.substring(0, 100)
-          });
-          
-          parsedContent = JSON.parse(cleanedText);
-        } else {
-          parsedContent = result.extractedText;
-        }
-      } catch (parseError) {
-        logger.error('Error parsing API response:', {
-          error: parseError,
-          responsePreview: result.extractedText?.substring(0, 200)
-        });
-        throw new Error(`Invalid JSON response: ${parseError.message}`);
-      }
+			logger.debug('Raw API Response:', {
+				resultType: typeof result,
+				extractedTextType: typeof result?.extractedText,
+				extractedTextPreview: result?.extractedText?.substring(0, 100)
+			});
 
-      // Validate the response structure
-      if (!parsedContent?.qualityMatches) {
-        throw new Error('Response missing qualityMatches object');
-      }
+			// Clean and parse the response
+			let parsedContent;
+			try {
+				let cleanedText = result.extractedText;
+				if (typeof cleanedText === 'string') {
+					// Remove any BOM characters
+					cleanedText = cleanedText.replace(/^\uFEFF/, '');
+					// Normalize newlines
+					cleanedText = cleanedText.replace(/\r\n/g, '\n');
+					// Remove any extra whitespace
+					cleanedText = cleanedText.trim();
+					// Handle potential line breaks within the content
+					cleanedText = cleanedText.replace(/\n\s*/g, ' ');
 
-      // Ensure quality IDs match exactly
-      const validQualityIds = new Set(Object.keys(qualities));
-      const responseQualityIds = new Set(Object.keys(parsedContent.qualityMatches));
-      
-      if (!this.areSetsEqual(validQualityIds, responseQualityIds)) {
-        logger.error('Quality ID mismatch:', {
-          expected: Array.from(validQualityIds),
-          received: Array.from(responseQualityIds)
-        });
-        throw new Error('Response contains mismatched quality IDs');
-      }
+					logger.debug('Cleaned text:', {
+						length: cleanedText.length,
+						preview: cleanedText.substring(0, 100)
+					});
 
-      return parsedContent.qualityMatches;
+					parsedContent = JSON.parse(cleanedText);
+				} else {
+					parsedContent = result.extractedText;
+				}
+			} catch (parseError) {
+				logger.error('Error parsing API response:', {
+					error: parseError,
+					responsePreview: result.extractedText?.substring(0, 200)
+				});
+				throw new Error(`Invalid JSON response: ${parseError.message}`);
+			}
 
-    } catch (error) {
-      logger.error('Error in matchQualities:', error);
-      throw new Error(`Quality matching failed: ${error.message}`);
-    }
-  },
+			// Validate the response structure
+			if (!parsedContent?.qualityMatches) {
+				throw new Error('Response missing qualityMatches object');
+			}
 
-  areSetsEqual(set1, set2) {
-    if (set1.size !== set2.size) return false;
-    return Array.from(set1).every(value => set2.has(value));
-  }
+			// Ensure quality IDs match exactly
+			const validQualityIds = new Set(Object.keys(qualities));
+			const responseQualityIds = new Set(Object.keys(parsedContent.qualityMatches));
+
+			if (!this.areSetsEqual(validQualityIds, responseQualityIds)) {
+				logger.error('Quality ID mismatch:', {
+					expected: Array.from(validQualityIds),
+					received: Array.from(responseQualityIds)
+				});
+				throw new Error('Response contains mismatched quality IDs');
+			}
+
+			return parsedContent.qualityMatches;
+		} catch (error) {
+			logger.error('Error in matchQualities:', error);
+			throw new Error(`Quality matching failed: ${error.message}`);
+		}
+	},
+
+	areSetsEqual(set1, set2) {
+		if (set1.size !== set2.size) return false;
+		return Array.from(set1).every((value) => set2.has(value));
+	}
 };
 
 // ===== Error Handlers =====
 const errorHandlers = {
-  async handleProcessingError(error, docRef, context = {}) {
-    logger.error('Processing Error:', error, context);
-    throw error;
-  }
+	async handleProcessingError(error, docRef, context = {}) {
+		logger.error('Processing Error:', error, context);
+		throw error;
+	}
 };
 
 // ===== Main Function =====
 exports.matchQualities = onMessagePublished(
-  { topic: CONFIG.topics.qualitiesGathered },
-  async (event) => {
-    let docRef;
-    const message = event.data;
-    try {
-      // Parse and validate message
-      const messageData = (() => {
-        try {
-          if (!event?.data?.message?.data) {
-            throw new Error('Invalid message format received');
-          }
-          const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
-          return JSON.parse(decodedData);
-        } catch (error) {
-          logger.error('Error parsing message data:', error);
-          throw error;
-        }
-      })();
-      
-      const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
-      logger.info(`Processing quality matches for firebaseUid: ${firebaseUid}, docId: ${docId}`);
+	{ topic: CONFIG.topics.qualitiesGathered },
+	async (event) => {
+		let docRef;
+		const message = event.data;
+		try {
+			// Parse and validate message
+			const messageData = (() => {
+				try {
+					if (!event?.data?.message?.data) {
+						throw new Error('Invalid message format received');
+					}
+					const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+					return JSON.parse(decodedData);
+				} catch (error) {
+					logger.error('Error parsing message data:', error);
+					throw error;
+				}
+			})();
 
-      // Get resume and job data
-      const resumeText = await firestoreService.getResumeText(firebaseUid);
-      docRef = firestoreService.getJobDocRef(firebaseUid, docId);
-      const jobData = await firestoreService.getJobDocument(docRef);
+			const { firebaseUid, docId } = pubSubService.validateMessageData(messageData);
+			logger.info(`Processing quality matches for firebaseUid: ${firebaseUid}, docId: ${docId}`);
 
-      // Process qualities
-      const qualities = qualityProcessor.extractQualities(jobData);
-      const matchResult = await qualityMatchingService.matchQualities(resumeText, qualities);
+			// Get resume and job data
+			const resumeText = await firestoreService.getResumeText(firebaseUid);
+			docRef = firestoreService.getJobDocRef(firebaseUid, docId);
+			const jobData = await firestoreService.getJobDocument(docRef);
 
-      // Update results
-      await firestoreService.updateQualityMatches(docRef, matchResult);
+			// Process qualities
+			const qualities = qualityProcessor.extractQualities(jobData);
+			const matchResult = await qualityMatchingService.matchQualities(resumeText, qualities);
 
-      // Publish to next topic
-      await pubSubService.publishMessage(
-        CONFIG.topics.qualitiesMatched,
-        { firebaseUid, docId }
-      );
+			// Update results
+			await firestoreService.updateQualityMatches(docRef, matchResult);
 
-      logger.info(`Successfully completed quality matching for docId: ${docId}`);
+			// Publish to next topic
+			await pubSubService.publishMessage(CONFIG.topics.qualitiesMatched, { firebaseUid, docId });
 
-    } catch (error) {
-      await errorHandlers.handleProcessingError(error, docRef, { message });
-    }
-  });
+			logger.info(`Successfully completed quality matching for docId: ${docId}`);
+		} catch (error) {
+			await errorHandlers.handleProcessingError(error, docRef, { message });
+		}
+	}
+);

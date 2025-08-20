@@ -5,7 +5,6 @@
 	import { jobStore } from '$lib/stores/jobStore';
 	import { writable, derived } from 'svelte/store';
 
-
 	// Time period store
 	const timePeriod = writable('month');
 
@@ -39,9 +38,10 @@
 		// Filter jobs within the selected time period
 		return $jobStore.filter((job) => {
 			// Get timestamp from any available source
-			const dateValue = job.details?.postedDate || job.jobInfo?.postedDate || job.generalData?.timestamp;
+			const dateValue =
+				job.details?.postedDate || job.jobInfo?.postedDate || job.generalData?.timestamp;
 			if (!dateValue) return false;
-			
+
 			// Handle different date formats
 			let jobDate;
 			if (dateValue && dateValue.toDate) {
@@ -52,7 +52,7 @@
 			} else {
 				return false;
 			}
-			
+
 			return jobDate >= startDate && jobDate <= now;
 		});
 	});
@@ -60,7 +60,7 @@
 	// Stats derived from filtered jobs
 	$: totalJobs = $filteredJobs.length;
 	$: highScoringJobs = $filteredJobs.filter(
-		(job) => (job.AccumulatedScores?.accumulatedScore > 65) || (job.match?.final_score > 65)
+		(job) => job.AccumulatedScores?.accumulatedScore > 65 || job.match?.final_score > 65
 	).length;
 	$: progressPercentage = totalJobs > 0 ? Math.round((highScoringJobs / totalJobs) * 100) : 0;
 
@@ -78,7 +78,7 @@
 		<h2 class="text-[20px] font-bold">Jobs Collected</h2>
 		<div class="flex items-center gap-2">
 			<select
-				class="select bg-surface-200 dark:bg-surface-700 rounded-container-token w-24 p-2"
+				class="select w-24 bg-surface-200 p-2 rounded-container-token dark:bg-surface-700"
 				bind:value={$timePeriod}
 			>
 				{#each timeOptions as option}

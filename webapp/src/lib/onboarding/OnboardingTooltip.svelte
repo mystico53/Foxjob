@@ -14,7 +14,7 @@
 </script>
 
 <div
-	class="card bg-tertiary-700 tooltip-container {position}"
+	class="tooltip-container card bg-tertiary-700 {position}"
 	role="tooltip"
 	aria-label={title}
 	style="--tooltip-width: {width}; --tooltip-offset: {offset};"
@@ -29,14 +29,14 @@
 		<p>{description}</p>
 		{#if showCloseButton}
 			<div class="flex gap-2">
-				<button class="btn variant-filled-surface" on:click={onClose} data-popup-close>
+				<button class="variant-filled-surface btn" on:click={onClose} data-popup-close>
 					{secondaryButtonText}
 				</button>
 				<a
 					href={primaryButtonLink}
 					target="_blank"
 					rel="noopener noreferrer"
-					class="btn variant-filled-primary"
+					class="variant-filled-primary btn"
 				>
 					{primaryButtonText}
 				</a>

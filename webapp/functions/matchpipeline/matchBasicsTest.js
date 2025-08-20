@@ -1,15 +1,15 @@
-const { onCall } = require("firebase-functions/v2/https");
+const { onCall } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
-const { logger } = require("firebase-functions");
+const { logger } = require('firebase-functions');
 const { callGeminiAPI } = require('../services/geminiService');
-const { FieldValue } = require("firebase-admin/firestore");
+const { FieldValue } = require('firebase-admin/firestore');
 
 // Initialize Firebase
 if (!admin.apps.length) admin.initializeApp();
 const db = admin.firestore();
 
 const CONFIG = {
-    instructions: `
+	instructions: `
    You are an AI assistant performing resume screening. Your goal is to calculate a single, precise match score (0-100) indicating how well a candidate's resume aligns with a given job description (JD), focusing strictly on the most crucial requirements.
 
 Follow these steps:
@@ -122,124 +122,125 @@ Return ONLY the following JSON object, with no additional text before or after i
 
 // Helper to get resume text
 async function getResumeText(firebaseUid) {
-    const resumeSnapshot = await db.collection('users')
-        .doc(firebaseUid)
-        .collection('UserCollections')
-        .where('type', '==', 'Resume')
-        .limit(1)
-        .get();
-    
-    if (resumeSnapshot.empty) {
-        throw new Error('No resume found');
-    }
-    
-    const resumeText = resumeSnapshot.docs[0].data().extractedText;
-    if (!resumeText) {
-        throw new Error('Resume has no extracted text');
-    }
-    
-    return resumeText;
+	const resumeSnapshot = await db
+		.collection('users')
+		.doc(firebaseUid)
+		.collection('UserCollections')
+		.where('type', '==', 'Resume')
+		.limit(1)
+		.get();
+
+	if (resumeSnapshot.empty) {
+		throw new Error('No resume found');
+	}
+
+	const resumeText = resumeSnapshot.docs[0].data().extractedText;
+	if (!resumeText) {
+		throw new Error('Resume has no extracted text');
+	}
+
+	return resumeText;
 }
 
 // Main callable function
-exports.matchBasicsTest = onCall(
-    { timeoutSeconds: 540 },
-    async (request) => {
-        try {
-            // Get parameters from the request
-            const { firebaseUid, jobId, batchId, saveToFirestore = false, customPrompt } = request.data;
-            
-            logger.info('Starting test match', { firebaseUid, jobId, batchId });
+exports.matchBasicsTest = onCall({ timeoutSeconds: 540 }, async (request) => {
+	try {
+		// Get parameters from the request
+		const { firebaseUid, jobId, batchId, saveToFirestore = false, customPrompt } = request.data;
 
-            // Get job description
-            const jobDoc = await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .get();
+		logger.info('Starting test match', { firebaseUid, jobId, batchId });
 
-            if (!jobDoc.exists) {
-                throw new Error('Job not found');
-            }
+		// Get job description
+		const jobDoc = await db
+			.collection('users')
+			.doc(firebaseUid)
+			.collection('scrapedJobs')
+			.doc(jobId)
+			.get();
 
-            const jobDescription = jobDoc.data().details?.description;
-            if (!jobDescription) {
-                throw new Error('Job has no description');
-            }
+		if (!jobDoc.exists) {
+			throw new Error('Job not found');
+		}
 
-            // Get resume text
-            const resumeText = await getResumeText(firebaseUid);
+		const jobDescription = jobDoc.data().details?.description;
+		if (!jobDescription) {
+			throw new Error('Job has no description');
+		}
 
-            // Use custom prompt if provided
-            const promptToUse = customPrompt || CONFIG.instructions;
+		// Get resume text
+		const resumeText = await getResumeText(firebaseUid);
 
-            // Call Gemini API
-            const result = await callGeminiAPI(
-                `Job Description: ${jobDescription}\n\nResume: ${resumeText}`,
-                promptToUse,
-                {
-                    temperature: 0.7
-                }
-            );
+		// Use custom prompt if provided
+		const promptToUse = customPrompt || CONFIG.instructions;
 
-            // Parse response carefully
-            let response;
-            try {
-                // Try to extract JSON from the response
-                const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
-                const start = jsonStr.indexOf('{');
-                const end = jsonStr.lastIndexOf('}') + 1;
-                if (start === -1 || end === 0) throw new Error('No JSON object found in response');
-                response = JSON.parse(jsonStr.slice(start, end));
-            } catch (error) {
-                logger.error('Failed to parse Gemini response:', { 
-                    error: error.message,
-                    rawResponse: result.extractedText
-                });
-                throw error;
-            }
+		// Call Gemini API
+		const result = await callGeminiAPI(
+			`Job Description: ${jobDescription}\n\nResume: ${resumeText}`,
+			promptToUse,
+			{
+				temperature: 0.7
+			}
+		);
 
-            // Store results if saveToFirestore is true
-            if (saveToFirestore) {
-                await db.collection('users')
-                .doc(firebaseUid)
-                .collection('scrapedJobs')
-                .doc(jobId)
-                .set({
-                    match: {
-                        verification: response.verification,
-                        requirements: response.requirements,
-                        evaluations: response.evaluations,
-                        finalAssessment: response.final_assessment,
-                        timestamp: FieldValue.serverTimestamp()
-                    },
-                    processing: {
-                        status: 'basics_matched',
-                        batchId: batchId
-                    }
-                }, { merge: true });
-                
-                logger.info('Saved match results to Firestore', { firebaseUid, jobId });
-            }
+		// Parse response carefully
+		let response;
+		try {
+			// Try to extract JSON from the response
+			const jsonStr = result.extractedText.replace(/```json\n?|\n?```/g, '').trim();
+			const start = jsonStr.indexOf('{');
+			const end = jsonStr.lastIndexOf('}') + 1;
+			if (start === -1 || end === 0) throw new Error('No JSON object found in response');
+			response = JSON.parse(jsonStr.slice(start, end));
+		} catch (error) {
+			logger.error('Failed to parse Gemini response:', {
+				error: error.message,
+				rawResponse: result.extractedText
+			});
+			throw error;
+		}
 
-            logger.info('Parsed Response:\n' + JSON.stringify(response, null, 2)); // The '2' adds indentation
+		// Store results if saveToFirestore is true
+		if (saveToFirestore) {
+			await db
+				.collection('users')
+				.doc(firebaseUid)
+				.collection('scrapedJobs')
+				.doc(jobId)
+				.set(
+					{
+						match: {
+							verification: response.verification,
+							requirements: response.requirements,
+							evaluations: response.evaluations,
+							finalAssessment: response.final_assessment,
+							timestamp: FieldValue.serverTimestamp()
+						},
+						processing: {
+							status: 'basics_matched',
+							batchId: batchId
+						}
+					},
+					{ merge: true }
+				);
 
+			logger.info('Saved match results to Firestore', { firebaseUid, jobId });
+		}
 
-            // Return results
-            return {
-                success: true,
-                rawOutput: result.extractedText,
-                parsedResponse: response,
-                savedToFirestore: saveToFirestore
-            };
+		logger.info('Parsed Response:\n' + JSON.stringify(response, null, 2)); // The '2' adds indentation
 
-        } catch (error) {
-            logger.error('Test match processing failed:', error);
-            return {
-                success: false,
-                error: error.message,
-                stack: error.stack
-            };
-        }
-    }
-);
+		// Return results
+		return {
+			success: true,
+			rawOutput: result.extractedText,
+			parsedResponse: response,
+			savedToFirestore: saveToFirestore
+		};
+	} catch (error) {
+		logger.error('Test match processing failed:', error);
+		return {
+			success: false,
+			error: error.message,
+			stack: error.stack
+		};
+	}
+});

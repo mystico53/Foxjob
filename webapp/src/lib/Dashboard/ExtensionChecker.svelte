@@ -5,7 +5,7 @@
 
 	const productionId = 'lbncdalbaajjafnpgplghkdaiflfihjp';
 	const developmentId = 'jednpafjmjheknpcfgijkhklhmnifdln';
-	
+
 	// Add debug state
 	let debugInfo = {
 		chromeAvailable: false,
@@ -65,13 +65,13 @@
 
 				chrome.runtime.sendMessage(extensionId, { message: 'version' }, function (reply) {
 					clearTimeout(timeoutId);
-					
+
 					if (chrome.runtime.lastError) {
 						debugInfo.lastError = chrome.runtime.lastError.message;
 						resolve(false);
 						return;
 					}
-					
+
 					resolve(!!reply);
 				});
 			} catch (e) {

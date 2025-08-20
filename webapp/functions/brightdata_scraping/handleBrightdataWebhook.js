@@ -57,9 +57,15 @@ const transformSalary = (baseSalary, payRange) => {
 	return salary;
 };
 
-const transformJobData = (job) => {
-	const jobId =
-		job?.job_posting_id || `generated_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+const transformJobData = (job, batchId, index = 0) => {
+	// Generate a more unique job ID to prevent overwrites
+	const jobId = job?.job_posting_id || 
+		`generated_${batchId}_${index}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
+	
+	// Log when we're generating IDs vs using existing ones
+	if (!job?.job_posting_id) {
+		logger.info(`Generated job ID for job ${index} in batch ${batchId}: ${jobId}`);
+	}
 
 	return {
 		processing: { status: 'raw' },
@@ -178,9 +184,10 @@ async function processJobsAndPublish(jobs, userId, batchId) {
 	const results = { successful: [], failed: [], processed: 0 };
 
 	// Process all jobs for Firestore batch
-	for (const job of jobs) {
+	for (let i = 0; i < jobs.length; i++) {
+		const job = jobs[i];
 		try {
-			const transformedJob = transformJobData(job);
+			const transformedJob = transformJobData(job, batchId, i);
 			const jobId = transformedJob.basicInfo.jobId;
 
 			// Add batchId to the job's processing metadata

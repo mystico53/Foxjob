@@ -40,7 +40,7 @@
 			{/if}
 		</button>
 		{#if error}
-			<div class="text-red-600 text-sm mt-4">{error}</div>
+			<div class="mt-4 text-sm text-red-600">{error}</div>
 		{/if}
 	</div>
 </div>

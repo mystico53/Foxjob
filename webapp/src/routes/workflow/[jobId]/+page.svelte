@@ -46,6 +46,6 @@
 	/>
 {:else}
 	<div class="flex h-full items-center justify-center">
-		<div class="text-surface-400 text-center">Loading job details...</div>
+		<div class="text-center text-surface-400">Loading job details...</div>
 	</div>
 {/if}

@@ -1,131 +1,133 @@
-const { onMessagePublished } = require("firebase-functions/v2/pubsub");
+const { onMessagePublished } = require('firebase-functions/v2/pubsub');
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
-const { Firestore } = require("firebase-admin/firestore");
+const { Firestore } = require('firebase-admin/firestore');
 const fetch = require('node-fetch');
 
 // Ensure Firestore instance is reused
 const db = admin.firestore();
 
 exports.summarizeJobDescription = onMessagePublished(
-  {
-    topic: 'job-description-extracted',
-  },
-  async (event) => {
-    const messageData = (() => {
-      try {
-        if (!event?.data?.message?.data) {
-          throw new Error('Invalid message format received');
-        }
-        const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
-        return JSON.parse(decodedData);
-      } catch (error) {
-        logger.error('Error parsing message data:', error);
-        throw error;
-      }
-    })();
-    const { firebaseUid , docId } = messageData;
+	{
+		topic: 'job-description-extracted'
+	},
+	async (event) => {
+		const messageData = (() => {
+			try {
+				if (!event?.data?.message?.data) {
+					throw new Error('Invalid message format received');
+				}
+				const decodedData = Buffer.from(event.data.message.data, 'base64').toString();
+				return JSON.parse(decodedData);
+			} catch (error) {
+				logger.error('Error parsing message data:', error);
+				throw error;
+			}
+		})();
+		const { firebaseUid, docId } = messageData;
 
-    logger.info(`Starting job description analysis for firebaseUid : ${firebaseUid }, docId: ${docId}`);
+		logger.info(
+			`Starting job description analysis for firebaseUid : ${firebaseUid}, docId: ${docId}`
+		);
 
-    if (!firebaseUid  || !docId) {
-      logger.error('Missing required information in the Pub/Sub message');
-      return;
-    }
+		if (!firebaseUid || !docId) {
+			logger.error('Missing required information in the Pub/Sub message');
+			return;
+		}
 
-    try {
-      // Create document reference using firebaseUid  and docId
-      const jobDocRef = db.collection('users').doc(firebaseUid ).collection('jobs').doc(docId);
+		try {
+			// Create document reference using firebaseUid  and docId
+			const jobDocRef = db.collection('users').doc(firebaseUid).collection('jobs').doc(docId);
 
-      // Rest of your code remains the same...
-      const docSnapshot = await jobDocRef.get();
+			// Rest of your code remains the same...
+			const docSnapshot = await jobDocRef.get();
 
-      if (!docSnapshot.exists) {
-        logger.error(`Document not found: ${jobDocRef.path}`);
-        return;
-      }
+			if (!docSnapshot.exists) {
+				logger.error(`Document not found: ${jobDocRef.path}`);
+				return;
+			}
 
-      const jobData = docSnapshot.data();
-      const extractedText = jobData.texts.extractedText || "na";
-      logger.info('Extracted job description fetched from Firestore');
+			const jobData = docSnapshot.data();
+			const extractedText = jobData.texts.extractedText || 'na';
+			logger.info('Extracted job description fetched from Firestore');
 
-      // Process text with Anthropic API
-      const apiKey = process.env.ANTHROPIC_API_KEY || process.env.FIREBASE_CONFIG?.anthropic?.api_key;
+			// Process text with Anthropic API
+			const apiKey =
+				process.env.ANTHROPIC_API_KEY || process.env.FIREBASE_CONFIG?.anthropic?.api_key;
 
-      if (!apiKey) {
-        logger.error('Anthropic API key not found');
-        throw new Error('Anthropic API key not found');
-      }
+			if (!apiKey) {
+				logger.error('Anthropic API key not found');
+				throw new Error('Anthropic API key not found');
+			}
 
-      const prompt = anthropicInstructions.prompt.replace('{TEXT}', extractedText);
+			const prompt = anthropicInstructions.prompt.replace('{TEXT}', extractedText);
 
-      logger.info('Calling Anthropic API for job description analysis');
+			logger.info('Calling Anthropic API for job description analysis');
 
-      const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: anthropicInstructions.model,
-          max_tokens: 4096,
-          messages: [
-            { role: 'user', content: prompt }
-          ],
-        }),
-      });
+			const anthropicResponse = await fetch('https://api.anthropic.com/v1/messages', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'x-api-key': apiKey,
+					'anthropic-version': '2023-06-01'
+				},
+				body: JSON.stringify({
+					model: anthropicInstructions.model,
+					max_tokens: 4096,
+					messages: [{ role: 'user', content: prompt }]
+				})
+			});
 
-      const data = await anthropicResponse.json();
+			const data = await anthropicResponse.json();
 
-      if (!anthropicResponse.ok) {
-        logger.error('Anthropic API error response:', data);
-        throw new Error(`Anthropic API Error: ${JSON.stringify(data)}`);
-      }
+			if (!anthropicResponse.ok) {
+				logger.error('Anthropic API error response:', data);
+				throw new Error(`Anthropic API Error: ${JSON.stringify(data)}`);
+			}
 
-      logger.info('Received response from Anthropic API');
+			logger.info('Received response from Anthropic API');
 
-      let analysisResult;
-      if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
-        analysisResult = JSON.parse(data.content[0].text.trim());
-        logger.info('Job description analyzed successfully');
-      } else {
-        logger.error('Unexpected Anthropic API response structure:', data);
-        throw new Error('Unexpected Anthropic API response structure');
-      }
+			let analysisResult;
+			if (data.content && data.content.length > 0 && data.content[0].type === 'text') {
+				analysisResult = JSON.parse(data.content[0].text.trim());
+				logger.info('Job description analyzed successfully');
+			} else {
+				logger.error('Unexpected Anthropic API response structure:', data);
+				throw new Error('Unexpected Anthropic API response structure');
+			}
 
-      // Save analysis result to Firestore
-      await jobDocRef.update({
-        summarized: {
-          companyInfo: {
-            name: analysisResult.companyInfo?.name || "na",
-            industry: analysisResult.companyInfo?.industry || "na",
-            companyFocus: analysisResult.companyInfo?.companyFocus || "na"
-          },
-          jobInfo: {
-            jobTitle: analysisResult.jobInfo?.jobTitle || "na",
-            remoteType: analysisResult.jobInfo?.remoteType || "na",
-            jobSummary: analysisResult.jobInfo?.jobSummary || "na"
-          },
-          areasOfFun: analysisResult.areasOfFun || ["", "", ""],
-          mandatorySkills: analysisResult.mandatorySkills || ["", "", ""],
-          compensation: analysisResult.compensation || "Not mentioned"
-        },
-      });
+			// Save analysis result to Firestore
+			await jobDocRef.update({
+				summarized: {
+					companyInfo: {
+						name: analysisResult.companyInfo?.name || 'na',
+						industry: analysisResult.companyInfo?.industry || 'na',
+						companyFocus: analysisResult.companyInfo?.companyFocus || 'na'
+					},
+					jobInfo: {
+						jobTitle: analysisResult.jobInfo?.jobTitle || 'na',
+						remoteType: analysisResult.jobInfo?.remoteType || 'na',
+						jobSummary: analysisResult.jobInfo?.jobSummary || 'na'
+					},
+					areasOfFun: analysisResult.areasOfFun || ['', '', ''],
+					mandatorySkills: analysisResult.mandatorySkills || ['', '', ''],
+					compensation: analysisResult.compensation || 'Not mentioned'
+				}
+			});
 
-      logger.info(`Job description analysis saved to Firestore for firebaseUid : ${firebaseUid }, docId: ${docId}`);
-
-    } catch (error) {
-      logger.error('Error in summarizeJobDescription:', error);
-    }
-  }
+			logger.info(
+				`Job description analysis saved to Firestore for firebaseUid : ${firebaseUid}, docId: ${docId}`
+			);
+		} catch (error) {
+			logger.error('Error in summarizeJobDescription:', error);
+		}
+	}
 );
 
 // Anthropic instructions
 const anthropicInstructions = {
-  model: "claude-3-haiku-20240307", 
-  prompt: `You are a job market and industry expert. You excel in distilling concise information from job descriptions. You will rephrase terms to make them understandable. Your task is to:
+	model: 'claude-3-haiku-20240307',
+	prompt: `You are a job market and industry expert. You excel in distilling concise information from job descriptions. You will rephrase terms to make them understandable. Your task is to:
 
 1) Extract the company name, Specific Industry branch, what makes the company truly unique?
 2) Find out the job position title and Summarize the job in one short sentence. (max 15 words)

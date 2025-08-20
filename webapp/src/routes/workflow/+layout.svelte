@@ -17,18 +17,18 @@
 		if (auth.currentUser) {
 			jobStore.init(auth.currentUser.uid, $timeFilter);
 		}
-		
+
 		// Handle initial state based on screen size
 		checkScreenSize();
-		
+
 		// Add resize listener
 		window.addEventListener('resize', checkScreenSize);
-		
+
 		return () => {
 			window.removeEventListener('resize', checkScreenSize);
 		};
 	});
-	
+
 	// Check screen size and set sidebar state accordingly
 	function checkScreenSize() {
 		isSmallScreen = window.innerWidth <= 768;
@@ -38,7 +38,7 @@
 			isSidebarOpen = true;
 		}
 	}
-	
+
 	// Function to toggle sidebar visibility
 	function toggleSidebar() {
 		isSidebarOpen = !isSidebarOpen;
@@ -70,22 +70,24 @@
 
 <div class="fixed left-0 flex h-[calc(100vh-72px)] w-full flex-row">
 	<!-- Mobile Toggle Button - positioned below navbar -->
-	<button 
-		class="fixed top-20 left-4 z-50 rounded-md bg-primary-500 p-2 text-white shadow-md transition-all duration-300 md:hidden"
-		style="left: {isSidebarOpen && isSmallScreen ? '280px' : '1rem'}"
+	<button
+		class="fixed top-20 z-[60] rounded-md bg-primary-500 p-2 text-white shadow-md transition-all duration-300 md:hidden {isSidebarOpen &&
+		isSmallScreen
+			? 'right-4'
+			: 'left-4'}"
 		on:click={toggleSidebar}
-		aria-label={isSidebarOpen ? "Close sidebar" : "Open sidebar"}
+		aria-label={isSidebarOpen ? 'Close sidebar' : 'Open sidebar'}
 	>
-		<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-			<line x1="3" y1="12" x2="21" y2="12"></line>
-			<line x1="3" y1="6" x2="21" y2="6"></line>
-			<line x1="3" y1="18" x2="21" y2="18"></line>
-		</svg>
+		{#if isSidebarOpen && isSmallScreen}
+			<iconify-icon icon="ic:outline-menu-open" width="24" height="24"></iconify-icon>
+		{:else}
+			<iconify-icon icon="solar:hamburger-menu-bold" width="24" height="24"></iconify-icon>
+		{/if}
 	</button>
 
 	<!-- Sidebar with responsive behavior -->
-	<div 
-		class="bg-surface-100 custom-scrollbar fixed h-[calc(100vh-72px)] overflow-y-auto border-r z-40 transition-all duration-300 w-[25rem] md:static"
+	<div
+		class="custom-scrollbar fixed z-40 h-[calc(100vh-72px)] w-[25rem] overflow-y-auto border-r bg-surface-100 transition-all duration-300 md:static"
 		style="transform: {isSidebarOpen ? 'translateX(0)' : 'translateX(-100%)'}"
 	>
 		<SortControls />
@@ -110,7 +112,7 @@
 								score={job.AccumulatedScores?.accumulatedScore}
 								status={job.generalData?.status}
 								remoteType={job.jobInfo?.remoteType || job.jobInfo?.location || 'no info'}
-								compensation={job.compensation || 'no info'} 
+								compensation={job.compensation || 'no info'}
 								postedDate={job.jobInfo?.postedDate || null}
 								handleClick={() => handleJobClick(job)}
 								jobId={job.id}
@@ -121,14 +123,14 @@
 					{/each}
 				</div>
 			{:else if !$loading}
-				<div class="text-surface-400 p-4 text-center">No jobs found.</div>
+				<div class="p-4 text-center text-surface-400">No jobs found.</div>
 			{/if}
 		</div>
 	</div>
 
 	<!-- Main content area that adapts to sidebar state -->
-	<div 
-		class="flex-1 h-[calc(100vh-72px)] overflow-y-auto p-4 transition-all duration-300 bg-surface-100"
+	<div
+		class="h-[calc(100vh-72px)] flex-1 overflow-y-auto bg-surface-100 p-4 transition-all duration-300"
 		style="margin-left: 0;"
 	>
 		<slot />

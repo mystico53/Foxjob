@@ -217,6 +217,12 @@
 		return text.length > maxLength ? text.slice(0, maxLength) + '...' : text;
 	}
 
+	function cleanJobDescription(html) {
+		if (!html) return html;
+		// Remove "Show more" and "Show less" text with surrounding whitespace and line breaks
+		return html.replace(/\s*Show\s+more\s*|\s*Show\s+less\s*/gi, '').trim();
+	}
+
 	async function handleRetry(jobId) {
 		if (!auth.currentUser || processingJobs.has(jobId)) return;
 
@@ -601,12 +607,12 @@
 				<h4 class="h4 mb-4 font-bold">Full Job Description</h4>
 				{#if job?.jobInfo?.descriptionHtml}
 					<!-- Render HTML content safely -->
-					<div class="description-html">{@html job.jobInfo.descriptionHtml}</div>
+					<div class="description-html">{@html cleanJobDescription(job.jobInfo.descriptionHtml)}</div>
 				{:else}
 					<p>
-						{job?.jobInfo?.description ||
+						{cleanJobDescription(job?.jobInfo?.description ||
 							job?.details?.description ||
-							'No job description available'}
+							'No job description available')}
 					</p>
 				{/if}
 			</div>
@@ -616,10 +622,10 @@
 
 <!-- Fixed position action buttons -->
 <div
-	class="fixed inset-x-0 bottom-0 z-10 border-t bg-surface-100 p-2 md:p-3 lg:p-4 transition-all duration-200 md:left-[25rem] md:right-[1rem]"
+	class="fixed inset-x-0 bottom-0 z-10 border-t bg-surface-100 p-2 transition-all duration-200 md:left-[25rem] md:right-[1rem] md:p-3 lg:p-4"
 >
 	<!-- For desktop: Keep original layout -->
-	<div class="mx-auto hidden max-w-4xl flex-wrap justify-center gap-4 md:gap-8 lg:gap-16 md:flex">
+	<div class="mx-auto hidden max-w-4xl flex-wrap justify-center gap-4 md:flex md:gap-8 lg:gap-16">
 		<button
 			class="variant-primary btn flex items-center gap-2 rounded"
 			on:click={previousJob}
