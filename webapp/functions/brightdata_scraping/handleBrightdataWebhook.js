@@ -346,7 +346,8 @@ exports.handleBrightdataWebhook = onRequest(
 									.doc(searchId);
 								await searchRef.update({
 									searchingStatus: 'completed',
-									lastSearchCompleted: FieldValue.serverTimestamp()
+									lastSearchCompleted: FieldValue.serverTimestamp(),
+									lastResultsCount: 0
 								});
 								logger.info(
 									'Updated search query status to completed for empty search (first case)',
@@ -409,7 +410,8 @@ exports.handleBrightdataWebhook = onRequest(
 								.doc(searchId);
 							await searchRef.update({
 								searchingStatus: 'completed',
-								lastSearchCompleted: FieldValue.serverTimestamp()
+								lastSearchCompleted: FieldValue.serverTimestamp(),
+								lastResultsCount: jobs.length
 							});
 							logger.info('Updated search query status to completed', { searchId, userId });
 						} catch (error) {
@@ -510,7 +512,8 @@ exports.handleBrightdataWebhook = onRequest(
 									.doc(searchId);
 								await searchRef.update({
 									searchingStatus: 'completed',
-									lastSearchCompleted: FieldValue.serverTimestamp()
+									lastSearchCompleted: FieldValue.serverTimestamp(),
+									lastResultsCount: 0
 								});
 								logger.info(
 									'Updated search query status to completed for empty search (error case)',
