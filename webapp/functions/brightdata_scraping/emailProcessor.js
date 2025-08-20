@@ -2,7 +2,7 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const admin = require('firebase-admin');
 const { logger } = require('firebase-functions');
-const sgMail = require('@sendgrid/mail');
+const { awsSESService, requiredSecrets } = require('../services/awsSesService');
 const { FieldValue } = require('firebase-admin/firestore');
 const { defineSecret } = require("firebase-functions/params");
 const config = require('../config'); // Import the config module from parent directory
@@ -16,12 +16,15 @@ if (!admin.apps.length) {
 }
 const db = admin.firestore();
 
+// Legacy SendGrid API key for backwards compatibility during transition
 const sendgridApiKey = defineSecret("SENDGRID_API_KEY");
+
+// AWS SES secrets are handled by the service module
 
 // Process email requests
 exports.processEmailRequests = onDocumentCreated({
   document: "emailRequests/{requestId}",
-  secrets: [sendgridApiKey]
+  secrets: [...requiredSecrets, sendgridApiKey] // AWS SES secrets + legacy SendGrid for transition
 }, async (event) => {
     const emailData = event.data.data();
     const requestId = event.params.requestId;
@@ -54,8 +57,19 @@ exports.processEmailRequests = onDocumentCreated({
         batchId: emailData.batchId 
       });
       
-      // Set the SendGrid API Key
-      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+      // Initialize AWS SES service
+      try {
+        awsSESService.initialize();
+        logger.info('AWS SES service initialized successfully', { requestId });
+      } catch (error) {
+        logger.error('Failed to initialize AWS SES service:', error);
+        await event.data.ref.update({
+          status: 'error',
+          error: 'Email service initialization failed',
+          errorTimestamp: FieldValue.serverTimestamp()
+        });
+        return;
+      }
       
       const uid = emailData.userId;
       let jobsHtml = '';
@@ -508,9 +522,12 @@ ${jobsText}`;
       
       logger.info('Sending email to:', msg.to);
       
-      // Send the email
-      await sgMail.send(msg);
-      logger.info('Email sent successfully', { requestId: requestId });
+      // Send the email using AWS SES
+      const result = await awsSESService.send(msg);
+      logger.info('Email sent successfully via AWS SES', { 
+        requestId: requestId, 
+        messageId: result.messageId 
+      });
       
       // Update status
       const updateData = {

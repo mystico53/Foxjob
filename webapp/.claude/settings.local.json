@@ -31,7 +31,14 @@
       "Bash(start-brightdata-mcp.bat)",
       "Bash(cmd /c:*)",
       "WebFetch(domain:docs.aws.amazon.com)",
-      "WebFetch(domain:lonare.medium.com)"
+      "WebFetch(domain:lonare.medium.com)",
+      "WebFetch(domain:firebase.google.com)",
+      "Bash(where.exe claude)",
+      "Bash(dir:*)",
+      "mcp__firebase-jobille__firestore_list_collections",
+      "mcp__firebase-jobille__firestore_query_collection",
+      "Bash(firebase emulators:logs:*)",
+      "Bash(firebase emulators:export:*)"
     ],
     "deny": [],
     "ask": [],
@@ -39,5 +46,10 @@
       "C:\\Program Files\\GitHub CLI",
       "C:\\Users\\konka\\.claude"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "firebase-jobille",
+    "firebase-foxjob-prod"
+  ]
 }

@@ -765,7 +765,6 @@
           <!-- Loading state while checking for existing queries -->
           <div class="flex justify-center items-center py-8">
             <div class="h-6 w-6 rounded-full animate-pulse bg-orange-500"></div>
-            <span class="ml-3">Checking your account...</span>
           </div>
         {:else if showForm}
           <!-- Show the form when the Create Agent button is clicked or when editing -->

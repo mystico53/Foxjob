@@ -1,10 +1,12 @@
 const admin = require('firebase-admin');
-const sgMail = require('@sendgrid/mail');
+const { awsSESService, requiredSecrets } = require('../services/awsSesService');
 const { onCall } = require("firebase-functions/v2/https");
 const { defineSecret } = require("firebase-functions/params");
 
-// Define your secret
+// Define legacy SendGrid secret for backwards compatibility during transition
 const sendgridApiKey = defineSecret("SENDGRID_API_KEY");
+
+// AWS SES secrets are handled by the service module
 
 // Initialize Firebase if not already initialized
 if (!admin.apps.length) {
@@ -107,8 +109,8 @@ Gap Analysis: ${gaps}
 
 // Export the function with v2 syntax
 exports.sendEmail = onCall({
-    // Configure the function
-    secrets: [sendgridApiKey],
+    // Configure the function with AWS SES secrets
+    secrets: [...requiredSecrets, sendgridApiKey], // Keep sendgrid for backwards compatibility during transition
     // Optional: set other configurations
     // memory: '256MiB',
     // timeoutSeconds: 60,
@@ -123,13 +125,18 @@ exports.sendEmail = onCall({
     const uid = data.userId || null;
     console.log('User ID from params:', uid);
     
-    // Set the SendGrid API Key - in v2, access secrets through process.env
-    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-
-    // Debug API key
-    const apiKey = process.env.SENDGRID_API_KEY || '';
-    console.log('SendGrid API key exists:', Boolean(apiKey));
-    console.log('SendGrid API key starts with correct format:', apiKey.startsWith('SG.'));
+    // Initialize AWS SES service
+    try {
+        awsSESService.initialize();
+        console.log('AWS SES service initialized successfully');
+    } catch (error) {
+        console.error('Failed to initialize AWS SES service:', error);
+        return { 
+            success: false, 
+            error: 'Email service initialization failed',
+            previewHtml: emailContent.html
+        };
+    }
     
     let jobsData = [];
     
@@ -244,18 +251,22 @@ exports.sendEmail = onCall({
     console.log('Sending email to:', msg.to);
     
     try {
-        await sgMail.send(msg);
-        console.log('Email sent successfully via SendGrid');
+        // Send email using AWS SES with SendGrid-compatible interface
+        const result = await awsSESService.send(msg);
+        console.log('Email sent successfully via AWS SES', { messageId: result.messageId });
         return { 
             success: true, 
-            message: 'Email sent successfully',
+            message: 'Email sent successfully via AWS SES',
+            messageId: result.messageId,
             previewHtml: emailContent.html // Return preview HTML
         };
     } catch (error) {
-        console.error('Error sending email:', error.toString());
-        if (error.response) {
-            console.error('SendGrid error details:', error.response.body);
-        }
+        console.error('Error sending email via AWS SES:', error.toString());
+        console.error('AWS SES error details:', {
+            name: error.name,
+            code: error.code || error.$metadata?.httpStatusCode,
+            message: error.message
+        });
         return { 
             success: false, 
             error: error.toString(),
@@ -266,7 +277,7 @@ exports.sendEmail = onCall({
 
 // Add preview function - does not actually send email
 exports.previewEmail = onCall({
-    secrets: [sendgridApiKey],
+    secrets: [...requiredSecrets, sendgridApiKey], // AWS SES secrets + legacy SendGrid for transition
     // Add CORS configuration
     cors: ["http://localhost:5000", "https://jobille-45494.web.app"],
 }, async (request) => {
