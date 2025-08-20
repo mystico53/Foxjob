@@ -12,11 +12,25 @@ exports.getBrightdataSnapshots = onRequest({
   //console.log('Dataset ID:', req.query.datasetId);
   
   try {
-    const apiToken = process.env.BRIGHTDATA_API_TOKEN;
-
+    // Try environment variable first (for emulator), fallback to Secret Manager (for production)
+    let apiToken = process.env.BRIGHTDATA_API_TOKEN;
+    
     if (!apiToken) {
-      functions.logger.error("Missing required BRIGHTDATA_API_TOKEN secret");
-      return res.status(500).json({ error: "API configuration error" });
+      // Fallback to Secret Manager for production/staging
+      try {
+        const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+        const secretName = `projects/${projectId}/secrets/BRIGHTDATA_API_TOKEN/versions/latest`;
+        const [apiTokenVersion] = await secretManager.accessSecretVersion({
+          name: secretName
+        });
+        apiToken = apiTokenVersion.payload.data.toString();
+        functions.logger.info(`Successfully retrieved BrightData API token from Secret Manager (project: ${projectId})`);
+      } catch (secretError) {
+        functions.logger.error("Failed to retrieve token from both environment and Secret Manager:", secretError);
+        return res.status(500).json({ error: "API configuration error" });
+      }
+    } else {
+      functions.logger.info("Successfully retrieved BrightData API token from environment variable");
     }
 
     const response = await axios({

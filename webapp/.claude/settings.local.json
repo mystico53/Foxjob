@@ -29,7 +29,9 @@
       "Bash(firebase --version)",
       "Bash(set API_TOKEN=e649d059-cf4b-45d1-a573-b68ccc0af2b6)",
       "Bash(start-brightdata-mcp.bat)",
-      "Bash(cmd /c:*)"
+      "Bash(cmd /c:*)",
+      "WebFetch(domain:docs.aws.amazon.com)",
+      "WebFetch(domain:lonare.medium.com)"
     ],
     "deny": [],
     "ask": [],

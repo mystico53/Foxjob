@@ -265,8 +265,9 @@ exports.handleBrightdataWebhook = onRequest({
       
       try {
         // Get Brightdata token and download snapshot
+        const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
         const [secretVersion] = await secretManager.accessSecretVersion({
-          name: 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest'
+          name: `projects/${projectId}/secrets/BRIGHTDATA_API_TOKEN/versions/latest`
         });
         const brightdataToken = secretVersion.payload.data.toString();
         const snapshotData = await downloadSnapshot(req.body.snapshot_id, brightdataToken);
@@ -447,8 +448,9 @@ exports.handleBrightdataWebhook = onRequest({
     }
     
     // Case 2: Direct job data webhook - verify auth token
+    const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
     const [webhookSecretVersion] = await secretManager.accessSecretVersion({
-      name: 'projects/656035288386/secrets/WEBHOOK_SECRET/versions/latest'
+      name: `projects/${projectId}/secrets/WEBHOOK_SECRET/versions/latest`
     });
     const webhookSecret = webhookSecretVersion.payload.data.toString();
     

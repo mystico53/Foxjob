@@ -254,10 +254,24 @@ exports.downloadAndProcessSnapshot = onRequest({
     const firebaseUid = req.query.firebaseUid || req.body?.firebaseUid || 'test_user';
     logger.info(`Processing request for user ${firebaseUid}, snapshot ${snapshotId}`);
 
-    const brightdataTokenName = 'projects/656035288386/secrets/BRIGHTDATA_API_TOKEN/versions/latest';
-    const [brightdataVersion] = await secretManager.accessSecretVersion({ name: brightdataTokenName });
-    const brightdataToken = brightdataVersion.payload.data.toString();
-    logger.info('Successfully retrieved BrightData API token');
+    // Try environment variable first (for emulator), fallback to Secret Manager (for production)
+    let brightdataToken = process.env.BRIGHTDATA_API_TOKEN;
+    
+    if (!brightdataToken) {
+      // Fallback to Secret Manager for production/staging
+      try {
+        const projectId = process.env.GCLOUD_PROJECT || process.env.GCP_PROJECT;
+        const brightdataTokenName = `projects/${projectId}/secrets/BRIGHTDATA_API_TOKEN/versions/latest`;
+        const [brightdataVersion] = await secretManager.accessSecretVersion({ name: brightdataTokenName });
+        brightdataToken = brightdataVersion.payload.data.toString();
+        logger.info(`Successfully retrieved BrightData API token from Secret Manager (project: ${projectId})`);
+      } catch (secretError) {
+        logger.error('Failed to retrieve token from both environment and Secret Manager:', secretError);
+        throw new Error('Missing required BRIGHTDATA_API_TOKEN secret');
+      }
+    } else {
+      logger.info('Successfully retrieved BrightData API token from environment variable');
+    }
 
     // Get snapshot data with enhanced logging
     const snapshotData = await downloadSnapshot(snapshotId, brightdataToken);
